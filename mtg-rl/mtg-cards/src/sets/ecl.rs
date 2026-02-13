@@ -172,6 +172,79 @@ pub fn register(registry: &mut CardRegistry) {
     registry.register("Eclipsed Realms", eclipsed_realms, "ECL");
     registry.register("Eirdu, Carrier of Dawn", eirdu_carrier_of_dawn, "ECL");
     registry.register("Emptiness", emptiness, "ECL");
+    registry.register("Ashling, Rekindled", ashling_rekindled, "ECL");
+    registry.register("Brigid, Clachan's Heart", brigid_clachans_heart, "ECL");
+    registry.register("Evershrike's Gift", evershrikes_gift, "ECL");
+    registry.register("Figure of Fable", figure_of_fable, "ECL");
+    registry.register("Firdoch Core", firdoch_core, "ECL");
+    registry.register("Flitterwing Nuisance", flitterwing_nuisance, "ECL");
+    registry.register("Foraging Wickermaw", foraging_wickermaw, "ECL");
+    registry.register("Gathering Stone", gathering_stone, "ECL");
+    registry.register("Giantfall", giantfall, "ECL");
+    registry.register("Gilt-Leaf's Embrace", gilt_leafs_embrace, "ECL");
+    registry.register("Glamer Gifter", glamer_gifter, "ECL");
+    registry.register("Glen Elendra Guardian", glen_elendra_guardian, "ECL");
+    registry.register("Goliath Daydreamer", goliath_daydreamer, "ECL");
+    registry.register("Grub, Storied Matriarch", grub_storied_matriarch, "ECL");
+    registry.register("Grub's Command", grubs_command, "ECL");
+    registry.register("Hallowed Fountain", hallowed_fountain, "ECL");
+    registry.register("Harmonized Crescendo", harmonized_crescendo, "ECL");
+    registry.register("Hexing Squelcher", hexing_squelcher, "ECL");
+    registry.register("High Perfect Morcant", high_perfect_morcant, "ECL");
+    registry.register("Illusion Spinners", illusion_spinners, "ECL");
+    registry.register("Keep Out", keep_out, "ECL");
+    registry.register("Kinbinding", kinbinding, "ECL");
+    registry.register("Kinscaer Sentry", kinscaer_sentry, "ECL");
+    registry.register("Lasting Tarfire", lasting_tarfire, "ECL");
+    registry.register("Lluwen, Imperfect Naturalist", lluwen_imperfect_naturalist, "ECL");
+    registry.register("Loch Mare", loch_mare, "ECL");
+    registry.register("Lofty Dreams", lofty_dreams, "ECL");
+    registry.register("Maralen, Fae Ascendant", maralen_fae_ascendant, "ECL");
+    registry.register("Mirrormind Crown", mirrormind_crown, "ECL");
+    registry.register("Moonshadow", moonshadow, "ECL");
+    registry.register("Morcant's Loyalist", morcants_loyalist, "ECL");
+    registry.register("Mornsong Aria", mornsong_aria, "ECL");
+    registry.register("Noggle the Mind", noggle_the_mind, "ECL");
+    registry.register("Omni-Changeling", omni_changeling, "ECL");
+    registry.register("Overgrown Tomb", overgrown_tomb, "ECL");
+    registry.register("Perfect Intimidation", perfect_intimidation, "ECL");
+    registry.register("Pitiless Fists", pitiless_fists, "ECL");
+    registry.register("Prismatic Undercurrents", prismatic_undercurrents, "ECL");
+    registry.register("Puca's Eye", pucas_eye, "ECL");
+    registry.register("Pummeler for Hire", pummeler_for_hire, "ECL");
+    registry.register("Pyrrhic Strike", pyrrhic_strike, "ECL");
+    registry.register("Reaping Willow", reaping_willow, "ECL");
+    registry.register("Retched Wretch", retched_wretch, "ECL");
+    registry.register("Rhys, the Evermore", rhys_the_evermore, "ECL");
+    registry.register("Rimefire Torque", rimefire_torque, "ECL");
+    registry.register("Sanar, Innovative First-Year", sanar_innovative_first_year, "ECL");
+    registry.register("Sapling Nursery", sapling_nursery, "ECL");
+    registry.register("Selfless Safewright", selfless_safewright, "ECL");
+    registry.register("Shadow Urchin", shadow_urchin, "ECL");
+    registry.register("Shimmerwilds Growth", shimmerwilds_growth, "ECL");
+    registry.register("Spinerock Tyrant", spinerock_tyrant, "ECL");
+    registry.register("Spiral into Solitude", spiral_into_solitude, "ECL");
+    registry.register("Spry and Mighty", spry_and_mighty, "ECL");
+    registry.register("Stalactite Dagger", stalactite_dagger, "ECL");
+    registry.register("Steam Vents", steam_vents, "ECL");
+    registry.register("Sunderflock", sunderflock, "ECL");
+    registry.register("Sygg, Wanderwine Wisdom", sygg_wanderwine_wisdom, "ECL");
+    registry.register("Sygg's Command", syggs_command, "ECL");
+    registry.register("Tam, Mindful First-Year", tam_mindful_first_year, "ECL");
+    registry.register("Taster of Wares", taster_of_wares, "ECL");
+    registry.register("Temple Garden", temple_garden, "ECL");
+    registry.register("Trystan, Callous Cultivator", trystan_callous_cultivator, "ECL");
+    registry.register("Trystan's Command", trystans_command, "ECL");
+    registry.register("Twilight Diviner", twilight_diviner, "ECL");
+    registry.register("Twinflame Travelers", twinflame_travelers, "ECL");
+    registry.register("Unbury", unbury, "ECL");
+    registry.register("Unforgiving Aim", unforgiving_aim, "ECL");
+    registry.register("Vibrance", vibrance, "ECL");
+    registry.register("Wanderwine Farewell", wanderwine_farewell, "ECL");
+    registry.register("Wary Farmer", wary_farmer, "ECL");
+    registry.register("Wildvine Pummeler", wildvine_pummeler, "ECL");
+    registry.register("Winnowing", winnowing, "ECL");
+    registry.register("Wistfulness", wistfulness, "ECL");
 }
 
 // ── Creature implementations ─────────────────────────────────────────────────
@@ -2423,3 +2496,1077 @@ fn emptiness(id: ObjectId, owner: PlayerId) -> CardData {
         ],
         ..Default::default() }
 }
+fn ashling_rekindled(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Ashling, Rekindled".into(),
+        card_types: vec![CardType::Creature],
+        supertypes: vec![SuperType::Legendary],
+        rarity: Rarity::Rare,
+        ..Default::default() }
+}
+
+fn brigid_clachans_heart(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Brigid, Clachan's Heart".into(),
+        card_types: vec![CardType::Creature],
+        supertypes: vec![SuperType::Legendary],
+        rarity: Rarity::Rare,
+        ..Default::default() }
+}
+
+fn evershrikes_gift(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Evershrike's Gift".into(),
+        mana_cost: ManaCost::parse("{W}"),
+        card_types: vec![CardType::Enchantment],
+        subtypes: vec![SubType::Aura],
+        rarity: Rarity::Uncommon,
+        keywords: KeywordAbilities::FLYING,
+        abilities: vec![
+            Ability::static_ability(id,
+                    "Static effect.",
+                    vec![StaticEffect::Custom("Static effect.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn figure_of_fable(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Figure of Fable".into(),
+        mana_cost: ManaCost::parse("{G/W}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Custom("Kithkin".into())],
+        power: Some(1), toughness: Some(1),
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::activated(id,
+                    "Activated ability.",
+                    vec![Cost::pay_mana("{G/W}")],
+                    vec![Effect::Custom("Activated effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn firdoch_core(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Firdoch Core".into(),
+        mana_cost: ManaCost::parse("{3}"),
+        card_types: vec![CardType::Kindred, CardType::Artifact],
+        subtypes: vec![SubType::Shapeshifter],
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::activated(id,
+                    "Activated ability.",
+                    vec![Cost::pay_mana("{4}")],
+                    vec![Effect::Custom("Activated effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn flitterwing_nuisance(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Flitterwing Nuisance".into(),
+        mana_cost: ManaCost::parse("{U}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Faerie, SubType::Rogue],
+        power: Some(2), toughness: Some(2),
+        rarity: Rarity::Rare,
+        keywords: KeywordAbilities::FLYING,
+        abilities: vec![
+            Ability::activated(id,
+                    "Activated ability.",
+                    vec![Cost::pay_mana("{2}{U}")],
+                    vec![Effect::Custom("Activated effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn foraging_wickermaw(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Foraging Wickermaw".into(),
+        mana_cost: ManaCost::parse("{2}"),
+        card_types: vec![CardType::Artifact, CardType::Creature],
+        subtypes: vec![SubType::Scarecrow],
+        power: Some(1), toughness: Some(3),
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                    "When this enters, trigger effect.",
+                    vec![Effect::Custom("ETB effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn gathering_stone(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Gathering Stone".into(),
+        mana_cost: ManaCost::parse("{4}"),
+        card_types: vec![CardType::Artifact],
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                    "When this enters, trigger effect.",
+                    vec![Effect::Custom("ETB effect.".into())],
+                    TargetSpec::None),
+            Ability::static_ability(id,
+                    "Static effect.",
+                    vec![StaticEffect::Custom("Static effect.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn giantfall(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Giantfall".into(),
+        mana_cost: ManaCost::parse("{1}{R}"),
+        card_types: vec![CardType::Instant],
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::spell(id,
+                    vec![Effect::destroy()],
+                    TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn gilt_leafs_embrace(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Gilt-Leaf's Embrace".into(),
+        mana_cost: ManaCost::parse("{2}{G}"),
+        card_types: vec![CardType::Enchantment],
+        subtypes: vec![SubType::Aura],
+        rarity: Rarity::Common,
+        keywords: KeywordAbilities::FLASH | KeywordAbilities::TRAMPLE | KeywordAbilities::INDESTRUCTIBLE,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                    "When this enters, trigger effect.",
+                    vec![Effect::Custom("ETB effect.".into())],
+                    TargetSpec::Creature),
+            Ability::static_ability(id,
+                    "Static effect.",
+                    vec![StaticEffect::Custom("Static effect.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn glamer_gifter(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Glamer Gifter".into(),
+        mana_cost: ManaCost::parse("{1}{U}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Faerie, SubType::Wizard],
+        power: Some(1), toughness: Some(2),
+        rarity: Rarity::Uncommon,
+        keywords: KeywordAbilities::FLASH | KeywordAbilities::FLYING,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                    "When this enters, trigger effect.",
+                    vec![Effect::Custom("ETB effect.".into())],
+                    TargetSpec::Permanent),
+        ],
+        ..Default::default() }
+}
+
+fn glen_elendra_guardian(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Glen Elendra Guardian".into(),
+        mana_cost: ManaCost::parse("{2}{U}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Faerie, SubType::Wizard],
+        power: Some(3), toughness: Some(4),
+        rarity: Rarity::Rare,
+        keywords: KeywordAbilities::FLASH | KeywordAbilities::FLYING,
+        abilities: vec![
+            Ability::activated(id,
+                    "Activated ability.",
+                    vec![Cost::pay_mana("{1}{U}")],
+                    vec![Effect::Custom("Activated effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn goliath_daydreamer(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Goliath Daydreamer".into(),
+        mana_cost: ManaCost::parse("{2}{R}{R}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Giant, SubType::Wizard],
+        power: Some(4), toughness: Some(4),
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::spell_cast_triggered(id,
+                    "Whenever you cast a spell, trigger effect.",
+                    vec![Effect::Custom("Spell cast trigger.".into())],
+                    TargetSpec::None),
+            Ability::triggered(id,
+                    "Whenever this attacks, trigger effect.",
+                    vec![EventType::AttackerDeclared],
+                    vec![Effect::Custom("Attack trigger.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn grub_storied_matriarch(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Grub, Storied Matriarch".into(),
+        card_types: vec![CardType::Creature],
+        supertypes: vec![SuperType::Legendary],
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::triggered(id,
+                    "Whenever this attacks, trigger effect.",
+                    vec![EventType::AttackerDeclared],
+                    vec![Effect::Custom("Attack trigger.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn grubs_command(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Grub's Command".into(),
+        mana_cost: ManaCost::parse("{3}{B}{R}"),
+        card_types: vec![CardType::Kindred, CardType::Sorcery],
+        subtypes: vec![SubType::Goblin],
+        rarity: Rarity::Rare,
+        keywords: KeywordAbilities::HASTE,
+        abilities: vec![
+            Ability::spell(id,
+                    vec![Effect::destroy()],
+                    TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn hallowed_fountain(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Hallowed Fountain".into(),
+        card_types: vec![CardType::Land],
+        subtypes: vec![SubType::Plains, SubType::Island],
+        rarity: Rarity::Rare,
+        ..Default::default() }
+}
+
+fn harmonized_crescendo(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Harmonized Crescendo".into(),
+        mana_cost: ManaCost::parse("{4}{U}{U}"),
+        card_types: vec![CardType::Instant],
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::spell(id,
+                    vec![Effect::Custom("Spell effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn hexing_squelcher(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Hexing Squelcher".into(),
+        mana_cost: ManaCost::parse("{1}{R}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Goblin, SubType::Sorcerer],
+        power: Some(2), toughness: Some(2),
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::static_ability(id,
+                    "Static effect.",
+                    vec![StaticEffect::Custom("Static effect.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn high_perfect_morcant(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "High Perfect Morcant".into(),
+        mana_cost: ManaCost::parse("{2}{B}{G}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Elf, SubType::Noble],
+        supertypes: vec![SuperType::Legendary],
+        power: Some(4), toughness: Some(4),
+        rarity: Rarity::Rare,
+        ..Default::default() }
+}
+
+fn illusion_spinners(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Illusion Spinners".into(),
+        mana_cost: ManaCost::parse("{4}{U}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Faerie, SubType::Wizard],
+        power: Some(4), toughness: Some(3),
+        rarity: Rarity::Uncommon,
+        keywords: KeywordAbilities::FLYING | KeywordAbilities::HEXPROOF,
+        abilities: vec![
+            Ability::static_ability(id,
+                    "Static effect.",
+                    vec![StaticEffect::Custom("Static effect.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn keep_out(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Keep Out".into(),
+        mana_cost: ManaCost::parse("{1}{W}"),
+        card_types: vec![CardType::Instant],
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                    vec![Effect::destroy()],
+                    TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn kinbinding(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Kinbinding".into(),
+        mana_cost: ManaCost::parse("{3}{W}{W}"),
+        card_types: vec![CardType::Enchantment],
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::static_ability(id,
+                    "Static effect.",
+                    vec![StaticEffect::Custom("Static effect.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn kinscaer_sentry(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Kinscaer Sentry".into(),
+        mana_cost: ManaCost::parse("{1}{W}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Custom("Kithkin".into()), SubType::Soldier],
+        power: Some(2), toughness: Some(2),
+        rarity: Rarity::Rare,
+        keywords: KeywordAbilities::FIRST_STRIKE | KeywordAbilities::LIFELINK,
+        abilities: vec![
+            Ability::triggered(id,
+                    "Whenever this attacks, trigger effect.",
+                    vec![EventType::AttackerDeclared],
+                    vec![Effect::Custom("Attack trigger.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn lasting_tarfire(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Lasting Tarfire".into(),
+        mana_cost: ManaCost::parse("{1}{R}"),
+        card_types: vec![CardType::Enchantment],
+        rarity: Rarity::Uncommon,
+        ..Default::default() }
+}
+
+fn lluwen_imperfect_naturalist(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Lluwen, Imperfect Naturalist".into(),
+        mana_cost: ManaCost::parse("{B/G}{B/G}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Elf, SubType::Druid],
+        supertypes: vec![SuperType::Legendary],
+        power: Some(1), toughness: Some(3),
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                    "When this enters, trigger effect.",
+                    vec![Effect::Custom("ETB effect.".into())],
+                    TargetSpec::None),
+            Ability::activated(id,
+                    "Activated ability.",
+                    vec![Cost::pay_mana("{2}{B/G}{B/G}{B/G}")],
+                    vec![Effect::Custom("Activated effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn loch_mare(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Loch Mare".into(),
+        mana_cost: ManaCost::parse("{1}{U}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Horse, SubType::Serpent],
+        power: Some(4), toughness: Some(5),
+        rarity: Rarity::Mythic,
+        abilities: vec![
+            Ability::activated(id,
+                    "Activated ability.",
+                    vec![Cost::pay_mana("{1}{U}")],
+                    vec![Effect::Custom("Activated effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn lofty_dreams(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Lofty Dreams".into(),
+        mana_cost: ManaCost::parse("{3}{U}{U}"),
+        card_types: vec![CardType::Enchantment],
+        subtypes: vec![SubType::Aura],
+        rarity: Rarity::Uncommon,
+        keywords: KeywordAbilities::FLYING,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                    "When this enters, trigger effect.",
+                    vec![Effect::Custom("ETB effect.".into())],
+                    TargetSpec::Creature),
+            Ability::static_ability(id,
+                    "Static effect.",
+                    vec![StaticEffect::Custom("Static effect.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn maralen_fae_ascendant(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Maralen, Fae Ascendant".into(),
+        mana_cost: ManaCost::parse("{2}{B}{G}{U}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Elf, SubType::Faerie, SubType::Noble],
+        supertypes: vec![SuperType::Legendary],
+        power: Some(4), toughness: Some(5),
+        rarity: Rarity::Rare,
+        keywords: KeywordAbilities::FLYING,
+        abilities: vec![
+            Ability::static_ability(id,
+                    "Static effect.",
+                    vec![StaticEffect::Custom("Static effect.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn mirrormind_crown(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Mirrormind Crown".into(),
+        mana_cost: ManaCost::parse("{4}"),
+        card_types: vec![CardType::Artifact],
+        subtypes: vec![SubType::Equipment],
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::static_ability(id,
+                    "Static effect.",
+                    vec![StaticEffect::Custom("Static effect.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn moonshadow(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Moonshadow".into(),
+        mana_cost: ManaCost::parse("{B}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Elemental],
+        power: Some(7), toughness: Some(7),
+        rarity: Rarity::Mythic,
+        ..Default::default() }
+}
+
+fn morcants_loyalist(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Morcant's Loyalist".into(),
+        mana_cost: ManaCost::parse("{1}{B}{G}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Elf, SubType::Warrior],
+        power: Some(3), toughness: Some(2),
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::dies_triggered(id,
+                    "When this dies, trigger effect.",
+                    vec![Effect::Custom("Dies effect.".into())],
+                    TargetSpec::None),
+            Ability::static_ability(id,
+                    "Static effect.",
+                    vec![StaticEffect::Custom("Static effect.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn mornsong_aria(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Mornsong Aria".into(),
+        mana_cost: ManaCost::parse("{1}{B}{B}"),
+        card_types: vec![CardType::Enchantment],
+        supertypes: vec![SuperType::Legendary],
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::static_ability(id,
+                    "Static effect.",
+                    vec![StaticEffect::Custom("Static effect.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn noggle_the_mind(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Noggle the Mind".into(),
+        mana_cost: ManaCost::parse("{1}{U}"),
+        card_types: vec![CardType::Enchantment],
+        subtypes: vec![SubType::Aura],
+        rarity: Rarity::Uncommon,
+        keywords: KeywordAbilities::FLASH,
+        abilities: vec![
+            Ability::static_ability(id,
+                    "Static effect.",
+                    vec![StaticEffect::Custom("Static effect.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn omni_changeling(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Omni-Changeling".into(),
+        mana_cost: ManaCost::parse("{3}{U}{U}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Shapeshifter],
+        power: Some(0), toughness: Some(0),
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::static_ability(id,
+                    "Static effect.",
+                    vec![StaticEffect::Custom("Static effect.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn overgrown_tomb(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Overgrown Tomb".into(),
+        card_types: vec![CardType::Land],
+        subtypes: vec![SubType::Swamp, SubType::Forest],
+        rarity: Rarity::Rare,
+        ..Default::default() }
+}
+
+fn perfect_intimidation(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Perfect Intimidation".into(),
+        mana_cost: ManaCost::parse("{3}{B}"),
+        card_types: vec![CardType::Sorcery],
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::spell(id,
+                    vec![Effect::Custom("Spell effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn pitiless_fists(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Pitiless Fists".into(),
+        mana_cost: ManaCost::parse("{3}{G}"),
+        card_types: vec![CardType::Enchantment],
+        subtypes: vec![SubType::Aura],
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                    "When this enters, trigger effect.",
+                    vec![Effect::Custom("ETB effect.".into())],
+                    TargetSpec::Permanent),
+            Ability::static_ability(id,
+                    "Static effect.",
+                    vec![StaticEffect::Custom("Static effect.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn prismatic_undercurrents(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Prismatic Undercurrents".into(),
+        mana_cost: ManaCost::parse("{3}{G}"),
+        card_types: vec![CardType::Enchantment],
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                    "When this enters, trigger effect.",
+                    vec![Effect::Custom("ETB effect.".into())],
+                    TargetSpec::None),
+            Ability::static_ability(id,
+                    "Static effect.",
+                    vec![StaticEffect::Custom("Static effect.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn pucas_eye(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Puca's Eye".into(),
+        mana_cost: ManaCost::parse("{2}"),
+        card_types: vec![CardType::Artifact],
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                    "When this enters, trigger effect.",
+                    vec![Effect::Custom("ETB effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn pummeler_for_hire(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Pummeler for Hire".into(),
+        mana_cost: ManaCost::parse("{4}{G}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Giant, SubType::Mercenary],
+        power: Some(4), toughness: Some(4),
+        rarity: Rarity::Uncommon,
+        keywords: KeywordAbilities::VIGILANCE | KeywordAbilities::REACH,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                    "When this enters, trigger effect.",
+                    vec![Effect::Custom("ETB effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn pyrrhic_strike(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Pyrrhic Strike".into(),
+        mana_cost: ManaCost::parse("{2}{W}"),
+        card_types: vec![CardType::Instant],
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::spell(id,
+                    vec![Effect::destroy()],
+                    TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn reaping_willow(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Reaping Willow".into(),
+        mana_cost: ManaCost::parse("{1}{W/B}{W/B}{W/B}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Treefolk, SubType::Cleric],
+        power: Some(3), toughness: Some(6),
+        rarity: Rarity::Uncommon,
+        keywords: KeywordAbilities::LIFELINK,
+        ..Default::default() }
+}
+
+fn retched_wretch(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Retched Wretch".into(),
+        mana_cost: ManaCost::parse("{2}{B}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Goblin],
+        power: Some(4), toughness: Some(2),
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::dies_triggered(id,
+                    "When this dies, trigger effect.",
+                    vec![Effect::Custom("Dies effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn rhys_the_evermore(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Rhys, the Evermore".into(),
+        mana_cost: ManaCost::parse("{1}{W}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Elf, SubType::Warrior],
+        supertypes: vec![SuperType::Legendary],
+        power: Some(2), toughness: Some(2),
+        rarity: Rarity::Rare,
+        keywords: KeywordAbilities::FLASH,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                    "When this enters, trigger effect.",
+                    vec![Effect::Custom("ETB effect.".into())],
+                    TargetSpec::Permanent),
+        ],
+        ..Default::default() }
+}
+
+fn rimefire_torque(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Rimefire Torque".into(),
+        mana_cost: ManaCost::parse("{1}{U}"),
+        card_types: vec![CardType::Artifact],
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::activated(id,
+                    "Activated ability.",
+                    vec![Cost::tap_self()],
+                    vec![Effect::Custom("Activated effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn sanar_innovative_first_year(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Sanar, Innovative First-Year".into(),
+        mana_cost: ManaCost::parse("{2}{U/R}{U/R}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Goblin, SubType::Sorcerer],
+        supertypes: vec![SuperType::Legendary],
+        power: Some(2), toughness: Some(4),
+        rarity: Rarity::Rare,
+        ..Default::default() }
+}
+
+fn sapling_nursery(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Sapling Nursery".into(),
+        mana_cost: ManaCost::parse("{6}{G}{G}"),
+        card_types: vec![CardType::Enchantment],
+        rarity: Rarity::Rare,
+        keywords: KeywordAbilities::INDESTRUCTIBLE,
+        abilities: vec![
+            Ability::activated(id,
+                    "Activated ability.",
+                    vec![Cost::pay_mana("{1}{G}")],
+                    vec![Effect::Custom("Activated effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn selfless_safewright(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Selfless Safewright".into(),
+        mana_cost: ManaCost::parse("{3}{G}{G}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Elf, SubType::Warrior],
+        power: Some(4), toughness: Some(2),
+        rarity: Rarity::Rare,
+        keywords: KeywordAbilities::FLASH | KeywordAbilities::HEXPROOF | KeywordAbilities::INDESTRUCTIBLE,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                    "When this enters, trigger effect.",
+                    vec![Effect::Custom("ETB effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn shadow_urchin(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Shadow Urchin".into(),
+        mana_cost: ManaCost::parse("{2}{B/R}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Custom("Ouphe".into())],
+        power: Some(3), toughness: Some(4),
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::triggered(id,
+                    "Whenever this attacks, trigger effect.",
+                    vec![EventType::AttackerDeclared],
+                    vec![Effect::Custom("Attack trigger.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn shimmerwilds_growth(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Shimmerwilds Growth".into(),
+        mana_cost: ManaCost::parse("{1}{G}"),
+        card_types: vec![CardType::Enchantment],
+        subtypes: vec![SubType::Aura],
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::static_ability(id,
+                    "Static effect.",
+                    vec![StaticEffect::Custom("Static effect.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn spinerock_tyrant(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Spinerock Tyrant".into(),
+        mana_cost: ManaCost::parse("{3}{R}{R}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Dragon],
+        power: Some(6), toughness: Some(6),
+        rarity: Rarity::Mythic,
+        keywords: KeywordAbilities::FLYING,
+        abilities: vec![
+            Ability::spell_cast_triggered(id,
+                    "Whenever you cast a spell, trigger effect.",
+                    vec![Effect::Custom("Spell cast trigger.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn spiral_into_solitude(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Spiral into Solitude".into(),
+        mana_cost: ManaCost::parse("{1}{W}"),
+        card_types: vec![CardType::Enchantment],
+        subtypes: vec![SubType::Aura],
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::static_ability(id,
+                    "Static effect.",
+                    vec![StaticEffect::Custom("Static effect.".into())]),
+            Ability::activated(id,
+                    "Activated ability.",
+                    vec![Cost::pay_mana("{1}{W}")],
+                    vec![Effect::Custom("Activated effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn spry_and_mighty(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Spry and Mighty".into(),
+        mana_cost: ManaCost::parse("{4}{G}"),
+        card_types: vec![CardType::Sorcery],
+        rarity: Rarity::Rare,
+        keywords: KeywordAbilities::TRAMPLE,
+        abilities: vec![
+            Ability::spell(id,
+                    vec![Effect::Custom("Spell effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn stalactite_dagger(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Stalactite Dagger".into(),
+        mana_cost: ManaCost::parse("{2}"),
+        card_types: vec![CardType::Artifact],
+        subtypes: vec![SubType::Equipment],
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                    "When this enters, trigger effect.",
+                    vec![Effect::Custom("ETB effect.".into())],
+                    TargetSpec::None),
+            Ability::static_ability(id,
+                    "Static effect.",
+                    vec![StaticEffect::Custom("Static effect.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn steam_vents(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Steam Vents".into(),
+        card_types: vec![CardType::Land],
+        subtypes: vec![SubType::Island, SubType::Mountain],
+        rarity: Rarity::Rare,
+        ..Default::default() }
+}
+
+fn sunderflock(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Sunderflock".into(),
+        mana_cost: ManaCost::parse("{7}{U}{U}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Elemental],
+        power: Some(5), toughness: Some(5),
+        rarity: Rarity::Rare,
+        keywords: KeywordAbilities::FLYING,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                    "When this enters, trigger effect.",
+                    vec![Effect::Custom("ETB effect.".into())],
+                    TargetSpec::None),
+            Ability::static_ability(id,
+                    "Static effect.",
+                    vec![StaticEffect::Custom("Static effect.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn sygg_wanderwine_wisdom(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Sygg, Wanderwine Wisdom".into(),
+        card_types: vec![CardType::Creature],
+        supertypes: vec![SuperType::Legendary],
+        rarity: Rarity::Rare,
+        ..Default::default() }
+}
+
+fn syggs_command(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Sygg's Command".into(),
+        mana_cost: ManaCost::parse("{1}{W}{U}"),
+        card_types: vec![CardType::Kindred, CardType::Sorcery],
+        subtypes: vec![SubType::Merfolk],
+        rarity: Rarity::Rare,
+        keywords: KeywordAbilities::LIFELINK,
+        abilities: vec![
+            Ability::spell(id,
+                    vec![Effect::Custom("Spell effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn tam_mindful_first_year(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Tam, Mindful First-Year".into(),
+        mana_cost: ManaCost::parse("{1}{G/U}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Custom("Gorgon".into()), SubType::Wizard],
+        supertypes: vec![SuperType::Legendary],
+        power: Some(2), toughness: Some(2),
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::static_ability(id,
+                    "Static effect.",
+                    vec![StaticEffect::Custom("Static effect.".into())]),
+            Ability::activated(id,
+                    "Activated ability.",
+                    vec![Cost::tap_self()],
+                    vec![Effect::Custom("Activated effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn taster_of_wares(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Taster of Wares".into(),
+        mana_cost: ManaCost::parse("{2}{B}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Goblin, SubType::Warlock],
+        power: Some(3), toughness: Some(2),
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                    "When this enters, trigger effect.",
+                    vec![Effect::Custom("ETB effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn temple_garden(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Temple Garden".into(),
+        card_types: vec![CardType::Land],
+        subtypes: vec![SubType::Forest, SubType::Plains],
+        rarity: Rarity::Rare,
+        ..Default::default() }
+}
+
+fn trystan_callous_cultivator(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Trystan, Callous Cultivator".into(),
+        card_types: vec![CardType::Creature],
+        supertypes: vec![SuperType::Legendary],
+        rarity: Rarity::Rare,
+        keywords: KeywordAbilities::DEATHTOUCH | KeywordAbilities::DEATHTOUCH,
+        ..Default::default() }
+}
+
+fn trystans_command(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Trystan's Command".into(),
+        mana_cost: ManaCost::parse("{4}{B}{G}"),
+        card_types: vec![CardType::Kindred, CardType::Sorcery],
+        subtypes: vec![SubType::Elf],
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::spell(id,
+                    vec![Effect::destroy()],
+                    TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn twilight_diviner(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Twilight Diviner".into(),
+        mana_cost: ManaCost::parse("{2}{B}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Elf, SubType::Cleric],
+        power: Some(3), toughness: Some(3),
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                    "When this enters, trigger effect.",
+                    vec![Effect::Custom("ETB effect.".into())],
+                    TargetSpec::Permanent),
+        ],
+        ..Default::default() }
+}
+
+fn twinflame_travelers(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Twinflame Travelers".into(),
+        mana_cost: ManaCost::parse("{2}{U}{R}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Elemental, SubType::Sorcerer],
+        power: Some(3), toughness: Some(3),
+        rarity: Rarity::Uncommon,
+        keywords: KeywordAbilities::FLYING,
+        abilities: vec![
+            Ability::static_ability(id,
+                    "Static effect.",
+                    vec![StaticEffect::Custom("Static effect.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn unbury(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Unbury".into(),
+        mana_cost: ManaCost::parse("{1}{B}"),
+        card_types: vec![CardType::Instant],
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::spell(id,
+                    vec![Effect::Custom("Spell effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn unforgiving_aim(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Unforgiving Aim".into(),
+        mana_cost: ManaCost::parse("{2}{G}"),
+        card_types: vec![CardType::Instant],
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                    vec![Effect::destroy()],
+                    TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn vibrance(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Vibrance".into(),
+        mana_cost: ManaCost::parse("{3}{R/G}{R/G}"),
+        card_types: vec![CardType::Creature],
+        power: Some(4), toughness: Some(4),
+        rarity: Rarity::Mythic,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                    "When this enters, trigger effect.",
+                    vec![Effect::Custom("ETB effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn wanderwine_farewell(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Wanderwine Farewell".into(),
+        mana_cost: ManaCost::parse("{5}{U}{U}"),
+        card_types: vec![CardType::Kindred, CardType::Sorcery],
+        subtypes: vec![SubType::Merfolk],
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::spell(id,
+                    vec![Effect::Custom("Spell effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn wary_farmer(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Wary Farmer".into(),
+        mana_cost: ManaCost::parse("{1}{G/W}{G/W}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Custom("Kithkin".into()), SubType::Custom("Citizen".into())],
+        power: Some(3), toughness: Some(3),
+        rarity: Rarity::Common,
+        ..Default::default() }
+}
+
+fn wildvine_pummeler(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Wildvine Pummeler".into(),
+        mana_cost: ManaCost::parse("{6}{G}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Giant, SubType::Berserker],
+        power: Some(6), toughness: Some(5),
+        rarity: Rarity::Common,
+        keywords: KeywordAbilities::REACH | KeywordAbilities::TRAMPLE,
+        abilities: vec![
+            Ability::static_ability(id,
+                    "Static effect.",
+                    vec![StaticEffect::Custom("Static effect.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn winnowing(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Winnowing".into(),
+        mana_cost: ManaCost::parse("{4}{W}{W}"),
+        card_types: vec![CardType::Sorcery],
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::spell(id,
+                    vec![Effect::Custom("Spell effect.".into())],
+                    TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn wistfulness(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Wistfulness".into(),
+        mana_cost: ManaCost::parse("{3}{G/U}{G/U}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Elemental, SubType::Custom("Incarnation".into())],
+        power: Some(6), toughness: Some(5),
+        rarity: Rarity::Mythic,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                    "When this enters, trigger effect.",
+                    vec![Effect::Custom("ETB effect.".into())],
+                    TargetSpec::Permanent),
+        ],
+        ..Default::default() }
+}
+
