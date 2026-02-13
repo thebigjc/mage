@@ -1,0 +1,12 @@
+[package]
+name = "mtg-engine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+uuid = { workspace = true }
+im = { workspace = true }
+bitflags = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+rand = { workspace = true }

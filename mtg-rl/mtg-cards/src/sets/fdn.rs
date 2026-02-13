@@ -1,0 +1,2827 @@
+// Foundations (FDN) set — released 2024-11-15.
+// 517 unique cards. Basic lands + Tier 1 vanilla/keyword creatures.
+
+use crate::cards::basic_lands;
+use crate::registry::CardRegistry;
+use mtg_engine::abilities::{Ability, Cost, Effect, StaticEffect, TargetSpec};
+use mtg_engine::card::CardData;
+use mtg_engine::constants::*;
+use mtg_engine::events::EventType;
+use mtg_engine::mana::{Mana, ManaCost};
+use mtg_engine::types::{ObjectId, PlayerId};
+
+/// Register all implemented FDN cards into the registry.
+pub fn register(registry: &mut CardRegistry) {
+    basic_lands::register(registry, "FDN");
+
+    registry.register("Aegis Turtle", aegis_turtle, "FDN");
+    registry.register("Bear Cub", bear_cub, "FDN");
+    registry.register("Bigfin Bouncer", bigfin_bouncer, "FDN");
+    registry.register("Bishop's Soldier", bishops_soldier, "FDN");
+    registry.register("Brazen Scourge", brazen_scourge, "FDN");
+    registry.register("Burglar Rat", burglar_rat, "FDN");
+    registry.register("Campus Guide", campus_guide, "FDN");
+    registry.register("Diregraf Ghoul", diregraf_ghoul, "FDN");
+    registry.register("Dragon Trainer", dragon_trainer, "FDN");
+    registry.register("Druid of the Cowl", druid_of_the_cowl, "FDN");
+    registry.register("Erudite Wizard", erudite_wizard, "FDN");
+    registry.register("Evolving Wilds", evolving_wilds, "FDN");
+    registry.register("Felidar Cub", felidar_cub, "FDN");
+    registry.register("Firebrand Archer", firebrand_archer, "FDN");
+    registry.register("Grappling Kraken", grappling_kraken, "FDN");
+    registry.register("Healer's Hawk", healers_hawk, "FDN");
+    registry.register("Hinterland Sanctifier", hinterland_sanctifier, "FDN");
+    registry.register("Homunculus Horde", homunculus_horde, "FDN");
+    registry.register("Infestation Sage", infestation_sage, "FDN");
+    registry.register("Kitesail Corsair", kitesail_corsair, "FDN");
+    registry.register("Leonin Skyhunter", leonin_skyhunter, "FDN");
+    registry.register("Llanowar Elves", llanowar_elves, "FDN");
+    registry.register("Maalfeld Twins", maalfeld_twins, "FDN");
+    registry.register("Magnigoth Sentry", magnigoth_sentry, "FDN");
+    registry.register("Marauding Blight-Priest", marauding_blight_priest, "FDN");
+    registry.register("Pulse Tracker", pulse_tracker, "FDN");
+    registry.register("Raging Redcap", raging_redcap, "FDN");
+    registry.register("Ravenous Giant", ravenous_giant, "FDN");
+    registry.register("Sanguine Syphoner", sanguine_syphoner, "FDN");
+    registry.register("Serra Angel", serra_angel, "FDN");
+    registry.register("Skeleton Archer", skeleton_archer, "FDN");
+    registry.register("Skyraker Giant", skyraker_giant, "FDN");
+    registry.register("Storm Fleet Spy", storm_fleet_spy, "FDN");
+    registry.register("Surrak, the Hunt Caller", surrak_the_hunt_caller, "FDN");
+    registry.register("Tajuru Pathwarden", tajuru_pathwarden, "FDN");
+    registry.register("Thornweald Archer", thornweald_archer, "FDN");
+    registry.register("Vampire Spawn", vampire_spawn, "FDN");
+    registry.register("Viashino Pyromancer", viashino_pyromancer, "FDN");
+    registry.register("Wary Thespian", wary_thespian, "FDN");
+    registry.register("Wildheart Invoker", wildheart_invoker, "FDN");
+
+    // Remaining Tier 1 — creatures with abilities
+    registry.register("Ajani's Pridemate", ajanis_pridemate, "FDN");
+    registry.register("Axgard Cavalry", axgard_cavalry, "FDN");
+    registry.register("Battle-Rattle Shaman", battle_rattle_shaman, "FDN");
+    registry.register("Crackling Cyclops", crackling_cyclops, "FDN");
+    registry.register("Crusader of Odric", crusader_of_odric, "FDN");
+    registry.register("Dryad Militant", dryad_militant, "FDN");
+    registry.register("Good-Fortune Unicorn", good_fortune_unicorn, "FDN");
+    registry.register("Helpful Hunter", helpful_hunter, "FDN");
+    registry.register("Mild-Mannered Librarian", mild_mannered_librarian, "FDN");
+    registry.register("Mystic Archaeologist", mystic_archaeologist, "FDN");
+    registry.register("Reassembling Skeleton", reassembling_skeleton, "FDN");
+    registry.register("Spitfire Lagac", spitfire_lagac, "FDN");
+    registry.register("Tatyova, Benthic Druid", tatyova_benthic_druid, "FDN");
+
+    // Remaining Tier 1 — spells
+    registry.register("Banishing Light", banishing_light, "FDN");
+    registry.register("Burst Lightning", burst_lightning, "FDN");
+    registry.register("Divine Resilience", divine_resilience, "FDN");
+    registry.register("Electroduplicate", electroduplicate, "FDN");
+    registry.register("Grow from the Ashes", grow_from_the_ashes, "FDN");
+    registry.register("Into the Roil", into_the_roil, "FDN");
+    registry.register("Rite of Replication", rite_of_replication, "FDN");
+    registry.register("Rite of the Dragoncaller", rite_of_the_dragoncaller, "FDN");
+    registry.register("Self-Reflection", self_reflection, "FDN");
+    registry.register("Think Twice", think_twice, "FDN");
+
+    // Remaining Tier 1 — artifacts and enchantments
+    registry.register("Basilisk Collar", basilisk_collar, "FDN");
+    registry.register("Feldon's Cane", feldons_cane, "FDN");
+    registry.register("Gilded Lotus", gilded_lotus, "FDN");
+    registry.register("Impact Tremors", impact_tremors, "FDN");
+    registry.register("Omniscience", omniscience, "FDN");
+    registry.register("Phyrexian Arena", phyrexian_arena, "FDN");
+    registry.register("Swiftfoot Boots", swiftfoot_boots, "FDN");
+
+    // ── Tier 2 — vanilla/keyword creatures ──────────────────────────────────
+    registry.register("Savannah Lions", savannah_lions, "FDN");
+    registry.register("Fire Elemental", fire_elemental, "FDN");
+    registry.register("Gigantosaurus", gigantosaurus, "FDN");
+    registry.register("Highborn Vampire", highborn_vampire, "FDN");
+    registry.register("Swab Goblin", swab_goblin, "FDN");
+    registry.register("Vampire Interloper", vampire_interloper, "FDN");
+    registry.register("Juggernaut", juggernaut, "FDN");
+    registry.register("Shivan Dragon", shivan_dragon, "FDN");
+    registry.register("Thrashing Brontodon", thrashing_brontodon, "FDN");
+    registry.register("Gnarlback Rhino", gnarlback_rhino, "FDN");
+    registry.register("Eager Trufflesnout", eager_trufflesnout, "FDN");
+    registry.register("Tempest Djinn", tempest_djinn, "FDN");
+    registry.register("Tolarian Terror", tolarian_terror, "FDN");
+    registry.register("Solemn Simulacrum", solemn_simulacrum, "FDN");
+
+    // ── Tier 2 — creatures with abilities ───────────────────────────────────
+    registry.register("Dazzling Angel", dazzling_angel, "FDN");
+    registry.register("Inspiring Overseer", inspiring_overseer, "FDN");
+    registry.register("Empyrean Eagle", empyrean_eagle, "FDN");
+    registry.register("Brineborn Cutthroat", brineborn_cutthroat, "FDN");
+    registry.register("Exclusion Mage", exclusion_mage, "FDN");
+    registry.register("Crow of Dark Tidings", crow_of_dark_tidings, "FDN");
+    registry.register("Vampire Neonate", vampire_neonate, "FDN");
+    registry.register("Hungry Ghoul", hungry_ghoul, "FDN");
+    registry.register("Driver of the Dead", driver_of_the_dead, "FDN");
+    registry.register("Fanatical Firebrand", fanatical_firebrand, "FDN");
+    registry.register("Goblin Smuggler", goblin_smuggler, "FDN");
+    registry.register("Frenzied Goblin", frenzied_goblin, "FDN");
+    registry.register("Ghitu Lavarunner", ghitu_lavarunner, "FDN");
+    registry.register("Courageous Goblin", courageous_goblin, "FDN");
+    registry.register("Heartfire Immolator", heartfire_immolator, "FDN");
+    registry.register("Dragonlord's Servant", dragonlords_servant, "FDN");
+    registry.register("Rapacious Dragon", rapacious_dragon, "FDN");
+    registry.register("Dragon Mage", dragon_mage, "FDN");
+    registry.register("Reclamation Sage", reclamation_sage, "FDN");
+    registry.register("Fierce Empath", fierce_empath, "FDN");
+    registry.register("Beast-Kin Ranger", beast_kin_ranger, "FDN");
+    registry.register("Elvish Regrower", elvish_regrower, "FDN");
+    registry.register("Springbloom Druid", springbloom_druid, "FDN");
+    registry.register("Mold Adder", mold_adder, "FDN");
+    registry.register("Leonin Vanguard", leonin_vanguard, "FDN");
+    registry.register("Skyship Buccaneer", skyship_buccaneer, "FDN");
+    registry.register("Felidar Savior", felidar_savior, "FDN");
+    registry.register("Guttersnipe", guttersnipe, "FDN");
+    registry.register("Stromkirk Noble", stromkirk_noble, "FDN");
+    registry.register("Gleaming Barrier", gleaming_barrier, "FDN");
+    registry.register("Rune-Sealed Wall", rune_sealed_wall, "FDN");
+    registry.register("Gateway Sneak", gateway_sneak, "FDN");
+
+    // ── Tier 2 — instants ───────────────────────────────────────────────────
+    registry.register("Giant Growth", giant_growth, "FDN");
+    registry.register("Unsummon", unsummon, "FDN");
+    registry.register("Cancel", cancel, "FDN");
+    registry.register("Negate", negate, "FDN");
+    registry.register("Essence Scatter", essence_scatter, "FDN");
+    registry.register("Opt", opt, "FDN");
+    registry.register("Sure Strike", sure_strike, "FDN");
+    registry.register("Dive Down", dive_down, "FDN");
+    registry.register("Disenchant", disenchant, "FDN");
+    registry.register("Kindled Fury", kindled_fury, "FDN");
+    registry.register("Stab", stab, "FDN");
+    registry.register("Adamant Will", adamant_will, "FDN");
+    registry.register("Broken Wings", broken_wings, "FDN");
+    registry.register("Moment of Triumph", moment_of_triumph, "FDN");
+    registry.register("Moment of Craving", moment_of_craving, "FDN");
+    registry.register("Quick Study", quick_study, "FDN");
+    registry.register("Aetherize", aetherize, "FDN");
+    registry.register("Scorching Dragonfire", scorching_dragonfire, "FDN");
+    registry.register("Bite Down", bite_down, "FDN");
+    registry.register("Snakeskin Veil", snakeskin_veil, "FDN");
+    registry.register("Fleeting Flight", fleeting_flight, "FDN");
+    registry.register("Undying Malice", undying_malice, "FDN");
+    registry.register("Fake Your Own Death", fake_your_own_death, "FDN");
+
+    // ── Tier 2 — sorceries ──────────────────────────────────────────────────
+    registry.register("Duress", duress, "FDN");
+    registry.register("Deathmark", deathmark, "FDN");
+    registry.register("Crash Through", crash_through, "FDN");
+    registry.register("Dragon Fodder", dragon_fodder, "FDN");
+    registry.register("Day of Judgment", day_of_judgment, "FDN");
+    registry.register("Angelic Edict", angelic_edict, "FDN");
+    registry.register("Chart a Course", chart_a_course, "FDN");
+    registry.register("Macabre Waltz", macabre_waltz, "FDN");
+    registry.register("Bulk Up", bulk_up, "FDN");
+
+    // ── Tier 2 — enchantments ───────────────────────────────────────────────
+    registry.register("Pacifism", pacifism, "FDN");
+
+    // ── Tier 3 — modal spells ─────────────────────────────────────────────
+    registry.register("Abrade", abrade, "FDN");
+    registry.register("Boros Charm", boros_charm, "FDN");
+    registry.register("Slagstorm", slagstorm, "FDN");
+    registry.register("Valorous Stance", valorous_stance, "FDN");
+
+    // ── Tier 3 — pump/anthem spells ───────────────────────────────────────
+    registry.register("Heroic Reinforcements", heroic_reinforcements, "FDN");
+    registry.register("Make a Stand", make_a_stand, "FDN");
+    registry.register("Overrun", overrun, "FDN");
+
+    // ── Tier 3 — lords and tribal creatures ───────────────────────────────
+    registry.register("Death Baron", death_baron, "FDN");
+    registry.register("Elvish Archdruid", elvish_archdruid, "FDN");
+    registry.register("Vampire Nighthawk", vampire_nighthawk, "FDN");
+
+    // ── Tier 3 — enchantments ─────────────────────────────────────────────
+    registry.register("Goblin Oriflamme", goblin_oriflamme, "FDN");
+
+    // ── Tier 3 — creatures with complex abilities ─────────────────────────
+    registry.register("Fog Bank", fog_bank, "FDN");
+
+    // ── Tier 3 — batch 2 ────────────────────────────────────────────────────
+    registry.register("Abyssal Harvester", abyssal_harvester, "FDN");
+    registry.register("Adaptive Automaton", adaptive_automaton, "FDN");
+    registry.register("Aggressive Mammoth", aggressive_mammoth, "FDN");
+    registry.register("Alesha, Who Laughs at Fate", alesha_who_laughs_at_fate, "FDN");
+    registry.register("Angelic Destiny", angelic_destiny, "FDN");
+    registry.register("Angel of Vitality", angel_of_vitality, "FDN");
+    registry.register("Anthem of Champions", anthem_of_champions, "FDN");
+    registry.register("Apothecary Stomper", apothecary_stomper, "FDN");
+    registry.register("Arahbo, the First Fang", arahbo_the_first_fang, "FDN");
+    registry.register("Aurelia, the Warleader", aurelia_the_warleader, "FDN");
+    registry.register("Ayli, Eternal Pilgrim", ayli_eternal_pilgrim, "FDN");
+    registry.register("Azorius Guildgate", azorius_guildgate, "FDN");
+    registry.register("Ball Lightning", ball_lightning, "FDN");
+    registry.register("Balmor, Battlemage Captain", balmor_battlemage_captain, "FDN");
+    registry.register("Banner of Kinship", banner_of_kinship, "FDN");
+    registry.register("Billowing Shriekmass", billowing_shriekmass, "FDN");
+    registry.register("Bloodfell Caves", fdn_bloodfell_caves, "FDN");
+    registry.register("Bloodthirsty Conqueror", bloodthirsty_conqueror, "FDN");
+    registry.register("Blossoming Sands", fdn_blossoming_sands, "FDN");
+    registry.register("Boros Guildgate", boros_guildgate, "FDN");
+    registry.register("Bushwhack", bushwhack, "FDN");
+    registry.register("Carnelian Orb of Dragonkind", carnelian_orb_of_dragonkind, "FDN");
+    registry.register("Celestial Armor", celestial_armor, "FDN");
+    registry.register("Charming Prince", charming_prince, "FDN");
+    registry.register("Claws Out", claws_out, "FDN");
+    registry.register("Consuming Aberration", consuming_aberration, "FDN");
+    registry.register("Corsair Captain", corsair_captain, "FDN");
+    registry.register("Crossway Troublemakers", crossway_troublemakers, "FDN");
+    registry.register("Crystal Barricade", crystal_barricade, "FDN");
+    registry.register("Curator of Destinies", curator_of_destinies, "FDN");
+}
+
+fn aegis_turtle(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Aegis Turtle".into(), mana_cost: ManaCost::parse("{U}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Turtle],
+        power: Some(0), toughness: Some(5), rarity: Rarity::Common, ..Default::default() }
+}
+
+fn bear_cub(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Bear Cub".into(), mana_cost: ManaCost::parse("{1}{G}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Bear],
+        power: Some(2), toughness: Some(2), rarity: Rarity::Common, ..Default::default() }
+}
+
+fn bigfin_bouncer(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Bigfin Bouncer".into(), mana_cost: ManaCost::parse("{3}{U}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Pirate, SubType::Custom("Shark".into())],
+        power: Some(3), toughness: Some(2), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Bigfin Bouncer enters, return up to one target nonland permanent an opponent controls to its owner's hand.",
+                vec![Effect::bounce()],
+                TargetSpec::PermanentFiltered("nonland permanent an opponent controls".into())),
+        ],
+        ..Default::default() }
+}
+
+fn bishops_soldier(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Bishop's Soldier".into(), mana_cost: ManaCost::parse("{1}{W}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Vampire, SubType::Soldier],
+        power: Some(2), toughness: Some(2), keywords: KeywordAbilities::LIFELINK,
+        rarity: Rarity::Common, ..Default::default() }
+}
+
+fn brazen_scourge(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Brazen Scourge".into(), mana_cost: ManaCost::parse("{1}{R}{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Custom("Gremlin".into())],
+        power: Some(3), toughness: Some(3), keywords: KeywordAbilities::HASTE,
+        rarity: Rarity::Uncommon, ..Default::default() }
+}
+
+fn burglar_rat(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Burglar Rat".into(), mana_cost: ManaCost::parse("{1}{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Rat],
+        power: Some(1), toughness: Some(1), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Burglar Rat enters, each opponent discards a card.",
+                vec![Effect::Custom("Each opponent discards a card.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn campus_guide(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Campus Guide".into(), mana_cost: ManaCost::parse("{2}"),
+        card_types: vec![CardType::Artifact, CardType::Creature], subtypes: vec![SubType::Golem],
+        power: Some(2), toughness: Some(1), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Campus Guide enters, you may search your library for a basic land card, reveal it, put it into your hand, then shuffle.",
+                vec![Effect::search_library("basic land")],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn diregraf_ghoul(id: ObjectId, owner: PlayerId) -> CardData {
+    // Diregraf Ghoul enters the battlefield tapped.
+    CardData { id, owner, name: "Diregraf Ghoul".into(), mana_cost: ManaCost::parse("{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Zombie],
+        power: Some(2), toughness: Some(2), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Diregraf Ghoul enters the battlefield tapped.",
+                vec![StaticEffect::Custom("Enters tapped.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn dragon_trainer(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Dragon Trainer".into(), mana_cost: ManaCost::parse("{3}{R}{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Human],
+        power: Some(1), toughness: Some(1), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Dragon Trainer enters, create a 4/4 red Dragon creature token with flying.",
+                vec![Effect::create_token("4/4 Dragon with flying", 1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn druid_of_the_cowl(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Druid of the Cowl".into(), mana_cost: ManaCost::parse("{1}{G}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Elf, SubType::Druid],
+        power: Some(1), toughness: Some(3), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::mana_ability(id, "{T}: Add {G}.", Mana::green(1)),
+        ],
+        ..Default::default() }
+}
+
+fn erudite_wizard(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Erudite Wizard".into(), mana_cost: ManaCost::parse("{2}{U}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Human, SubType::Wizard],
+        power: Some(2), toughness: Some(3), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Erudite Wizard enters, scry 1.",
+                vec![Effect::scry(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+pub fn evolving_wilds(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Evolving Wilds".into(), mana_cost: ManaCost::new(),
+        card_types: vec![CardType::Land], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::activated(id,
+                "{T}, Sacrifice Evolving Wilds: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.",
+                vec![Cost::tap_self(), Cost::sacrifice_self()],
+                vec![Effect::search_library("basic land")],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn felidar_cub(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Felidar Cub".into(), mana_cost: ManaCost::parse("{1}{W}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Cat, SubType::Beast],
+        power: Some(2), toughness: Some(2), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::activated(id,
+                "Sacrifice Felidar Cub: Destroy target enchantment.",
+                vec![Cost::sacrifice_self()],
+                vec![Effect::destroy()],
+                TargetSpec::PermanentFiltered("enchantment".into())),
+        ],
+        ..Default::default() }
+}
+
+fn firebrand_archer(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Firebrand Archer".into(), mana_cost: ManaCost::parse("{1}{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Human, SubType::Archer],
+        power: Some(2), toughness: Some(1), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::triggered(id,
+                "Whenever you cast a noncreature spell, Firebrand Archer deals 1 damage to each opponent.",
+                vec![EventType::SpellCast],
+                vec![Effect::damage_opponents(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn grappling_kraken(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Grappling Kraken".into(), mana_cost: ManaCost::parse("{4}{U}{U}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Kraken],
+        power: Some(5), toughness: Some(6), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::triggered(id,
+                "Whenever Grappling Kraken attacks, tap target creature defending player controls. That creature doesn't untap during its controller's next untap step.",
+                vec![EventType::AttackerDeclared],
+                vec![Effect::Custom("Tap target creature defending player controls. It doesn't untap during its controller's next untap step.".into())],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn healers_hawk(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Healer's Hawk".into(), mana_cost: ManaCost::parse("{W}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Bird],
+        power: Some(1), toughness: Some(1), keywords: KeywordAbilities::FLYING | KeywordAbilities::LIFELINK,
+        rarity: Rarity::Common, ..Default::default() }
+}
+
+fn hinterland_sanctifier(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Hinterland Sanctifier".into(), mana_cost: ManaCost::parse("{W}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Cleric, SubType::Rabbit],
+        power: Some(1), toughness: Some(2), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Protection from multicolored.",
+                vec![StaticEffect::Custom("Protection from multicolored.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn homunculus_horde(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Homunculus Horde".into(), mana_cost: ManaCost::parse("{3}{U}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Custom("Homunculus".into())],
+        power: Some(2), toughness: Some(2), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Homunculus Horde enters, create a number of 2/2 blue Homunculus creature tokens equal to the number of instant and sorcery cards in your graveyard.",
+                vec![Effect::Custom("Create 2/2 Homunculus tokens equal to instants/sorceries in your graveyard.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn infestation_sage(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Infestation Sage".into(), mana_cost: ManaCost::parse("{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Elf, SubType::Warlock],
+        power: Some(1), toughness: Some(1), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Infestation Sage enters, each player mills two cards.",
+                vec![Effect::mill(2)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn kitesail_corsair(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Kitesail Corsair".into(), mana_cost: ManaCost::parse("{1}{U}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Human, SubType::Pirate],
+        power: Some(2), toughness: Some(1), keywords: KeywordAbilities::FLYING,
+        rarity: Rarity::Common, ..Default::default() }
+}
+
+fn leonin_skyhunter(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Leonin Skyhunter".into(), mana_cost: ManaCost::parse("{W}{W}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Cat, SubType::Knight],
+        power: Some(2), toughness: Some(2), keywords: KeywordAbilities::FLYING,
+        rarity: Rarity::Common, ..Default::default() }
+}
+
+fn llanowar_elves(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Llanowar Elves".into(), mana_cost: ManaCost::parse("{G}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Elf, SubType::Druid],
+        power: Some(1), toughness: Some(1), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::mana_ability(id, "{T}: Add {G}.", Mana::green(1)),
+        ],
+        ..Default::default() }
+}
+
+fn maalfeld_twins(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Maalfeld Twins".into(), mana_cost: ManaCost::parse("{5}{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Zombie],
+        power: Some(4), toughness: Some(4), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::dies_triggered(id,
+                "When Maalfeld Twins dies, create two 2/2 black Zombie creature tokens.",
+                vec![Effect::create_token("2/2 Zombie", 2)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn magnigoth_sentry(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Magnigoth Sentry".into(), mana_cost: ManaCost::parse("{3}{G}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Treefolk],
+        power: Some(4), toughness: Some(4), keywords: KeywordAbilities::REACH,
+        rarity: Rarity::Common, ..Default::default() }
+}
+
+fn marauding_blight_priest(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Marauding Blight-Priest".into(), mana_cost: ManaCost::parse("{2}{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Vampire, SubType::Cleric],
+        power: Some(3), toughness: Some(2), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::triggered(id,
+                "Whenever you gain life, each opponent loses 1 life.",
+                vec![EventType::GainLife],
+                vec![Effect::Custom("Each opponent loses 1 life.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn pulse_tracker(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Pulse Tracker".into(), mana_cost: ManaCost::parse("{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Vampire, SubType::Rogue],
+        power: Some(1), toughness: Some(1), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::attacks_triggered(id,
+                "Whenever Pulse Tracker attacks, each opponent loses 1 life.",
+                vec![Effect::Custom("Each opponent loses 1 life.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn raging_redcap(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Raging Redcap".into(), mana_cost: ManaCost::parse("{2}{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Goblin, SubType::Knight],
+        power: Some(1), toughness: Some(2), keywords: KeywordAbilities::DOUBLE_STRIKE,
+        rarity: Rarity::Uncommon, ..Default::default() }
+}
+
+fn ravenous_giant(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Ravenous Giant".into(), mana_cost: ManaCost::parse("{2}{R}{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Giant],
+        power: Some(5), toughness: Some(5), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::triggered(id,
+                "At the beginning of your upkeep, Ravenous Giant deals 1 damage to you.",
+                vec![EventType::UpkeepStep],
+                vec![Effect::deal_damage(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn sanguine_syphoner(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Sanguine Syphoner".into(), mana_cost: ManaCost::parse("{1}{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Vampire, SubType::Warlock],
+        power: Some(1), toughness: Some(3), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::activated(id,
+                "{3}{B}, {T}: Each opponent loses 1 life and you gain 1 life.",
+                vec![Cost::Mana(Mana { black: 1, generic: 3, ..Default::default() }), Cost::TapSelf],
+                vec![Effect::damage_opponents(1), Effect::gain_life(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn serra_angel(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Serra Angel".into(), mana_cost: ManaCost::parse("{3}{W}{W}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Angel],
+        power: Some(4), toughness: Some(4), keywords: KeywordAbilities::FLYING | KeywordAbilities::VIGILANCE,
+        rarity: Rarity::Uncommon, ..Default::default() }
+}
+
+fn skeleton_archer(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Skeleton Archer".into(), mana_cost: ManaCost::parse("{3}{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Skeleton, SubType::Archer],
+        power: Some(3), toughness: Some(3), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Skeleton Archer enters, it deals 1 damage to any target.",
+                vec![Effect::deal_damage(1)],
+                TargetSpec::CreatureOrPlayer),
+        ],
+        ..Default::default() }
+}
+
+fn skyraker_giant(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Skyraker Giant".into(), mana_cost: ManaCost::parse("{2}{R}{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Giant],
+        power: Some(4), toughness: Some(3), keywords: KeywordAbilities::REACH,
+        rarity: Rarity::Uncommon, ..Default::default() }
+}
+
+fn storm_fleet_spy(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Storm Fleet Spy".into(), mana_cost: ManaCost::parse("{2}{U}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Human, SubType::Pirate],
+        power: Some(2), toughness: Some(2), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Storm Fleet Spy enters, draw a card.",
+                vec![Effect::draw_cards(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn surrak_the_hunt_caller(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Surrak, the Hunt Caller".into(), mana_cost: ManaCost::parse("{2}{G}{G}"),
+        card_types: vec![CardType::Creature], supertypes: vec![SuperType::Legendary],
+        subtypes: vec![SubType::Human, SubType::Warrior],
+        power: Some(5), toughness: Some(4), keywords: KeywordAbilities::HASTE,
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::triggered(id,
+                "Formidable — At the beginning of combat on your turn, if creatures you control have total power 8 or greater, target creature you control gains haste until end of turn.",
+                vec![EventType::BeginCombat],
+                vec![Effect::gain_keyword_eot("haste")],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn tajuru_pathwarden(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Tajuru Pathwarden".into(), mana_cost: ManaCost::parse("{4}{G}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Elf, SubType::Warrior, SubType::Custom("Ally".into())],
+        power: Some(5), toughness: Some(4), keywords: KeywordAbilities::TRAMPLE | KeywordAbilities::VIGILANCE,
+        rarity: Rarity::Common, ..Default::default() }
+}
+
+fn thornweald_archer(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Thornweald Archer".into(), mana_cost: ManaCost::parse("{1}{G}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Elf, SubType::Archer],
+        power: Some(2), toughness: Some(1), keywords: KeywordAbilities::DEATHTOUCH | KeywordAbilities::REACH,
+        rarity: Rarity::Common, ..Default::default() }
+}
+
+fn vampire_spawn(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Vampire Spawn".into(), mana_cost: ManaCost::parse("{2}{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Vampire],
+        power: Some(2), toughness: Some(3), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Vampire Spawn enters, each opponent loses 2 life and you gain 2 life.",
+                vec![Effect::Custom("Each opponent loses 2 life, you gain 2 life.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn viashino_pyromancer(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Viashino Pyromancer".into(), mana_cost: ManaCost::parse("{1}{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Custom("Lizard".into()), SubType::Wizard],
+        power: Some(2), toughness: Some(1), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Viashino Pyromancer enters, it deals 2 damage to target player or planeswalker.",
+                vec![Effect::deal_damage(2)],
+                TargetSpec::Player),
+        ],
+        ..Default::default() }
+}
+
+fn wary_thespian(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Wary Thespian".into(), mana_cost: ManaCost::parse("{1}{G}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Cat, SubType::Druid],
+        power: Some(3), toughness: Some(1), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Wary Thespian enters, mill two cards.",
+                vec![Effect::mill(2)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn wildheart_invoker(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Wildheart Invoker".into(), mana_cost: ManaCost::parse("{2}{G}{G}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Elf, SubType::Shaman],
+        power: Some(4), toughness: Some(3), keywords: KeywordAbilities::TRAMPLE,
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::activated(id,
+                "{8}: Target creature gets +5/+5 and gains trample until end of turn.",
+                vec![Cost::pay_mana("{8}")],
+                vec![Effect::boost_until_eot(5, 5), Effect::gain_keyword_eot("trample")],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+// ── Remaining Tier 1 creatures ───────────────────────────────────────────────
+
+fn ajanis_pridemate(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/2 Cat Soldier for {1}{W}. (Gain life: +1/+1 counter)
+    CardData { id, owner, name: "Ajani's Pridemate".into(), mana_cost: ManaCost::parse("{1}{W}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Cat, SubType::Soldier],
+        power: Some(2), toughness: Some(2), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::triggered(id,
+                "Whenever you gain life, put a +1/+1 counter on Ajani's Pridemate.",
+                vec![EventType::GainLife],
+                vec![Effect::add_p1p1_counters(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn axgard_cavalry(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/2 Dwarf Berserker for {1}{R}. (T: target creature gains haste)
+    CardData { id, owner, name: "Axgard Cavalry".into(), mana_cost: ManaCost::parse("{1}{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Dwarf, SubType::Berserker],
+        power: Some(2), toughness: Some(2), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::activated(id,
+                "{T}: Target creature gains haste until end of turn.",
+                vec![Cost::tap_self()],
+                vec![Effect::gain_keyword_eot("haste")],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn battle_rattle_shaman(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/2 Goblin Shaman for {3}{R}. (Begin combat: target creature +2/+0)
+    CardData { id, owner, name: "Battle-Rattle Shaman".into(), mana_cost: ManaCost::parse("{3}{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Goblin, SubType::Shaman],
+        power: Some(2), toughness: Some(2), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::triggered(id,
+                "At the beginning of combat on your turn, target creature you control gets +2/+0 until end of turn.",
+                vec![EventType::BeginCombat],
+                vec![Effect::boost_until_eot(2, 0)],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn crackling_cyclops(id: ObjectId, owner: PlayerId) -> CardData {
+    // 0/4 Cyclops Wizard for {2}{R}. (Noncreature spell: +3/+0 until EOT)
+    CardData { id, owner, name: "Crackling Cyclops".into(), mana_cost: ManaCost::parse("{2}{R}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Custom("Cyclops".into()), SubType::Wizard],
+        power: Some(0), toughness: Some(4), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::triggered(id,
+                "Whenever you cast a noncreature spell, Crackling Cyclops gets +3/+0 until end of turn.",
+                vec![EventType::SpellCast],
+                vec![Effect::boost_until_eot(3, 0)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn crusader_of_odric(id: ObjectId, owner: PlayerId) -> CardData {
+    // */*, P/T = creatures you control. Human Soldier for {2}{W}.
+    CardData { id, owner, name: "Crusader of Odric".into(), mana_cost: ManaCost::parse("{2}{W}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Human, SubType::Soldier],
+        power: Some(0), toughness: Some(0), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Crusader of Odric's power and toughness are each equal to the number of creatures you control.",
+                vec![StaticEffect::Custom("P/T = number of creatures you control.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn dryad_militant(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/1 Dryad Soldier for {G/W}. (Instants/sorceries exiled instead of graveyard)
+    CardData { id, owner, name: "Dryad Militant".into(), mana_cost: ManaCost::parse("{G/W}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Custom("Dryad".into()), SubType::Soldier],
+        power: Some(2), toughness: Some(1), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::static_ability(id,
+                "If an instant or sorcery card would be put into a graveyard from anywhere, exile it instead.",
+                vec![StaticEffect::Custom("Instant/sorcery cards are exiled instead of going to graveyard.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn good_fortune_unicorn(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/2 Unicorn for {1}{G}{W}. (Other creature ETB: +1/+1 counter on it)
+    CardData { id, owner, name: "Good-Fortune Unicorn".into(), mana_cost: ManaCost::parse("{1}{G}{W}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Unicorn],
+        power: Some(2), toughness: Some(2), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::other_creature_etb_triggered(id,
+                "Whenever another creature you control enters, put a +1/+1 counter on that creature.",
+                vec![Effect::add_p1p1_counters(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn helpful_hunter(id: ObjectId, owner: PlayerId) -> CardData {
+    // 1/1 Cat for {1}{W}. (ETB: draw a card)
+    CardData { id, owner, name: "Helpful Hunter".into(), mana_cost: ManaCost::parse("{1}{W}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Cat],
+        power: Some(1), toughness: Some(1), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Helpful Hunter enters, draw a card.",
+                vec![Effect::draw_cards(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn mild_mannered_librarian(id: ObjectId, owner: PlayerId) -> CardData {
+    // 1/1 Human for {G}. ({3}{G}: become Werewolf, +1/+1 counters, draw)
+    CardData { id, owner, name: "Mild-Mannered Librarian".into(), mana_cost: ManaCost::parse("{G}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Human],
+        power: Some(1), toughness: Some(1), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::activated(id,
+                "{3}{G}: Put three +1/+1 counters on Mild-Mannered Librarian. It becomes a Werewolf and draws a card. Activate only once.",
+                vec![Cost::pay_mana("{3}{G}")],
+                vec![Effect::add_p1p1_counters(3), Effect::draw_cards(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn mystic_archaeologist(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/1 Human Wizard for {1}{U}. ({3}{U}{U}: draw 2)
+    CardData { id, owner, name: "Mystic Archaeologist".into(), mana_cost: ManaCost::parse("{1}{U}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Human, SubType::Wizard],
+        power: Some(2), toughness: Some(1), rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::activated(id,
+                "{3}{U}{U}: Draw two cards.",
+                vec![Cost::pay_mana("{3}{U}{U}")],
+                vec![Effect::draw_cards(2)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn reassembling_skeleton(id: ObjectId, owner: PlayerId) -> CardData {
+    // 1/1 Skeleton Warrior for {1}{B}. ({1}{B}: return from graveyard tapped)
+    CardData { id, owner, name: "Reassembling Skeleton".into(), mana_cost: ManaCost::parse("{1}{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Skeleton, SubType::Warrior],
+        power: Some(1), toughness: Some(1), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::activated(id,
+                "{1}{B}: Return Reassembling Skeleton from your graveyard to the battlefield tapped.",
+                vec![Cost::pay_mana("{1}{B}")],
+                vec![Effect::return_from_graveyard()],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn spitfire_lagac(id: ObjectId, owner: PlayerId) -> CardData {
+    // 3/4 Lizard for {3}{R}. (Landfall: 1 damage to each opponent)
+    CardData { id, owner, name: "Spitfire Lagac".into(), mana_cost: ManaCost::parse("{3}{R}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Custom("Lizard".into())],
+        power: Some(3), toughness: Some(4), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::triggered(id,
+                "Landfall — Whenever a land you control enters, Spitfire Lagac deals 1 damage to each opponent.",
+                vec![EventType::EnteredTheBattlefield],
+                vec![Effect::damage_opponents(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn tatyova_benthic_druid(id: ObjectId, owner: PlayerId) -> CardData {
+    // 3/3 Legendary Merfolk Druid for {3}{G}{U}. (Landfall: gain 1 life, draw a card)
+    CardData { id, owner, name: "Tatyova, Benthic Druid".into(), mana_cost: ManaCost::parse("{3}{G}{U}"),
+        card_types: vec![CardType::Creature], supertypes: vec![SuperType::Legendary],
+        subtypes: vec![SubType::Merfolk, SubType::Druid],
+        power: Some(3), toughness: Some(3), rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::triggered(id,
+                "Landfall — Whenever a land you control enters, you gain 1 life and draw a card.",
+                vec![EventType::EnteredTheBattlefield],
+                vec![Effect::gain_life(1), Effect::draw_cards(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+// ── Remaining Tier 1 spells ──────────────────────────────────────────────────
+
+fn banishing_light(id: ObjectId, owner: PlayerId) -> CardData {
+    // Enchantment {2}{W}. ETB: exile nonland permanent until leaves.
+    CardData { id, owner, name: "Banishing Light".into(), mana_cost: ManaCost::parse("{2}{W}"),
+        card_types: vec![CardType::Enchantment], rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Banishing Light enters, exile target nonland permanent an opponent controls until Banishing Light leaves the battlefield.",
+                vec![Effect::exile()],
+                TargetSpec::PermanentFiltered("nonland permanent an opponent controls".into())),
+        ],
+        ..Default::default() }
+}
+
+fn burst_lightning(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {R}. Kicker {4}. 2 damage (4 if kicked).
+    CardData { id, owner, name: "Burst Lightning".into(), mana_cost: ManaCost::parse("{R}"),
+        card_types: vec![CardType::Instant],        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::deal_damage(2)],
+                TargetSpec::CreatureOrPlayer),
+        ],
+        ..Default::default() }
+}
+
+fn divine_resilience(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {W}. Kicker {2}{W}. Indestructible until EOT (all creatures if kicked).
+    CardData { id, owner, name: "Divine Resilience".into(), mana_cost: ManaCost::parse("{W}"),
+        card_types: vec![CardType::Instant],        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::gain_keyword_eot("indestructible")],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn electroduplicate(id: ObjectId, owner: PlayerId) -> CardData {
+    // Sorcery {2}{R}. Copy creature with haste + end-step sacrifice. Flashback {2}{R}{R}.
+    CardData { id, owner, name: "Electroduplicate".into(), mana_cost: ManaCost::parse("{2}{R}"),
+        card_types: vec![CardType::Sorcery], rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::Custom("Create a token that's a copy of target creature you control, except it has haste. Sacrifice it at the beginning of the next end step.".into())],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn grow_from_the_ashes(id: ObjectId, owner: PlayerId) -> CardData {
+    // Sorcery {2}{G}. Kicker {2}. Search for basic land (two if kicked).
+    CardData { id, owner, name: "Grow from the Ashes".into(), mana_cost: ManaCost::parse("{2}{G}"),
+        card_types: vec![CardType::Sorcery],        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::search_library("basic land")],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn into_the_roil(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {1}{U}. Kicker {1}{U}. Bounce nonland permanent (draw if kicked).
+    CardData { id, owner, name: "Into the Roil".into(), mana_cost: ManaCost::parse("{1}{U}"),
+        card_types: vec![CardType::Instant],        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::bounce()],
+                TargetSpec::PermanentFiltered("nonland permanent".into())),
+        ],
+        ..Default::default() }
+}
+
+fn rite_of_replication(id: ObjectId, owner: PlayerId) -> CardData {
+    // Sorcery {2}{U}{U}. Kicker {5}. Copy creature (five copies if kicked).
+    CardData { id, owner, name: "Rite of Replication".into(), mana_cost: ManaCost::parse("{2}{U}{U}"),
+        card_types: vec![CardType::Sorcery], rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::Custom("Create a token that's a copy of target creature. If this spell was kicked, create five of those tokens instead.".into())],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn rite_of_the_dragoncaller(id: ObjectId, owner: PlayerId) -> CardData {
+    // Enchantment {4}{R}{R}. (Cast instant/sorcery: create 5/5 Dragon token with flying)
+    CardData { id, owner, name: "Rite of the Dragoncaller".into(), mana_cost: ManaCost::parse("{4}{R}{R}"),
+        card_types: vec![CardType::Enchantment], rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::spell_cast_triggered(id,
+                "Whenever you cast an instant or sorcery spell, create a 5/5 red Dragon creature token with flying.",
+                vec![Effect::create_token("5/5 Dragon with flying", 1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn self_reflection(id: ObjectId, owner: PlayerId) -> CardData {
+    // Sorcery {4}{U}{U}. Copy creature you control. Flashback {3}{U}.
+    CardData { id, owner, name: "Self-Reflection".into(), mana_cost: ManaCost::parse("{4}{U}{U}"),
+        card_types: vec![CardType::Sorcery], rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::Custom("Create a token that's a copy of target creature you control.".into())],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn think_twice(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {1}{U}. Draw a card. Flashback {2}{U}.
+    CardData { id, owner, name: "Think Twice".into(), mana_cost: ManaCost::parse("{1}{U}"),
+        card_types: vec![CardType::Instant],        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::draw_cards(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+// ── Remaining Tier 1 artifacts and enchantments ──────────────────────────────
+
+fn basilisk_collar(id: ObjectId, owner: PlayerId) -> CardData {
+    // Artifact — Equipment {1}. Equip {2}. Deathtouch + Lifelink.
+    CardData { id, owner, name: "Basilisk Collar".into(), mana_cost: ManaCost::parse("{1}"),
+        card_types: vec![CardType::Artifact], subtypes: vec![SubType::Equipment],
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Equipped creature has deathtouch and lifelink.",
+                vec![StaticEffect::GrantKeyword { filter: "equipped creature".into(), keyword: "deathtouch, lifelink".into() }]),
+            Ability::activated(id,
+                "Equip {2}",
+                vec![Cost::pay_mana("{2}")],
+                vec![Effect::Custom("Attach to target creature you control.".into())],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn feldons_cane(id: ObjectId, owner: PlayerId) -> CardData {
+    // Artifact {1}. T, exile: shuffle graveyard into library.
+    CardData { id, owner, name: "Feldon's Cane".into(), mana_cost: ManaCost::parse("{1}"),
+        card_types: vec![CardType::Artifact], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::activated(id,
+                "{T}, Exile Feldon's Cane: Shuffle your graveyard into your library.",
+                vec![Cost::tap_self(), Cost::Custom("Exile Feldon's Cane".into())],
+                vec![Effect::Custom("Shuffle your graveyard into your library.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn gilded_lotus(id: ObjectId, owner: PlayerId) -> CardData {
+    // Artifact {5}. T: add 3 mana of any one color.
+    CardData { id, owner, name: "Gilded Lotus".into(), mana_cost: ManaCost::parse("{5}"),
+        card_types: vec![CardType::Artifact], rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::mana_ability(id, "{T}: Add three mana of any one color.", Mana::colorless(3)),
+        ],
+        ..Default::default() }
+}
+
+fn impact_tremors(id: ObjectId, owner: PlayerId) -> CardData {
+    // Enchantment {1}{R}. (Creature ETB: 1 damage to each opponent)
+    CardData { id, owner, name: "Impact Tremors".into(), mana_cost: ManaCost::parse("{1}{R}"),
+        card_types: vec![CardType::Enchantment], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::triggered(id,
+                "Whenever a creature you control enters, Impact Tremors deals 1 damage to each opponent.",
+                vec![EventType::EnteredTheBattlefield],
+                vec![Effect::damage_opponents(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn omniscience(id: ObjectId, owner: PlayerId) -> CardData {
+    // Enchantment {7}{U}{U}{U}. Cast nonland cards without paying mana costs.
+    CardData { id, owner, name: "Omniscience".into(), mana_cost: ManaCost::parse("{7}{U}{U}{U}"),
+        card_types: vec![CardType::Enchantment], rarity: Rarity::Mythic,
+        abilities: vec![
+            Ability::static_ability(id,
+                "You may cast spells from your hand without paying their mana costs.",
+                vec![StaticEffect::CostReduction { filter: "spells you cast from hand".into(), amount: 99 }]),
+        ],
+        ..Default::default() }
+}
+
+fn phyrexian_arena(id: ObjectId, owner: PlayerId) -> CardData {
+    // Enchantment {1}{B}{B}. (Upkeep: draw a card, lose 1 life)
+    CardData { id, owner, name: "Phyrexian Arena".into(), mana_cost: ManaCost::parse("{1}{B}{B}"),
+        card_types: vec![CardType::Enchantment], rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::triggered(id,
+                "At the beginning of your upkeep, you draw a card and you lose 1 life.",
+                vec![EventType::UpkeepStepPre],
+                vec![Effect::draw_cards(1), Effect::Custom("You lose 1 life.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn swiftfoot_boots(id: ObjectId, owner: PlayerId) -> CardData {
+    // Artifact — Equipment {2}. Equip {1}. Hexproof + Haste.
+    CardData { id, owner, name: "Swiftfoot Boots".into(), mana_cost: ManaCost::parse("{2}"),
+        card_types: vec![CardType::Artifact], subtypes: vec![SubType::Equipment],
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Equipped creature has hexproof and haste.",
+                vec![StaticEffect::GrantKeyword { filter: "equipped creature".into(), keyword: "hexproof, haste".into() }]),
+            Ability::activated(id,
+                "Equip {1}",
+                vec![Cost::pay_mana("{1}")],
+                vec![Effect::Custom("Attach to target creature you control.".into())],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+// ── Tier 2 vanilla/keyword creatures ─────────────────────────────────────────
+
+fn savannah_lions(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/1 Cat for {W}.
+    CardData { id, owner, name: "Savannah Lions".into(), mana_cost: ManaCost::parse("{W}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Cat],
+        power: Some(2), toughness: Some(1), rarity: Rarity::Uncommon, ..Default::default() }
+}
+
+fn fire_elemental(id: ObjectId, owner: PlayerId) -> CardData {
+    // 5/4 Elemental for {3}{R}{R}.
+    CardData { id, owner, name: "Fire Elemental".into(), mana_cost: ManaCost::parse("{3}{R}{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Elemental],
+        power: Some(5), toughness: Some(4), rarity: Rarity::Common, ..Default::default() }
+}
+
+fn gigantosaurus(id: ObjectId, owner: PlayerId) -> CardData {
+    // 10/10 Dinosaur for {G}{G}{G}{G}{G}.
+    CardData { id, owner, name: "Gigantosaurus".into(), mana_cost: ManaCost::parse("{G}{G}{G}{G}{G}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Dinosaur],
+        power: Some(10), toughness: Some(10), rarity: Rarity::Rare, ..Default::default() }
+}
+
+fn highborn_vampire(id: ObjectId, owner: PlayerId) -> CardData {
+    // 4/3 Vampire Warrior for {3}{B}.
+    CardData { id, owner, name: "Highborn Vampire".into(), mana_cost: ManaCost::parse("{3}{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Vampire, SubType::Warrior],
+        power: Some(4), toughness: Some(3), rarity: Rarity::Common, ..Default::default() }
+}
+
+fn swab_goblin(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/2 Goblin Pirate for {1}{R}.
+    CardData { id, owner, name: "Swab Goblin".into(), mana_cost: ManaCost::parse("{1}{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Goblin, SubType::Pirate],
+        power: Some(2), toughness: Some(2), rarity: Rarity::Common, ..Default::default() }
+}
+
+fn vampire_interloper(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/1 Vampire Scout for {1}{B}. Flying. Can't block.
+    CardData { id, owner, name: "Vampire Interloper".into(), mana_cost: ManaCost::parse("{1}{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Vampire, SubType::Scout],
+        power: Some(2), toughness: Some(1), keywords: KeywordAbilities::FLYING,
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Vampire Interloper can't block.",
+                vec![StaticEffect::CantBlock { filter: "self".into() }]),
+        ],
+        ..Default::default() }
+}
+
+fn juggernaut(id: ObjectId, owner: PlayerId) -> CardData {
+    // 5/3 Artifact Creature — Juggernaut for {4}. Attacks each turn if able.
+    CardData { id, owner, name: "Juggernaut".into(), mana_cost: ManaCost::parse("{4}"),
+        card_types: vec![CardType::Artifact, CardType::Creature],
+        subtypes: vec![SubType::Custom("Juggernaut".into())],
+        power: Some(5), toughness: Some(3), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Juggernaut attacks each combat if able.",
+                vec![StaticEffect::Custom("Attacks each combat if able.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn shivan_dragon(id: ObjectId, owner: PlayerId) -> CardData {
+    // 5/5 Dragon for {4}{R}{R}. Flying. {R}: +1/+0.
+    CardData { id, owner, name: "Shivan Dragon".into(), mana_cost: ManaCost::parse("{4}{R}{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Dragon],
+        power: Some(5), toughness: Some(5), keywords: KeywordAbilities::FLYING,
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::activated(id,
+                "{R}: Shivan Dragon gets +1/+0 until end of turn.",
+                vec![Cost::pay_mana("{R}")],
+                vec![Effect::boost_until_eot(1, 0)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn thrashing_brontodon(id: ObjectId, owner: PlayerId) -> CardData {
+    // 3/4 Dinosaur for {1}{G}{G}. {1}, Sacrifice: destroy artifact or enchantment.
+    CardData { id, owner, name: "Thrashing Brontodon".into(), mana_cost: ManaCost::parse("{1}{G}{G}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Dinosaur],
+        power: Some(3), toughness: Some(4), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::activated(id,
+                "{1}, Sacrifice Thrashing Brontodon: Destroy target artifact or enchantment.",
+                vec![Cost::pay_mana("{1}"), Cost::sacrifice_self()],
+                vec![Effect::destroy()],
+                TargetSpec::PermanentFiltered("artifact or enchantment".into())),
+        ],
+        ..Default::default() }
+}
+
+fn gnarlback_rhino(id: ObjectId, owner: PlayerId) -> CardData {
+    // 4/4 Rhino for {2}{G}{G}. Trample. Heroic: draw a card.
+    CardData { id, owner, name: "Gnarlback Rhino".into(), mana_cost: ManaCost::parse("{2}{G}{G}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Rhino],
+        power: Some(4), toughness: Some(4), keywords: KeywordAbilities::TRAMPLE,
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::triggered(id,
+                "Whenever you cast a spell that targets Gnarlback Rhino, draw a card.",
+                vec![EventType::SpellCast],
+                vec![Effect::draw_cards(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn eager_trufflesnout(id: ObjectId, owner: PlayerId) -> CardData {
+    // 4/2 Boar for {2}{G}. Trample. Combat damage to player: create Food.
+    CardData { id, owner, name: "Eager Trufflesnout".into(), mana_cost: ManaCost::parse("{2}{G}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Custom("Boar".into())],
+        power: Some(4), toughness: Some(2), keywords: KeywordAbilities::TRAMPLE,
+        rarity: Rarity::Uncommon, ..Default::default() }
+}
+
+fn tempest_djinn(id: ObjectId, owner: PlayerId) -> CardData {
+    // 0/4 Djinn for {U}{U}{U}. Flying. Gets +1/+0 for each basic Island you control.
+    CardData { id, owner, name: "Tempest Djinn".into(), mana_cost: ManaCost::parse("{U}{U}{U}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Djinn],
+        power: Some(0), toughness: Some(4), keywords: KeywordAbilities::FLYING,
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Tempest Djinn gets +1/+0 for each basic Island you control.",
+                vec![StaticEffect::Custom("+1/+0 for each basic Island you control.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn tolarian_terror(id: ObjectId, owner: PlayerId) -> CardData {
+    // 5/5 Serpent for {6}{U}. Costs {1} less per instant/sorcery in graveyard. Ward {2}.
+    CardData { id, owner, name: "Tolarian Terror".into(), mana_cost: ManaCost::parse("{6}{U}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Serpent],
+        power: Some(5), toughness: Some(5), keywords: KeywordAbilities::WARD,
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::static_ability(id,
+                "This spell costs {1} less to cast for each instant and sorcery card in your graveyard.",
+                vec![StaticEffect::CostReduction { filter: "instants/sorceries in graveyard".into(), amount: 1 }]),
+        ],
+        ..Default::default() }
+}
+
+fn solemn_simulacrum(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/2 Artifact Creature — Golem for {4}. ETB: search for basic land. Dies: draw.
+    CardData { id, owner, name: "Solemn Simulacrum".into(), mana_cost: ManaCost::parse("{4}"),
+        card_types: vec![CardType::Artifact, CardType::Creature], subtypes: vec![SubType::Golem],
+        power: Some(2), toughness: Some(2), rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Solemn Simulacrum enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+                vec![Effect::search_library("basic land")],
+                TargetSpec::None),
+            Ability::dies_triggered(id,
+                "When Solemn Simulacrum dies, you may draw a card.",
+                vec![Effect::draw_cards(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+// ── Tier 2 creatures with abilities ──────────────────────────────────────────
+
+fn dazzling_angel(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/3 Angel for {2}{W}. Flying. Other creature ETB: gain 1 life.
+    CardData { id, owner, name: "Dazzling Angel".into(), mana_cost: ManaCost::parse("{2}{W}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Angel],
+        power: Some(2), toughness: Some(3), keywords: KeywordAbilities::FLYING,
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::other_creature_etb_triggered(id,
+                "Whenever another creature you control enters, you gain 1 life.",
+                vec![Effect::gain_life(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn inspiring_overseer(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/1 Angel Cleric for {2}{W}. Flying. ETB: gain 1 life, draw a card.
+    CardData { id, owner, name: "Inspiring Overseer".into(), mana_cost: ManaCost::parse("{2}{W}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Angel, SubType::Cleric],
+        power: Some(2), toughness: Some(1), keywords: KeywordAbilities::FLYING,
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Inspiring Overseer enters, you gain 1 life and draw a card.",
+                vec![Effect::gain_life(1), Effect::draw_cards(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn empyrean_eagle(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/3 Bird Spirit for {1}{W}{U}. Flying. Creatures you control with flying get +1/+1.
+    CardData { id, owner, name: "Empyrean Eagle".into(), mana_cost: ManaCost::parse("{1}{W}{U}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Bird, SubType::Spirit],
+        power: Some(2), toughness: Some(3), keywords: KeywordAbilities::FLYING,
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Other creatures you control with flying get +1/+1.",
+                vec![StaticEffect::boost_controlled("creatures with flying".into(), 1, 1)]),
+        ],
+        ..Default::default() }
+}
+
+fn brineborn_cutthroat(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/1 Merfolk Pirate for {1}{U}. Flash. Spell on opponent's turn: +1/+1 counter.
+    CardData { id, owner, name: "Brineborn Cutthroat".into(), mana_cost: ManaCost::parse("{1}{U}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Merfolk, SubType::Pirate],
+        power: Some(2), toughness: Some(1), keywords: KeywordAbilities::FLASH,
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::spell_cast_triggered(id,
+                "Whenever you cast a spell during an opponent's turn, put a +1/+1 counter on Brineborn Cutthroat.",
+                vec![Effect::add_p1p1_counters(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn exclusion_mage(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/2 Human Wizard for {2}{U}. ETB: bounce opponent's creature.
+    CardData { id, owner, name: "Exclusion Mage".into(), mana_cost: ManaCost::parse("{2}{U}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Human, SubType::Wizard],
+        power: Some(2), toughness: Some(2), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Exclusion Mage enters, return target creature an opponent controls to its owner's hand.",
+                vec![Effect::bounce()],
+                TargetSpec::PermanentFiltered("creature an opponent controls".into())),
+        ],
+        ..Default::default() }
+}
+
+fn crow_of_dark_tidings(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/1 Zombie Bird for {2}{B}. Flying. ETB or dies: mill 2.
+    CardData { id, owner, name: "Crow of Dark Tidings".into(), mana_cost: ManaCost::parse("{2}{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Zombie, SubType::Bird],
+        power: Some(2), toughness: Some(1), keywords: KeywordAbilities::FLYING,
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Crow of Dark Tidings enters or dies, mill two cards.",
+                vec![Effect::mill(2)],
+                TargetSpec::None),
+            Ability::dies_triggered(id,
+                "When Crow of Dark Tidings dies, mill two cards.",
+                vec![Effect::mill(2)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn vampire_neonate(id: ObjectId, owner: PlayerId) -> CardData {
+    // 0/3 Vampire for {B}. {2}, T: opponents lose 1 life, you gain 1 life.
+    CardData { id, owner, name: "Vampire Neonate".into(), mana_cost: ManaCost::parse("{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Vampire],
+        power: Some(0), toughness: Some(3), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::activated(id,
+                "{2}, {T}: Each opponent loses 1 life and you gain 1 life.",
+                vec![Cost::pay_mana("{2}"), Cost::tap_self()],
+                vec![Effect::Custom("Each opponent loses 1 life, you gain 1 life.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn hungry_ghoul(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/2 Zombie for {1}{B}. {1}, sacrifice creature: +1/+1 counter.
+    CardData { id, owner, name: "Hungry Ghoul".into(), mana_cost: ManaCost::parse("{1}{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Zombie],
+        power: Some(2), toughness: Some(2), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::activated(id,
+                "{1}, Sacrifice another creature: Put a +1/+1 counter on Hungry Ghoul.",
+                vec![Cost::pay_mana("{1}"), Cost::SacrificeOther("another creature".into())],
+                vec![Effect::add_p1p1_counters(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn driver_of_the_dead(id: ObjectId, owner: PlayerId) -> CardData {
+    // 3/2 Vampire for {3}{B}. Dies: return creature with MV 2 or less from graveyard.
+    CardData { id, owner, name: "Driver of the Dead".into(), mana_cost: ManaCost::parse("{3}{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Vampire],
+        power: Some(3), toughness: Some(2), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::dies_triggered(id,
+                "When Driver of the Dead dies, return target creature card with mana value 2 or less from your graveyard to the battlefield.",
+                vec![Effect::reanimate()],
+                TargetSpec::CardInYourGraveyard),
+        ],
+        ..Default::default() }
+}
+
+fn fanatical_firebrand(id: ObjectId, owner: PlayerId) -> CardData {
+    // 1/1 Goblin Pirate for {R}. Haste. T, Sac: 1 damage to any target.
+    CardData { id, owner, name: "Fanatical Firebrand".into(), mana_cost: ManaCost::parse("{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Goblin, SubType::Pirate],
+        power: Some(1), toughness: Some(1), keywords: KeywordAbilities::HASTE,
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::activated(id,
+                "{T}, Sacrifice Fanatical Firebrand: It deals 1 damage to any target.",
+                vec![Cost::tap_self(), Cost::sacrifice_self()],
+                vec![Effect::deal_damage(1)],
+                TargetSpec::CreatureOrPlayer),
+        ],
+        ..Default::default() }
+}
+
+fn goblin_smuggler(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/2 Goblin Rogue for {2}{R}. Haste. T: creature with power <=2 can't be blocked.
+    CardData { id, owner, name: "Goblin Smuggler".into(), mana_cost: ManaCost::parse("{2}{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Goblin, SubType::Rogue],
+        power: Some(2), toughness: Some(2), keywords: KeywordAbilities::HASTE,
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::activated(id,
+                "{T}: Another target creature you control with power 2 or less can't be blocked this turn.",
+                vec![Cost::tap_self()],
+                vec![Effect::Custom("Target creature with power 2 or less can't be blocked this turn.".into())],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn frenzied_goblin(id: ObjectId, owner: PlayerId) -> CardData {
+    // 1/1 Goblin Berserker for {R}. Attacks: pay {R}, creature can't block.
+    CardData { id, owner, name: "Frenzied Goblin".into(), mana_cost: ManaCost::parse("{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Goblin, SubType::Berserker],
+        power: Some(1), toughness: Some(1), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::attacks_triggered(id,
+                "Whenever Frenzied Goblin attacks, you may pay {R}. If you do, target creature can't block this turn.",
+                vec![Effect::Custom("Target creature can't block this turn.".into())],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn ghitu_lavarunner(id: ObjectId, owner: PlayerId) -> CardData {
+    // 1/2 Human Wizard for {R}. +1/+0 and haste if 2+ instants/sorceries in graveyard.
+    CardData { id, owner, name: "Ghitu Lavarunner".into(), mana_cost: ManaCost::parse("{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Human, SubType::Wizard],
+        power: Some(1), toughness: Some(2), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::static_ability(id,
+                "As long as there are two or more instant and/or sorcery cards in your graveyard, Ghitu Lavarunner gets +1/+0 and has haste.",
+                vec![StaticEffect::Custom("+1/+0 and haste if 2+ instants/sorceries in graveyard.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn courageous_goblin(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/2 Goblin for {1}{R}. Attacks with ferocious: +1/+0, menace until EOT.
+    CardData { id, owner, name: "Courageous Goblin".into(), mana_cost: ManaCost::parse("{1}{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Goblin],
+        power: Some(2), toughness: Some(2), rarity: Rarity::Common, ..Default::default() }
+}
+
+fn heartfire_immolator(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/2 Human Wizard for {1}{R}. Prowess. {R}, Sac: damage equal to power.
+    CardData { id, owner, name: "Heartfire Immolator".into(), mana_cost: ManaCost::parse("{1}{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Human, SubType::Wizard],
+        power: Some(2), toughness: Some(2), keywords: KeywordAbilities::PROWESS,
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::activated(id,
+                "{R}, Sacrifice Heartfire Immolator: It deals damage equal to its power to target creature or planeswalker.",
+                vec![Cost::pay_mana("{R}"), Cost::sacrifice_self()],
+                vec![Effect::Custom("Deal damage equal to this creature's power.".into())],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn dragonlords_servant(id: ObjectId, owner: PlayerId) -> CardData {
+    // 1/3 Goblin Shaman for {1}{R}. Dragon spells cost {1} less.
+    CardData { id, owner, name: "Dragonlord's Servant".into(), mana_cost: ManaCost::parse("{1}{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Goblin, SubType::Shaman],
+        power: Some(1), toughness: Some(3), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Dragon spells you cast cost {1} less to cast.",
+                vec![StaticEffect::CostReduction { filter: "Dragon spells".into(), amount: 1 }]),
+        ],
+        ..Default::default() }
+}
+
+fn rapacious_dragon(id: ObjectId, owner: PlayerId) -> CardData {
+    // 3/3 Dragon for {4}{R}. Flying. ETB: create two Treasure tokens.
+    CardData { id, owner, name: "Rapacious Dragon".into(), mana_cost: ManaCost::parse("{4}{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Dragon],
+        power: Some(3), toughness: Some(3), keywords: KeywordAbilities::FLYING,
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Rapacious Dragon enters, create two Treasure tokens.",
+                vec![Effect::create_token("Treasure", 2)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn dragon_mage(id: ObjectId, owner: PlayerId) -> CardData {
+    // 5/5 Dragon Wizard for {5}{R}{R}. Flying. Combat damage: all discard + draw 7.
+    CardData { id, owner, name: "Dragon Mage".into(), mana_cost: ManaCost::parse("{5}{R}{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Dragon, SubType::Wizard],
+        power: Some(5), toughness: Some(5), keywords: KeywordAbilities::FLYING,
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::triggered(id,
+                "Whenever Dragon Mage deals combat damage to a player, each player discards their hand, then draws seven cards.",
+                vec![EventType::AttackerDeclared],
+                vec![Effect::Custom("Each player discards their hand, then draws seven cards.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn reclamation_sage(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/1 Elf Shaman for {2}{G}. ETB: may destroy artifact or enchantment.
+    CardData { id, owner, name: "Reclamation Sage".into(), mana_cost: ManaCost::parse("{2}{G}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Elf, SubType::Shaman],
+        power: Some(2), toughness: Some(1), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Reclamation Sage enters, you may destroy target artifact or enchantment.",
+                vec![Effect::destroy()],
+                TargetSpec::PermanentFiltered("artifact or enchantment".into())),
+        ],
+        ..Default::default() }
+}
+
+fn fierce_empath(id: ObjectId, owner: PlayerId) -> CardData {
+    // 1/1 Elf for {2}{G}. ETB: search library for creature with MV 6+.
+    CardData { id, owner, name: "Fierce Empath".into(), mana_cost: ManaCost::parse("{2}{G}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Elf],
+        power: Some(1), toughness: Some(1), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Fierce Empath enters, you may search your library for a creature card with mana value 6 or greater, reveal it, put it into your hand, then shuffle.",
+                vec![Effect::search_library("creature with mana value 6 or greater")],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn beast_kin_ranger(id: ObjectId, owner: PlayerId) -> CardData {
+    // 3/3 Elf Ranger for {2}{G}. Trample. Other creature ETB: +1/+0 until EOT.
+    CardData { id, owner, name: "Beast-Kin Ranger".into(), mana_cost: ManaCost::parse("{2}{G}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Elf, SubType::Custom("Ranger".into())],
+        power: Some(3), toughness: Some(3), keywords: KeywordAbilities::TRAMPLE,
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::other_creature_etb_triggered(id,
+                "Whenever another creature you control enters, Beast-Kin Ranger gets +1/+0 until end of turn.",
+                vec![Effect::boost_until_eot(1, 0)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn elvish_regrower(id: ObjectId, owner: PlayerId) -> CardData {
+    // 4/3 Elf Druid for {2}{G}{G}. ETB: return permanent card from graveyard to hand.
+    CardData { id, owner, name: "Elvish Regrower".into(), mana_cost: ManaCost::parse("{2}{G}{G}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Elf, SubType::Druid],
+        power: Some(4), toughness: Some(3), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Elvish Regrower enters, return target permanent card from your graveyard to your hand.",
+                vec![Effect::return_from_graveyard()],
+                TargetSpec::CardInYourGraveyard),
+        ],
+        ..Default::default() }
+}
+
+fn springbloom_druid(id: ObjectId, owner: PlayerId) -> CardData {
+    // 1/1 Elf Druid for {2}{G}. ETB: sacrifice land, search for 2 basic lands tapped.
+    CardData { id, owner, name: "Springbloom Druid".into(), mana_cost: ManaCost::parse("{2}{G}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Elf, SubType::Druid],
+        power: Some(1), toughness: Some(1), rarity: Rarity::Common,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Springbloom Druid enters, you may sacrifice a land. If you do, search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.",
+                vec![Effect::Custom("Sacrifice a land, search for 2 basic lands tapped.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn mold_adder(id: ObjectId, owner: PlayerId) -> CardData {
+    // 1/1 Fungus Snake for {G}. Opponent casts blue/black spell: +1/+1 counter.
+    CardData { id, owner, name: "Mold Adder".into(), mana_cost: ManaCost::parse("{G}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Fungus, SubType::Snake],
+        power: Some(1), toughness: Some(1), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::triggered(id,
+                "Whenever an opponent casts a blue or black spell, put a +1/+1 counter on Mold Adder.",
+                vec![EventType::SpellCast],
+                vec![Effect::add_p1p1_counters(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn leonin_vanguard(id: ObjectId, owner: PlayerId) -> CardData {
+    // 1/1 Cat Soldier for {W}. Begin combat, 3+ creatures: +1/+1 and gain 1 life.
+    CardData { id, owner, name: "Leonin Vanguard".into(), mana_cost: ManaCost::parse("{W}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Cat, SubType::Soldier],
+        power: Some(1), toughness: Some(1), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::triggered(id,
+                "At the beginning of combat on your turn, if you control three or more creatures, Leonin Vanguard gets +1/+1 until end of turn and you gain 1 life.",
+                vec![EventType::BeginCombat],
+                vec![Effect::boost_until_eot(1, 1), Effect::gain_life(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn skyship_buccaneer(id: ObjectId, owner: PlayerId) -> CardData {
+    // 4/3 Human Pirate for {3}{U}{U}. Flying. Raid: ETB draw a card.
+    CardData { id, owner, name: "Skyship Buccaneer".into(), mana_cost: ManaCost::parse("{3}{U}{U}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Human, SubType::Pirate],
+        power: Some(4), toughness: Some(3), keywords: KeywordAbilities::FLYING,
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Skyship Buccaneer enters, if you attacked this turn, draw a card.",
+                vec![Effect::draw_cards(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn felidar_savior(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/3 Cat Beast for {3}{W}. Lifelink. ETB: +1/+1 counter on up to 2 other creatures.
+    CardData { id, owner, name: "Felidar Savior".into(), mana_cost: ManaCost::parse("{3}{W}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Cat, SubType::Beast],
+        power: Some(2), toughness: Some(3), keywords: KeywordAbilities::LIFELINK,
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Felidar Savior enters, put a +1/+1 counter on each of up to two other target creatures you control.",
+                vec![Effect::add_p1p1_counters(1)],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn guttersnipe(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/2 Goblin Shaman for {2}{R}. Cast instant/sorcery: 2 damage to each opponent.
+    CardData { id, owner, name: "Guttersnipe".into(), mana_cost: ManaCost::parse("{2}{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Goblin, SubType::Shaman],
+        power: Some(2), toughness: Some(2), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::spell_cast_triggered(id,
+                "Whenever you cast an instant or sorcery spell, Guttersnipe deals 2 damage to each opponent.",
+                vec![Effect::damage_opponents(2)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn stromkirk_noble(id: ObjectId, owner: PlayerId) -> CardData {
+    // 1/1 Vampire Noble for {R}. Can't be blocked by Humans. Combat damage: +1/+1 counter.
+    CardData { id, owner, name: "Stromkirk Noble".into(), mana_cost: ManaCost::parse("{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Vampire, SubType::Noble],
+        power: Some(1), toughness: Some(1), rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Stromkirk Noble can't be blocked by Humans.",
+                vec![StaticEffect::Custom("Can't be blocked by Humans.".into())]),
+            Ability::triggered(id,
+                "Whenever Stromkirk Noble deals combat damage to a player, put a +1/+1 counter on it.",
+                vec![EventType::DamagedPlayer],
+                vec![Effect::add_p1p1_counters(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn gleaming_barrier(id: ObjectId, owner: PlayerId) -> CardData {
+    // 0/4 Artifact Creature — Wall for {2}. Defender. Dies: create Treasure token.
+    CardData { id, owner, name: "Gleaming Barrier".into(), mana_cost: ManaCost::parse("{2}"),
+        card_types: vec![CardType::Artifact, CardType::Creature], subtypes: vec![SubType::Wall],
+        power: Some(0), toughness: Some(4), keywords: KeywordAbilities::DEFENDER,
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::dies_triggered(id,
+                "When Gleaming Barrier dies, create a Treasure token.",
+                vec![Effect::create_token("Treasure", 1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn rune_sealed_wall(id: ObjectId, owner: PlayerId) -> CardData {
+    // 0/6 Artifact Creature — Wall for {2}{U}. Defender. T: Surveil 1.
+    CardData { id, owner, name: "Rune-Sealed Wall".into(), mana_cost: ManaCost::parse("{2}{U}"),
+        card_types: vec![CardType::Artifact, CardType::Creature], subtypes: vec![SubType::Wall],
+        power: Some(0), toughness: Some(6), keywords: KeywordAbilities::DEFENDER,
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::activated(id,
+                "{T}: Surveil 1.",
+                vec![Cost::TapSelf],
+                vec![Effect::scry(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn gateway_sneak(id: ObjectId, owner: PlayerId) -> CardData {
+    // 1/3 Vedalken Rogue for {2}{U}. Gate ETB: can't be blocked. Combat damage: draw.
+    CardData { id, owner, name: "Gateway Sneak".into(), mana_cost: ManaCost::parse("{2}{U}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Custom("Vedalken".into()), SubType::Rogue],
+        power: Some(1), toughness: Some(3), rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::triggered(id,
+                "Whenever a Gate enters under your control, Gateway Sneak can't be blocked this turn.",
+                vec![EventType::EnteredTheBattlefield],
+                vec![Effect::Custom("Gateway Sneak can't be blocked this turn.".into())],
+                TargetSpec::None),
+            Ability::triggered(id,
+                "Whenever Gateway Sneak deals combat damage to a player, draw a card.",
+                vec![EventType::DamagedPlayer],
+                vec![Effect::draw_cards(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+// ── Tier 2 instants ──────────────────────────────────────────────────────────
+
+fn giant_growth(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {G}. Target creature gets +3/+3 until end of turn.
+    CardData { id, owner, name: "Giant Growth".into(), mana_cost: ManaCost::parse("{G}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::boost_until_eot(3, 3)],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn unsummon(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {U}. Return target creature to its owner's hand.
+    CardData { id, owner, name: "Unsummon".into(), mana_cost: ManaCost::parse("{U}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::bounce()],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn cancel(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {1}{U}{U}. Counter target spell.
+    CardData { id, owner, name: "Cancel".into(), mana_cost: ManaCost::parse("{1}{U}{U}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::counter_spell()],
+                TargetSpec::Spell),
+        ],
+        ..Default::default() }
+}
+
+fn negate(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {1}{U}. Counter target noncreature spell.
+    CardData { id, owner, name: "Negate".into(), mana_cost: ManaCost::parse("{1}{U}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::counter_spell()],
+                TargetSpec::Spell),
+        ],
+        ..Default::default() }
+}
+
+fn essence_scatter(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {1}{U}. Counter target creature spell.
+    CardData { id, owner, name: "Essence Scatter".into(), mana_cost: ManaCost::parse("{1}{U}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::counter_spell()],
+                TargetSpec::Spell),
+        ],
+        ..Default::default() }
+}
+
+fn opt(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {U}. Scry 1. Draw a card.
+    CardData { id, owner, name: "Opt".into(), mana_cost: ManaCost::parse("{U}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::scry(1), Effect::draw_cards(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn sure_strike(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {1}{R}. Target creature gets +3/+0 and first strike until EOT.
+    CardData { id, owner, name: "Sure Strike".into(), mana_cost: ManaCost::parse("{1}{R}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::boost_until_eot(3, 0), Effect::gain_keyword_eot("first strike")],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn dive_down(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {U}. Target creature you control gets +0/+3 and hexproof until EOT.
+    CardData { id, owner, name: "Dive Down".into(), mana_cost: ManaCost::parse("{U}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::boost_until_eot(0, 3), Effect::gain_keyword_eot("hexproof")],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn disenchant(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {1}{W}. Destroy target artifact or enchantment.
+    CardData { id, owner, name: "Disenchant".into(), mana_cost: ManaCost::parse("{1}{W}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::destroy()],
+                TargetSpec::PermanentFiltered("artifact or enchantment".into())),
+        ],
+        ..Default::default() }
+}
+
+fn kindled_fury(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {R}. Target creature gets +1/+0 and first strike until EOT.
+    CardData { id, owner, name: "Kindled Fury".into(), mana_cost: ManaCost::parse("{R}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::boost_until_eot(1, 0), Effect::gain_keyword_eot("first strike")],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn stab(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {B}. Target creature gets -2/-2 until end of turn.
+    CardData { id, owner, name: "Stab".into(), mana_cost: ManaCost::parse("{B}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::boost_until_eot(-2, -2)],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn adamant_will(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {1}{W}. Target creature gets +2/+2 and indestructible until EOT.
+    CardData { id, owner, name: "Adamant Will".into(), mana_cost: ManaCost::parse("{1}{W}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::boost_until_eot(2, 2), Effect::gain_keyword_eot("indestructible")],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn broken_wings(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {2}{G}. Destroy target artifact, enchantment, or creature with flying.
+    CardData { id, owner, name: "Broken Wings".into(), mana_cost: ManaCost::parse("{2}{G}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::destroy()],
+                TargetSpec::PermanentFiltered("artifact, enchantment, or creature with flying".into())),
+        ],
+        ..Default::default() }
+}
+
+fn moment_of_triumph(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {W}. Target creature gets +2/+2 until EOT. You gain 2 life.
+    CardData { id, owner, name: "Moment of Triumph".into(), mana_cost: ManaCost::parse("{W}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::boost_until_eot(2, 2), Effect::gain_life(2)],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn moment_of_craving(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {1}{B}. Target creature gets -2/-2 until EOT. You gain 2 life.
+    CardData { id, owner, name: "Moment of Craving".into(), mana_cost: ManaCost::parse("{1}{B}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::boost_until_eot(-2, -2), Effect::gain_life(2)],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn quick_study(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {2}{U}. Draw two cards.
+    CardData { id, owner, name: "Quick Study".into(), mana_cost: ManaCost::parse("{2}{U}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::draw_cards(2)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn aetherize(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {3}{U}. Return all attacking creatures to their owners' hands.
+    CardData { id, owner, name: "Aetherize".into(), mana_cost: ManaCost::parse("{3}{U}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::Custom("Return all attacking creatures to their owners' hands.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn scorching_dragonfire(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {1}{R}. 3 damage to creature/planeswalker. If it would die, exile instead.
+    CardData { id, owner, name: "Scorching Dragonfire".into(), mana_cost: ManaCost::parse("{1}{R}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::deal_damage(3)],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn bite_down(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {1}{G}. Your creature deals damage equal to its power to creature/planeswalker.
+    CardData { id, owner, name: "Bite Down".into(), mana_cost: ManaCost::parse("{1}{G}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::Custom("Target creature you control deals damage equal to its power to target creature or planeswalker you don't control.".into())],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn snakeskin_veil(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {G}. +1/+1 counter on creature you control. It gains hexproof until EOT.
+    CardData { id, owner, name: "Snakeskin Veil".into(), mana_cost: ManaCost::parse("{G}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::add_p1p1_counters(1), Effect::gain_keyword_eot("hexproof")],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn fleeting_flight(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {W}. +1/+1 counter, flying until EOT, prevent combat damage to it.
+    CardData { id, owner, name: "Fleeting Flight".into(), mana_cost: ManaCost::parse("{W}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::add_p1p1_counters(1), Effect::gain_keyword_eot("flying")],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn undying_malice(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {B}. Creature gains "dies: return tapped with +1/+1 counter."
+    CardData { id, owner, name: "Undying Malice".into(), mana_cost: ManaCost::parse("{B}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::Custom("Until end of turn, target creature gains 'When this creature dies, return it to the battlefield tapped under its owner's control with a +1/+1 counter on it.'".into())],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn fake_your_own_death(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {1}{B}. Creature gets +2/+0 and "dies: return tapped + Treasure."
+    CardData { id, owner, name: "Fake Your Own Death".into(), mana_cost: ManaCost::parse("{1}{B}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::boost_until_eot(2, 0),
+                     Effect::Custom("Until end of turn, target creature gains 'When this creature dies, return it to the battlefield tapped under its owner's control and create a Treasure token.'".into())],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+// ── Tier 2 sorceries ─────────────────────────────────────────────────────────
+
+fn duress(id: ObjectId, owner: PlayerId) -> CardData {
+    // Sorcery {B}. Target opponent reveals hand; you choose a noncreature, nonland card to discard.
+    CardData { id, owner, name: "Duress".into(), mana_cost: ManaCost::parse("{B}"),
+        card_types: vec![CardType::Sorcery], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::discard_cards(1)],
+                TargetSpec::Player),
+        ],
+        ..Default::default() }
+}
+
+fn deathmark(id: ObjectId, owner: PlayerId) -> CardData {
+    // Sorcery {B}. Destroy target green or white creature.
+    CardData { id, owner, name: "Deathmark".into(), mana_cost: ManaCost::parse("{B}"),
+        card_types: vec![CardType::Sorcery], rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::destroy()],
+                TargetSpec::PermanentFiltered("green or white creature".into())),
+        ],
+        ..Default::default() }
+}
+
+fn crash_through(id: ObjectId, owner: PlayerId) -> CardData {
+    // Sorcery {R}. Creatures you control gain trample until EOT. Draw a card.
+    CardData { id, owner, name: "Crash Through".into(), mana_cost: ManaCost::parse("{R}"),
+        card_types: vec![CardType::Sorcery], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::Custom("Creatures you control gain trample until end of turn.".into()),
+                     Effect::draw_cards(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn dragon_fodder(id: ObjectId, owner: PlayerId) -> CardData {
+    // Sorcery {1}{R}. Create two 1/1 red Goblin creature tokens.
+    CardData { id, owner, name: "Dragon Fodder".into(), mana_cost: ManaCost::parse("{1}{R}"),
+        card_types: vec![CardType::Sorcery], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::create_token("1/1 Goblin", 2)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn day_of_judgment(id: ObjectId, owner: PlayerId) -> CardData {
+    // Sorcery {2}{W}{W}. Destroy all creatures.
+    CardData { id, owner, name: "Day of Judgment".into(), mana_cost: ManaCost::parse("{2}{W}{W}"),
+        card_types: vec![CardType::Sorcery], rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::Custom("Destroy all creatures.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn angelic_edict(id: ObjectId, owner: PlayerId) -> CardData {
+    // Sorcery {4}{W}. Exile target creature or enchantment.
+    CardData { id, owner, name: "Angelic Edict".into(), mana_cost: ManaCost::parse("{4}{W}"),
+        card_types: vec![CardType::Sorcery], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::exile()],
+                TargetSpec::PermanentFiltered("creature or enchantment".into())),
+        ],
+        ..Default::default() }
+}
+
+fn chart_a_course(id: ObjectId, owner: PlayerId) -> CardData {
+    // Sorcery {1}{U}. Draw 2. Discard 1 unless you attacked this turn.
+    CardData { id, owner, name: "Chart a Course".into(), mana_cost: ManaCost::parse("{1}{U}"),
+        card_types: vec![CardType::Sorcery], rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::draw_cards(2), Effect::discard_cards(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn macabre_waltz(id: ObjectId, owner: PlayerId) -> CardData {
+    // Sorcery {1}{B}. Return up to 2 creature cards from graveyard to hand, discard 1.
+    CardData { id, owner, name: "Macabre Waltz".into(), mana_cost: ManaCost::parse("{1}{B}"),
+        card_types: vec![CardType::Sorcery], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::return_from_graveyard(), Effect::discard_cards(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn bulk_up(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {1}{R}. Double target creature's power until EOT. Flashback {4}{R}{R}.
+    CardData { id, owner, name: "Bulk Up".into(), mana_cost: ManaCost::parse("{1}{R}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::Custom("Double target creature's power until end of turn.".into())],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+// ── Tier 2 enchantments ──────────────────────────────────────────────────────
+
+fn pacifism(id: ObjectId, owner: PlayerId) -> CardData {
+    // Enchantment — Aura {1}{W}. Enchanted creature can't attack or block.
+    CardData { id, owner, name: "Pacifism".into(), mana_cost: ManaCost::parse("{1}{W}"),
+        card_types: vec![CardType::Enchantment], subtypes: vec![SubType::Aura],
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Enchanted creature can't attack or block.",
+                vec![StaticEffect::CantAttack { filter: "enchanted creature".into() },
+                     StaticEffect::CantBlock { filter: "enchanted creature".into() }]),
+        ],
+        ..Default::default() }
+}
+
+// ── Tier 3 — modal spells ────────────────────────────────────────────────────
+
+fn abrade(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {1}{R}. Choose one: 3 damage to creature, or destroy artifact.
+    CardData { id, owner, name: "Abrade".into(), mana_cost: ManaCost::parse("{1}{R}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::Custom("Choose one: Deal 3 damage to target creature, or destroy target artifact.".into())],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn boros_charm(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {R}{W}. Choose one: 4 damage to player/PW, permanents indestructible, or double strike.
+    CardData { id, owner, name: "Boros Charm".into(), mana_cost: ManaCost::parse("{R}{W}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::Custom("Choose one: 4 damage to target player/planeswalker; or permanents you control gain indestructible until EOT; or target creature gains double strike until EOT.".into())],
+                TargetSpec::CreatureOrPlayer),
+        ],
+        ..Default::default() }
+}
+
+fn slagstorm(id: ObjectId, owner: PlayerId) -> CardData {
+    // Sorcery {1}{R}{R}. Choose one: 3 damage to each creature, or 3 damage to each player.
+    CardData { id, owner, name: "Slagstorm".into(), mana_cost: ManaCost::parse("{1}{R}{R}"),
+        card_types: vec![CardType::Sorcery], rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::Custom("Choose one: Slagstorm deals 3 damage to each creature; or Slagstorm deals 3 damage to each player.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn valorous_stance(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {1}{W}. Choose one: creature gains indestructible, or destroy creature with toughness 4+.
+    CardData { id, owner, name: "Valorous Stance".into(), mana_cost: ManaCost::parse("{1}{W}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::Custom("Choose one: Target creature gains indestructible until end of turn; or Destroy target creature with toughness 4 or greater.".into())],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+// ── Tier 3 — pump/anthem spells ──────────────────────────────────────────────
+
+fn heroic_reinforcements(id: ObjectId, owner: PlayerId) -> CardData {
+    // Sorcery {2}{R}{W}. Create two 1/1 Soldier tokens. Creatures +1/+1 and haste until EOT.
+    CardData { id, owner, name: "Heroic Reinforcements".into(), mana_cost: ManaCost::parse("{2}{R}{W}"),
+        card_types: vec![CardType::Sorcery], rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::create_token("1/1 Soldier", 2),
+                     Effect::Custom("Creatures you control get +1/+1 until end of turn.".into()),
+                     Effect::Custom("Creatures you control gain haste until end of turn.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn make_a_stand(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant {2}{W}. Creatures you control +1/+0 and indestructible until EOT.
+    CardData { id, owner, name: "Make a Stand".into(), mana_cost: ManaCost::parse("{2}{W}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::Custom("Creatures you control get +1/+0 until end of turn.".into()),
+                     Effect::Custom("Creatures you control gain indestructible until end of turn.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn overrun(id: ObjectId, owner: PlayerId) -> CardData {
+    // Sorcery {2}{G}{G}{G}. Creatures you control +3/+3 and trample until EOT.
+    CardData { id, owner, name: "Overrun".into(), mana_cost: ManaCost::parse("{2}{G}{G}{G}"),
+        card_types: vec![CardType::Sorcery], rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::Custom("Creatures you control get +3/+3 until end of turn.".into()),
+                     Effect::Custom("Creatures you control gain trample until end of turn.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+// ── Tier 3 — lords and tribal creatures ──────────────────────────────────────
+
+fn death_baron(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/2 Zombie Wizard for {1}{B}{B}. Skeletons and other Zombies +1/+1 and deathtouch.
+    CardData { id, owner, name: "Death Baron".into(), mana_cost: ManaCost::parse("{1}{B}{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Zombie, SubType::Wizard],
+        power: Some(2), toughness: Some(2), rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Skeletons you control and other Zombies you control get +1/+1 and have deathtouch.",
+                vec![StaticEffect::Boost { filter: "Skeleton you control".into(), power: 1, toughness: 1 },
+                     StaticEffect::GrantKeyword { filter: "Skeleton you control".into(), keyword: "deathtouch".into() },
+                     StaticEffect::Boost { filter: "other Zombie you control".into(), power: 1, toughness: 1 },
+                     StaticEffect::GrantKeyword { filter: "other Zombie you control".into(), keyword: "deathtouch".into() }]),
+        ],
+        ..Default::default() }
+}
+
+fn elvish_archdruid(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/2 Elf Druid for {1}{G}{G}. Other Elves +1/+1. T: add {G} for each Elf.
+    CardData { id, owner, name: "Elvish Archdruid".into(), mana_cost: ManaCost::parse("{1}{G}{G}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Elf, SubType::Druid],
+        power: Some(2), toughness: Some(2), rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Other Elf creatures you control get +1/+1.",
+                vec![StaticEffect::Boost { filter: "other Elf you control".into(), power: 1, toughness: 1 }]),
+            Ability::mana_ability(id,
+                "{T}: Add {G} for each Elf you control.",
+                Mana::green(1)),
+        ],
+        ..Default::default() }
+}
+
+fn vampire_nighthawk(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/3 Vampire Shaman for {1}{B}{B}. Flying, deathtouch, lifelink.
+    CardData { id, owner, name: "Vampire Nighthawk".into(), mana_cost: ManaCost::parse("{1}{B}{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Vampire, SubType::Shaman],
+        power: Some(2), toughness: Some(3),
+        keywords: KeywordAbilities::FLYING | KeywordAbilities::DEATHTOUCH | KeywordAbilities::LIFELINK,
+        rarity: Rarity::Uncommon, ..Default::default() }
+}
+
+// ── Tier 3 — enchantments ────────────────────────────────────────────────────
+
+fn goblin_oriflamme(id: ObjectId, owner: PlayerId) -> CardData {
+    // Enchantment {1}{R}. Attacking creatures you control get +1/+0.
+    CardData { id, owner, name: "Goblin Oriflamme".into(), mana_cost: ManaCost::parse("{1}{R}"),
+        card_types: vec![CardType::Enchantment], rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Attacking creatures you control get +1/+0.",
+                vec![StaticEffect::Boost { filter: "attacking creature you control".into(), power: 1, toughness: 0 }]),
+        ],
+        ..Default::default() }
+}
+
+// ── Tier 3 — creatures with complex abilities ────────────────────────────────
+
+fn fog_bank(id: ObjectId, owner: PlayerId) -> CardData {
+    // 0/2 Wall for {1}{U}. Defender, flying. Prevents all combat damage to/from it.
+    CardData { id, owner, name: "Fog Bank".into(), mana_cost: ManaCost::parse("{1}{U}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Wall],
+        power: Some(0), toughness: Some(2),
+        keywords: KeywordAbilities::DEFENDER | KeywordAbilities::FLYING,
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Prevent all combat damage that would be dealt to and dealt by Fog Bank.",
+                vec![StaticEffect::Custom("Prevent all combat damage to and from Fog Bank.".into())]),
+        ],
+        ..Default::default() }
+}
+
+// ── Tier 3 batch 2 — complex card implementations ──────────────────────────
+
+fn abyssal_harvester(id: ObjectId, owner: PlayerId) -> CardData {
+    // 3/2 Demon Warlock for {1}{B}{B}. {T}: create token copy of creature card put into graveyard this turn, then sacrifice non-Demon creature tokens.
+    CardData { id, owner, name: "Abyssal Harvester".into(), mana_cost: ManaCost::parse("{1}{B}{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Demon, SubType::Warlock],
+        power: Some(3), toughness: Some(2), rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::activated(id,
+                "{T}: Create a token that's a copy of target creature card in a graveyard that was put there this turn. Then sacrifice each creature token you control that isn't a Demon.",
+                vec![Cost::tap_self()],
+                vec![Effect::create_token("copy of creature in graveyard", 1)],
+                TargetSpec::CardInGraveyard),
+        ],
+        ..Default::default() }
+}
+
+fn adaptive_automaton(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/2 Construct for {3}. Artifact Creature. As ETB: choose creature type; is that type. Other creatures of chosen type get +1/+1.
+    CardData { id, owner, name: "Adaptive Automaton".into(), mana_cost: ManaCost::parse("{3}"),
+        card_types: vec![CardType::Artifact, CardType::Creature],
+        subtypes: vec![SubType::Construct],
+        power: Some(2), toughness: Some(2), rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "As Adaptive Automaton enters, choose a creature type. Adaptive Automaton is the chosen type in addition to its other types.",
+                vec![Effect::Custom("Choose a creature type. This creature becomes that type.".into())],
+                TargetSpec::None),
+            Ability::static_ability(id,
+                "Other creatures you control of the chosen type get +1/+1.",
+                vec![StaticEffect::boost_controlled("other creatures of chosen type", 1, 1)]),
+        ],
+        ..Default::default() }
+}
+
+fn aggressive_mammoth(id: ObjectId, owner: PlayerId) -> CardData {
+    // 8/8 Elephant for {3}{G}{G}{G}. Trample. Other creatures you control have trample.
+    CardData { id, owner, name: "Aggressive Mammoth".into(), mana_cost: ManaCost::parse("{3}{G}{G}{G}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Elephant],
+        power: Some(8), toughness: Some(8), keywords: KeywordAbilities::TRAMPLE,
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Other creatures you control have trample.",
+                vec![StaticEffect::grant_keyword_controlled("other creatures you control", "trample")]),
+        ],
+        ..Default::default() }
+}
+
+fn alesha_who_laughs_at_fate(id: ObjectId, owner: PlayerId) -> CardData {
+    // Legendary 1/4 Human Warrior for {1}{B}{R}. First strike.
+    // Whenever attacks: +1/+1 counter. End step (raid): reanimate creature with MV <= its power.
+    CardData { id, owner, name: "Alesha, Who Laughs at Fate".into(), mana_cost: ManaCost::parse("{1}{B}{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Human, SubType::Warrior],
+        supertypes: vec![SuperType::Legendary],
+        power: Some(1), toughness: Some(4), keywords: KeywordAbilities::FIRST_STRIKE,
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::triggered(id,
+                "Whenever Alesha attacks, put a +1/+1 counter on it.",
+                vec![EventType::AttackerDeclared],
+                vec![Effect::add_p1p1_counters(1)],
+                TargetSpec::None),
+            Ability::triggered(id,
+                "Raid — At the beginning of your end step, if you attacked this turn, return target creature card with mana value less than or equal to Alesha's power from your graveyard to the battlefield.",
+                vec![EventType::EndStep],
+                vec![Effect::reanimate()],
+                TargetSpec::CardInYourGraveyard),
+        ],
+        ..Default::default() }
+}
+
+fn angelic_destiny(id: ObjectId, owner: PlayerId) -> CardData {
+    // Enchantment — Aura for {2}{W}{W}. Enchanted creature gets +4/+4, has flying and first strike, is an Angel.
+    // When enchanted creature dies, return this to owner's hand.
+    CardData { id, owner, name: "Angelic Destiny".into(), mana_cost: ManaCost::parse("{2}{W}{W}"),
+        card_types: vec![CardType::Enchantment], subtypes: vec![SubType::Aura],
+        rarity: Rarity::Mythic,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Enchanted creature gets +4/+4, has flying and first strike, and is an Angel in addition to its other types.",
+                vec![StaticEffect::boost_controlled("enchanted creature", 4, 4),
+                     StaticEffect::grant_keyword_controlled("enchanted creature", "flying"),
+                     StaticEffect::grant_keyword_controlled("enchanted creature", "first strike")]),
+            Ability::triggered(id,
+                "When enchanted creature dies, return Angelic Destiny to its owner's hand.",
+                vec![EventType::Dies],
+                vec![Effect::return_from_graveyard()],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn angel_of_vitality(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/2 Angel for {2}{W}. Flying. If you would gain life, gain that much +1 instead. Gets +2/+2 if you have 25+ life.
+    CardData { id, owner, name: "Angel of Vitality".into(), mana_cost: ManaCost::parse("{2}{W}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Angel],
+        power: Some(2), toughness: Some(2), keywords: KeywordAbilities::FLYING,
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::static_ability(id,
+                "If you would gain life, you gain that much life plus 1 instead.",
+                vec![StaticEffect::Custom("Life gain replacement: gain +1.".into())]),
+            Ability::static_ability(id,
+                "Angel of Vitality gets +2/+2 as long as you have 25 or more life.",
+                vec![StaticEffect::Custom("Conditional +2/+2 if life >= 25.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn anthem_of_champions(id: ObjectId, owner: PlayerId) -> CardData {
+    // Enchantment for {G}{W}. Creatures you control get +1/+1.
+    CardData { id, owner, name: "Anthem of Champions".into(), mana_cost: ManaCost::parse("{G}{W}"),
+        card_types: vec![CardType::Enchantment], rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Creatures you control get +1/+1.",
+                vec![StaticEffect::boost_controlled("creatures you control", 1, 1)]),
+        ],
+        ..Default::default() }
+}
+
+fn apothecary_stomper(id: ObjectId, owner: PlayerId) -> CardData {
+    // 4/4 Elephant for {4}{G}{G}. Vigilance. ETB: choose one — two +1/+1 counters on target creature; or gain 4 life.
+    CardData { id, owner, name: "Apothecary Stomper".into(), mana_cost: ManaCost::parse("{4}{G}{G}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Elephant],
+        power: Some(4), toughness: Some(4), keywords: KeywordAbilities::VIGILANCE,
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When this creature enters, choose one — Put two +1/+1 counters on target creature you control; or You gain 4 life.",
+                vec![Effect::Custom("Choose one: two +1/+1 counters on creature or gain 4 life.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn arahbo_the_first_fang(id: ObjectId, owner: PlayerId) -> CardData {
+    // Legendary 2/2 Cat Avatar for {2}{W}. Other Cats get +1/+1. ETB or nontoken Cat ETB: create 1/1 Cat token.
+    CardData { id, owner, name: "Arahbo, the First Fang".into(), mana_cost: ManaCost::parse("{2}{W}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Cat, SubType::Custom("Avatar".into())],
+        supertypes: vec![SuperType::Legendary],
+        power: Some(2), toughness: Some(2), rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Other Cats you control get +1/+1.",
+                vec![StaticEffect::boost_controlled("other Cats you control", 1, 1)]),
+            Ability::triggered(id,
+                "Whenever Arahbo or another nontoken Cat you control enters, create a 1/1 white Cat creature token.",
+                vec![EventType::EnteredTheBattlefield],
+                vec![Effect::create_token("1/1 Cat", 1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn aurelia_the_warleader(id: ObjectId, owner: PlayerId) -> CardData {
+    // Legendary 3/4 Angel for {2}{R}{R}{W}{W}. Flying, vigilance, haste.
+    // First attack each turn: untap all creatures, additional combat phase.
+    CardData { id, owner, name: "Aurelia, the Warleader".into(), mana_cost: ManaCost::parse("{2}{R}{R}{W}{W}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Angel],
+        supertypes: vec![SuperType::Legendary],
+        power: Some(3), toughness: Some(4),
+        keywords: KeywordAbilities::FLYING | KeywordAbilities::VIGILANCE | KeywordAbilities::HASTE,
+        rarity: Rarity::Mythic,
+        abilities: vec![
+            Ability::triggered(id,
+                "Whenever Aurelia attacks for the first time each turn, untap all creatures you control. After this phase, there is an additional combat phase.",
+                vec![EventType::AttackerDeclared],
+                vec![Effect::Custom("Untap all creatures you control. Additional combat phase.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn ayli_eternal_pilgrim(id: ObjectId, owner: PlayerId) -> CardData {
+    // Legendary 2/3 Kor Cleric for {W}{B}. Deathtouch.
+    // {1}, Sacrifice creature: gain life = sacrificed creature's toughness.
+    // {1}{W}{B}, Sacrifice creature: exile nonland permanent (if life >= starting+10).
+    CardData { id, owner, name: "Ayli, Eternal Pilgrim".into(), mana_cost: ManaCost::parse("{W}{B}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Custom("Kor".into()), SubType::Cleric],
+        supertypes: vec![SuperType::Legendary],
+        power: Some(2), toughness: Some(3), keywords: KeywordAbilities::DEATHTOUCH,
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::activated(id,
+                "{1}, Sacrifice another creature: You gain life equal to the sacrificed creature's toughness.",
+                vec![Cost::pay_mana("{1}")],
+                vec![Effect::Custom("Sacrifice creature, gain life equal to its toughness.".into())],
+                TargetSpec::None),
+            Ability::activated(id,
+                "{1}{W}{B}, Sacrifice another creature: Exile target nonland permanent. Activate only if you have at least 10 life more than your starting life total.",
+                vec![Cost::pay_mana("{1}{W}{B}")],
+                vec![Effect::exile()],
+                TargetSpec::PermanentFiltered("nonland permanent".into())),
+        ],
+        ..Default::default() }
+}
+
+fn azorius_guildgate(id: ObjectId, owner: PlayerId) -> CardData {
+    // Land — Gate. Enters tapped. {T}: Add {W} or {U}.
+    CardData { id, owner, name: "Azorius Guildgate".into(),
+        card_types: vec![CardType::Land], subtypes: vec![SubType::Gate],
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::static_ability(id, "Azorius Guildgate enters tapped.",
+                vec![StaticEffect::EntersTapped { filter: "self".into() }]),
+            Ability::mana_ability(id, "{T}: Add {W}.", Mana::white(1)),
+            Ability::mana_ability(id, "{T}: Add {U}.", Mana::blue(1)),
+        ],
+        ..Default::default() }
+}
+
+fn ball_lightning(id: ObjectId, owner: PlayerId) -> CardData {
+    // 6/1 Elemental for {R}{R}{R}. Trample, haste. At beginning of end step, sacrifice it.
+    CardData { id, owner, name: "Ball Lightning".into(), mana_cost: ManaCost::parse("{R}{R}{R}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Elemental],
+        power: Some(6), toughness: Some(1),
+        keywords: KeywordAbilities::TRAMPLE | KeywordAbilities::HASTE,
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::triggered(id,
+                "At the beginning of the end step, sacrifice Ball Lightning.",
+                vec![EventType::EndStep],
+                vec![Effect::Sacrifice { filter: "self".into() }],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn balmor_battlemage_captain(id: ObjectId, owner: PlayerId) -> CardData {
+    // Legendary 1/3 Bird Wizard for {U}{R}. Flying.
+    // Whenever you cast instant/sorcery, creatures you control get +1/+0 and gain trample until EOT.
+    CardData { id, owner, name: "Balmor, Battlemage Captain".into(), mana_cost: ManaCost::parse("{U}{R}"),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Custom("Bird".into()), SubType::Wizard],
+        supertypes: vec![SuperType::Legendary],
+        power: Some(1), toughness: Some(3), keywords: KeywordAbilities::FLYING,
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::spell_cast_triggered(id,
+                "Whenever you cast an instant or sorcery spell, creatures you control get +1/+0 and gain trample until end of turn.",
+                vec![Effect::Custom("Creatures you control get +1/+0 and gain trample until end of turn.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn banner_of_kinship(id: ObjectId, owner: PlayerId) -> CardData {
+    // Artifact for {5}. As ETB: choose creature type, enter with fellowship counters.
+    // Creatures of chosen type get +1/+1 per fellowship counter.
+    CardData { id, owner, name: "Banner of Kinship".into(), mana_cost: ManaCost::parse("{5}"),
+        card_types: vec![CardType::Artifact], rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "As this artifact enters, choose a creature type. This artifact enters with a fellowship counter for each creature you control of the chosen type.",
+                vec![Effect::Custom("Choose type, enter with fellowship counters.".into())],
+                TargetSpec::None),
+            Ability::static_ability(id,
+                "Creatures you control of the chosen type get +1/+1 for each fellowship counter on this artifact.",
+                vec![StaticEffect::Custom("Chosen type creatures get +1/+1 per fellowship counter.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn billowing_shriekmass(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/3 Spirit for {3}{B}. Flying. ETB: mill 3. Threshold: +2/+1 if 7+ cards in graveyard.
+    CardData { id, owner, name: "Billowing Shriekmass".into(), mana_cost: ManaCost::parse("{3}{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Spirit],
+        power: Some(2), toughness: Some(3), keywords: KeywordAbilities::FLYING,
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When this creature enters, mill three cards.",
+                vec![Effect::mill(3)],
+                TargetSpec::None),
+            Ability::static_ability(id,
+                "Threshold — This creature gets +2/+1 as long as there are seven or more cards in your graveyard.",
+                vec![StaticEffect::Custom("Threshold: +2/+1 if graveyard >= 7.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn fdn_bloodfell_caves(id: ObjectId, owner: PlayerId) -> CardData {
+    // Land. Enters tapped. ETB: gain 1 life. {T}: Add {B} or {R}.
+    CardData { id, owner, name: "Bloodfell Caves".into(),
+        card_types: vec![CardType::Land], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::static_ability(id, "Bloodfell Caves enters tapped.",
+                vec![StaticEffect::EntersTapped { filter: "self".into() }]),
+            Ability::enters_battlefield_triggered(id,
+                "When Bloodfell Caves enters, you gain 1 life.",
+                vec![Effect::gain_life(1)],
+                TargetSpec::None),
+            Ability::mana_ability(id, "{T}: Add {B}.", Mana::black(1)),
+            Ability::mana_ability(id, "{T}: Add {R}.", Mana::red(1)),
+        ],
+        ..Default::default() }
+}
+
+fn bloodthirsty_conqueror(id: ObjectId, owner: PlayerId) -> CardData {
+    // 5/5 Vampire Knight for {3}{B}{B}. Flying, deathtouch. Whenever opponent loses life, you gain that much.
+    CardData { id, owner, name: "Bloodthirsty Conqueror".into(), mana_cost: ManaCost::parse("{3}{B}{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Vampire, SubType::Knight],
+        power: Some(5), toughness: Some(5),
+        keywords: KeywordAbilities::FLYING | KeywordAbilities::DEATHTOUCH,
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::triggered(id,
+                "Whenever an opponent loses life, you gain that much life.",
+                vec![EventType::LostLife],
+                vec![Effect::gain_life(0)],  // dynamic: amount opponent lost
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn fdn_blossoming_sands(id: ObjectId, owner: PlayerId) -> CardData {
+    // Land. Enters tapped. ETB: gain 1 life. {T}: Add {G} or {W}.
+    CardData { id, owner, name: "Blossoming Sands".into(),
+        card_types: vec![CardType::Land], rarity: Rarity::Common,
+        abilities: vec![
+            Ability::static_ability(id, "Blossoming Sands enters tapped.",
+                vec![StaticEffect::EntersTapped { filter: "self".into() }]),
+            Ability::enters_battlefield_triggered(id,
+                "When Blossoming Sands enters, you gain 1 life.",
+                vec![Effect::gain_life(1)],
+                TargetSpec::None),
+            Ability::mana_ability(id, "{T}: Add {G}.", Mana::green(1)),
+            Ability::mana_ability(id, "{T}: Add {W}.", Mana::white(1)),
+        ],
+        ..Default::default() }
+}
+
+fn boros_guildgate(id: ObjectId, owner: PlayerId) -> CardData {
+    // Land — Gate. Enters tapped. {T}: Add {R} or {W}.
+    CardData { id, owner, name: "Boros Guildgate".into(),
+        card_types: vec![CardType::Land], subtypes: vec![SubType::Gate],
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::static_ability(id, "Boros Guildgate enters tapped.",
+                vec![StaticEffect::EntersTapped { filter: "self".into() }]),
+            Ability::mana_ability(id, "{T}: Add {R}.", Mana::red(1)),
+            Ability::mana_ability(id, "{T}: Add {W}.", Mana::white(1)),
+        ],
+        ..Default::default() }
+}
+
+fn bushwhack(id: ObjectId, owner: PlayerId) -> CardData {
+    // Sorcery for {G}. Choose one: search for basic land; or creature you control fights creature you don't.
+    CardData { id, owner, name: "Bushwhack".into(), mana_cost: ManaCost::parse("{G}"),
+        card_types: vec![CardType::Sorcery], rarity: Rarity::Uncommon,
+        abilities: vec![Ability::spell(id,
+            vec![Effect::Custom("Choose one: Search for basic land; or target creature you control fights target creature you don't control.".into())],
+            TargetSpec::Custom("various".into()))],
+        ..Default::default() }
+}
+
+fn carnelian_orb_of_dragonkind(id: ObjectId, owner: PlayerId) -> CardData {
+    // Artifact for {2}{R}. {T}: Add {R}. If spent on a Dragon, it gains haste until EOT.
+    CardData { id, owner, name: "Carnelian Orb of Dragonkind".into(), mana_cost: ManaCost::parse("{2}{R}"),
+        card_types: vec![CardType::Artifact], rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::mana_ability(id, "{T}: Add {R}. If that mana is spent on a Dragon creature spell, it gains haste until end of turn.", Mana::red(1)),
+        ],
+        ..Default::default() }
+}
+
+fn celestial_armor(id: ObjectId, owner: PlayerId) -> CardData {
+    // Artifact — Equipment for {2}{W}. Flash. ETB: attach + hexproof/indestructible until EOT.
+    // Equipped creature gets +2/+0 and has flying. Equip {3}{W}.
+    CardData { id, owner, name: "Celestial Armor".into(), mana_cost: ManaCost::parse("{2}{W}"),
+        card_types: vec![CardType::Artifact], subtypes: vec![SubType::Equipment],
+        keywords: KeywordAbilities::FLASH,
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When this Equipment enters, attach it to target creature you control. That creature gains hexproof and indestructible until end of turn.",
+                vec![Effect::Custom("Attach and grant hexproof + indestructible until EOT.".into())],
+                TargetSpec::Creature),
+            Ability::static_ability(id,
+                "Equipped creature gets +2/+0 and has flying.",
+                vec![StaticEffect::boost_controlled("equipped creature", 2, 0),
+                     StaticEffect::grant_keyword_controlled("equipped creature", "flying")]),
+            Ability::activated(id, "Equip {3}{W}",
+                vec![Cost::pay_mana("{3}{W}")],
+                vec![Effect::Custom("Attach to target creature you control.".into())],
+                TargetSpec::Creature),
+        ],
+        ..Default::default() }
+}
+
+fn charming_prince(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/2 Human Noble for {1}{W}. ETB: choose one — Scry 2; gain 3 life; exile another creature you own, return at next end step.
+    CardData { id, owner, name: "Charming Prince".into(), mana_cost: ManaCost::parse("{1}{W}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Human, SubType::Noble],
+        power: Some(2), toughness: Some(2), rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Charming Prince enters, choose one — Scry 2; You gain 3 life; Exile another target creature you own, return it at the beginning of the next end step.",
+                vec![Effect::Custom("Choose one: Scry 2; gain 3 life; flicker another creature.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn claws_out(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant for {3}{W}{W}. Costs {1} less per Cat you control. Creatures you control get +2/+2 until EOT.
+    CardData { id, owner, name: "Claws Out".into(), mana_cost: ManaCost::parse("{3}{W}{W}"),
+        card_types: vec![CardType::Instant], rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::static_ability(id,
+                "This spell costs {1} less to cast for each Cat you control.",
+                vec![StaticEffect::Custom("Cost reduction: {1} less per Cat.".into())]),
+            Ability::spell(id,
+                vec![Effect::Custom("Creatures you control get +2/+2 until end of turn.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn consuming_aberration(id: ObjectId, owner: PlayerId) -> CardData {
+    // 0/0 Horror for {3}{U}{B}. P/T = cards in opponents' graveyards. Whenever you cast a spell, each opponent reveals/mills until a land.
+    CardData { id, owner, name: "Consuming Aberration".into(), mana_cost: ManaCost::parse("{3}{U}{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Horror],
+        power: Some(0), toughness: Some(0), rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Consuming Aberration's power and toughness are each equal to the number of cards in your opponents' graveyards.",
+                vec![StaticEffect::Custom("P/T = cards in opponents' graveyards.".into())]),
+            Ability::spell_cast_triggered(id,
+                "Whenever you cast a spell, each opponent reveals cards from the top of their library until they reveal a land card, then puts those cards into their graveyard.",
+                vec![Effect::Custom("Each opponent mills until land revealed.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn corsair_captain(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/2 Human Pirate for {2}{U}. ETB: create Treasure token. Other Pirates get +1/+1.
+    CardData { id, owner, name: "Corsair Captain".into(), mana_cost: ManaCost::parse("{2}{U}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Human, SubType::Pirate],
+        power: Some(2), toughness: Some(2), rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "When Corsair Captain enters, create a Treasure token.",
+                vec![Effect::create_token("Treasure", 1)],
+                TargetSpec::None),
+            Ability::static_ability(id,
+                "Other Pirates you control get +1/+1.",
+                vec![StaticEffect::boost_controlled("other Pirates you control", 1, 1)]),
+        ],
+        ..Default::default() }
+}
+
+fn crossway_troublemakers(id: ObjectId, owner: PlayerId) -> CardData {
+    // 5/5 Vampire for {5}{B}. Attacking Vampires have deathtouch and lifelink.
+    // Whenever a Vampire you control dies, you may pay 2 life; if so, draw a card.
+    CardData { id, owner, name: "Crossway Troublemakers".into(), mana_cost: ManaCost::parse("{5}{B}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Vampire],
+        power: Some(5), toughness: Some(5), rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Attacking Vampires you control have deathtouch and lifelink.",
+                vec![StaticEffect::grant_keyword_controlled("attacking Vampires you control", "deathtouch"),
+                     StaticEffect::grant_keyword_controlled("attacking Vampires you control", "lifelink")]),
+            Ability::triggered(id,
+                "Whenever a Vampire you control dies, you may pay 2 life. If you do, draw a card.",
+                vec![EventType::Dies],
+                vec![Effect::draw_cards(1)],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn crystal_barricade(id: ObjectId, owner: PlayerId) -> CardData {
+    // 0/4 Artifact Creature — Wall for {1}{W}. Defender. You have hexproof. Prevent all noncombat damage to other creatures you control.
+    CardData { id, owner, name: "Crystal Barricade".into(), mana_cost: ManaCost::parse("{1}{W}"),
+        card_types: vec![CardType::Artifact, CardType::Creature], subtypes: vec![SubType::Wall],
+        power: Some(0), toughness: Some(4), keywords: KeywordAbilities::DEFENDER,
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::static_ability(id, "You have hexproof.",
+                vec![StaticEffect::Custom("You have hexproof.".into())]),
+            Ability::static_ability(id,
+                "Prevent all noncombat damage that would be dealt to other creatures you control.",
+                vec![StaticEffect::Custom("Prevent noncombat damage to other creatures you control.".into())]),
+        ],
+        ..Default::default() }
+}
+
+fn curator_of_destinies(id: ObjectId, owner: PlayerId) -> CardData {
+    // 5/5 Sphinx for {4}{U}{U}. Can't be countered. Flying. ETB: fact or fiction (top 5 cards).
+    CardData { id, owner, name: "Curator of Destinies".into(), mana_cost: ManaCost::parse("{4}{U}{U}"),
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Sphinx],
+        power: Some(5), toughness: Some(5), keywords: KeywordAbilities::FLYING,
+        rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::static_ability(id, "This spell can't be countered.",
+                vec![StaticEffect::Custom("Can't be countered.".into())]),
+            Ability::enters_battlefield_triggered(id,
+                "When this creature enters, look at the top five cards of your library and separate them into a face-down pile and a face-up pile. An opponent chooses one. Put that pile into your hand and the other into your graveyard.",
+                vec![Effect::Custom("Fact or Fiction: separate top 5, opponent chooses pile for hand or graveyard.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}

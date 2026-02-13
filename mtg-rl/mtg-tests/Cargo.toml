@@ -1,0 +1,19 @@
+[package]
+name = "mtg-tests"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mtg-engine = { workspace = true }
+mtg-cards = { workspace = true }
+mtg-ai = { workspace = true }
+uuid = { workspace = true }
+rayon = { workspace = true }
+static_assertions = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bench]]
+name = "game_bench"
+harness = false

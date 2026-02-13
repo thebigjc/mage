@@ -1,0 +1,10 @@
+[package]
+name = "mtg-ai"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mtg-engine = { workspace = true }
+mtg-cards = { workspace = true }
+uuid = { workspace = true }
+rand = { workspace = true }

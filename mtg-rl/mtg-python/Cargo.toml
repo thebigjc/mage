@@ -1,0 +1,13 @@
+[package]
+name = "mtg-python"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+mtg-engine = { workspace = true }
+mtg-cards = { workspace = true }
+mtg-ai = { workspace = true }
+pyo3 = { workspace = true }

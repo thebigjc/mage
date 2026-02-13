@@ -1,0 +1,26 @@
+[workspace]
+resolver = "2"
+members = [
+    "mtg-engine",
+    "mtg-cards",
+    "mtg-ai",
+    "mtg-python",
+    "mtg-tests",
+]
+
+[workspace.dependencies]
+uuid = { version = "1", features = ["v4", "serde"] }
+im = "15"
+bitflags = "2"
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+rayon = "1"
+rand = "0.8"
+pyo3 = { version = "0.22", features = ["extension-module"] }
+criterion = { version = "0.5", features = ["html_reports"] }
+static_assertions = "1"
+
+# Internal crate references
+mtg-engine = { path = "mtg-engine" }
+mtg-cards = { path = "mtg-cards" }
+mtg-ai = { path = "mtg-ai" }

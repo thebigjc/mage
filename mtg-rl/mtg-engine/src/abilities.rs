@@ -1,0 +1,1353 @@
+// Ability framework — activated, triggered, static, spell, and mana abilities.
+//
+// In MTG, abilities are the things cards can do. The framework models:
+// - **SpellAbility**: The ability a spell has while on the stack (resolve effects)
+// - **ActivatedAbility**: "Cost: Effect" abilities that can be activated by a player
+// - **TriggeredAbility**: "When/Whenever/At" abilities that trigger from events
+// - **StaticAbility**: Abilities that generate continuous effects while in play
+// - **ManaAbility**: Special activated abilities that produce mana (don't use the stack)
+//
+// Ported from mage.abilities.*.
+
+use crate::constants::{AbilityType, Zone};
+use crate::events::{EventType, GameEvent};
+use crate::mana::Mana;
+use crate::types::{AbilityId, ObjectId};
+use serde::{Deserialize, Serialize};
+
+// ---------------------------------------------------------------------------
+// Cost types
+// ---------------------------------------------------------------------------
+
+/// A cost that must be paid to activate an ability or cast a spell.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum Cost {
+    /// Pay mana (e.g. "{2}{B}").
+    Mana(Mana),
+    /// Tap this permanent ("{T}").
+    TapSelf,
+    /// Untap this permanent ("{Q}").
+    UntapSelf,
+    /// Pay life.
+    PayLife(u32),
+    /// Sacrifice this permanent.
+    SacrificeSelf,
+    /// Sacrifice another permanent (described by text).
+    SacrificeOther(String),
+    /// Discard a card.
+    Discard(u32),
+    /// Exile a card from hand.
+    ExileFromHand(u32),
+    /// Exile a card from graveyard.
+    ExileFromGraveyard(u32),
+    /// Remove counters from this permanent.
+    RemoveCounters(String, u32),
+    /// Blight N — put N -1/-1 counters on a creature you control.
+    /// (ECL set-specific mechanic.)
+    Blight(u32),
+    /// Reveal a card of a specific type from hand (used by Behold).
+    RevealFromHand(String),
+    /// A custom/complex cost (described by text).
+    Custom(String),
+}
+
+// ---------------------------------------------------------------------------
+// Effect types
+// ---------------------------------------------------------------------------
+
+/// What an effect does when it resolves. These are the building blocks
+/// that card implementations compose to create their abilities.
+///
+/// Each variant describes a specific game action. Complex cards can chain
+/// multiple effects. The game engine interprets these to modify the state.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum Effect {
+    // -- Damage --
+    /// Deal damage to target creature or player.
+    DealDamage { amount: u32 },
+    /// Deal damage to each creature.
+    DealDamageAll { amount: u32, filter: String },
+    /// Deal damage to each opponent.
+    DealDamageOpponents { amount: u32 },
+
+    // -- Life --
+    /// Gain life.
+    GainLife { amount: u32 },
+    /// Lose life (target player).
+    LoseLife { amount: u32 },
+    /// Set life total.
+    SetLife { amount: i32 },
+
+    // -- Destroy / Remove --
+    /// Destroy target permanent.
+    Destroy,
+    /// Destroy all permanents matching filter.
+    DestroyAll { filter: String },
+    /// Exile target permanent.
+    Exile,
+    /// Sacrifice a permanent (owner chooses).
+    Sacrifice { filter: String },
+    /// Return target permanent to hand.
+    Bounce,
+    /// Return target card from graveyard to hand.
+    ReturnFromGraveyard,
+    /// Return target card from graveyard to battlefield.
+    Reanimate,
+
+    // -- Cards --
+    /// Draw cards.
+    DrawCards { count: u32 },
+    /// Discard cards.
+    DiscardCards { count: u32 },
+    /// Mill cards (library to graveyard).
+    Mill { count: u32 },
+    /// Scry N (look at top N, put any on bottom in any order).
+    Scry { count: u32 },
+    /// Search library for a card.
+    SearchLibrary { filter: String },
+
+    // -- Counters --
+    /// Put counters on target.
+    AddCounters { counter_type: String, count: u32 },
+    /// Remove counters from target.
+    RemoveCounters { counter_type: String, count: u32 },
+
+    // -- Tokens --
+    /// Create token creatures.
+    CreateToken { token_name: String, count: u32 },
+    /// Create tokens that enter tapped and attacking, then sacrifice at next end step.
+    /// (Used by TDM Mobilize mechanic.)
+    CreateTokenTappedAttacking { token_name: String, count: u32 },
+
+    // -- Mana --
+    /// Add mana to controller's pool.
+    AddMana { mana: Mana },
+
+    // -- Combat --
+    /// Target creature can't block this turn.
+    CantBlock,
+    /// Target creature must block this turn.
+    MustBlock,
+    /// Prevent combat damage.
+    PreventCombatDamage,
+
+    // -- Stats --
+    /// Give +N/+M until end of turn.
+    BoostUntilEndOfTurn { power: i32, toughness: i32 },
+    /// Give +N/+M permanently (e.g. from counters, applied differently).
+    BoostPermanent { power: i32, toughness: i32 },
+    /// Set power and toughness.
+    SetPowerToughness { power: i32, toughness: i32 },
+
+    // -- Keywords --
+    /// Grant a keyword ability until end of turn.
+    GainKeywordUntilEndOfTurn { keyword: String },
+    /// Grant a keyword ability permanently.
+    GainKeyword { keyword: String },
+    /// Remove a keyword ability.
+    LoseKeyword { keyword: String },
+
+    // -- Control --
+    /// Gain control of target.
+    GainControl,
+    /// Gain control of target until end of turn.
+    GainControlUntilEndOfTurn,
+
+    // -- Tap --
+    /// Tap target permanent.
+    TapTarget,
+    /// Untap target permanent.
+    UntapTarget,
+
+    // -- Counter spells --
+    /// Counter target spell.
+    CounterSpell,
+
+    // -- Protection --
+    /// Target gains protection from a color/quality until end of turn.
+    GainProtection { from: String },
+    /// Target becomes indestructible until end of turn.
+    Indestructible,
+    /// Target gains hexproof until end of turn.
+    Hexproof,
+
+    // -- Misc --
+    /// A custom/complex effect described by text. The game engine or card
+    /// code handles the specific implementation.
+    Custom(String),
+}
+
+// ---------------------------------------------------------------------------
+// Target specification for abilities
+// ---------------------------------------------------------------------------
+
+/// Describes what an ability can target.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum TargetSpec {
+    /// No targets.
+    None,
+    /// Target creature.
+    Creature,
+    /// Target creature or player.
+    CreatureOrPlayer,
+    /// Target player.
+    Player,
+    /// Target permanent.
+    Permanent,
+    /// Target permanent matching a filter.
+    PermanentFiltered(String),
+    /// Target spell on the stack.
+    Spell,
+    /// Target card in a graveyard.
+    CardInGraveyard,
+    /// Target card in your graveyard.
+    CardInYourGraveyard,
+    /// Multiple targets of the same type.
+    Multiple { spec: Box<TargetSpec>, count: usize },
+    /// Custom targeting (described by text).
+    Custom(String),
+}
+
+// ---------------------------------------------------------------------------
+// Ability struct
+// ---------------------------------------------------------------------------
+
+/// A concrete ability instance attached to a card or permanent.
+///
+/// This is a data-oriented design: each ability is a struct containing
+/// its type, costs, effects, targets, and configuration. The game engine
+/// interprets these to execute game actions.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Ability {
+    /// Unique ID for this ability instance.
+    pub id: AbilityId,
+    /// The source object (card or permanent) this ability belongs to.
+    pub source_id: ObjectId,
+    /// What kind of ability this is.
+    pub ability_type: AbilityType,
+    /// Human-readable rules text.
+    pub rules_text: String,
+    /// The zone(s) this ability functions from (e.g. battlefield, graveyard).
+    pub active_zones: Vec<Zone>,
+    /// Costs to activate (for activated/mana abilities).
+    pub costs: Vec<Cost>,
+    /// Effects that happen when this ability resolves.
+    pub effects: Vec<Effect>,
+    /// Target requirements.
+    pub targets: TargetSpec,
+    /// For triggered abilities: the event type(s) that trigger it.
+    pub trigger_events: Vec<EventType>,
+    /// For triggered abilities: whether the trigger is optional ("may").
+    pub optional_trigger: bool,
+    /// For mana abilities: the mana produced.
+    pub mana_produced: Option<Mana>,
+    /// For static abilities: continuous effects applied while in play.
+    pub static_effects: Vec<StaticEffect>,
+}
+
+impl Ability {
+    /// Create a new activated ability.
+    pub fn activated(
+        source_id: ObjectId,
+        rules_text: &str,
+        costs: Vec<Cost>,
+        effects: Vec<Effect>,
+        targets: TargetSpec,
+    ) -> Self {
+        Ability {
+            id: AbilityId::new(),
+            source_id,
+            ability_type: AbilityType::ActivatedNonMana,
+            rules_text: rules_text.to_string(),
+            active_zones: vec![Zone::Battlefield],
+            costs,
+            effects,
+            targets,
+            trigger_events: vec![],
+            optional_trigger: false,
+            mana_produced: None,
+            static_effects: vec![],
+        }
+    }
+
+    /// Create a new triggered ability.
+    pub fn triggered(
+        source_id: ObjectId,
+        rules_text: &str,
+        trigger_events: Vec<EventType>,
+        effects: Vec<Effect>,
+        targets: TargetSpec,
+    ) -> Self {
+        Ability {
+            id: AbilityId::new(),
+            source_id,
+            ability_type: AbilityType::TriggeredNonMana,
+            rules_text: rules_text.to_string(),
+            active_zones: vec![Zone::Battlefield],
+            costs: vec![],
+            effects,
+            targets,
+            trigger_events,
+            optional_trigger: false,
+            mana_produced: None,
+            static_effects: vec![],
+        }
+    }
+
+    /// Create a new static ability.
+    pub fn static_ability(
+        source_id: ObjectId,
+        rules_text: &str,
+        static_effects: Vec<StaticEffect>,
+    ) -> Self {
+        Ability {
+            id: AbilityId::new(),
+            source_id,
+            ability_type: AbilityType::Static,
+            rules_text: rules_text.to_string(),
+            active_zones: vec![Zone::Battlefield],
+            costs: vec![],
+            effects: vec![],
+            targets: TargetSpec::None,
+            trigger_events: vec![],
+            optional_trigger: false,
+            mana_produced: None,
+            static_effects,
+        }
+    }
+
+    /// Create a mana ability (tap for mana).
+    pub fn mana_ability(source_id: ObjectId, rules_text: &str, mana: Mana) -> Self {
+        Ability {
+            id: AbilityId::new(),
+            source_id,
+            ability_type: AbilityType::ActivatedMana,
+            rules_text: rules_text.to_string(),
+            active_zones: vec![Zone::Battlefield],
+            costs: vec![Cost::TapSelf],
+            effects: vec![Effect::AddMana { mana }],
+            targets: TargetSpec::None,
+            trigger_events: vec![],
+            optional_trigger: false,
+            mana_produced: Some(mana),
+            static_effects: vec![],
+        }
+    }
+
+    /// Create a spell ability (the ability a spell has on the stack).
+    pub fn spell(source_id: ObjectId, effects: Vec<Effect>, targets: TargetSpec) -> Self {
+        Ability {
+            id: AbilityId::new(),
+            source_id,
+            ability_type: AbilityType::Spell,
+            rules_text: String::new(),
+            active_zones: vec![Zone::Stack],
+            costs: vec![], // mana cost is on the card, not the ability
+            effects,
+            targets,
+            trigger_events: vec![],
+            optional_trigger: false,
+            mana_produced: None,
+            static_effects: vec![],
+        }
+    }
+
+    /// Check if this ability is a mana ability.
+    pub fn is_mana_ability(&self) -> bool {
+        self.ability_type == AbilityType::ActivatedMana
+    }
+
+    /// Check if this ability uses the stack.
+    pub fn uses_stack(&self) -> bool {
+        !self.is_mana_ability()
+            && self.ability_type != AbilityType::Static
+    }
+
+    /// Check if a triggered ability should trigger from an event.
+    pub fn should_trigger(&self, event: &GameEvent) -> bool {
+        if self.ability_type != AbilityType::TriggeredNonMana {
+            return false;
+        }
+        self.trigger_events.contains(&event.event_type)
+    }
+
+    /// Check if an activated ability can be activated in the given zone.
+    pub fn can_activate_in_zone(&self, zone: Zone) -> bool {
+        self.active_zones.contains(&zone)
+    }
+
+    /// Make this a "may" trigger (optional).
+    pub fn set_optional(mut self) -> Self {
+        self.optional_trigger = true;
+        self
+    }
+
+    /// Set the active zones for this ability.
+    pub fn in_zones(mut self, zones: Vec<Zone>) -> Self {
+        self.active_zones = zones;
+        self
+    }
+
+    /// Set the rules text.
+    pub fn with_rules_text(mut self, text: &str) -> Self {
+        self.rules_text = text.to_string();
+        self
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Common triggered ability builders
+// ---------------------------------------------------------------------------
+
+impl Ability {
+    /// "When ~ enters the battlefield, [effect]."
+    pub fn enters_battlefield_triggered(
+        source_id: ObjectId,
+        rules_text: &str,
+        effects: Vec<Effect>,
+        targets: TargetSpec,
+    ) -> Self {
+        Ability::triggered(
+            source_id,
+            rules_text,
+            vec![EventType::EnteredTheBattlefield],
+            effects,
+            targets,
+        )
+    }
+
+    /// "When ~ dies, [effect]."
+    pub fn dies_triggered(
+        source_id: ObjectId,
+        rules_text: &str,
+        effects: Vec<Effect>,
+        targets: TargetSpec,
+    ) -> Self {
+        Ability::triggered(
+            source_id,
+            rules_text,
+            vec![EventType::Dies],
+            effects,
+            targets,
+        )
+        .in_zones(vec![Zone::Battlefield, Zone::Graveyard])
+    }
+
+    /// "Whenever ~ attacks, [effect]."
+    pub fn attacks_triggered(
+        source_id: ObjectId,
+        rules_text: &str,
+        effects: Vec<Effect>,
+        targets: TargetSpec,
+    ) -> Self {
+        Ability::triggered(
+            source_id,
+            rules_text,
+            vec![EventType::AttackerDeclared],
+            effects,
+            targets,
+        )
+    }
+
+    /// "Whenever ~ deals combat damage to a player, [effect]."
+    pub fn combat_damage_to_player_triggered(
+        source_id: ObjectId,
+        rules_text: &str,
+        effects: Vec<Effect>,
+        targets: TargetSpec,
+    ) -> Self {
+        Ability::triggered(
+            source_id,
+            rules_text,
+            vec![EventType::DamagedPlayer],
+            effects,
+            targets,
+        )
+    }
+
+    /// "At the beginning of your upkeep, [effect]."
+    pub fn beginning_of_upkeep_triggered(
+        source_id: ObjectId,
+        rules_text: &str,
+        effects: Vec<Effect>,
+        targets: TargetSpec,
+    ) -> Self {
+        Ability::triggered(
+            source_id,
+            rules_text,
+            vec![EventType::UpkeepStep],
+            effects,
+            targets,
+        )
+    }
+
+    /// "At the beginning of your end step, [effect]."
+    pub fn beginning_of_end_step_triggered(
+        source_id: ObjectId,
+        rules_text: &str,
+        effects: Vec<Effect>,
+        targets: TargetSpec,
+    ) -> Self {
+        Ability::triggered(
+            source_id,
+            rules_text,
+            vec![EventType::EndStep],
+            effects,
+            targets,
+        )
+    }
+
+    /// "Whenever you cast a spell, [effect]."
+    pub fn spell_cast_triggered(
+        source_id: ObjectId,
+        rules_text: &str,
+        effects: Vec<Effect>,
+        targets: TargetSpec,
+    ) -> Self {
+        Ability::triggered(
+            source_id,
+            rules_text,
+            vec![EventType::SpellCast],
+            effects,
+            targets,
+        )
+    }
+
+    /// "Whenever another creature enters the battlefield under your control, [effect]."
+    pub fn other_creature_etb_triggered(
+        source_id: ObjectId,
+        rules_text: &str,
+        effects: Vec<Effect>,
+        targets: TargetSpec,
+    ) -> Self {
+        Ability::triggered(
+            source_id,
+            rules_text,
+            vec![EventType::EnteredTheBattlefield],
+            effects,
+            targets,
+        )
+    }
+
+    /// "Whenever a creature dies, [effect]."
+    pub fn any_creature_dies_triggered(
+        source_id: ObjectId,
+        rules_text: &str,
+        effects: Vec<Effect>,
+        targets: TargetSpec,
+    ) -> Self {
+        Ability::triggered(
+            source_id,
+            rules_text,
+            vec![EventType::Dies],
+            effects,
+            targets,
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Common one-shot effect constructors
+// ---------------------------------------------------------------------------
+
+impl Effect {
+    /// "Destroy target creature/permanent."
+    pub fn destroy() -> Self {
+        Effect::Destroy
+    }
+
+    /// "Exile target."
+    pub fn exile() -> Self {
+        Effect::Exile
+    }
+
+    /// "Deal N damage to target."
+    pub fn deal_damage(amount: u32) -> Self {
+        Effect::DealDamage { amount }
+    }
+
+    /// "Draw N cards."
+    pub fn draw_cards(count: u32) -> Self {
+        Effect::DrawCards { count }
+    }
+
+    /// "Gain N life."
+    pub fn gain_life(amount: u32) -> Self {
+        Effect::GainLife { amount }
+    }
+
+    /// "Lose N life."
+    pub fn lose_life(amount: u32) -> Self {
+        Effect::LoseLife { amount }
+    }
+
+    /// "Target creature gets +N/+M until end of turn."
+    pub fn boost_until_eot(power: i32, toughness: i32) -> Self {
+        Effect::BoostUntilEndOfTurn { power, toughness }
+    }
+
+    /// "Target creature gets +N/+M."
+    pub fn boost_permanent(power: i32, toughness: i32) -> Self {
+        Effect::BoostPermanent { power, toughness }
+    }
+
+    /// "Create N token(s)."
+    pub fn create_token(token_name: &str, count: u32) -> Self {
+        Effect::CreateToken {
+            token_name: token_name.to_string(),
+            count,
+        }
+    }
+
+    /// "Create N token(s) that are tapped and attacking. Sacrifice at next end step."
+    /// Used by Mobilize.
+    pub fn create_token_tapped_attacking(token_name: &str, count: u32) -> Self {
+        Effect::CreateTokenTappedAttacking {
+            token_name: token_name.to_string(),
+            count,
+        }
+    }
+
+    /// "Counter target spell."
+    pub fn counter_spell() -> Self {
+        Effect::CounterSpell
+    }
+
+    /// "Scry N."
+    pub fn scry(count: u32) -> Self {
+        Effect::Scry { count }
+    }
+
+    /// "Mill N."
+    pub fn mill(count: u32) -> Self {
+        Effect::Mill { count }
+    }
+
+    /// "Discard N cards."
+    pub fn discard_cards(count: u32) -> Self {
+        Effect::DiscardCards { count }
+    }
+
+    /// "Return target to owner's hand."
+    pub fn bounce() -> Self {
+        Effect::Bounce
+    }
+
+    /// "Return target card from graveyard to hand."
+    pub fn return_from_graveyard() -> Self {
+        Effect::ReturnFromGraveyard
+    }
+
+    /// "Return target card from graveyard to battlefield."
+    pub fn reanimate() -> Self {
+        Effect::Reanimate
+    }
+
+    /// "Put N +1/+1 counters on target."
+    pub fn add_p1p1_counters(count: u32) -> Self {
+        Effect::AddCounters {
+            counter_type: "+1/+1".to_string(),
+            count,
+        }
+    }
+
+    /// "Add counters of specified type."
+    pub fn add_counters(counter_type: &str, count: u32) -> Self {
+        Effect::AddCounters {
+            counter_type: counter_type.to_string(),
+            count,
+        }
+    }
+
+    /// "Tap target permanent."
+    pub fn tap_target() -> Self {
+        Effect::TapTarget
+    }
+
+    /// "Untap target permanent."
+    pub fn untap_target() -> Self {
+        Effect::UntapTarget
+    }
+
+    /// "Add mana."
+    pub fn add_mana(mana: Mana) -> Self {
+        Effect::AddMana { mana }
+    }
+
+    /// "Gain keyword until end of turn."
+    pub fn gain_keyword_eot(keyword: &str) -> Self {
+        Effect::GainKeywordUntilEndOfTurn {
+            keyword: keyword.to_string(),
+        }
+    }
+
+    /// "Set power and toughness."
+    pub fn set_pt(power: i32, toughness: i32) -> Self {
+        Effect::SetPowerToughness { power, toughness }
+    }
+
+    /// "Destroy all creatures" (or other filter).
+    pub fn destroy_all(filter: &str) -> Self {
+        Effect::DestroyAll {
+            filter: filter.to_string(),
+        }
+    }
+
+    /// "Deal N damage to each opponent."
+    pub fn damage_opponents(amount: u32) -> Self {
+        Effect::DealDamageOpponents { amount }
+    }
+
+    /// "Search library for a card."
+    pub fn search_library(filter: &str) -> Self {
+        Effect::SearchLibrary {
+            filter: filter.to_string(),
+        }
+    }
+
+    /// "Gain control of target."
+    pub fn gain_control() -> Self {
+        Effect::GainControl
+    }
+
+    /// "Gain control of target until end of turn."
+    pub fn gain_control_eot() -> Self {
+        Effect::GainControlUntilEndOfTurn
+    }
+
+    /// "Target gains protection from [quality] until end of turn."
+    pub fn gain_protection(from: &str) -> Self {
+        Effect::GainProtection {
+            from: from.to_string(),
+        }
+    }
+
+    /// "Target becomes indestructible until end of turn."
+    pub fn indestructible() -> Self {
+        Effect::Indestructible
+    }
+
+    /// "Target gains hexproof until end of turn."
+    pub fn hexproof() -> Self {
+        Effect::Hexproof
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Common static effect builders
+// ---------------------------------------------------------------------------
+
+impl StaticEffect {
+    /// "Other creatures you control get +N/+M." (Lord effect)
+    pub fn boost_controlled(filter: &str, power: i32, toughness: i32) -> Self {
+        StaticEffect::Boost {
+            filter: filter.to_string(),
+            power,
+            toughness,
+        }
+    }
+
+    /// "Creatures you control have [keyword]."
+    pub fn grant_keyword_controlled(filter: &str, keyword: &str) -> Self {
+        StaticEffect::GrantKeyword {
+            filter: filter.to_string(),
+            keyword: keyword.to_string(),
+        }
+    }
+
+    /// "Creatures you control can't be blocked" (or specific CantBlock variant).
+    pub fn cant_block(filter: &str) -> Self {
+        StaticEffect::CantBlock {
+            filter: filter.to_string(),
+        }
+    }
+
+    /// "Creatures you control can't attack."
+    pub fn cant_attack(filter: &str) -> Self {
+        StaticEffect::CantAttack {
+            filter: filter.to_string(),
+        }
+    }
+
+    /// "[Spell type] spells you cast cost {N} less."
+    pub fn cost_reduction(filter: &str, amount: u32) -> Self {
+        StaticEffect::CostReduction {
+            filter: filter.to_string(),
+            amount,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Common cost builders
+// ---------------------------------------------------------------------------
+
+impl Cost {
+    /// Pay mana cost from a string like "{2}{B}".
+    pub fn pay_mana(mana_str: &str) -> Self {
+        use crate::mana::ManaCost;
+        Cost::Mana(ManaCost::parse(mana_str).to_mana())
+    }
+
+    /// Tap this permanent ({T}).
+    pub fn tap_self() -> Self {
+        Cost::TapSelf
+    }
+
+    /// Sacrifice this permanent.
+    pub fn sacrifice_self() -> Self {
+        Cost::SacrificeSelf
+    }
+
+    /// Sacrifice another permanent matching a description.
+    pub fn sacrifice_other(filter: &str) -> Self {
+        Cost::SacrificeOther(filter.to_string())
+    }
+
+    /// Pay N life.
+    pub fn pay_life(amount: u32) -> Self {
+        Cost::PayLife(amount)
+    }
+
+    /// Discard N cards.
+    pub fn discard(count: u32) -> Self {
+        Cost::Discard(count)
+    }
+
+    /// Exile N cards from hand.
+    pub fn exile_from_hand(count: u32) -> Self {
+        Cost::ExileFromHand(count)
+    }
+
+    /// Exile N cards from graveyard.
+    pub fn exile_from_graveyard(count: u32) -> Self {
+        Cost::ExileFromGraveyard(count)
+    }
+
+    /// Remove N counters of a type from this permanent.
+    pub fn remove_counters(counter_type: &str, count: u32) -> Self {
+        Cost::RemoveCounters(counter_type.to_string(), count)
+    }
+
+    /// Blight N — put N -1/-1 counters on a creature you control.
+    pub fn blight(count: u32) -> Self {
+        Cost::Blight(count)
+    }
+
+    /// Reveal a card of a specific type from hand.
+    pub fn reveal_from_hand(card_type: &str) -> Self {
+        Cost::RevealFromHand(card_type.to_string())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Static (continuous) effects
+// ---------------------------------------------------------------------------
+
+/// A continuous effect generated by a static ability.
+///
+/// These are applied in the 7-layer system each time the game state is
+/// recalculated (see effects.rs for Layer enum).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum StaticEffect {
+    /// Boost P/T of matching permanents.
+    Boost {
+        filter: String,
+        power: i32,
+        toughness: i32,
+    },
+    /// Grant a keyword to matching permanents.
+    GrantKeyword {
+        filter: String,
+        keyword: String,
+    },
+    /// Remove a keyword from matching permanents.
+    RemoveKeyword {
+        filter: String,
+        keyword: String,
+    },
+    /// Prevent matching permanents from attacking.
+    CantAttack {
+        filter: String,
+    },
+    /// Prevent matching permanents from blocking.
+    CantBlock {
+        filter: String,
+    },
+    /// Reduce cost of matching spells.
+    CostReduction {
+        filter: String,
+        amount: u32,
+    },
+    /// Matching permanents enter the battlefield tapped.
+    EntersTapped {
+        filter: String,
+    },
+    /// Other players can't gain life.
+    CantGainLife,
+    /// Other players can't draw extra cards.
+    CantDrawExtraCards,
+    /// Custom continuous effect.
+    Custom(String),
+}
+
+// ---------------------------------------------------------------------------
+// AbilityStore — stores abilities by source
+// ---------------------------------------------------------------------------
+
+/// Stores all abilities for all objects in the game.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct AbilityStore {
+    /// All abilities, keyed by their unique AbilityId.
+    abilities: std::collections::HashMap<AbilityId, Ability>,
+    /// Index: source ObjectId → list of AbilityIds.
+    by_source: std::collections::HashMap<ObjectId, Vec<AbilityId>>,
+}
+
+impl AbilityStore {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Register an ability for a source object.
+    pub fn add(&mut self, ability: Ability) {
+        let id = ability.id;
+        let source = ability.source_id;
+        self.abilities.insert(id, ability);
+        self.by_source.entry(source).or_default().push(id);
+    }
+
+    /// Get an ability by its ID.
+    pub fn get(&self, id: AbilityId) -> Option<&Ability> {
+        self.abilities.get(&id)
+    }
+
+    /// Get all abilities for a source object.
+    pub fn for_source(&self, source_id: ObjectId) -> Vec<&Ability> {
+        self.by_source
+            .get(&source_id)
+            .map(|ids| ids.iter().filter_map(|id| self.abilities.get(id)).collect())
+            .unwrap_or_default()
+    }
+
+    /// Get all triggered abilities that should fire for an event.
+    pub fn triggered_by(&self, event: &GameEvent) -> Vec<&Ability> {
+        self.abilities
+            .values()
+            .filter(|a| a.should_trigger(event))
+            .collect()
+    }
+
+    /// Get all mana abilities for a source.
+    pub fn mana_abilities_for(&self, source_id: ObjectId) -> Vec<&Ability> {
+        self.for_source(source_id)
+            .into_iter()
+            .filter(|a| a.is_mana_ability())
+            .collect()
+    }
+
+    /// Remove all abilities for a source (e.g. when permanent leaves battlefield).
+    pub fn remove_source(&mut self, source_id: ObjectId) {
+        if let Some(ids) = self.by_source.remove(&source_id) {
+            for id in ids {
+                self.abilities.remove(&id);
+            }
+        }
+    }
+
+    /// Total number of registered abilities.
+    pub fn len(&self) -> usize {
+        self.abilities.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.abilities.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::events::EventType;
+    use crate::types::PlayerId;
+
+    #[test]
+    fn activated_ability() {
+        let source = ObjectId::new();
+        let ability = Ability::activated(
+            source,
+            "{2}, {T}: Draw a card.",
+            vec![Cost::Mana(Mana::generic(2)), Cost::TapSelf],
+            vec![Effect::DrawCards { count: 1 }],
+            TargetSpec::None,
+        );
+
+        assert_eq!(ability.ability_type, AbilityType::ActivatedNonMana);
+        assert_eq!(ability.costs.len(), 2);
+        assert_eq!(ability.effects.len(), 1);
+        assert!(ability.uses_stack());
+    }
+
+    #[test]
+    fn triggered_ability() {
+        let source = ObjectId::new();
+        let ability = Ability::triggered(
+            source,
+            "When this creature enters the battlefield, draw a card.",
+            vec![EventType::EnteredTheBattlefield],
+            vec![Effect::DrawCards { count: 1 }],
+            TargetSpec::None,
+        );
+
+        assert_eq!(ability.ability_type, AbilityType::TriggeredNonMana);
+        assert!(ability.uses_stack());
+
+        // Check trigger matching
+        let event = GameEvent::enters_battlefield(source, PlayerId::new());
+        // The event type is EntersTheBattlefield, but our trigger watches EnteredTheBattlefield
+        let post_event = GameEvent::new(EventType::EnteredTheBattlefield)
+            .target(source);
+        assert!(ability.should_trigger(&post_event));
+        assert!(!ability.should_trigger(&event)); // pre-event, not what we trigger on
+    }
+
+    #[test]
+    fn mana_ability() {
+        let source = ObjectId::new();
+        let ability = Ability::mana_ability(
+            source,
+            "{T}: Add {G}.",
+            Mana::green(1),
+        );
+
+        assert_eq!(ability.ability_type, AbilityType::ActivatedMana);
+        assert!(ability.is_mana_ability());
+        assert!(!ability.uses_stack());
+        assert_eq!(ability.mana_produced, Some(Mana::green(1)));
+    }
+
+    #[test]
+    fn static_ability_boost() {
+        let source = ObjectId::new();
+        let ability = Ability::static_ability(
+            source,
+            "Other creatures you control get +1/+1.",
+            vec![StaticEffect::Boost {
+                filter: "other creatures you control".to_string(),
+                power: 1,
+                toughness: 1,
+            }],
+        );
+
+        assert_eq!(ability.ability_type, AbilityType::Static);
+        assert!(!ability.uses_stack());
+        assert_eq!(ability.static_effects.len(), 1);
+    }
+
+    #[test]
+    fn spell_ability() {
+        let source = ObjectId::new();
+        let ability = Ability::spell(
+            source,
+            vec![Effect::DealDamage { amount: 3 }],
+            TargetSpec::CreatureOrPlayer,
+        );
+
+        assert_eq!(ability.ability_type, AbilityType::Spell);
+        assert!(ability.uses_stack());
+    }
+
+    #[test]
+    fn ability_store() {
+        let mut store = AbilityStore::new();
+        let source = ObjectId::new();
+
+        let a1 = Ability::mana_ability(source, "{T}: Add {G}.", Mana::green(1));
+        let a1_id = a1.id;
+        let a2 = Ability::activated(
+            source,
+            "{1}{G}: +1/+1",
+            vec![Cost::Mana(Mana { green: 1, generic: 1, ..Default::default() })],
+            vec![Effect::BoostUntilEndOfTurn { power: 1, toughness: 1 }],
+            TargetSpec::None,
+        );
+
+        store.add(a1);
+        store.add(a2);
+
+        assert_eq!(store.len(), 2);
+        assert_eq!(store.for_source(source).len(), 2);
+        assert_eq!(store.mana_abilities_for(source).len(), 1);
+        assert!(store.get(a1_id).is_some());
+
+        store.remove_source(source);
+        assert!(store.is_empty());
+    }
+
+    #[test]
+    fn optional_trigger() {
+        let source = ObjectId::new();
+        let ability = Ability::triggered(
+            source,
+            "When ~ enters, you may draw a card.",
+            vec![EventType::EnteredTheBattlefield],
+            vec![Effect::DrawCards { count: 1 }],
+            TargetSpec::None,
+        ).set_optional();
+
+        assert!(ability.optional_trigger);
+    }
+
+    #[test]
+    fn active_zones() {
+        let source = ObjectId::new();
+        let ability = Ability::activated(
+            source,
+            "Exile from graveyard: effect",
+            vec![],
+            vec![],
+            TargetSpec::None,
+        ).in_zones(vec![Zone::Graveyard]);
+
+        assert!(ability.can_activate_in_zone(Zone::Graveyard));
+        assert!(!ability.can_activate_in_zone(Zone::Battlefield));
+    }
+
+    // ── Tests for common builders ──────────────────────────────────────
+
+    #[test]
+    fn etb_triggered() {
+        let source = ObjectId::new();
+        let ability = Ability::enters_battlefield_triggered(
+            source,
+            "When ~ enters, draw a card.",
+            vec![Effect::draw_cards(1)],
+            TargetSpec::None,
+        );
+
+        assert_eq!(ability.ability_type, AbilityType::TriggeredNonMana);
+        assert!(ability.trigger_events.contains(&EventType::EnteredTheBattlefield));
+        assert_eq!(ability.effects.len(), 1);
+    }
+
+    #[test]
+    fn dies_triggered() {
+        let source = ObjectId::new();
+        let ability = Ability::dies_triggered(
+            source,
+            "When ~ dies, each opponent loses 1 life.",
+            vec![Effect::damage_opponents(1)],
+            TargetSpec::None,
+        );
+
+        assert!(ability.trigger_events.contains(&EventType::Dies));
+        // Dies triggers work from battlefield and graveyard
+        assert!(ability.active_zones.contains(&Zone::Battlefield));
+        assert!(ability.active_zones.contains(&Zone::Graveyard));
+    }
+
+    #[test]
+    fn attacks_triggered() {
+        let source = ObjectId::new();
+        let ability = Ability::attacks_triggered(
+            source,
+            "Whenever ~ attacks, draw a card.",
+            vec![Effect::draw_cards(1)],
+            TargetSpec::None,
+        );
+
+        assert!(ability.trigger_events.contains(&EventType::AttackerDeclared));
+    }
+
+    #[test]
+    fn combat_damage_triggered() {
+        let source = ObjectId::new();
+        let ability = Ability::combat_damage_to_player_triggered(
+            source,
+            "Whenever ~ deals combat damage to a player, draw a card.",
+            vec![Effect::draw_cards(1)],
+            TargetSpec::None,
+        );
+
+        assert!(ability.trigger_events.contains(&EventType::DamagedPlayer));
+    }
+
+    #[test]
+    fn upkeep_triggered() {
+        let source = ObjectId::new();
+        let ability = Ability::beginning_of_upkeep_triggered(
+            source,
+            "At the beginning of your upkeep, gain 1 life.",
+            vec![Effect::gain_life(1)],
+            TargetSpec::None,
+        );
+
+        assert!(ability.trigger_events.contains(&EventType::UpkeepStep));
+    }
+
+    #[test]
+    fn end_step_triggered() {
+        let source = ObjectId::new();
+        let ability = Ability::beginning_of_end_step_triggered(
+            source,
+            "At the beginning of your end step, create a 1/1 token.",
+            vec![Effect::create_token("Soldier", 1)],
+            TargetSpec::None,
+        );
+
+        assert!(ability.trigger_events.contains(&EventType::EndStep));
+    }
+
+    #[test]
+    fn effect_builders() {
+        // Test various effect constructors
+        match Effect::deal_damage(3) {
+            Effect::DealDamage { amount } => assert_eq!(amount, 3),
+            _ => panic!("wrong variant"),
+        }
+
+        match Effect::draw_cards(2) {
+            Effect::DrawCards { count } => assert_eq!(count, 2),
+            _ => panic!("wrong variant"),
+        }
+
+        match Effect::gain_life(5) {
+            Effect::GainLife { amount } => assert_eq!(amount, 5),
+            _ => panic!("wrong variant"),
+        }
+
+        match Effect::boost_until_eot(2, 2) {
+            Effect::BoostUntilEndOfTurn { power, toughness } => {
+                assert_eq!(power, 2);
+                assert_eq!(toughness, 2);
+            }
+            _ => panic!("wrong variant"),
+        }
+
+        match Effect::create_token("Zombie", 3) {
+            Effect::CreateToken { token_name, count } => {
+                assert_eq!(token_name, "Zombie");
+                assert_eq!(count, 3);
+            }
+            _ => panic!("wrong variant"),
+        }
+
+        match Effect::add_p1p1_counters(2) {
+            Effect::AddCounters { counter_type, count } => {
+                assert_eq!(counter_type, "+1/+1");
+                assert_eq!(count, 2);
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn cost_builders() {
+        match Cost::tap_self() {
+            Cost::TapSelf => {}
+            _ => panic!("wrong variant"),
+        }
+
+        match Cost::sacrifice_self() {
+            Cost::SacrificeSelf => {}
+            _ => panic!("wrong variant"),
+        }
+
+        match Cost::pay_life(3) {
+            Cost::PayLife(n) => assert_eq!(n, 3),
+            _ => panic!("wrong variant"),
+        }
+
+        match Cost::discard(1) {
+            Cost::Discard(n) => assert_eq!(n, 1),
+            _ => panic!("wrong variant"),
+        }
+
+        match Cost::sacrifice_other("a creature") {
+            Cost::SacrificeOther(desc) => assert_eq!(desc, "a creature"),
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn static_effect_builders() {
+        match StaticEffect::boost_controlled("creatures you control", 1, 1) {
+            StaticEffect::Boost { filter, power, toughness } => {
+                assert_eq!(filter, "creatures you control");
+                assert_eq!(power, 1);
+                assert_eq!(toughness, 1);
+            }
+            _ => panic!("wrong variant"),
+        }
+
+        match StaticEffect::grant_keyword_controlled("creatures you control", "flying") {
+            StaticEffect::GrantKeyword { filter, keyword } => {
+                assert_eq!(filter, "creatures you control");
+                assert_eq!(keyword, "flying");
+            }
+            _ => panic!("wrong variant"),
+        }
+
+        match StaticEffect::cost_reduction("creature spells", 1) {
+            StaticEffect::CostReduction { filter, amount } => {
+                assert_eq!(filter, "creature spells");
+                assert_eq!(amount, 1);
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn compose_realistic_card_lightning_bolt() {
+        // Lightning Bolt: {R} instant, "Deal 3 damage to any target."
+        let source = ObjectId::new();
+        let ability = Ability::spell(
+            source,
+            vec![Effect::deal_damage(3)],
+            TargetSpec::CreatureOrPlayer,
+        );
+        assert_eq!(ability.effects.len(), 1);
+        assert!(ability.uses_stack());
+    }
+
+    #[test]
+    fn compose_realistic_card_llanowar_elves() {
+        // Llanowar Elves: {G} creature, "{T}: Add {G}."
+        let source = ObjectId::new();
+        let ability = Ability::mana_ability(source, "{T}: Add {G}.", Mana::green(1));
+        assert!(ability.is_mana_ability());
+        assert_eq!(ability.costs.len(), 1);
+        match &ability.costs[0] {
+            Cost::TapSelf => {}
+            _ => panic!("expected TapSelf cost"),
+        }
+    }
+
+    #[test]
+    fn compose_realistic_card_mulldrifter() {
+        // Mulldrifter: when enters, draw 2 cards
+        let source = ObjectId::new();
+        let ability = Ability::enters_battlefield_triggered(
+            source,
+            "When Mulldrifter enters the battlefield, draw two cards.",
+            vec![Effect::draw_cards(2)],
+            TargetSpec::None,
+        );
+        assert!(ability.should_trigger(&GameEvent::new(EventType::EnteredTheBattlefield).target(source)));
+    }
+
+    #[test]
+    fn compose_realistic_lord() {
+        // Lord of Atlantis: Other Merfolk get +1/+1 and have islandwalk.
+        let source = ObjectId::new();
+        let ability = Ability::static_ability(
+            source,
+            "Other Merfolk you control get +1/+1 and have islandwalk.",
+            vec![
+                StaticEffect::boost_controlled("other Merfolk you control", 1, 1),
+                StaticEffect::grant_keyword_controlled("other Merfolk you control", "islandwalk"),
+            ],
+        );
+        assert_eq!(ability.static_effects.len(), 2);
+    }
+}
