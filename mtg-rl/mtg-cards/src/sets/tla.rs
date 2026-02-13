@@ -286,6 +286,17 @@ pub fn register(registry: &mut CardRegistry) {
     registry.register("Zhao, Ruthless Admiral", zhao_ruthless_admiral, "TLA");
     registry.register("Zhao, the Moon Slayer", zhao_the_moon_slayer, "TLA");
     registry.register("Zuko, Conflicted", zuko_conflicted, "TLA");
+
+    // ── New Enchantments ──────────────────────────────────────────────────
+    registry.register("Leaves from the Vine", leaves_from_the_vine, "TLA");
+    registry.register("The Cave of Two Lovers", the_cave_of_two_lovers, "TLA");
+
+    // ── Other ─────────────────────────────────────────────────────────────
+    registry.register("The Legend of Kuruk", the_legend_of_kuruk, "TLA");
+    registry.register("The Legend of Kyoshi", the_legend_of_kyoshi, "TLA");
+    registry.register("The Legend of Roku", the_legend_of_roku, "TLA");
+    registry.register("The Legend of Yangchen", the_legend_of_yangchen, "TLA");
+    registry.register("The Rise of Sozin", the_rise_of_sozin, "TLA");
 }
 
 fn aangs_journey(id: ObjectId, owner: PlayerId) -> CardData {
@@ -4293,3 +4304,121 @@ fn zuko_conflicted(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+
+
+// ── New TLA card factory functions ─────────────────────────────────────
+
+fn leaves_from_the_vine(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "Leaves from the Vine".into(), mana_cost: ManaCost::parse("{1}{G}"),
+        card_types: vec![CardType::Enchantment],
+        subtypes: vec![SubType::Saga],
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::Custom("(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn the_cave_of_two_lovers(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "The Cave of Two Lovers".into(), mana_cost: ManaCost::parse("{3}{R}"),
+        card_types: vec![CardType::Enchantment],
+        subtypes: vec![SubType::Saga],
+        rarity: Rarity::Common,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::Custom("(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn the_legend_of_kuruk(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "The Legend of Kuruk".into(),
+        card_types: vec![CardType::Creature],
+        supertypes: vec![SuperType::Legendary],
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::activated(id,
+                "Exhaust -- Waterbend {20}: Take an extra turn after this one.",
+                vec![Cost::Custom("Exhaust".into())],
+                vec![Effect::Custom("Exhaust -- Waterbend {20}: Take an extra turn after this one.".into())],
+                TargetSpec::None),
+            Ability::triggered(id,
+                "Whenever you cast a spell, create a 1/1 colorless Spirit creature token with \"This token can't block or be blocked by non-Spirit creatures.\"",
+                vec![EventType::SpellCast],
+                vec![Effect::Custom("Whenever you cast a spell, create a 1/1 colorless Spirit creature token with \"This token can't block or be blocked by non-Spirit creatures.\"".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn the_legend_of_kyoshi(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "The Legend of Kyoshi".into(),
+        card_types: vec![CardType::Creature],
+        supertypes: vec![SuperType::Legendary],
+        keywords: KeywordAbilities::TRAMPLE | KeywordAbilities::HEXPROOF,
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::Custom("The Legend of Kyoshi".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn the_legend_of_roku(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "The Legend of Roku".into(),
+        card_types: vec![CardType::Creature],
+        supertypes: vec![SuperType::Legendary],
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::activated(id,
+                "Firebending 4",
+                vec![Cost::pay_mana("{4}"), Cost::pay_mana("{R}")],
+                vec![Effect::boost_until_eot(4, 0)],
+                TargetSpec::None),
+            Ability::activated(id,
+                "{8}: Create a 4/4 red Dragon creature token with flying and firebending 4.",
+                vec![Cost::Custom("{8}: Create a 4/4 red Dragon creature token with flying and firebending 4.".into())],
+                vec![Effect::Custom("{8}: Create a 4/4 red Dragon creature token with flying and firebending 4.".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn the_legend_of_yangchen(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "The Legend of Yangchen".into(),
+        card_types: vec![CardType::Creature],
+        supertypes: vec![SuperType::Legendary],
+        keywords: KeywordAbilities::FLYING,
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::spell(id,
+                vec![Effect::Custom("The Legend of Yangchen".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}
+
+fn the_rise_of_sozin(id: ObjectId, owner: PlayerId) -> CardData {
+    CardData { id, owner, name: "The Rise of Sozin".into(),
+        card_types: vec![CardType::Creature],
+        supertypes: vec![SuperType::Legendary],
+        keywords: KeywordAbilities::MENACE,
+        rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::activated(id,
+                "Firebending 3",
+                vec![Cost::pay_mana("{3}"), Cost::pay_mana("{R}")],
+                vec![Effect::boost_until_eot(3, 0)],
+                TargetSpec::None),
+            Ability::triggered(id,
+                "Whenever Fire Lord Sozin deals combat damage to a player, you may pay {X}. When you do, put any number of target creature cards with total mana value X or less from that player's graveyard onto the ba",
+                vec![EventType::DamagedPlayer],
+                vec![Effect::Custom("Whenever Fire Lord Sozin deals combat damage to a player, you may pay {X}. When you do, put any number of target creature cards with total mana value X or less from that player's graveyard onto the ba".into())],
+                TargetSpec::None),
+        ],
+        ..Default::default() }
+}

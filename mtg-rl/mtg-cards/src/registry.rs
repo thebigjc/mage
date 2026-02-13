@@ -143,10 +143,10 @@ mod tests {
         let tdm = registry.cards_in_set("TDM");
         let ecl = registry.cards_in_set("ECL");
         // Counts may grow as teammates add cards; assert minimum thresholds
-        assert!(fdn.len() >= 191, "FDN should have at least 191 cards (T1+T2+T3): {}", fdn.len());
-        assert!(tla.len() >= 150, "TLA should have at least 150 cards: {}", tla.len());
-        assert!(tdm.len() >= 165, "TDM should have at least 165 cards: {}", tdm.len());
-        assert!(ecl.len() >= 152, "ECL should have at least 152 cards: {}", ecl.len());
+        assert!(fdn.len() >= 335, "FDN should have at least 335 cards (T1+T2+T3): {}", fdn.len());
+        assert!(tla.len() >= 273, "TLA should have at least 273 cards: {}", tla.len());
+        assert!(tdm.len() >= 232, "TDM should have at least 232 cards: {}", tdm.len());
+        assert!(ecl.len() >= 225, "ECL should have at least 225 cards: {}", ecl.len());
     }
 
     #[test]
