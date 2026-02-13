@@ -5248,7 +5248,7 @@ fn affectionate_indrik(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When Affectionate Indrik enters the battlefield, you may have it fight target creature you don't control.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When Affectionate Indrik enters the battlefield, you may have it fight target creature you don't control.".into())],
                 TargetSpec::None),
         ],
@@ -5280,7 +5280,7 @@ fn ambush_wolf(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When this creature enters, exile up to one target card from a graveyard.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When this creature enters, exile up to one target card from a graveyard.".into())],
                 TargetSpec::None),
         ],
@@ -5319,7 +5319,7 @@ fn angel_of_finality(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When Angel of Finality enters the battlefield, exile all cards from target player's graveyard.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When Angel of Finality enters the battlefield, exile all cards from target player's graveyard.".into())],
                 TargetSpec::None),
         ],
@@ -5336,7 +5336,7 @@ fn arbiter_of_woe(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When this creature enters, each opponent discards a card and loses 2 life. You draw a card and gain 2 life.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When this creature enters, each opponent discards a card and loses 2 life. You draw a card and gain 2 life.".into())],
                 TargetSpec::None),
         ],
@@ -5398,7 +5398,7 @@ fn archway_angel(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When Archway Angel enters the battlefield, you gain 2 life for each Gate you control.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When Archway Angel enters the battlefield, you gain 2 life for each Gate you control.".into())],
                 TargetSpec::None),
         ],
@@ -5425,7 +5425,7 @@ fn ashroot_animist(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When this creature attacks, another target creature you control gains trample and gets +X/+X until end of turn, where X is this creature's power.",
-                vec![EventType::DeclareAttacker],
+                vec![EventType::AttackerDeclared],
                 vec![Effect::Custom("When this creature attacks, another target creature you control gains trample and gets +X/+X until end of turn, where X is this creature's power.".into())],
                 TargetSpec::None),
         ],
@@ -5516,7 +5516,7 @@ fn bloodtithe_collector(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When this creature enters, if an opponent lost life this turn, each opponent discards a card.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When this creature enters, if an opponent lost life this turn, each opponent discards a card.".into())],
                 TargetSpec::None),
         ],
@@ -5585,7 +5585,7 @@ fn burrog_befuddler(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When Burrog Befuddler enters the battlefield, target creature an opponent controls gets -1/-0 until end of turn.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When Burrog Befuddler enters the battlefield, target creature an opponent controls gets -1/-0 until end of turn.".into())],
                 TargetSpec::None),
         ],
@@ -5603,7 +5603,7 @@ fn cackling_prowler(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![StaticEffect::Custom("Ward {2}".into())]),
             Ability::triggered(id,
                 "Morbid -- At the beginning of your end step, if a creature died this turn put a +1/+1 counter on this creature.",
-                vec![EventType::EndStepPre],
+                vec![EventType::EndStep],
                 vec![Effect::Custom("Morbid -- At the beginning of your end step, if a creature died this turn put a +1/+1 counter on this creature.".into())],
                 TargetSpec::None),
         ],
@@ -5619,7 +5619,7 @@ fn cat_collector(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When this creature enters, create a Food token.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When this creature enters, create a Food token.".into())],
                 TargetSpec::None),
         ],
@@ -5664,7 +5664,7 @@ fn cephalid_inkmage(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When this creature enters, surveil 3.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When this creature enters, surveil 3.".into())],
                 TargetSpec::None),
             Ability::static_ability(id, "Threshold -- This creature can't be blocked as long as there are seven or more cards in your graveyard.",
@@ -5683,7 +5683,7 @@ fn chandra_flameshaper(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "+1: Create a token that's a copy of target creature you control, except it has haste and \"At the beginning of the end step, sacrifice this token.\"",
-                vec![EventType::EndStepPre],
+                vec![EventType::EndStep],
                 vec![Effect::Custom("+1: Create a token that's a copy of target creature you control, except it has haste and \"At the beginning of the end step, sacrifice this token.\"".into())],
                 TargetSpec::None),
         ],
@@ -5722,7 +5722,7 @@ fn cloudblazer(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When Cloudblazer enters the battlefield, you gain 2 life and draw two cards.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When Cloudblazer enters the battlefield, you gain 2 life and draw two cards.".into())],
                 TargetSpec::None),
         ],
@@ -5767,7 +5767,7 @@ fn crypt_feaster(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "Threshold -- Whenever this creature attacks, if there are seven or more cards in your graveyard, this creature gets +2/+0 until end of turn.",
-                vec![EventType::DeclareAttacker],
+                vec![EventType::AttackerDeclared],
                 vec![Effect::Custom("Threshold -- Whenever this creature attacks, if there are seven or more cards in your graveyard, this creature gets +2/+0 until end of turn.".into())],
                 TargetSpec::None),
         ],
@@ -5879,7 +5879,7 @@ fn drakuseth_maw_of_flames(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "Whenever Drakuseth, Maw of Flames attacks, it deals 4 damage to any target and 3 damage to each of up to two other targets.",
-                vec![EventType::DeclareAttacker],
+                vec![EventType::AttackerDeclared],
                 vec![Effect::Custom("Whenever Drakuseth, Maw of Flames attacks, it deals 4 damage to any target and 3 damage to each of up to two other targets.".into())],
                 TargetSpec::None),
         ],
@@ -5895,7 +5895,7 @@ fn dwynens_elite(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When this creature enters, if you control another Elf, create a 1/1 green Elf Warrior creature token.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When this creature enters, if you control another Elf, create a 1/1 green Elf Warrior creature token.".into())],
                 TargetSpec::None),
         ],
@@ -6123,7 +6123,7 @@ fn gatekeeper_of_malakir(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![StaticEffect::Custom("Kicker {B}".into())]),
             Ability::triggered(id,
                 "When this creature enters, if it was kicked, target player sacrifices a creature.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When this creature enters, if it was kicked, target player sacrifices a creature.".into())],
                 TargetSpec::None),
         ],
@@ -6195,7 +6195,7 @@ fn guarded_heir(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When this creature enters, create two 3/3 white Knight creature tokens.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When this creature enters, create two 3/3 white Knight creature tokens.".into())],
                 TargetSpec::None),
         ],
@@ -6222,7 +6222,7 @@ fn harbinger_of_the_tides(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When Harbinger of the Tides enters the battlefield, you may return target tapped creature an opponent controls to its owner's hand.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When Harbinger of the Tides enters the battlefield, you may return target tapped creature an opponent controls to its owner's hand.".into())],
                 TargetSpec::None),
         ],
@@ -6238,7 +6238,7 @@ fn hare_apparent(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When this creature enters, create a number of 1/1 white Rabbit creature tokens equal to the number of other creatures you control named Hare Apparent.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When this creature enters, create a number of 1/1 white Rabbit creature tokens equal to the number of other creatures you control named Hare Apparent.".into())],
                 TargetSpec::None),
         ],
@@ -6281,7 +6281,7 @@ fn herald_of_faith(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When Herald of Faith attacks, you gain 2 life.",
-                vec![EventType::DeclareAttacker],
+                vec![EventType::AttackerDeclared],
                 vec![Effect::Custom("When Herald of Faith attacks, you gain 2 life.".into())],
                 TargetSpec::None),
         ],
@@ -6338,7 +6338,7 @@ fn icewind_elemental(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When this creature enters, draw a card, then discard a card.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When this creature enters, draw a card, then discard a card.".into())],
                 TargetSpec::None),
         ],
@@ -6429,12 +6429,12 @@ fn kiora_the_rising_tide(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When Kiora enters, draw two cards, then discard two cards.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When Kiora enters, draw two cards, then discard two cards.".into())],
                 TargetSpec::None),
             Ability::triggered(id,
                 "Threshold -- Whenever Kiora attacks, if there are seven or more cards in your graveyard, you may create Scion of the Deep, a legendary 8/8 blue Octopus creature token.",
-                vec![EventType::DeclareAttacker],
+                vec![EventType::AttackerDeclared],
                 vec![Effect::Custom("Threshold -- Whenever Kiora attacks, if there are seven or more cards in your graveyard, you may create Scion of the Deep, a legendary 8/8 blue Octopus creature token.".into())],
                 TargetSpec::None),
         ],
@@ -6468,7 +6468,7 @@ fn lightshell_duo(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When Lightshell Duo enters, surveil 2.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When Lightshell Duo enters, surveil 2.".into())],
                 TargetSpec::None),
         ],
@@ -6571,7 +6571,7 @@ fn meteor_golem(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When Meteor Golem enters the battlefield, destroy target nonland permanent an opponent controls.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When Meteor Golem enters the battlefield, destroy target nonland permanent an opponent controls.".into())],
                 TargetSpec::None),
         ],
@@ -6587,7 +6587,7 @@ fn micromancer(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When Micromancer enters the battlefield, you may search your library for an instant or sorcery card with mana value 1, reveal it, put it into your hand, then shuffle.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When Micromancer enters the battlefield, you may search your library for an instant or sorcery card with mana value 1, reveal it, put it into your hand, then shuffle.".into())],
                 TargetSpec::None),
         ],
@@ -6610,7 +6610,7 @@ fn midnight_snack(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "Raid -- At the beginning of your end step, if you attacked this turn, create a Food token.",
-                vec![EventType::EndStepPre],
+                vec![EventType::EndStep],
                 vec![Effect::Custom("Raid -- At the beginning of your end step, if you attacked this turn, create a Food token.".into())],
                 TargetSpec::None),
             Ability::activated(id,
@@ -6642,7 +6642,7 @@ fn mischievous_pup(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When Mischievous Pup enters the battlefield, return up to one other target permanent you control to its owner's hand.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When Mischievous Pup enters the battlefield, return up to one other target permanent you control to its owner's hand.".into())],
                 TargetSpec::None),
         ],
@@ -6690,7 +6690,7 @@ fn needletooth_pack(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "Morbid -- At the beginning of your end step, if a creature died this turn, put two +1/+1 counters on target creature you control.",
-                vec![EventType::EndStepPre],
+                vec![EventType::EndStep],
                 vec![Effect::Custom("Morbid -- At the beginning of your end step, if a creature died this turn, put two +1/+1 counters on target creature you control.".into())],
                 TargetSpec::None),
         ],
@@ -6763,7 +6763,7 @@ fn prayer_of_binding(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When Prayer of Binding enters the battlefield, exile up to one target nonland permanent an opponent controls until Prayer of Binding leaves the battlefield. You gain 2 life.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When Prayer of Binding enters the battlefield, exile up to one target nonland permanent an opponent controls until Prayer of Binding leaves the battlefield. You gain 2 life.".into())],
                 TargetSpec::None),
         ],
@@ -6780,7 +6780,7 @@ fn prideful_parent(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When this creature enters, create a 1/1 white Cat creature token.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When this creature enters, create a 1/1 white Cat creature token.".into())],
                 TargetSpec::None),
         ],
@@ -6809,7 +6809,7 @@ fn prime_speaker_zegana(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When Prime Speaker Zegana enters the battlefield, draw cards equal to its power.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When Prime Speaker Zegana enters the battlefield, draw cards equal to its power.".into())],
                 TargetSpec::None),
         ],
@@ -6921,7 +6921,7 @@ fn resolute_reinforcements(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When Resolute Reinforcements enters the battlefield, create a 1/1 white Soldier creature token.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When Resolute Reinforcements enters the battlefield, create a 1/1 white Soldier creature token.".into())],
                 TargetSpec::None),
         ],
@@ -7023,7 +7023,7 @@ fn savage_ventmaw(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "Whenever Savage Ventmaw attacks, add {R}{R}{R}{G}{G}{G}. Until end of turn, you don't lose this mana as steps and phases end.",
-                vec![EventType::DeclareAttacker],
+                vec![EventType::AttackerDeclared],
                 vec![Effect::Custom("Whenever Savage Ventmaw attacks, add {R}{R}{R}{G}{G}{G}. Until end of turn, you don't lose this mana as steps and phases end.".into())],
                 TargetSpec::None),
         ],
@@ -7055,7 +7055,7 @@ fn searslicer_goblin(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "Raid -- At the beginning of your end step, if you attacked this turn, create a 1/1 red Goblin creature token.",
-                vec![EventType::EndStepPre],
+                vec![EventType::EndStep],
                 vec![Effect::Custom("Raid -- At the beginning of your end step, if you attacked this turn, create a 1/1 red Goblin creature token.".into())],
                 TargetSpec::None),
         ],
@@ -7097,7 +7097,7 @@ fn shipwreck_dowser(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When Shipwreck Dowser enters the battlefield, return target instant or sorcery card from your graveyard to your hand.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When Shipwreck Dowser enters the battlefield, return target instant or sorcery card from your graveyard to your hand.".into())],
                 TargetSpec::None),
         ],
@@ -7123,7 +7123,7 @@ fn slumbering_cerberus(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "Morbid -- At the beginning of each end step, if a creature died this turn, untap this creature.",
-                vec![EventType::EndStepPre],
+                vec![EventType::EndStep],
                 vec![Effect::Custom("Morbid -- At the beginning of each end step, if a creature died this turn, untap this creature.".into())],
                 TargetSpec::None),
         ],
@@ -7208,7 +7208,7 @@ fn stasis_snare(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When Stasis Snare enters the battlefield, exile target creature an opponent controls until Stasis Snare leaves the battlefield.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When Stasis Snare enters the battlefield, exile target creature an opponent controls until Stasis Snare leaves the battlefield.".into())],
                 TargetSpec::None),
         ],
@@ -7236,7 +7236,7 @@ fn stromkirk_bloodthief(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "At the beginning of your end step, if an opponent lost life this turn, put a +1/+1 counter on target Vampire you control.",
-                vec![EventType::EndStepPre],
+                vec![EventType::EndStep],
                 vec![Effect::Custom("At the beginning of your end step, if an opponent lost life this turn, put a +1/+1 counter on target Vampire you control.".into())],
                 TargetSpec::None),
         ],
@@ -7421,7 +7421,7 @@ fn vampire_gourmand(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "Whenever this creature attacks, you may sacrifice another creature. If you do, draw a card and this creature can't be blocked this turn.",
-                vec![EventType::DeclareAttacker],
+                vec![EventType::AttackerDeclared],
                 vec![Effect::Custom("Whenever this creature attacks, you may sacrifice another creature. If you do, draw a card and this creature can't be blocked this turn.".into())],
                 TargetSpec::None),
         ],
@@ -7481,7 +7481,7 @@ fn vile_entomber(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When Vile Entomber enters the battlefield, search your library for a card, put that card into your graveyard, then shuffle.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When Vile Entomber enters the battlefield, search your library for a card, put that card into your graveyard, then shuffle.".into())],
                 TargetSpec::None),
         ],
@@ -7512,7 +7512,7 @@ fn volley_veteran(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When Volley Veteran enters the battlefield, it deals damage to target creature an opponent controls equal to the number of Goblins you control.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When Volley Veteran enters the battlefield, it deals damage to target creature an opponent controls equal to the number of Goblins you control.".into())],
                 TargetSpec::None),
         ],
@@ -7529,7 +7529,7 @@ fn voracious_greatshark(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When Voracious Greatshark enters the battlefield, counter target artifact or creature spell.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When Voracious Greatshark enters the battlefield, counter target artifact or creature spell.".into())],
                 TargetSpec::None),
         ],

@@ -3685,7 +3685,7 @@ fn champions_of_the_shoal(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "Whenever this creature enters or becomes tapped, tap up to one target creature and put a stun counter on it.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("Whenever this creature enters or becomes tapped, tap up to one target creature and put a stun counter on it.".into())],
                 TargetSpec::None),
         ],
@@ -3700,7 +3700,7 @@ fn clachan_festival(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When this enchantment enters, create two 1/1 green and white Kithkin creature tokens.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When this enchantment enters, create two 1/1 green and white Kithkin creature tokens.".into())],
                 TargetSpec::None),
             Ability::activated(id,
@@ -3721,7 +3721,7 @@ fn creakwood_safewright(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "At the beginning of your end step, if there is an Elf card in your graveyard and this creature has a -1/-1 counter on it, remove a -1/-1 counter from this creature.",
-                vec![EventType::EndStepPre],
+                vec![EventType::EndStep],
                 vec![Effect::Custom("At the beginning of your end step, if there is an Elf card in your graveyard and this creature has a -1/-1 counter on it, remove a -1/-1 counter from this creature.".into())],
                 TargetSpec::None),
         ],
@@ -3738,7 +3738,7 @@ fn dawnhand_eulogist(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When this creature enters, mill three cards. Then if there is an Elf card in your graveyard, each opponent loses 2 life and you gain 2 life.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When this creature enters, mill three cards. Then if there is an Elf card in your graveyard, each opponent loses 2 life and you gain 2 life.".into())],
                 TargetSpec::None),
         ],
@@ -3787,7 +3787,7 @@ fn formidable_speaker(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When this creature enters, you may discard a card. If you do, search your library for a creature card, reveal it, put it into your hand, then shuffle.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When this creature enters, you may discard a card. If you do, search your library for a creature card, reveal it, put it into your hand, then shuffle.".into())],
                 TargetSpec::None),
             Ability::activated(id,
@@ -3820,7 +3820,7 @@ fn gloom_ripper(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When this creature enters, target creature you control gets +X/+0 until end of turn and up to one target creature an opponent controls gets -0/-X until end of turn, where X is the number of Elves you ",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When this creature enters, target creature you control gets +X/+0 until end of turn and up to one target creature an opponent controls gets -0/-X until end of turn, where X is the number of Elves you ".into())],
                 TargetSpec::None),
         ],
@@ -3850,7 +3850,7 @@ fn gravelgill_scoundrel(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "Whenever this creature attacks, you may tap another untapped creature you control. If you do, this creature can't be blocked this turn.",
-                vec![EventType::DeclareAttacker],
+                vec![EventType::AttackerDeclared],
                 vec![Effect::Custom("Whenever this creature attacks, you may tap another untapped creature you control. If you do, this creature can't be blocked this turn.".into())],
                 TargetSpec::None),
         ],
@@ -3894,7 +3894,7 @@ fn kindle_the_inner_flame(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::triggered(id,
                 "Create a token that's a copy of target creature you control, except it has haste and \"At the beginning of the end step, sacrifice this token.\"",
-                vec![EventType::EndStepPre],
+                vec![EventType::EndStep],
                 vec![Effect::Custom("Create a token that's a copy of target creature you control, except it has haste and \"At the beginning of the end step, sacrifice this token.\"".into())],
                 TargetSpec::None),
         ],
@@ -3949,7 +3949,7 @@ fn meanders_guide(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "Whenever this creature attacks, you may tap another untapped Merfolk you control.",
-                vec![EventType::DeclareAttacker],
+                vec![EventType::AttackerDeclared],
                 vec![Effect::Custom("Whenever this creature attacks, you may tap another untapped Merfolk you control.".into())],
                 TargetSpec::None),
         ],
@@ -3977,7 +3977,7 @@ fn mistmeadow_council(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When this creature enters, draw a card.",
-                vec![EventType::ZoneChange],
+                vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Custom("When this creature enters, draw a card.".into())],
                 TargetSpec::None),
         ],
@@ -4034,7 +4034,7 @@ fn mudbutton_cursetosser(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "When this creature dies, destroy target creature an opponent controls with power 2 or less.",
-                vec![EventType::ZoneChange],
+                vec![EventType::Dies],
                 vec![Effect::Custom("When this creature dies, destroy target creature an opponent controls with power 2 or less.".into())],
                 TargetSpec::None),
         ],
@@ -4111,7 +4111,7 @@ fn slumbering_walker(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "At the beginning of your end step, you may remove a counter from this creature. When you do, return target creature card with power 2 or less from your graveyard to the battlefield.",
-                vec![EventType::EndStepPre],
+                vec![EventType::EndStep],
                 vec![Effect::Custom("At the beginning of your end step, you may remove a counter from this creature. When you do, return target creature card with power 2 or less from your graveyard to the battlefield.".into())],
                 TargetSpec::None),
         ],
@@ -4197,7 +4197,7 @@ fn vinebred_brawler(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::triggered(id,
                 "Whenever this creature attacks, another target Elf you control gets +2/+1 until end of turn.",
-                vec![EventType::DeclareAttacker],
+                vec![EventType::AttackerDeclared],
                 vec![Effect::Custom("Whenever this creature attacks, another target Elf you control gets +2/+1 until end of turn.".into())],
                 TargetSpec::None),
         ],

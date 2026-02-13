@@ -578,6 +578,8 @@ bitflags! {
         const BATTLE_CRY       = 1 << 42;
         const SKULK            = 1 << 43;
         const FABRICATE        = 1 << 44;
+        const STORM            = 1 << 45;
+        const PARTNER          = 1 << 46;
     }
 }
 
