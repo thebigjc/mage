@@ -1846,6 +1846,21 @@ impl Game {
                         }
                     }
                 }
+                Effect::CreateTokenVivid { token_name } => {
+                    let x = self.count_colors_among_permanents(controller) as u32;
+                    for _ in 0..x {
+                        let token_id = ObjectId::new();
+                        let mut card = CardData::new(token_id, controller, token_name);
+                        card.card_types = vec![crate::constants::CardType::Creature];
+                        let (p, t, kw) = Self::parse_token_stats(token_name);
+                        card.power = Some(p);
+                        card.toughness = Some(t);
+                        card.keywords = kw;
+                        let perm = Permanent::new(card, controller);
+                        self.state.battlefield.add(perm);
+                        self.state.set_zone(token_id, crate::constants::Zone::Battlefield, None);
+                    }
+                }
                 Effect::DoIfCostPaid { cost, if_paid, if_not_paid } => {
                     // Ask player if they want to pay the cost
                     let view = crate::decision::GameView::placeholder();
@@ -4124,6 +4139,20 @@ mod vivid_tests {
         let perm = game.state.battlefield.get(target).unwrap();
         assert_eq!(perm.power(), 5); // 2 base + 3 vivid
         assert_eq!(perm.toughness(), 5);
+    }
+
+    #[test]
+    fn vivid_create_tokens() {
+        let (mut game, p1, _) = setup();
+        // p1 has 3 colors
+        add_colored_creature(&mut game, p1, "R", "{R}");
+        add_colored_creature(&mut game, p1, "G", "{G}");
+        add_colored_creature(&mut game, p1, "B", "{B}");
+
+        let before = game.state.battlefield.controlled_by(p1).count();
+        game.execute_effects(&[Effect::create_token_vivid("1/1 Kithkin")], p1, &[], None);
+        let after = game.state.battlefield.controlled_by(p1).count();
+        assert_eq!(after - before, 3); // 3 tokens for 3 colors
     }
 }
 

@@ -4,7 +4,7 @@ Ordered by topological sort of the dependency graph. Engine capabilities are
 scheduled greedily: each step picks the capability that unlocks the most new
 cards. Multi-dependency cards appear under their last-needed capability.
 
-**169 cards complete** | **98 cards remaining** across **21 engine capabilities**
+**170 cards complete** | **97 cards remaining** across **21 engine capabilities**
 
 ## 1. Conditional/Dynamic Effects (COND)
 
@@ -117,7 +117,7 @@ cards. Multi-dependency cards appear under their last-needed capability.
 
 ### Multi-dependency cards (1) — now fully unblocked
 
-- [ ] Kithkeeper _COND + VIVID_ — Vivid (X = colors among permanents), create X Kithkin tokens, tap 3 creatures then +3/+0 + flying
+- [x] Kithkeeper _COND + VIVID_ — Vivid create_token_vivid("1/1 Kithkin") ETB typed, tap-3 activated +3/+0+flying typed
 
 ## 4. Player Choice (CHOICE)
 

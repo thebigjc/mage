@@ -217,6 +217,8 @@ pub enum Effect {
     DrawCardsVivid,
     /// Vivid -- Other creatures you control get +X/+X until EOT where X = colors.
     BoostAllUntilEotVivid,
+    /// Vivid -- Create X tokens where X = colors among permanents you control.
+    CreateTokenVivid { token_name: String },
 
     // -- Conditional cost --
     /// "You may pay [cost]. If you do, [if_paid]. If you don't, [if_not_paid]."
@@ -899,6 +901,7 @@ impl Effect {
     pub fn draw_cards_vivid() -> Self { Effect::DrawCardsVivid }
     /// Vivid -- Other creatures get +X/+X until EOT.
     pub fn boost_all_until_eot_vivid() -> Self { Effect::BoostAllUntilEotVivid }
+    pub fn create_token_vivid(token_name: &str) -> Self { Effect::CreateTokenVivid { token_name: token_name.to_string() } }
 
     /// "You may pay [cost]. If you do, [effects]. Otherwise, [else_effects]."
     pub fn do_if_cost_paid(cost: Cost, if_paid: Vec<Effect>, if_not_paid: Vec<Effect>) -> Self {

@@ -4177,6 +4177,9 @@ fn goatnap(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [COND] Attacks trigger may tap another creature for unblockable this turn
 fn gravelgill_scoundrel(id: ObjectId, owner: PlayerId) -> CardData {
+    // 1/3 Merfolk Rogue for {1}{U}. Vigilance.
+    // Whenever this creature attacks, you may tap another untapped creature you control.
+    // If you do, this creature cannot be blocked this turn.
     CardData { id, owner, name: "Gravelgill Scoundrel".into(), mana_cost: ManaCost::parse("{1}{U}"),
         card_types: vec![CardType::Creature],
         subtypes: vec![SubType::Merfolk, SubType::Rogue],
@@ -4185,9 +4188,12 @@ fn gravelgill_scoundrel(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::triggered(id,
-                "Whenever this creature attacks, you may tap another untapped creature you control. If you do, this creature can't be blocked this turn.",
+                "Whenever this creature attacks, you may tap another untapped creature you control. If you do, this creature can\x27t be blocked this turn.",
                 vec![EventType::AttackerDeclared],
-                vec![Effect::Custom("Whenever this creature attacks, you may tap another untapped creature you control. If you do, this creature can't be blocked this turn.".into())],
+                vec![Effect::do_if_cost_paid(
+                    Cost::Custom("Tap another untapped creature you control".into()),
+                    vec![Effect::Custom("This creature can\x27t be blocked this turn.".into())],
+                    vec![])],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -4285,12 +4291,26 @@ fn kirol_attentive_first_year(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [VIVID+COND] Vivid (X = colors among permanents), create X Kithkin tokens, tap 3 creatures then +3/+0 + flying
 fn kithkeeper(id: ObjectId, owner: PlayerId) -> CardData {
+    // 3/3 Elemental for {6}{W}. Vivid ETB: create X 1/1 Kithkin tokens.
+    // Tap 3 creatures: +3/+0 and flying until EOT.
     CardData { id, owner, name: "Kithkeeper".into(), mana_cost: ManaCost::parse("{6}{W}"),
         card_types: vec![CardType::Creature],
         subtypes: vec![SubType::Elemental],
         power: Some(3), toughness: Some(3),
-        keywords: KeywordAbilities::FLYING,
+        keywords: KeywordAbilities::empty(),
         rarity: Rarity::Common,
+        abilities: vec![
+            Ability::triggered(id,
+                "Vivid — When this creature enters, create X 1/1 green and white Kithkin creature tokens, where X is the number of colors among permanents you control.",
+                vec![EventType::EnteredTheBattlefield],
+                vec![Effect::create_token_vivid("1/1 Kithkin")],
+                TargetSpec::None),
+            Ability::activated(id,
+                "Tap three untapped creatures you control: This creature gets +3/+0 and gains flying until end of turn.",
+                vec![Cost::Custom("Tap three untapped creatures you control".into())],
+                vec![Effect::boost_until_eot(3, 0), Effect::gain_keyword_eot("flying")],
+                TargetSpec::None),
+        ],
         ..Default::default() }
 }
 
