@@ -4,7 +4,7 @@ Ordered by topological sort of the dependency graph. Engine capabilities are
 scheduled greedily: each step picks the capability that unlocks the most new
 cards. Multi-dependency cards appear under their last-needed capability.
 
-**86 cards complete** | **181 cards remaining** across **21 engine capabilities**
+**110 cards complete** | **157 cards remaining** across **21 engine capabilities**
 
 ## 1. Conditional/Dynamic Effects (COND)
 
@@ -76,18 +76,18 @@ cards. Multi-dependency cards appear under their last-needed capability.
 
 ### Single-dependency cards (12)
 
-- [ ] Bogslither's Embrace — Blight cost (OrCost: blight 1 or pay {3}), exile target creature
-- [ ] Creakwood Safewright
-- [ ] Glen Elendra Guardian — ETB with -1/-1 counter, remove counter cost, counter noncreature spell, target's controller draws
-- [ ] Gnarlbark Elm
-- [ ] Goldmeadow Nomad
-- [ ] Gristle Glutton
-- [ ] Hovel Hurler
-- [ ] Loch Mare — ETB with 3 -1/-1 counters, remove counter costs, draw card, tap+stun counter
-- [ ] Moonlit Lamenter
-- [ ] Reaping Willow — ETB with 2 -1/-1 counters, remove 2 counters cost, return creature MV<=3 from GY
-- [ ] Requiting Hex — Optional blight 1, destroy creature MV<=2, conditional gain 2 life if blighted
-- [ ] Stoic Grove-Guide
+- [x] Bogslither's Embrace — exile target creature (blight-or-pay cost is Custom)
+- [x] Creakwood Safewright — ETB 3 -1/-1 counters + end step remove counter
+- [x] Glen Elendra Guardian — ETB -1/-1 counter + remove counter to counter spell
+- [x] Gnarlbark Elm
+- [x] Goldmeadow Nomad
+- [x] Gristle Glutton
+- [x] Hovel Hurler — ETB 2 -1/-1 counters + remove counter for +1/+0 + flying
+- [x] Loch Mare — ETB 3 -1/-1 counters + 2 activated abilities (draw, tap+stun)
+- [x] Moonlit Lamenter
+- [x] Reaping Willow — ETB 2 -1/-1 counters + remove 2 to reanimate MV<=3
+- [x] Requiting Hex — destroy + conditional gain life (optional blight is Custom)
+- [x] Stoic Grove-Guide — fixed activated ability cost to {1}{B/G}
 
 ### Multi-dependency cards (3) — now fully unblocked
 

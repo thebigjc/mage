@@ -1471,14 +1471,14 @@ fn sting_slinger(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn stoic_grove_guide(id: ObjectId, owner: PlayerId) -> CardData {
-    // 5/4 Elf Druid for {4}{B/G}. (From graveyard: create 2/2 Elf token)
+    // 5/4 Elf Druid for {4}{B/G}. (From graveyard: {1}{B/G}, exile self: create 2/2 Elf token, sorcery)
     CardData { id, owner, name: "Stoic Grove-Guide".into(), mana_cost: ManaCost::parse("{4}{B/G}"),
         card_types: vec![CardType::Creature], subtypes: vec![SubType::Elf, SubType::Druid],
         power: Some(5), toughness: Some(4), rarity: Rarity::Common,
         abilities: vec![
             Ability::activated(id,
-                "{4}{B/G}, Exile Stoic Grove-Guide from your graveyard: Create a 2/2 green Elf Warrior creature token.",
-                vec![Cost::pay_mana("{4}{B/G}"), Cost::Custom("Exile this card from your graveyard".into())],
+                "{1}{B/G}, Exile Stoic Grove-Guide from your graveyard: Create a 2/2 black and green Elf creature token. Activate only as a sorcery.",
+                vec![Cost::pay_mana("{1}{B/G}"), Cost::ExileFromGraveyard(1)],
                 vec![Effect::create_token("2/2 Elf Warrior", 1)],
                 TargetSpec::None),
         ],
@@ -2727,6 +2727,7 @@ fn glamer_gifter(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [COST] ETB with -1/-1 counter, remove counter cost, counter noncreature spell, target's controller draws
 fn glen_elendra_guardian(id: ObjectId, owner: PlayerId) -> CardData {
+    // 3/4 Faerie Wizard for {2}{U}. Flash, Flying. (ETB with -1/-1 counter; {1}{U}, remove 1: counter noncreature spell, controller draws)
     CardData { id, owner, name: "Glen Elendra Guardian".into(),
         mana_cost: ManaCost::parse("{2}{U}"),
         card_types: vec![CardType::Creature],
@@ -2735,11 +2736,15 @@ fn glen_elendra_guardian(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Rare,
         keywords: KeywordAbilities::FLASH | KeywordAbilities::FLYING,
         abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "Glen Elendra Guardian enters with a -1/-1 counter on it.",
+                vec![Effect::add_counters("-1/-1", 1)],
+                TargetSpec::None),
             Ability::activated(id,
-                    "Activated ability.",
-                    vec![Cost::pay_mana("{1}{U}")],
-                    vec![Effect::Custom("Activated effect.".into())],
-                    TargetSpec::None),
+                "{1}{U}, Remove a -1/-1 counter from Glen Elendra Guardian: Counter target noncreature spell. Its controller draws a card.",
+                vec![Cost::pay_mana("{1}{U}"), Cost::remove_counters("-1/-1", 1)],
+                vec![Effect::counter_spell(), Effect::Custom("Its controller draws a card.".into())],
+                TargetSpec::Spell),
         ],
         ..Default::default() }
 }
@@ -2958,6 +2963,7 @@ fn lluwen_imperfect_naturalist(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [COST] ETB with 3 -1/-1 counters, remove counter costs, draw card, tap+stun counter
 fn loch_mare(id: ObjectId, owner: PlayerId) -> CardData {
+    // 4/5 Horse Serpent for {1}{U}. (ETB with 3 -1/-1 counters; {1}{U}, remove 1: draw; {2}{U}, remove 2: tap+stun)
     CardData { id, owner, name: "Loch Mare".into(),
         mana_cost: ManaCost::parse("{1}{U}"),
         card_types: vec![CardType::Creature],
@@ -2965,11 +2971,20 @@ fn loch_mare(id: ObjectId, owner: PlayerId) -> CardData {
         power: Some(4), toughness: Some(5),
         rarity: Rarity::Mythic,
         abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "Loch Mare enters with three -1/-1 counters on it.",
+                vec![Effect::add_counters("-1/-1", 3)],
+                TargetSpec::None),
             Ability::activated(id,
-                    "Activated ability.",
-                    vec![Cost::pay_mana("{1}{U}")],
-                    vec![Effect::Custom("Activated effect.".into())],
-                    TargetSpec::None),
+                "{1}{U}, Remove a -1/-1 counter from Loch Mare: Draw a card.",
+                vec![Cost::pay_mana("{1}{U}"), Cost::remove_counters("-1/-1", 1)],
+                vec![Effect::draw_cards(1)],
+                TargetSpec::None),
+            Ability::activated(id,
+                "{2}{U}, Remove two -1/-1 counters from Loch Mare: Tap target creature. Put a stun counter on it.",
+                vec![Cost::pay_mana("{2}{U}"), Cost::remove_counters("-1/-1", 2)],
+                vec![Effect::tap_target(), Effect::add_counters("stun", 1)],
+                TargetSpec::Creature),
         ],
         ..Default::default() }
 }
@@ -3216,6 +3231,7 @@ fn pyrrhic_strike(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [COST] ETB with 2 -1/-1 counters, remove 2 counters cost, return creature MV<=3 from GY
 fn reaping_willow(id: ObjectId, owner: PlayerId) -> CardData {
+    // 3/6 Treefolk Cleric for {1}{W/B}{W/B}{W/B}. Lifelink. (ETB with 2 -1/-1 counters; {1}{W/B}, remove 2: reanimate creature MV<=3, sorcery)
     CardData { id, owner, name: "Reaping Willow".into(),
         mana_cost: ManaCost::parse("{1}{W/B}{W/B}{W/B}"),
         card_types: vec![CardType::Creature],
@@ -3223,6 +3239,17 @@ fn reaping_willow(id: ObjectId, owner: PlayerId) -> CardData {
         power: Some(3), toughness: Some(6),
         rarity: Rarity::Uncommon,
         keywords: KeywordAbilities::LIFELINK,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "Reaping Willow enters with two -1/-1 counters on it.",
+                vec![Effect::add_counters("-1/-1", 2)],
+                TargetSpec::None),
+            Ability::activated(id,
+                "{1}{W/B}, Remove two -1/-1 counters from Reaping Willow: Return target creature card with mana value 3 or less from your graveyard to the battlefield. Activate only as a sorcery.",
+                vec![Cost::pay_mana("{1}{W/B}"), Cost::remove_counters("-1/-1", 2)],
+                vec![Effect::reanimate()],
+                TargetSpec::CardInYourGraveyard),
+        ],
         ..Default::default() }
 }
 
@@ -3738,13 +3765,14 @@ fn ajani_outland_chaperone(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [COST] Blight cost (OrCost: blight 1 or pay {3}), exile target creature
 fn bogslithers_embrace(id: ObjectId, owner: PlayerId) -> CardData {
+    // Sorcery for {1}{B}. (Additional cost: blight 1 or pay {3}; exile target creature)
     CardData { id, owner, name: "Bogslither's Embrace".into(), mana_cost: ManaCost::parse("{1}{B}"),
         card_types: vec![CardType::Sorcery],
         rarity: Rarity::Common,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::Custom("As an additional cost to cast this spell, blight 1 or pay {3}.".into())],
-                TargetSpec::None),
+                vec![Effect::exile()],
+                TargetSpec::Creature),
         ],
         ..Default::default() }
 }
@@ -3813,16 +3841,20 @@ fn clachan_festival(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn creakwood_safewright(id: ObjectId, owner: PlayerId) -> CardData {
+    // 5/5 Elf Warrior for {1}{B}. (ETB with 3 -1/-1 counters; end step: if Elf in GY and has counter, remove one)
     CardData { id, owner, name: "Creakwood Safewright".into(), mana_cost: ManaCost::parse("{1}{B}"),
         card_types: vec![CardType::Creature],
         subtypes: vec![SubType::Elf, SubType::Warrior],
         power: Some(5), toughness: Some(5),
         rarity: Rarity::Common,
         abilities: vec![
-            Ability::triggered(id,
+            Ability::enters_battlefield_triggered(id,
+                "Creakwood Safewright enters with three -1/-1 counters on it.",
+                vec![Effect::add_counters("-1/-1", 3)],
+                TargetSpec::None),
+            Ability::beginning_of_end_step_triggered(id,
                 "At the beginning of your end step, if there is an Elf card in your graveyard and this creature has a -1/-1 counter on it, remove a -1/-1 counter from this creature.",
-                vec![EventType::EndStep],
-                vec![Effect::Custom("At the beginning of your end step, if there is an Elf card in your graveyard and this creature has a -1/-1 counter on it, remove a -1/-1 counter from this creature.".into())],
+                vec![Effect::RemoveCounters { counter_type: "-1/-1".into(), count: 1 }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -3976,11 +4008,23 @@ fn gravelgill_scoundrel(id: ObjectId, owner: PlayerId) -> CardData {
 // Missing: ETB-with-counters as replacement (vs trigger), sorcery-speed ability restriction.
 // Category: COST (Cost System — RemoveCounters)
 fn hovel_hurler(id: ObjectId, owner: PlayerId) -> CardData {
+    // 6/7 Giant Warrior for {3}{R/W}{R/W}. (ETB with 2 -1/-1 counters; {R/W}{R/W}, remove 1: another creature +1/+0 + flying EOT, sorcery)
     CardData { id, owner, name: "Hovel Hurler".into(), mana_cost: ManaCost::parse("{3}{R/W}{R/W}"),
         card_types: vec![CardType::Creature],
         subtypes: vec![SubType::Giant, SubType::Warrior],
         power: Some(6), toughness: Some(7),
         rarity: Rarity::Common,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "Hovel Hurler enters with two -1/-1 counters on it.",
+                vec![Effect::add_counters("-1/-1", 2)],
+                TargetSpec::None),
+            Ability::activated(id,
+                "{R/W}{R/W}, Remove a -1/-1 counter from Hovel Hurler: Target other creature you control gets +1/+0 and gains flying until end of turn. Activate only as a sorcery.",
+                vec![Cost::pay_mana("{R/W}{R/W}"), Cost::remove_counters("-1/-1", 1)],
+                vec![Effect::boost_until_eot(1, 0), Effect::gain_keyword_eot("flying")],
+                TargetSpec::CreatureYouControl),
+        ],
         ..Default::default() }
 }
 
@@ -4221,13 +4265,14 @@ fn raiding_schemes(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [COST] Optional blight 1, destroy creature MV<=2, conditional gain 2 life if blighted
 fn requiting_hex(id: ObjectId, owner: PlayerId) -> CardData {
+    // Instant for {B}. (Optional blight 1; destroy creature MV<=2; if blighted, gain 2 life)
     CardData { id, owner, name: "Requiting Hex".into(), mana_cost: ManaCost::parse("{B}"),
         card_types: vec![CardType::Instant],
         rarity: Rarity::Common,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::Custom("As an additional cost to cast this spell, you may blight 1.".into())],
-                TargetSpec::None),
+                vec![Effect::destroy(), Effect::Custom("If you blighted, you gain 2 life.".into())],
+                TargetSpec::Creature),
         ],
         ..Default::default() }
 }

@@ -331,6 +331,90 @@ mod tests {
     }
 
     #[test]
+    fn ecl_cost_card_abilities() {
+        let registry = CardRegistry::with_all_sets();
+        let id = ObjectId::new();
+        let owner = PlayerId::new();
+        use mtg_engine::abilities::{Cost, Effect, TargetSpec};
+
+        // Hovel Hurler — 6/7 Giant, ETB with 2 -1/-1 counters, activated remove counter + boost+fly
+        let hh = registry.create("Hovel Hurler", id, owner).unwrap();
+        assert_eq!(hh.power, Some(6));
+        assert_eq!(hh.toughness, Some(7));
+        assert_eq!(hh.abilities.len(), 2);
+        // ETB: add 2 -1/-1 counters
+        assert!(matches!(hh.abilities[0].effects[..],
+            [Effect::AddCounters { ref counter_type, count: 2 }] if counter_type == "-1/-1"));
+        // Activated: remove counter cost, +1/+0 + flying EOT
+        assert!(matches!(&hh.abilities[1].costs[1], Cost::RemoveCounters(ref ct, 1) if ct == "-1/-1"));
+        assert!(matches!(hh.abilities[1].effects[0], Effect::BoostUntilEndOfTurn { power: 1, toughness: 0 }));
+        assert!(matches!(hh.abilities[1].effects[1], Effect::GainKeywordUntilEndOfTurn { ref keyword } if keyword == "flying"));
+        assert!(matches!(hh.abilities[1].targets, TargetSpec::CreatureYouControl));
+
+        // Glen Elendra Guardian — 3/4 Flash Flying, ETB with 1 counter, activated counter+draw
+        let ge = registry.create("Glen Elendra Guardian", id, owner).unwrap();
+        assert_eq!(ge.power, Some(3));
+        assert_eq!(ge.toughness, Some(4));
+        assert!(ge.keywords.contains(KeywordAbilities::FLASH));
+        assert!(ge.keywords.contains(KeywordAbilities::FLYING));
+        assert_eq!(ge.abilities.len(), 2);
+        assert!(matches!(ge.abilities[0].effects[..],
+            [Effect::AddCounters { ref counter_type, count: 1 }] if counter_type == "-1/-1"));
+        assert!(matches!(ge.abilities[1].effects[0], Effect::CounterSpell));
+        assert!(matches!(ge.abilities[1].targets, TargetSpec::Spell));
+
+        // Loch Mare — 4/5, ETB with 3 counters, 2 activated abilities
+        let lm = registry.create("Loch Mare", id, owner).unwrap();
+        assert_eq!(lm.power, Some(4));
+        assert_eq!(lm.toughness, Some(5));
+        assert_eq!(lm.abilities.len(), 3);
+        // ETB: 3 -1/-1 counters
+        assert!(matches!(lm.abilities[0].effects[..],
+            [Effect::AddCounters { ref counter_type, count: 3 }] if counter_type == "-1/-1"));
+        // Activated 1: remove 1, draw
+        assert!(matches!(&lm.abilities[1].costs[1], Cost::RemoveCounters(ref ct, 1) if ct == "-1/-1"));
+        assert!(matches!(lm.abilities[1].effects[..], [Effect::DrawCards { count: 1 }]));
+        // Activated 2: remove 2, tap + stun
+        assert!(matches!(&lm.abilities[2].costs[1], Cost::RemoveCounters(ref ct, 2) if ct == "-1/-1"));
+        assert!(matches!(lm.abilities[2].effects[0], Effect::TapTarget));
+        assert!(matches!(lm.abilities[2].effects[1], Effect::AddCounters { ref counter_type, count: 1 } if counter_type == "stun"));
+
+        // Reaping Willow — 3/6 Lifelink, ETB with 2 counters, activated reanimate
+        let rw = registry.create("Reaping Willow", id, owner).unwrap();
+        assert_eq!(rw.power, Some(3));
+        assert_eq!(rw.toughness, Some(6));
+        assert!(rw.keywords.contains(KeywordAbilities::LIFELINK));
+        assert_eq!(rw.abilities.len(), 2);
+        assert!(matches!(rw.abilities[0].effects[..],
+            [Effect::AddCounters { ref counter_type, count: 2 }] if counter_type == "-1/-1"));
+        assert!(matches!(&rw.abilities[1].costs[1], Cost::RemoveCounters(ref ct, 2) if ct == "-1/-1"));
+        assert!(matches!(rw.abilities[1].effects[..], [Effect::Reanimate]));
+        assert!(matches!(rw.abilities[1].targets, TargetSpec::CardInYourGraveyard));
+
+        // Creakwood Safewright — 5/5, ETB with 3 counters, end step remove counter
+        let cs = registry.create("Creakwood Safewright", id, owner).unwrap();
+        assert_eq!(cs.power, Some(5));
+        assert_eq!(cs.toughness, Some(5));
+        assert_eq!(cs.abilities.len(), 2);
+        assert!(matches!(cs.abilities[0].effects[..],
+            [Effect::AddCounters { ref counter_type, count: 3 }] if counter_type == "-1/-1"));
+        assert!(matches!(cs.abilities[1].effects[..],
+            [Effect::RemoveCounters { ref counter_type, count: 1 }] if counter_type == "-1/-1"));
+
+        // Bogslither's Embrace — Sorcery, exile target creature
+        let be = registry.create("Bogslither's Embrace", id, owner).unwrap();
+        assert!(be.card_types.contains(&CardType::Sorcery));
+        assert!(matches!(be.abilities[0].effects[..], [Effect::Exile]));
+        assert!(matches!(be.abilities[0].targets, TargetSpec::Creature));
+
+        // Requiting Hex — Instant, destroy target creature
+        let rh = registry.create("Requiting Hex", id, owner).unwrap();
+        assert!(rh.card_types.contains(&CardType::Instant));
+        assert!(matches!(rh.abilities[0].effects[0], Effect::Destroy));
+        assert!(matches!(rh.abilities[0].targets, TargetSpec::Creature));
+    }
+
+    #[test]
     fn tdm_tier2_spells() {
         let registry = CardRegistry::with_all_sets();
         let id = ObjectId::new();
