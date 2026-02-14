@@ -2586,8 +2586,9 @@ fn evershrikes_gift(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [COND] Multi-level activated abilities changing type/base P/T, conditional on current subtype
+// ENGINE DEPS: [COND] Multi-level activated abilities changing type/base P/T
 fn figure_of_fable(id: ObjectId, owner: PlayerId) -> CardData {
+    // 1/1 Kithkin {G/W}. 3 level-up activated abilities: 2/3 Scout, 4/5 Soldier, 7/8 Avatar with protection.
     CardData { id, owner, name: "Figure of Fable".into(),
         mana_cost: ManaCost::parse("{G/W}"),
         card_types: vec![CardType::Creature],
@@ -2596,10 +2597,20 @@ fn figure_of_fable(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Rare,
         abilities: vec![
             Ability::activated(id,
-                    "Activated ability.",
-                    vec![Cost::pay_mana("{G/W}")],
-                    vec![Effect::Custom("Activated effect.".into())],
-                    TargetSpec::None),
+                "{G/W}: This creature becomes a Kithkin Scout with base power and toughness 2/3.",
+                vec![Cost::pay_mana("{G/W}")],
+                vec![Effect::SetPowerToughness { power: 2, toughness: 3 }],
+                TargetSpec::None),
+            Ability::activated(id,
+                "{1}{G/W}{G/W}: If this creature is a Scout, it becomes a Kithkin Soldier with base power and toughness 4/5.",
+                vec![Cost::pay_mana("{1}{G/W}{G/W}")],
+                vec![Effect::Custom("If Scout: becomes Kithkin Soldier 4/5.".into())],
+                TargetSpec::None),
+            Ability::activated(id,
+                "{3}{G/W}{G/W}{G/W}: If this creature is a Soldier, it becomes a Kithkin Avatar 7/8 with protection from each opponent.",
+                vec![Cost::pay_mana("{3}{G/W}{G/W}{G/W}")],
+                vec![Effect::Custom("If Soldier: becomes Kithkin Avatar 7/8 with protection.".into())],
+                TargetSpec::None),
         ],
         ..Default::default() }
 }
@@ -2900,20 +2911,27 @@ fn keep_out(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [COND] Dynamic +X/+X where X=creatures entered this turn (watcher), begin-of-combat token creation
 fn kinbinding(id: ObjectId, owner: PlayerId) -> CardData {
+    // Enchantment {3}{W}{W}. Creatures +X/+X (X=creatures ETBd this turn). Combat: create 1/1 Kithkin.
     CardData { id, owner, name: "Kinbinding".into(),
         mana_cost: ManaCost::parse("{3}{W}{W}"),
         card_types: vec![CardType::Enchantment],
         rarity: Rarity::Rare,
         abilities: vec![
             Ability::static_ability(id,
-                    "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                "Creatures you control get +X/+X, where X is the number of creatures that entered the battlefield under your control this turn.",
+                vec![StaticEffect::Custom("Dynamic +X/+X where X = creatures ETB this turn.".into())]),
+            Ability::triggered(id,
+                "At the beginning of combat on your turn, create a 1/1 green and white Kithkin creature token.",
+                vec![EventType::BeginCombat],
+                vec![Effect::create_token("1/1 Kithkin", 1)],
+                TargetSpec::None),
         ],
         ..Default::default() }
 }
 
 // ENGINE DEPS: [COND] Attacks then put creature from hand onto battlefield tapped+attacking if MV <= attacking count
 fn kinscaer_sentry(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/2 Kithkin Soldier {1}{W}. First strike, lifelink. Attacks: put creature MV<=attackers from hand tapped+attacking.
     CardData { id, owner, name: "Kinscaer Sentry".into(),
         mana_cost: ManaCost::parse("{1}{W}"),
         card_types: vec![CardType::Creature],
@@ -2922,11 +2940,10 @@ fn kinscaer_sentry(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Rare,
         keywords: KeywordAbilities::FIRST_STRIKE | KeywordAbilities::LIFELINK,
         abilities: vec![
-            Ability::triggered(id,
-                    "Whenever this attacks, trigger effect.",
-                    vec![EventType::AttackerDeclared],
-                    vec![Effect::Custom("Attack trigger.".into())],
-                    TargetSpec::None),
+            Ability::attacks_triggered(id,
+                "Whenever this creature attacks, you may put a creature card with mana value X or less from your hand onto the battlefield tapped and attacking, where X is the number of attacking creatures you control.",
+                vec![Effect::Custom("Put creature MV<=attacking count from hand onto BF tapped+attacking.".into())],
+                TargetSpec::None),
         ],
         ..Default::default() }
 }
@@ -3086,8 +3103,9 @@ fn morcants_loyalist(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [COND] Players can't draw or gain life (static), each draw step: lose 3 life + search library
+// ENGINE DEPS: [COND] Players cant draw or gain life (static), each draw step: lose 3 life + search library
 fn mornsong_aria(id: ObjectId, owner: PlayerId) -> CardData {
+    // Legendary Enchantment {1}{B}{B}. No draw/life gain. Draw step: lose 3 life + search library.
     CardData { id, owner, name: "Mornsong Aria".into(),
         mana_cost: ManaCost::parse("{1}{B}{B}"),
         card_types: vec![CardType::Enchantment],
@@ -3095,8 +3113,13 @@ fn mornsong_aria(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Rare,
         abilities: vec![
             Ability::static_ability(id,
-                    "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                "Players can't draw cards or gain life.",
+                vec![StaticEffect::CantGainLife, StaticEffect::CantDrawExtraCards]),
+            Ability::triggered(id,
+                "At the beginning of each player's draw step, that player loses 3 life, searches their library for a card, puts it into their hand, then shuffles.",
+                vec![EventType::DrawStep],
+                vec![Effect::LoseLife { amount: 3 }, Effect::search_library("card")],
+                TargetSpec::None),
         ],
         ..Default::default() }
 }
@@ -3339,17 +3362,25 @@ fn sanar_innovative_first_year(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [COND] Affinity for Forests, landfall then Treefolk token, exile self then indestructible until EOT
 fn sapling_nursery(id: ObjectId, owner: PlayerId) -> CardData {
+    // Enchantment {6}{G}{G}. Affinity for Forests. Landfall: Treefolk token. Exile: indestructible until EOT.
     CardData { id, owner, name: "Sapling Nursery".into(),
         mana_cost: ManaCost::parse("{6}{G}{G}"),
         card_types: vec![CardType::Enchantment],
         rarity: Rarity::Rare,
-        keywords: KeywordAbilities::INDESTRUCTIBLE,
         abilities: vec![
+            Ability::static_ability(id,
+                "Affinity for Forests.",
+                vec![StaticEffect::CostReduction { filter: "Forest".into(), amount: 1 }]),
+            Ability::triggered(id,
+                "Landfall — Whenever a land you control enters, create a 3/4 green Treefolk creature token with reach.",
+                vec![EventType::EnteredTheBattlefield],
+                vec![Effect::create_token("3/4 Treefolk with reach", 1)],
+                TargetSpec::None),
             Ability::activated(id,
-                    "Activated ability.",
-                    vec![Cost::pay_mana("{1}{G}")],
-                    vec![Effect::Custom("Activated effect.".into())],
-                    TargetSpec::None),
+                "{1}{G}, Exile this enchantment: Treefolk and Forests you control gain indestructible until end of turn.",
+                vec![Cost::pay_mana("{1}{G}"), Cost::Custom("Exile this enchantment".into())],
+                vec![Effect::Custom("Treefolk and Forests you control gain indestructible until end of turn.".into())],
+                TargetSpec::None),
         ],
         ..Default::default() }
 }
@@ -4386,13 +4417,15 @@ fn swat_away(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 // ENGINE DEPS: [COND] Search basic land to battlefield tapped, conditional create Treefolk token if 7+ lands/Treefolk
+// ENGINE DEPS: [COND] Search basic land + conditional Treefolk token
 fn tend_the_sprigs(id: ObjectId, owner: PlayerId) -> CardData {
+    // Sorcery {2}{G}. Search basic land to BF tapped. If 7+ lands/Treefolk, create 3/4 Treefolk with reach.
     CardData { id, owner, name: "Tend the Sprigs".into(), mana_cost: ManaCost::parse("{2}{G}"),
         card_types: vec![CardType::Sorcery],
         rarity: Rarity::Common,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::Custom("Search your library for a basic land card, put it onto the battlefield tapped, then shuffle. Then if you control seven or more lands and/or Treefolk, create a 3/4 green Treefolk creature token with re".into())],
+                vec![Effect::search_library("basic land"), Effect::Custom("If 7+ lands/Treefolk, create 3/4 Treefolk with reach.".into())],
                 TargetSpec::None),
         ],
         ..Default::default() }
