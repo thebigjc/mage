@@ -15,11 +15,12 @@
 // Ported from mage.game.GameImpl.
 
 use crate::abilities::{Cost, Effect};
+use crate::combat::{self, CombatState};
 use crate::constants::AbilityType;
 use crate::card::CardData;
 use crate::constants::PhaseStep;
 use crate::counters::CounterType;
-use crate::decision::PlayerDecisionMaker;
+use crate::decision::{AttackerInfo, PlayerDecisionMaker};
 use crate::permanent::Permanent;
 use crate::state::{GameState, StateBasedActions};
 use crate::turn::{has_priority, PriorityTracker, TurnManager};
@@ -440,9 +441,263 @@ impl Game {
                     player.mana_pool.clear();
                 }
             }
+            PhaseStep::DeclareAttackers => {
+                self.declare_attackers_step(active_player);
+            }
+            PhaseStep::DeclareBlockers => {
+                self.declare_blockers_step(active_player);
+            }
+            PhaseStep::FirstStrikeDamage => {
+                self.combat_damage_step(true);
+            }
+            PhaseStep::CombatDamage => {
+                self.combat_damage_step(false);
+            }
+            PhaseStep::EndCombat => {
+                self.state.combat.clear();
+            }
             _ => {
                 // Other steps: empty mana pool at step transition (simplified)
                 // In full rules, mana empties at end of each step/phase.
+            }
+        }
+    }
+
+    /// Declare attackers step: prompt active player to choose attackers,
+    /// tap them (unless vigilance), register in combat state.
+    fn declare_attackers_step(&mut self, active_player: PlayerId) {
+        // Collect creatures that can legally attack
+        let possible_attackers: Vec<ObjectId> = self
+            .state
+            .battlefield
+            .iter()
+            .filter(|p| p.controller == active_player && p.can_attack())
+            .map(|p| p.id())
+            .collect();
+
+        if possible_attackers.is_empty() {
+            return;
+        }
+
+        // Possible defenders: opponent player IDs (as ObjectIds for the interface)
+        let possible_defenders: Vec<ObjectId> = self
+            .state
+            .turn_order
+            .iter()
+            .filter(|&&id| id != active_player)
+            .filter(|&&id| {
+                self.state
+                    .players
+                    .get(&id)
+                    .map(|p| p.is_in_game())
+                    .unwrap_or(false)
+            })
+            .map(|&id| ObjectId(id.0))
+            .collect();
+
+        if possible_defenders.is_empty() {
+            return;
+        }
+
+        // Ask decision maker to choose attackers
+        let view = crate::decision::GameView::placeholder();
+        let chosen = if let Some(dm) = self.decision_makers.get_mut(&active_player) {
+            dm.select_attackers(&view, &possible_attackers, &possible_defenders)
+        } else {
+            Vec::new()
+        };
+
+        if chosen.is_empty() {
+            return;
+        }
+
+        // Set up combat state
+        self.state.combat = CombatState::new();
+        self.state.combat.attacking_player = Some(active_player);
+
+        for (attacker_id, defender_id) in &chosen {
+            // Validate the attacker can actually attack
+            let can = self
+                .state
+                .battlefield
+                .get(*attacker_id)
+                .map(|p| p.can_attack() && p.controller == active_player)
+                .unwrap_or(false);
+            if !can {
+                continue;
+            }
+
+            // Register attacker in combat state
+            self.state
+                .combat
+                .declare_attacker(*attacker_id, *defender_id, true);
+
+            // Tap the attacker (unless it has vigilance)
+            if let Some(perm) = self.state.battlefield.get_mut(*attacker_id) {
+                if !perm.has_vigilance() {
+                    perm.tap();
+                }
+            }
+        }
+
+        // Check if any attackers have first/double strike to inform TurnManager
+        let has_fs = self.state.combat.has_first_strikers(&|id| {
+            self.state.battlefield.get(id).map(|p| p.keywords())
+        });
+        self.turn_manager.has_first_strike = has_fs;
+    }
+
+    /// Declare blockers step: prompt defending players to choose blockers,
+    /// validate assignments, register in combat state.
+    fn declare_blockers_step(&mut self, _active_player: PlayerId) {
+        if !self.state.combat.has_attackers() {
+            return;
+        }
+
+        // For each defending player, gather attacker info and ask for blocks
+        let defending_players: Vec<PlayerId> = self
+            .state
+            .combat
+            .groups
+            .iter()
+            .filter(|g| g.defending_player)
+            .map(|g| PlayerId(g.defending_id.0))
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+
+        for def_player in defending_players {
+            // Build AttackerInfo for each attacker targeting this defender
+            let attacker_infos: Vec<AttackerInfo> = self
+                .state
+                .combat
+                .groups
+                .iter()
+                .filter(|g| g.defending_player && PlayerId(g.defending_id.0) == def_player)
+                .map(|g| {
+                    let legal_blockers: Vec<ObjectId> = self
+                        .state
+                        .battlefield
+                        .iter()
+                        .filter(|p| {
+                            p.controller == def_player
+                                && p.can_block()
+                                && self
+                                    .state
+                                    .battlefield
+                                    .get(g.attacker_id)
+                                    .map(|attacker| combat::can_block(p, attacker))
+                                    .unwrap_or(false)
+                        })
+                        .map(|p| p.id())
+                        .collect();
+
+                    AttackerInfo {
+                        attacker_id: g.attacker_id,
+                        defending_id: g.defending_id,
+                        legal_blockers,
+                    }
+                })
+                .collect();
+
+            if attacker_infos.iter().all(|a| a.legal_blockers.is_empty()) {
+                continue;
+            }
+
+            // Ask defending player to choose blockers
+            let view = crate::decision::GameView::placeholder();
+            let blocks = if let Some(dm) = self.decision_makers.get_mut(&def_player) {
+                dm.select_blockers(&view, &attacker_infos)
+            } else {
+                Vec::new()
+            };
+
+            // Register blocks
+            for (blocker_id, attacker_id) in blocks {
+                self.state.combat.declare_blocker(blocker_id, attacker_id);
+            }
+        }
+
+        // After all blocks declared, check for first/double strike among blockers too
+        let has_fs = self.state.combat.has_first_strikers(&|id| {
+            self.state.battlefield.get(id).map(|p| p.keywords())
+        });
+        self.turn_manager.has_first_strike = has_fs;
+    }
+
+    /// Combat damage step: assign and apply combat damage.
+    /// `is_first_strike` determines whether this is the first strike damage step.
+    fn combat_damage_step(&mut self, is_first_strike: bool) {
+        if !self.state.combat.has_attackers() {
+            return;
+        }
+
+        // Collect all damage assignments
+        let mut damage_events: Vec<(ObjectId, u32, bool, ObjectId)> = Vec::new(); // (target, amount, is_player, source)
+        let mut lifelink_sources: Vec<(PlayerId, u32)> = Vec::new(); // (controller, damage_dealt)
+
+        let groups = self.state.combat.groups.clone();
+        for group in &groups {
+            // Get attacker info
+            let attacker_info = match self.state.battlefield.get(group.attacker_id) {
+                Some(a) => a,
+                None => continue,
+            };
+            let attacker_has_lifelink = attacker_info.has_lifelink();
+            let attacker_controller = attacker_info.controller;
+
+            // Get blocker info
+            let blockers: Vec<(ObjectId, Permanent)> = group
+                .blockers
+                .iter()
+                .filter_map(|&bid| {
+                    self.state.battlefield.get(bid).map(|p| (bid, p.clone()))
+                })
+                .collect();
+            let blocker_refs: Vec<(ObjectId, &Permanent)> =
+                blockers.iter().map(|(id, p)| (*id, p)).collect();
+
+            // Assign attacker damage
+            let attacker_dmg =
+                combat::assign_combat_damage(&group, attacker_info, &blocker_refs, is_first_strike);
+
+            for (target_id, amount, is_player) in &attacker_dmg {
+                damage_events.push((*target_id, *amount, *is_player, group.attacker_id));
+                if attacker_has_lifelink && *amount > 0 {
+                    lifelink_sources.push((attacker_controller, *amount));
+                }
+            }
+
+            // Assign blocker damage to attacker
+            for (blocker_id, blocker_perm) in &blockers {
+                let blocker_dmg =
+                    combat::assign_blocker_damage(blocker_perm, group.attacker_id, is_first_strike);
+                if blocker_dmg > 0 {
+                    damage_events.push((group.attacker_id, blocker_dmg, false, *blocker_id));
+                    // Check blocker lifelink
+                    if blocker_perm.has_lifelink() {
+                        lifelink_sources.push((blocker_perm.controller, blocker_dmg));
+                    }
+                }
+            }
+        }
+
+        // Apply all damage
+        for (target_id, amount, is_player, _source_id) in &damage_events {
+            if *is_player {
+                let player_id = PlayerId(target_id.0);
+                if let Some(player) = self.state.players.get_mut(&player_id) {
+                    player.life -= *amount as i32;
+                }
+            } else if let Some(perm) = self.state.battlefield.get_mut(*target_id) {
+                perm.apply_damage(*amount);
+            }
+        }
+
+        // Apply lifelink
+        for (controller, amount) in &lifelink_sources {
+            if let Some(player) = self.state.players.get_mut(controller) {
+                player.gain_life(*amount);
             }
         }
     }
@@ -4432,5 +4687,446 @@ mod type_choice_tests {
         // Should have drawn 3 cards (3 Goblins)
         let hand_after = game.state.players[&p1].hand.len();
         assert_eq!(hand_after - hand_before, 3);
+    }
+}
+
+#[cfg(test)]
+mod combat_tests {
+    use super::*;
+    use crate::card::CardData;
+    use crate::constants::{CardType, KeywordAbilities, Outcome};
+    use crate::decision::{
+        AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
+        ReplacementEffectChoice, TargetRequirement, UnpaidMana,
+    };
+
+    /// Decision maker that attacks with all creatures.
+    struct AttackAllPlayer;
+
+    impl PlayerDecisionMaker for AttackAllPlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction {
+            PlayerAction::Pass
+        }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(
+            &mut self,
+            _: &GameView<'_>,
+            possible_attackers: &[ObjectId],
+            possible_defenders: &[ObjectId],
+        ) -> Vec<(ObjectId, ObjectId)> {
+            let defender = possible_defenders[0];
+            possible_attackers
+                .iter()
+                .map(|&a| (a, defender))
+                .collect()
+        }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    /// Decision maker that blocks with all available creatures (first available for each attacker).
+    struct BlockAllPlayer;
+
+    impl PlayerDecisionMaker for BlockAllPlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction {
+            PlayerAction::Pass
+        }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(
+            &mut self,
+            _: &GameView<'_>,
+            attackers: &[AttackerInfo],
+        ) -> Vec<(ObjectId, ObjectId)> {
+            let mut blocks = Vec::new();
+            let mut used = std::collections::HashSet::new();
+            for info in attackers {
+                for &blocker_id in &info.legal_blockers {
+                    if !used.contains(&blocker_id) {
+                        blocks.push((blocker_id, info.attacker_id));
+                        used.insert(blocker_id);
+                        break;
+                    }
+                }
+            }
+            blocks
+        }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_creature(
+        name: &str,
+        owner: PlayerId,
+        power: i32,
+        toughness: i32,
+        keywords: KeywordAbilities,
+    ) -> CardData {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        card.keywords = keywords;
+        card
+    }
+
+    fn make_deck(owner: PlayerId) -> Vec<CardData> {
+        (0..40)
+            .map(|i| {
+                let mut c = CardData::new(ObjectId::new(), owner, &format!("Card {i}"));
+                c.card_types = vec![CardType::Land];
+                c
+            })
+            .collect()
+    }
+
+    fn setup_combat_game(
+        p1_dm: Box<dyn PlayerDecisionMaker>,
+        p2_dm: Box<dyn PlayerDecisionMaker>,
+    ) -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig {
+                    name: "Attacker".to_string(),
+                    deck: make_deck(p1),
+                },
+                PlayerConfig {
+                    name: "Defender".to_string(),
+                    deck: make_deck(p2),
+                },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(config, vec![(p1, p1_dm), (p2, p2_dm)]);
+        (game, p1, p2)
+    }
+
+    /// Helper to add a creature to the battlefield and remove summoning sickness.
+    fn add_creature(
+        game: &mut Game,
+        owner: PlayerId,
+        name: &str,
+        power: i32,
+        toughness: i32,
+        keywords: KeywordAbilities,
+    ) -> ObjectId {
+        let card = make_creature(name, owner, power, toughness, keywords);
+        let id = card.id;
+        let mut perm = Permanent::new(card, owner);
+        perm.remove_summoning_sickness();
+        game.state.battlefield.add(perm);
+        id
+    }
+
+    // ── Test: Unblocked combat damage ──────────────────────────────
+
+    #[test]
+    fn unblocked_attacker_deals_damage_to_player() {
+        let (mut game, p1, p2) = setup_combat_game(
+            Box::new(AttackAllPlayer),
+            Box::new(BlockAllPlayer),
+        );
+
+        // Add a 3/3 creature for p1 (attacker)
+        let bear_id = add_creature(&mut game, p1, "Bear", 3, 3, KeywordAbilities::empty());
+
+        // Set active player to p1
+        game.state.active_player = p1;
+
+        // Run declare attackers step
+        game.declare_attackers_step(p1);
+
+        // Bear should be attacking
+        assert!(game.state.combat.is_attacking(bear_id));
+        // Bear should be tapped (no vigilance)
+        assert!(game.state.battlefield.get(bear_id).unwrap().tapped);
+
+        // Run declare blockers (no blockers for p2)
+        game.declare_blockers_step(p1);
+
+        // Run combat damage (regular)
+        game.combat_damage_step(false);
+
+        // p2 should have taken 3 damage
+        assert_eq!(game.state.players[&p2].life, 17);
+    }
+
+    #[test]
+    fn vigilance_does_not_tap_attacker() {
+        let (mut game, p1, _p2) = setup_combat_game(
+            Box::new(AttackAllPlayer),
+            Box::new(BlockAllPlayer),
+        );
+
+        let vig_id = add_creature(&mut game, p1, "Vigilant", 2, 2, KeywordAbilities::VIGILANCE);
+        game.state.active_player = p1;
+        game.declare_attackers_step(p1);
+
+        // Should be attacking but NOT tapped
+        assert!(game.state.combat.is_attacking(vig_id));
+        assert!(!game.state.battlefield.get(vig_id).unwrap().tapped);
+    }
+
+    #[test]
+    fn blocked_creature_deals_damage_to_blocker() {
+        let (mut game, p1, p2) = setup_combat_game(
+            Box::new(AttackAllPlayer),
+            Box::new(BlockAllPlayer),
+        );
+
+        let attacker_id = add_creature(&mut game, p1, "Attacker", 3, 3, KeywordAbilities::empty());
+        let blocker_id = add_creature(&mut game, p2, "Blocker", 2, 4, KeywordAbilities::empty());
+
+        game.state.active_player = p1;
+        game.declare_attackers_step(p1);
+        game.declare_blockers_step(p1);
+
+        // Blocker should be blocking
+        assert!(game.state.combat.is_blocking(blocker_id));
+
+        // Apply combat damage
+        game.combat_damage_step(false);
+
+        // Blocker should have 3 damage, attacker should have 2 damage
+        assert_eq!(game.state.battlefield.get(blocker_id).unwrap().damage, 3);
+        assert_eq!(game.state.battlefield.get(attacker_id).unwrap().damage, 2);
+        // Player should NOT have taken damage (blocked)
+        assert_eq!(game.state.players[&p2].life, 20);
+    }
+
+    #[test]
+    fn lifelink_gains_life_on_combat_damage() {
+        let (mut game, p1, p2) = setup_combat_game(
+            Box::new(AttackAllPlayer),
+            Box::new(BlockAllPlayer),
+        );
+
+        add_creature(&mut game, p1, "Lifelinker", 4, 4, KeywordAbilities::LIFELINK);
+
+        game.state.active_player = p1;
+
+        // Reduce p1 life to verify gain
+        game.state.players.get_mut(&p1).unwrap().life = 15;
+
+        game.declare_attackers_step(p1);
+        game.declare_blockers_step(p1);
+        game.combat_damage_step(false);
+
+        // p1 should gain 4 life (lifelink), p2 takes 4
+        assert_eq!(game.state.players[&p1].life, 19);
+        assert_eq!(game.state.players[&p2].life, 16);
+    }
+
+    #[test]
+    fn first_strike_deals_damage_first() {
+        let (mut game, p1, p2) = setup_combat_game(
+            Box::new(AttackAllPlayer),
+            Box::new(BlockAllPlayer),
+        );
+
+        let fs_id = add_creature(&mut game, p1, "FirstStriker", 3, 2, KeywordAbilities::FIRST_STRIKE);
+        let blocker_id = add_creature(&mut game, p2, "Blocker", 3, 3, KeywordAbilities::empty());
+
+        game.state.active_player = p1;
+        game.declare_attackers_step(p1);
+        game.declare_blockers_step(p1);
+
+        // First strike damage step
+        game.combat_damage_step(true);
+
+        // Blocker takes 3 first strike damage
+        assert_eq!(game.state.battlefield.get(blocker_id).unwrap().damage, 3);
+        // First striker takes 0 (normal creature doesn't deal in first strike step)
+        assert_eq!(game.state.battlefield.get(fs_id).unwrap().damage, 0);
+
+        // Regular damage step
+        game.combat_damage_step(false);
+
+        // First striker still takes 0 more (first strike creature doesn't deal in regular step)
+        // But blocker deals its 3 damage to first striker in regular step
+        assert_eq!(game.state.battlefield.get(fs_id).unwrap().damage, 3);
+    }
+
+    #[test]
+    fn trample_overflow_to_player() {
+        let (mut game, p1, p2) = setup_combat_game(
+            Box::new(AttackAllPlayer),
+            Box::new(BlockAllPlayer),
+        );
+
+        add_creature(&mut game, p1, "Trampler", 5, 5, KeywordAbilities::TRAMPLE);
+        let blocker_id = add_creature(&mut game, p2, "SmallBlocker", 1, 2, KeywordAbilities::empty());
+
+        game.state.active_player = p1;
+        game.declare_attackers_step(p1);
+        game.declare_blockers_step(p1);
+        game.combat_damage_step(false);
+
+        // Blocker takes 2 damage (lethal), 3 tramples to player
+        assert_eq!(game.state.battlefield.get(blocker_id).unwrap().damage, 2);
+        assert_eq!(game.state.players[&p2].life, 17);
+    }
+
+    #[test]
+    fn end_combat_clears_state() {
+        let (mut game, p1, _p2) = setup_combat_game(
+            Box::new(AttackAllPlayer),
+            Box::new(BlockAllPlayer),
+        );
+
+        add_creature(&mut game, p1, "Bear", 2, 2, KeywordAbilities::empty());
+
+        game.state.active_player = p1;
+        game.declare_attackers_step(p1);
+        assert!(game.state.combat.has_attackers());
+
+        // End combat clears state
+        game.state.combat.clear();
+        assert!(!game.state.combat.has_attackers());
+    }
+
+    #[test]
+    fn defender_cannot_attack() {
+        let (mut game, p1, p2) = setup_combat_game(
+            Box::new(AttackAllPlayer),
+            Box::new(BlockAllPlayer),
+        );
+
+        // Only a defender creature
+        add_creature(&mut game, p1, "Wall", 0, 5, KeywordAbilities::DEFENDER);
+
+        game.state.active_player = p1;
+        game.declare_attackers_step(p1);
+
+        // Should have no attackers (defender can't attack)
+        assert!(!game.state.combat.has_attackers());
+        assert_eq!(game.state.players[&p2].life, 20);
+    }
+
+    #[test]
+    fn summoning_sick_creature_cannot_attack() {
+        let (mut game, p1, p2) = setup_combat_game(
+            Box::new(AttackAllPlayer),
+            Box::new(BlockAllPlayer),
+        );
+
+        // Add creature WITH summoning sickness (don't remove it)
+        let card = make_creature("SickBear", p1, 3, 3, KeywordAbilities::empty());
+        let perm = Permanent::new(card, p1);
+        game.state.battlefield.add(perm);
+
+        game.state.active_player = p1;
+        game.declare_attackers_step(p1);
+
+        // Should not have attacked
+        assert!(!game.state.combat.has_attackers());
+        assert_eq!(game.state.players[&p2].life, 20);
+    }
+
+    #[test]
+    fn haste_bypasses_summoning_sickness() {
+        let (mut game, p1, p2) = setup_combat_game(
+            Box::new(AttackAllPlayer),
+            Box::new(BlockAllPlayer),
+        );
+
+        // Add creature with haste and summoning sickness
+        let card = make_creature("Hasty", p1, 2, 1, KeywordAbilities::HASTE);
+        let perm = Permanent::new(card, p1);
+        game.state.battlefield.add(perm);
+
+        game.state.active_player = p1;
+        game.declare_attackers_step(p1);
+        game.declare_blockers_step(p1);
+        game.combat_damage_step(false);
+
+        // Should have attacked and dealt damage
+        assert_eq!(game.state.players[&p2].life, 18);
+    }
+
+    #[test]
+    fn flying_cannot_be_blocked_by_ground() {
+        let (mut game, p1, p2) = setup_combat_game(
+            Box::new(AttackAllPlayer),
+            Box::new(BlockAllPlayer),
+        );
+
+        add_creature(&mut game, p1, "Flyer", 3, 3, KeywordAbilities::FLYING);
+        // Ground creature cannot block a flyer
+        add_creature(&mut game, p2, "Ground", 2, 2, KeywordAbilities::empty());
+
+        game.state.active_player = p1;
+        game.declare_attackers_step(p1);
+        game.declare_blockers_step(p1);
+        game.combat_damage_step(false);
+
+        // Flyer should get through unblocked
+        assert_eq!(game.state.players[&p2].life, 17);
+    }
+
+    #[test]
+    fn reach_can_block_flying() {
+        let (mut game, p1, p2) = setup_combat_game(
+            Box::new(AttackAllPlayer),
+            Box::new(BlockAllPlayer),
+        );
+
+        let flyer_id = add_creature(&mut game, p1, "Flyer", 2, 2, KeywordAbilities::FLYING);
+        let reacher_id = add_creature(&mut game, p2, "Reacher", 1, 4, KeywordAbilities::REACH);
+
+        game.state.active_player = p1;
+        game.declare_attackers_step(p1);
+        game.declare_blockers_step(p1);
+
+        // Reacher should be blocking the flyer
+        assert!(game.state.combat.is_blocking(reacher_id));
+
+        game.combat_damage_step(false);
+
+        // No damage to player
+        assert_eq!(game.state.players[&p2].life, 20);
+        // Creatures trade damage
+        assert_eq!(game.state.battlefield.get(reacher_id).unwrap().damage, 2);
+        assert_eq!(game.state.battlefield.get(flyer_id).unwrap().damage, 1);
+    }
+
+    #[test]
+    fn multiple_attackers_deal_combined_damage() {
+        let (mut game, p1, p2) = setup_combat_game(
+            Box::new(AttackAllPlayer),
+            Box::new(BlockAllPlayer),
+        );
+
+        add_creature(&mut game, p1, "Bear1", 2, 2, KeywordAbilities::empty());
+        add_creature(&mut game, p1, "Bear2", 3, 3, KeywordAbilities::empty());
+
+        game.state.active_player = p1;
+        game.declare_attackers_step(p1);
+        game.declare_blockers_step(p1);
+        game.combat_damage_step(false);
+
+        // Both should deal damage: 2 + 3 = 5
+        assert_eq!(game.state.players[&p2].life, 15);
     }
 }

@@ -9,6 +9,7 @@
 // if clone performance becomes a bottleneck.
 
 use crate::abilities::AbilityStore;
+use crate::combat::CombatState;
 use crate::constants::{PhaseStep, TurnPhase, Zone};
 use crate::player::Player;
 use crate::types::{ObjectId, PlayerId};
@@ -95,6 +96,10 @@ pub struct GameState {
     pub monarch: Option<PlayerId>,
     pub initiative: Option<PlayerId>,
 
+    // ── Combat state ──────────────────────────────────────────────────────
+    /// Current combat phase state (attackers, blockers, damage assignment).
+    pub combat: CombatState,
+
     // ── Values map (for tracking miscellaneous game state) ───────────────
     /// Generic key-value store for effects that need to track state across
     /// turns (e.g. "did a creature die this turn", "total damage dealt").
@@ -146,6 +151,7 @@ impl GameState {
             is_daytime: true,
             monarch: None,
             initiative: None,
+            combat: CombatState::new(),
             values: HashMap::new(),
         }
     }

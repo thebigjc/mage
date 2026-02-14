@@ -1,208 +1,507 @@
 # Roadmap
 
-This document describes implementation gaps in the mtg-rl engine and cards, organized by priority. Each engine feature lists how many cards it would unblock when implemented.
+This document describes implementation gaps between the Rust mtg-rl engine and the Java XMage reference engine, organized by impact on the 1,333 cards across our 4 sets (FDN, TLA, TDM, ECL).
 
-## Engine Gaps
+**Last audit: 2026-02-14** — Compared Rust engine (~14.6K lines, 21 source files) against Java XMage engine (full rules implementation).
 
-### Effect Variants (game.rs `execute_effects()`)
+## Summary
 
-These `Effect` enum variants exist in `abilities.rs` but have no implementation in `execute_effects()` -- they fall through to `_ => {}` and silently do nothing at runtime.
-
-**Recently implemented:** The following Effect variants were previously no-ops but now have working implementations in `execute_effects()`: `Scry`, `SearchLibrary`, `ReturnFromGraveyard`, `Reanimate`, `GainKeywordUntilEndOfTurn`, `GainKeyword`, `LoseKeyword`, `Indestructible`, `Hexproof`, `CantBlock`, `Sacrifice`, `DestroyAll`, `DealDamageAll`, `RemoveCounters`, `CreateTokenTappedAttacking`, `BoostPermanent`, `SetPowerToughness`, `LoseLifeOpponents`, `LookTopAndPick`, `PutOnLibrary`, `GainControl`, `GainControlUntilEndOfTurn`. Modal spells with `Effect::Modal` variant now functional, token stat parsing is also implemented (`CreateToken` now parses P/T and keywords from `token_name`).
-
-**Batch 2 engine change (2026-02-13):** Modified `execute_effects` to accept an optional `source: Option<ObjectId>` parameter. When `AddCounters` or `RemoveCounters` effects have no selected targets, they now fall back to the source permanent. This enables self-targeting counter effects (e.g., blight creatures putting -1/-1 counters on themselves) without requiring explicit target selection. Test: `add_counters_self_when_no_targets`.
-
-**Batch 5 (2026-02-13):** Added `StaticEffect::Ward { cost: String }` variant + `ward()` builder. Ward is a triggered ability that counters targeting spells/abilities unless the opponent pays the cost. The engine stores it as structured data (not yet mechanically enforced during targeting). Replaced `StaticEffect::Custom("Ward ...")` on 7 cards across FDN/TDM/ECL and added `KeywordAbilities::WARD` flags.
-
-**Batch 6 (2026-02-13):** Added `StaticEffect::EntersTappedUnless { condition: String }` variant + `enters_tapped_unless()` builder. Stored as structured data; mechanical enforcement deferred. Replaced `StaticEffect::Custom("Enters tapped unless ...")` on 2 TDM lands (Cori Mountain Monastery, Dalkovan Encampment).
-
-**Batch 7 (2026-02-13):** Added `Effect::BoostAllUntilEndOfTurn { filter, power, toughness }` and `Effect::GrantKeywordAllUntilEndOfTurn { filter, keyword }` variants with constructors and match arms. These mass-buff effects apply to all creatures matching the filter controlled by the effect's controller. Replaced Custom effects on 8 cards (6 FDN, 2 ECL) with 12 effect swaps total.
-
-**Batch 9 (2026-02-13):** Added `Effect::AddCountersAll { counter_type, count, filter }` variant + `add_counters_all()` constructor + match arm. Puts N counters of specified type on all creatures matching filter, with "you control" support. Fixed ECL Darkness Descends and partially fixed TDM Barrensteppe Siege (Abzan mode only).
-
-**Batch 10 (2026-02-14):** Added `Effect::AddCountersSelf { counter_type, count }` variant + `add_counters_self()` constructor + match arm. Unlike `AddCounters` (source fallback only when targets empty), `AddCountersSelf` always applies to the source permanent regardless of other targets. Enables compound effects like "blight self + grant haste to target creature" (Warren Torchmaster).
-
-**Cost System (2026-02-14):** Implemented `pay_costs()` match arms for `RemoveCounters` (remove typed counters from source), `Blight` (add -1/-1 counters to source), `ExileFromGraveyard` (exile N cards from graveyard), `ExileFromHand` (exile N cards from hand), `SacrificeOther` (sacrifice another permanent matching filter), `UntapSelf` (untap cost), and `Custom` (no-op annotation). Previously these costs silently passed through the catch-all. 6 tests added.
-
-**Vivid Mechanic (2026-02-14):** Added `count_colors_among_permanents()` helper that counts distinct colors (0-5) among permanents a player controls. Added 6 Vivid effect variants: `DealDamageVivid`, `GainLifeVivid`, `BoostUntilEotVivid`, `LoseLifeOpponentsVivid`, `DrawCardsVivid`, `BoostAllUntilEotVivid`. Updated 6 ECL cards (Explosive Prodigy, Glister Bairn, Luminollusk, Shimmercreep, Shinestriker, Prismabasher) with typed Vivid effects. 5 tests added.
-
-| Effect Variant | Description | Cards Blocked |
-|---------------|-------------|---------------|
-| `GainProtection` | Target gains protection from quality | ~5 |
-| `PreventCombatDamage` | Fog / damage prevention | ~5 |
-| `MustBlock` | Target creature must block | ~3 |
-| `SetLife` | Set a player's life total | ~2 |
-| `Custom(String)` | Catch-all for untyped effects | ~400+ |
-
-Note: `Custom(String)` is used when no typed variant exists. Each Custom needs to be individually replaced with a typed variant or a new variant added.
-
-### Static Effect Enforcement
-
-`StaticEffect` variants (`Boost`, `GrantKeyword`, `CantBlock`, `CantAttack`, `CostReduction`, `Ward`, `EntersTappedUnless`, `EntersTapped`, `CantGainLife`, `CantDrawExtraCards`) are currently **structured annotations only** — `game.rs` never reads or applies them. In Java XMage, these are active participants in the game loop via the continuous effects layer system (7 layers: Copy → Control → Text → Type → Color → Ability → P/T).
-
-To make them functional, we need:
-1. **Continuous effect application loop** in `game.rs` that iterates battlefield permanents' `static_effects` each time state-based actions are checked
-2. **ETB replacement hooks** for `EntersTappedUnless` (ask player to pay, conditionally tap)
-3. **Combat restriction enforcement** for `CantAttack` / `CantBlock` during declare attackers/blockers
-4. **P/T modification layer** for `Boost` (lord effects) applied as a layer on top of base stats
-5. **Keyword granting** for `GrantKeyword` applied during ability checks
-
-This is a significant but high-ROI engine change — it would make ~50+ lord effects, combat restrictions, and ETB conditions functional across all sets.
-
-### Missing Engine Systems
-
-These are features that require new engine architecture, not just new match arms:
-
-#### Equipment System
-- No attach/detach mechanics
-- Equipment stat bonuses not applied
-- Equip cost not evaluated
-- **Blocked cards:** Basilisk Collar, Swiftfoot Boots, Goldvein Pick, Fishing Pole, all Equipment (~15+ cards)
-
-#### Planeswalker System
-- Loyalty counters not tracked as a resource
-- Planeswalker abilities not resolved (loyalty cost/gain)
-- Planeswalker damage redirection not enforced
-- **Blocked cards:** Ajani, Chandra, Kaito, Liliana, Vivien, all planeswalkers (~10+ cards)
-
-#### ~~Modal Spells~~ (DONE)
-`Effect::Modal { modes, min_modes, max_modes }` + `ModalMode` struct. Player selects modes via `choose_mode()`, then each chosen mode's effects execute in order. Supports "choose one", "choose two", "choose one or both" patterns. Fixed 7 ECL command/modal cards.
-
-#### X-Cost Spells
-- No variable cost determination
-- X is not tracked or passed to effects
-- **Blocked cards:** Day of Black Sun, Spectral Denial (partially works), Genesis Wave, Finale of Revelation (~10+ cards)
-
-#### ~~Fight/Bite Mechanic~~ (DONE)
-`Effect::Fight` (mutual damage) and `Effect::Bite` (one-way damage) implemented with proper two-target selection via `TargetSpec::Pair { CreatureYouControl, OpponentCreature }`. Matches Java's `FightTargetsEffect` / `DamageWithPowerFromOneToAnotherTargetEffect` pattern. Compound effects (e.g. +1/+1 counter then bite) correctly apply pre-fight/bite effects only to `targets[0]` (your creature). Fixed 6 cards (Bite Down, Affectionate Indrik, Felling Blow, Knockout Maneuver, Piercing Exhale, Assert Perfection). ETB triggers (Affectionate Indrik) use `TargetSpec::OpponentCreature` with source as fighter. Remaining fight/bite cards blocked by modal spells (Batch 11), X-cost (Batch 15), or other missing systems.
-
-#### ~~Token Stat Parsing~~ (DONE)
-`CreateToken` now parses P/T and keywords from `token_name` strings (e.g., '4/4 Dragon with flying' creates a 4/4 with flying). Cards using correctly-formatted token names now work.
-
-#### Aura/Enchant System
-- Auras exist as permanents but don't attach to creatures
-- Static P/T boosts from Auras not applied
-- Keyword grants from Auras not applied
-- **Blocked cards:** Pacifism (partially works via CantAttack/CantBlock), Obsessive Pursuit, Eaten by Piranhas, Angelic Destiny (~10+ cards)
-
-#### Impulse Draw (Exile-and-Play)
-- "Exile top card, you may play it until end of [next] turn" has no implementation
-- **Blocked cards:** Equilibrium Adept, Kulrath Zealot, Sizzling Changeling, Burning Curiosity, Etali (~10+ cards)
-
-#### Spell Copy
-- No mechanism to copy spells on the stack
-- **Blocked cards:** Electroduplicate, Rite of Replication, Self-Reflection, Flamehold Grappler, Sage of the Skies (~8+ cards)
-
-#### Replacement Effects
-- `ReplacementEffect` struct exists in `effects.rs` but is not integrated into the event pipeline
-- Events are not interceptable before they resolve
-- **Blocked features:** "If a creature would die, exile it instead", "If you would gain life, gain that much +1", Doubling Season, damage prevention, Dryad Militant graveyard replacement
-
-#### Additional Combat Phases
-- No support for extra combat steps
-- **Blocked cards:** Aurelia the Warleader, All-Out Assault (~3 cards)
-
-#### "Behold" Mechanic (ECL-specific)
-- Reveal-and-exile-from-hand mechanic not implemented
-- Many ECL cards reference it as an alternative cost or condition
-- **Blocked cards:** Champion of the Weird, Champions of the Perfect, Molten Exhale, Osseous Exhale (~15+ cards)
-
-#### "Earthbend" Mechanic (TLA-specific)
-- "Look at top N, put a land to hand, rest on bottom" not implemented
-- **Blocked cards:** Badgermole, Badgermole Cub, Ostrich-Horse, Dai Li Agents, Earth Kingdom General, Earth Village Ruffians, many TLA cards (~20+ cards)
-
-#### "Vivid" Mechanic (ECL-specific)
-- "X = number of colors among permanents you control" calculation not implemented
-- **Blocked cards:** Explosive Prodigy, Glister Bairn, Luminollusk, Prismabasher, Shimmercreep, Shinestriker, Squawkroaster (~10+ cards)
-
-#### Delayed Triggers
-- "When this creature dies this turn, draw a card" style effects
-- No framework for registering one-shot triggered abilities
-- **Blocked cards:** Undying Malice, Fake Your Own Death, Desperate Measures, Scarblades Malice (~5+ cards)
-
-#### Conditional Cost Modifications
-- `CostReduction` static effect exists but may not apply correctly
-- No support for "second spell costs {1} less" or Affinity
-- **Blocked cards:** Highspire Bell-Ringer, Allies at Last, Ghalta Primal Hunger (~5+ cards)
+| Metric | Value |
+|--------|-------|
+| Cards registered | 1,333 (FDN 512, TLA 280, TDM 273, ECL 268) |
+| `Effect::Custom` fallbacks | 747 |
+| `StaticEffect::Custom` fallbacks | 160 |
+| `Cost::Custom` fallbacks | 33 |
+| **Total Custom fallbacks** | **940** |
+| Keywords defined | 47 |
+| Keywords mechanically enforced | 10 (but combat doesn't run, so only Haste + Defender active in practice) |
+| State-based actions | 7 of ~20 rules implemented |
+| Triggered abilities | Events emitted but abilities never put on stack |
+| Replacement effects | Data structures defined but not integrated |
+| Continuous effect layers | 7 layers defined but never applied |
 
 ---
 
-## Phased Implementation Plan
+## I. Critical Game Loop Gaps
 
-### Phase 1: High-Impact Engine Effects
+These are structural deficiencies in `game.rs` that affect ALL cards, not just specific ones.
 
-These unblock the most cards per effort invested.
+### ~~A. Combat Phase Not Connected~~ (DONE)
 
-1. **Token stat parsing** -- **DONE** -- Parse power/toughness/keywords from `token_name` string in `CreateToken`. Unblocks ~30 cards that already create tokens but with wrong stats.
+**Completed 2026-02-14.** Combat is now fully wired into the game loop:
+- `DeclareAttackers`: prompts active player via `select_attackers()`, taps attackers (respects vigilance), registers in `CombatState` (added to `GameState`)
+- `DeclareBlockers`: prompts defending player via `select_blockers()`, validates flying/reach restrictions, registers blocks
+- `FirstStrikeDamage` / `CombatDamage`: assigns damage via `combat.rs` functions, applies to permanents and players, handles lifelink life gain
+- `EndCombat`: clears combat state
+- 13 unit tests covering: unblocked damage, blocked damage, vigilance, lifelink, first strike, trample, defender restriction, summoning sickness, haste, flying/reach, multiple attackers
 
-2. **Fix easy card-level bugs** -- Many cards use `Effect::Custom(...)` when a typed variant already exists. Examples:
-   - ~~Phyrexian Arena: `Custom("You lose 1 life.")` -> `LoseLife { amount: 1 }`~~ **DONE**
-   - ~~Pulse Tracker/Marauding Blight-Priest/Vampire Spawn/Vampire Neonate: `Custom("Each opponent loses N life")` -> `LoseLifeOpponents { amount: N }`~~ **DONE**
-   - ~~Skirmish Rhino (TDM), Champion of the Weird (ECL), Boggart Mischief (ECL): opponent life loss Custom -> `LoseLifeOpponents`~~ **DONE**
-   - ~~Diregraf Ghoul: `StaticEffect::Custom("Enters tapped.")` -> `StaticEffect::EntersTapped`~~ **DONE**
-   - Incomplete dual lands: copy the Azorius Guildgate / Bloodfell Caves pattern
-   - ~~Sourbread Auntie/Sting-Slinger/Blighted Blackthorn: self-counter Custom -> `AddCounters` targeting self~~ **DONE**
-   - ~~Day of Judgment: `Custom("Destroy all creatures.")` -> `DestroyAll`~~ **DONE**
-   - ~~Frenzied Goblin/Brambleback Brute: `Custom("can't block")` -> `CantBlock`~~ **DONE**
-   - ~~Icewind Elemental/Refute: loot/counter Custom -> typed effects~~ **DONE**
-   - ~~ECL RemoveCounters cards (Encumbered Reejerey, Reluctant Dounguard, Heirloom Auntie, Bristlebane Battler): Custom -> `RemoveCounters` with source fallback~~ **DONE**
-   - ~~Mistmeadow Council: Custom -> `draw_cards(1)`~~ **DONE**
-   - ~~Guarded Heir, Prideful Parent, Resolute Reinforcements, Release the Dogs, Dwynen's Elite, Dragonmaster Outcast, Searslicer Goblin: token creation Custom -> `create_token()`~~ **DONE**
-   - ~~Clachan Festival (ECL): token creation Custom + Cost::Custom -> `create_token()` + `Cost::pay_mana()`~~ **DONE**
-   - ~~Burglar Rat/Dream Seizer/Arbiter of Woe/Bloodtithe Collector: opponent discard Custom -> `DiscardOpponents { count }`~~ **DONE**
-   - ~~Warren Torchmaster: compound blight self + target haste Custom -> `AddCountersSelf` + `GainKeywordUntilEndOfTurn`~~ **DONE**
+### B. Triggered Abilities Not Stacked
 
-3. ~~**Fight mechanic** -- New `Effect::Fight` and `Effect::Bite` variants. Fight = mutual damage, Bite = one-way. Fixed 6 cards.~~ **PARTIAL** — auto-selects strongest creature instead of player choice (needs multi-target `TargetSpec`). ETB triggers correct; spell-based is heuristic.
+Events are emitted (`GameEvent` structs) and the `AbilityStore` tracks which triggered abilities respond to which `EventType`s, but triggered abilities are **never put on the stack**. There is a TODO comment in `process_step()`:
 
-### Phase 2: Key Missing Mechanics
+```rust
+// -- Handle triggered abilities --
+// TODO: Put triggered abilities on the stack (task #13)
+```
 
-4. **Equipment system** -- Attach/detach, equip cost, stat/keyword application. Unblocks ~15 cards.
+In Java XMage, after each game action, all pending triggers are gathered and placed on the stack in APNAP order (active player's triggers first, then next player). Each trigger gets its own stack entry and can be responded to.
 
-5. **Modal spells** -- Mode selection in `PlayerDecisionMaker` trait, mode-conditional effect resolution. Unblocks ~20 cards.
+**Impact:** Every card with a triggered ability (ETB triggers, attack triggers, death triggers, upkeep triggers, damage triggers) silently does nothing beyond its initial cast. This affects **hundreds** of cards across all sets.
 
-6. **Impulse draw** -- "Exile top N, may play until end of [next] turn." Track exiled-playable cards in game state. Unblocks ~10 cards.
+**Fix:** After each state-based action loop, scan `AbilityStore` for triggered abilities whose trigger conditions are met by recent events. Push each onto the stack as a `StackItem`. Resolve via the existing priority loop.
 
-7. **Earthbend** (TLA-specific) -- "Look at top N, put a land to hand, rest on bottom." Unblocks ~20 TLA cards.
+### C. Continuous Effect Layers Not Applied
+
+The `effects.rs` file defines a full 7-layer system matching MTG rules 613:
+
+1. Copy → 2. Control → 3. Text → 4. Type → 5. Color → 6. Ability → 7. P/T (with sub-layers for CDA, Set, Modify, Counters, Switch)
+
+`ContinuousEffect`, `EffectModification`, and `Layer`/`SubLayer` enums are all defined. But the game loop **never recalculates characteristics** using these layers. P/T boosts from lords, keyword grants, type changes — none of these are applied.
+
+In Java XMage, `ContinuousEffects.apply()` runs after every game action, recalculating all permanent characteristics in layer order. This is what makes lord effects, anthem effects, and ability-granting cards work.
+
+**Impact:** All cards with `StaticEffect::Boost`, `StaticEffect::GrantKeyword`, and other continuous effects are non-functional. ~50+ lord/anthem cards across all sets.
+
+**Fix:** Add a `apply_continuous_effects()` method to `Game` that iterates battlefield permanents' `static_effects` and applies them in layer order. Call it after every state-based action check.
+
+### D. Replacement Effects Not Integrated
+
+`ReplacementEffect` and `ReplacementKind` are defined in `effects.rs` with variants like `Prevent`, `ExileInstead`, `ModifyAmount`, `RedirectTarget`, `EnterTapped`, `EnterWithCounters`, `Custom`. But there is **no event interception** in the game loop — events happen without checking for replacements first.
+
+In Java XMage, replacement effects are checked via `getReplacementEffects()` before every event. Each replacement's `applies()` is checked, and `replaceEvent()` modifies or cancels the event.
+
+**Impact:** Damage prevention, death replacement ("exile instead of dying"), Doubling Season, "enters tapped" enforcement, and similar effects don't work. Affects ~30+ cards.
+
+**Fix:** Before each event emission, check registered replacement effects. If any apply, call `replaceEvent()` and use the modified event instead.
+
+---
+
+## II. Keyword Enforcement
+
+47 keywords are defined as bitflags in `KeywordAbilities`. Most are decorative.
+
+### Mechanically Enforced (10 keywords — in combat.rs, but combat doesn't run)
+
+| Keyword | Where | How |
+|---------|-------|-----|
+| FLYING | `combat.rs:205` | Flyers can only be blocked by flying/reach |
+| REACH | `combat.rs:205` | Can block flyers |
+| DEFENDER | `permanent.rs:249` | Cannot attack |
+| HASTE | `permanent.rs:250` | Bypasses summoning sickness |
+| FIRST_STRIKE | `combat.rs:241-248` | Damage in first-strike step |
+| DOUBLE_STRIKE | `combat.rs:241-248` | Damage in both steps |
+| TRAMPLE | `combat.rs:296-298` | Excess damage to defending player |
+| DEATHTOUCH | `combat.rs:280-286` | 1 damage = lethal |
+| MENACE | `combat.rs:216-224` | Must be blocked by 2+ creatures |
+| INDESTRUCTIBLE | `state.rs:296` | Survives lethal damage (SBA) |
+
+All 10 are now active in practice via combat integration (2026-02-14). Additionally, vigilance and lifelink are now enforced.
+
+### Not Enforced (35 keywords)
+
+| Keyword | Java Behavior | Rust Status |
+|---------|--------------|-------------|
+| FLASH | Cast at instant speed | Partially (blocks sorcery-speed only) |
+| HEXPROOF | Can't be targeted by opponents | Not checked during targeting |
+| SHROUD | Can't be targeted at all | Not checked |
+| PROTECTION | Prevents damage/targeting/blocking/enchanting | Not checked |
+| WARD | Counter unless cost paid | Stored as StaticEffect, not enforced |
+| FEAR | Only blocked by black/artifact | Not checked |
+| INTIMIDATE | Only blocked by same color/artifact | Not checked |
+| SHADOW | Only blocked by/blocks shadow | Not checked |
+| PROWESS | +1/+1 when noncreature spell cast | Trigger never fires |
+| UNDYING | Return with +1/+1 counter on death | No death replacement |
+| PERSIST | Return with -1/-1 counter on death | No death replacement |
+| WITHER | Damage as -1/-1 counters | Not checked |
+| INFECT | Damage as -1/-1 counters + poison | Not checked |
+| TOXIC | Combat damage → poison counters | Not checked |
+| UNBLOCKABLE | Can't be blocked | Not checked |
+| CHANGELING | All creature types | Not checked in type queries |
+| CASCADE | Exile-and-cast on cast | No trigger |
+| CONVOKE | Tap creatures to pay | Not checked in cost payment |
+| DELVE | Exile graveyard to pay | Not checked in cost payment |
+| EVOLVE | +1/+1 counter on bigger ETB | No trigger |
+| EXALTED | +1/+1 when attacking alone | No trigger |
+| EXPLOIT | Sacrifice creature on ETB | No trigger |
+| FLANKING | Blockers get -1/-1 | Not checked |
+| FORESTWALK | Unblockable vs forest controller | Not checked |
+| ISLANDWALK | Unblockable vs island controller | Not checked |
+| MOUNTAINWALK | Unblockable vs mountain controller | Not checked |
+| PLAINSWALK | Unblockable vs plains controller | Not checked |
+| SWAMPWALK | Unblockable vs swamp controller | Not checked |
+| TOTEM_ARMOR | Prevents enchanted creature death | No replacement |
+| AFFLICT | Life loss when blocked | No trigger |
+| BATTLE_CRY | +1/+0 to other attackers | No trigger |
+| SKULK | Can't be blocked by greater power | Not checked |
+| FABRICATE | Counters or tokens on ETB | No choice/trigger |
+| STORM | Copy for each prior spell | No trigger |
+| PARTNER | Commander pairing | Not relevant |
+
+---
+
+## III. State-Based Actions
+
+Checked in `state.rs:check_state_based_actions()`:
+
+| Rule | Description | Status |
+|------|-------------|--------|
+| 704.5a | Player at 0 or less life loses | **Implemented** |
+| 704.5b | Player draws from empty library loses | **Not implemented** |
+| 704.5c | 10+ poison counters = loss | **Implemented** |
+| 704.5d | Token not on battlefield ceases to exist | **Not implemented** |
+| 704.5e | 0-cost copy on stack/BF ceases to exist | **Not implemented** |
+| 704.5f | Creature with 0 toughness → graveyard | **Implemented** |
+| 704.5g | Lethal damage → destroy (if not indestructible) | **Implemented** |
+| 704.5i | Planeswalker with 0 loyalty → graveyard | **Implemented** |
+| 704.5j | Legend rule (same name) | **Implemented** |
+| 704.5n | Aura not attached → graveyard | **Not implemented** |
+| 704.5p | Equipment/Fortification illegal attach → unattach | **Not implemented** |
+| 704.5r | +1/+1 and -1/-1 counter annihilation | **Implemented** |
+| 704.5s | Saga with lore counters ≥ chapters → sacrifice | **Not implemented** |
+
+**Missing SBAs:** Library-empty loss, token cleanup, aura fall-off, equipment detach, saga sacrifice. These affect ~40+ cards.
+
+---
+
+## IV. Missing Engine Systems
+
+These require new engine architecture beyond adding match arms to existing functions.
+
+### Tier 1: Foundational (affect 100+ cards each)
+
+#### 1. Combat Integration
+- Wire `combat.rs` functions into `turn_based_actions()` for DeclareAttackers, DeclareBlockers, CombatDamage
+- Add `choose_attackers()` / `choose_blockers()` to `PlayerDecisionMaker`
+- Connect lifelink (damage → life gain), vigilance (no tap), and other combat keywords
+- **Cards affected:** Every creature in all 4 sets (~800+ cards)
+- **Java reference:** `GameImpl.combat`, `Combat.java`, `CombatGroup.java`
+
+#### 2. Triggered Ability Stacking
+- After each game action, scan for triggered abilities whose conditions match recent events
+- Push triggers onto stack in APNAP order
+- Resolve via existing priority loop
+- **Cards affected:** Every card with ETB, attack, death, damage, upkeep, or endstep triggers (~400+ cards)
+- **Java reference:** `GameImpl.checkStateAndTriggered()`, 84+ `Watcher` classes
+
+#### 3. Continuous Effect Layer Application
+- Recalculate permanent characteristics after each game action
+- Apply StaticEffect variants (Boost, GrantKeyword, CantAttack, CantBlock, etc.) in layer order
+- Duration tracking (while-on-battlefield, until-end-of-turn, etc.)
+- **Cards affected:** All lord/anthem effects, keyword-granting permanents (~50+ cards)
+- **Java reference:** `ContinuousEffects.java`, 7-layer system
+
+### Tier 2: Key Mechanics (affect 10-30 cards each)
+
+#### 4. Equipment System
+- Attach/detach mechanic (Equipment attaches to creature you control)
+- Equip cost (activated ability, sorcery speed)
+- Stat/keyword bonuses applied while attached (via continuous effects layer)
+- Detach when creature leaves battlefield (SBA)
+- **Blocked cards:** Basilisk Collar, Swiftfoot Boots, Goldvein Pick, Fishing Pole, all Equipment (~15+ cards)
+- **Java reference:** `EquipAbility.java`, `AttachEffect.java`
+
+#### 5. Aura/Enchant System
+- Auras target on cast, attach on ETB
+- Apply continuous effects while attached (P/T boosts, keyword grants, restrictions)
+- Fall off when enchanted permanent leaves (SBA)
+- Enchant validation (enchant creature, enchant permanent, etc.)
+- **Blocked cards:** Pacifism, Obsessive Pursuit, Eaten by Piranhas, Angelic Destiny (~15+ cards)
+- **Java reference:** `AuraReplacementEffect.java`, `AttachEffect.java`
+
+#### 6. Replacement Effect Pipeline
+- Before each event, check registered replacement effects
+- `applies()` filter + `replaceEvent()` modification
+- Support common patterns: exile-instead-of-die, enters-tapped, enters-with-counters, damage prevention
+- Prevent infinite loops (each replacement applies once per event)
+- **Blocked features:** Damage prevention, death replacement, Doubling Season, Undying, Persist (~30+ cards)
+- **Java reference:** `ReplacementEffectImpl.java`, `ContinuousEffects.getReplacementEffects()`
+
+#### 7. X-Cost Spells
+- Announce X before paying mana (X ≥ 0)
+- Track X value on the stack; pass to effects on resolution
+- Support {X}{X}, min/max X, X in activated abilities
+- Add `choose_x_value()` to `PlayerDecisionMaker`
+- **Blocked cards:** Day of Black Sun, Genesis Wave, Finale of Revelation, Spectral Denial (~10+ cards)
+- **Java reference:** `VariableManaCost.java`, `ManaCostsImpl.getX()`
+
+#### 8. Impulse Draw (Exile-and-Play)
+- "Exile top card, you may play it until end of [next] turn"
+- Track exiled-but-playable cards in game state with expiration
+- Allow casting from exile via `AsThoughEffect` equivalent
+- **Blocked cards:** Equilibrium Adept, Kulrath Zealot, Sizzling Changeling, Burning Curiosity, Etali (~10+ cards)
+- **Java reference:** `PlayFromNotOwnHandZoneTargetEffect.java`
+
+#### 9. Graveyard Casting (Flashback/Escape)
+- Cast from graveyard with alternative cost
+- Exile after resolution (flashback) or with escaped counters
+- Requires `AsThoughEffect` equivalent to allow casting from non-hand zones
+- **Blocked cards:** Cards with "Cast from graveyard, then exile" text (~6+ cards)
+- **Java reference:** `FlashbackAbility.java`, `PlayFromNotOwnHandZoneTargetEffect.java`
+
+#### 10. Planeswalker System
+- Loyalty counters as activation resource
+- Loyalty abilities: `PayLoyaltyCost(amount)` — add or remove loyalty counters
+- One loyalty ability per turn, sorcery speed
+- Can be attacked (defender selection during declare attackers)
+- Damage redirected from player to planeswalker (or direct attack)
+- SBA: 0 loyalty → graveyard (already implemented)
+- **Blocked cards:** Ajani, Chandra, Kaito, Liliana, Vivien, all planeswalkers (~10+ cards)
+- **Java reference:** `LoyaltyAbility.java`, `PayLoyaltyCost.java`
+
+### Tier 3: Advanced Systems (affect 5-10 cards each)
+
+#### 11. Spell/Permanent Copy
+- Copy spell on stack with same abilities; optionally choose new targets
+- Copy permanent on battlefield (token with copied attributes via Layer 1)
+- Copy + modification (e.g., "except it's a 1/1")
+- **Blocked cards:** Electroduplicate, Rite of Replication, Self-Reflection, Flamehold Grappler (~8+ cards)
+- **Java reference:** `CopyEffect.java`, `CreateTokenCopyTargetEffect.java`
+
+#### 12. Delayed Triggers
+- "When this creature dies this turn, draw a card" — one-shot trigger registered for remainder of turn
+- Framework: register trigger with expiration, fire when condition met, remove after
+- **Blocked cards:** Undying Malice, Fake Your Own Death, Desperate Measures, Scarblades Malice (~5+ cards)
+- **Java reference:** `DelayedTriggeredAbility.java`
+
+#### 13. Saga Enchantments
+- Lore counters added on ETB and after draw step
+- Chapter abilities trigger when lore counter matches chapter number
+- Sacrifice after final chapter (SBA)
+- **Blocked cards:** 6+ Saga cards in TDM/TLA
+- **Java reference:** `SagaAbility.java`
+
+#### 14. Additional Combat Phases
+- "Untap all creatures, there is an additional combat phase"
+- Insert extra combat steps into the turn sequence
+- **Blocked cards:** Aurelia the Warleader, All-Out Assault (~3 cards)
+
+#### 15. Conditional Cost Modifications
+- `CostReduction` stored but not applied during cost calculation
+- "Second spell costs {1} less", Affinity, Convoke, Delve
+- Need cost-modification pass before mana payment
+- **Blocked cards:** Highspire Bell-Ringer, Allies at Last, Ghalta Primal Hunger (~5+ cards)
+- **Java reference:** `CostModificationEffect.java`, `SpellAbility.adjustCosts()`
+
+### Tier 4: Set-Specific Mechanics
+
+#### 16. Earthbend (TLA)
+- "Look at top N, put a land to hand, rest on bottom"
+- Similar to Explore/Impulse — top-of-library selection
+- **Blocked cards:** Badgermole, Badgermole Cub, Ostrich-Horse, Dai Li Agents, many TLA cards (~20+ cards)
+
+#### 17. Behold (ECL)
+- Reveal-and-exile-from-hand as alternative cost or condition
+- Track "beheld" state for triggered abilities
+- **Blocked cards:** Champion of the Weird, Champions of the Perfect, Molten Exhale, Osseous Exhale (~15+ cards)
+
+#### 18. ~~Vivid (ECL)~~ (DONE)
+Color-count calculation implemented. 6 Vivid effect variants added. 6 cards fixed.
+
+#### 19. Renew (TDM)
+- Counter-based death replacement (exile with counters, return later)
+- Requires replacement effect pipeline (Tier 2, item 6)
+- **Blocked cards:** ~5+ TDM cards
+
+#### 20. Endure (TDM)
+- Put +1/+1 counters; if would die, exile with counters instead
+- Requires replacement effect pipeline
+- **Blocked cards:** ~3+ TDM cards
+
+---
+
+## V. Effect System Gaps
+
+### Implemented Effect Variants (~55 of 62)
+
+The following Effect variants have working `execute_effects()` match arms:
+
+**Damage:** DealDamage, DealDamageAll, DealDamageOpponents, DealDamageVivid
+**Life:** GainLife, GainLifeVivid, LoseLife, LoseLifeOpponents, LoseLifeOpponentsVivid, SetLife
+**Removal:** Destroy, DestroyAll, Exile, Sacrifice, PutOnLibrary
+**Card Movement:** Bounce, ReturnFromGraveyard, Reanimate, DrawCards, DrawCardsVivid, DiscardCards, DiscardOpponents, Mill, SearchLibrary, LookTopAndPick
+**Counters:** AddCounters, AddCountersSelf, AddCountersAll, RemoveCounters
+**Tokens:** CreateToken, CreateTokenTappedAttacking, CreateTokenVivid
+**Combat:** CantBlock, Fight, Bite, MustBlock
+**Stats:** BoostUntilEndOfTurn, BoostPermanent, BoostAllUntilEndOfTurn, BoostUntilEotVivid, BoostAllUntilEotVivid, SetPowerToughness
+**Keywords:** GainKeywordUntilEndOfTurn, GainKeyword, LoseKeyword, GrantKeywordAllUntilEndOfTurn, Indestructible, Hexproof
+**Control:** GainControl, GainControlUntilEndOfTurn
+**Utility:** TapTarget, UntapTarget, CounterSpell, Scry, AddMana, Modal, DoIfCostPaid, ChooseCreatureType, ChooseTypeAndDrawPerPermanent
+
+### Unimplemented Effect Variants
+
+| Variant | Description | Cards Blocked |
+|---------|-------------|---------------|
+| `GainProtection` | Target gains protection from quality | ~5 |
+| `PreventCombatDamage` | Fog / damage prevention | ~5 |
+| `Custom(String)` | Catch-all for untyped effects | 747 instances |
+
+### Custom Effect Fallback Analysis (747 Effect::Custom)
+
+These are effects where no typed variant exists. Grouped by what engine feature would replace them:
+
+| Category | Count | Sets | Engine Feature Needed |
+|----------|-------|------|----------------------|
+| Generic ETB stubs ("ETB effect.") | 79 | All | Triggered ability stacking |
+| Generic activated ability stubs ("Activated effect.") | 67 | All | Proper cost+effect binding on abilities |
+| Attack/combat triggers | 45 | All | Combat integration + triggered abilities |
+| Cast/spell triggers | 47 | All | Triggered abilities + cost modification |
+| Aura/equipment attachment | 28 | FDN,TDM,ECL | Equipment/Aura system |
+| Exile-and-play effects | 25 | All | Impulse draw |
+| Generic spell stubs ("Spell effect.") | 21 | All | Per-card typing with existing variants |
+| Dies/sacrifice triggers | 18 | FDN,TLA | Triggered abilities |
+| Conditional complex effects | 30+ | All | Per-card analysis; many are unique |
+| Tapped/untap mechanics | 10 | FDN,TLA | Minor — mostly per-card fixes |
+| Saga mechanics | 6 | TDM,TLA | Saga system |
+| Earthbend keyword | 5 | TLA | Earthbend mechanic |
+| Copy/clone effects | 8+ | TDM,ECL | Spell/permanent copy |
+| Cost modifiers | 4 | FDN,ECL | Cost modification system |
+| X-cost effects | 5+ | All | X-cost system |
+
+### StaticEffect::Custom Analysis (160 instances)
+
+| Category | Count | Engine Feature Needed |
+|----------|-------|-----------------------|
+| Generic placeholder ("Static effect.") | 90 | Per-card analysis; diverse |
+| Conditional continuous ("Conditional continuous effect.") | 4 | Layer system + conditions |
+| Dynamic P/T ("P/T = X", "+X/+X where X = ...") | 11 | Characteristic-defining abilities (Layer 7a) |
+| Evasion/block restrictions | 5 | Restriction effects in combat |
+| Protection effects | 4 | Protection keyword enforcement |
+| Counter/spell protection ("Can't be countered") | 8 | Uncounterable flag or replacement effect |
+| Keyword grants (conditional) | 4 | Layer 6 + conditions |
+| Damage modification | 4 | Replacement effects |
+| Transform/copy | 3 | Copy layer + transform |
+| Mana/land effects | 3 | Mana ability modification |
+| Cost reduction | 2 | Cost modification system |
+| Keyword abilities (Kicker, Convoke, Delve) | 4 | Alternative/additional costs |
+| Token doubling | 1 | Replacement effect |
+| Trigger multiplier | 1 | Triggered ability system |
+| Other unique effects | 16 | Per-card analysis |
+
+### Cost::Custom Analysis (33 instances)
+
+| Category | Count | Engine Feature Needed |
+|----------|-------|-----------------------|
+| Complex mana+tap activated abilities | 13 | Better activated ability cost parsing |
+| Sacrifice-based activated abilities | 9 | Sacrifice-other as part of compound costs |
+| Tap-creature costs (convoke-like) | 5 | Tap-other-creature cost variant |
+| Exile costs (self, enchantment, graveyard) | 3 | Exile-self / exile-zone cost variants |
+| Complex multi-part costs | 2 | Compound cost support |
+| Discard hand | 1 | Discard-hand cost variant |
+
+---
+
+## VI. Per-Set Custom Fallback Counts
+
+| Set | Effect::Custom | StaticEffect::Custom | Cost::Custom | Total |
+|-----|---------------|---------------------|-------------|-------|
+| FDN (Foundations) | 322 | 58 | 21 | 401 |
+| TLA (Avatar: TLA) | 197 | 54 | 2 | 253 |
+| TDM (Tarkir: Dragonstorm) | 111 | 16 | 3 | 130 |
+| ECL (Lorwyn Eclipsed) | 117 | 32 | 7 | 156 |
+| **Total** | **747** | **160** | **33** | **940** |
+
+Detailed per-card breakdowns in `docs/{fdn,tla,tdm,ecl}-remediation.md`.
+
+---
+
+## VII. Comparison with Java XMage
+
+Features the Java engine has that the Rust engine lacks entirely:
+
+| Java Feature | Java Location | Rust Status |
+|-------------|--------------|-------------|
+| **84+ Watcher classes** | `mage.watchers.common/` | Basic `WatcherManager` only |
+| **Replacement effect pipeline** | `ContinuousEffects.getReplacementEffects()` | Structs defined, not integrated |
+| **7-layer continuous effect application** | `ContinuousEffects.apply()` | Layers defined, never applied |
+| **RequirementEffect** (must attack/block) | `mage.abilities.effects.RequirementEffect` | No equivalent |
+| **RestrictionEffect** (can't attack/block) | `mage.abilities.effects.RestrictionEffect` | Partial (CantAttack/CantBlock as data) |
+| **AsThoughEffect** (play from other zones) | `mage.abilities.effects.AsThoughEffect` | No equivalent |
+| **CostModificationEffect** | `mage.abilities.effects.CostModificationEffect` | CostReduction stored but not applied |
+| **PreventionEffect** (damage prevention) | `mage.abilities.effects.PreventionEffect` | No equivalent |
+| **Equipment attachment** | `EquipAbility`, `AttachEffect` | No equivalent |
+| **Aura attachment** | `AuraReplacementEffect` | No equivalent |
+| **Planeswalker loyalty abilities** | `LoyaltyAbility`, `PayLoyaltyCost` | No equivalent |
+| **X-cost system** | `VariableManaCost`, `ManaCostsImpl.getX()` | No equivalent |
+| **Spell copying** | `CopyEffect`, `CopySpellForEachItCouldTargetEffect` | No equivalent |
+| **Delayed triggered abilities** | `DelayedTriggeredAbility` | No equivalent |
+| **Alternative costs** (Flashback, Evoke, etc.) | `AlternativeCostSourceAbility` | Evoke stored as StaticEffect, not enforced |
+| **Additional costs** (Kicker, Buyback, etc.) | `OptionalAdditionalCostImpl` | No equivalent |
+| **Combat damage assignment order** | `CombatGroup.pickBlockerOrder()` | Simplified (first blocker takes all) |
+| **Spell target legality check on resolution** | `Spell.checkTargets()` | Targets checked at cast, not re-validated |
+| **Mana restriction** ("spend only on creatures") | `ManaPool.conditionalMana` | Not tracked |
+| **Hybrid mana** ({B/R}, {2/G}) | `HybridManaCost` | Not modeled |
+| **Zone change tracking** (LKI) | `getLKIBattlefield()` | No last-known-information |
+
+---
+
+## VIII. Phased Implementation Plan
+
+Priority ordered by cards-unblocked per effort.
+
+### Phase 1: Make the Engine Functional (combat + triggers)
+
+1. ~~**Combat integration**~~ — **DONE (2026-02-14).** Wired `combat.rs` into `turn_based_actions()` for DeclareAttackers, DeclareBlockers, FirstStrikeDamage, CombatDamage, EndCombat. Connected lifelink, vigilance, flying/reach. Added `CombatState` to `GameState`. 13 unit tests.
+
+2. **Triggered ability stacking** — After each game action, scan for triggered abilities, push onto stack in APNAP order. This makes ETB abilities, attack triggers, death triggers, upkeep triggers, and damage triggers all work. **~400+ cards affected.**
+
+3. **Continuous effect layer application** — Recalculate permanent characteristics (P/T, keywords, types) by applying StaticEffect variants in layer order. Makes lord/anthem effects functional. **~50+ cards affected.**
+
+### Phase 2: Core Missing Mechanics
+
+4. **Replacement effect pipeline** — Event interception. Enables damage prevention, death replacement, enters-tapped enforcement, Undying/Persist. **~30+ cards.**
+
+5. **Equipment system** — Attach/detach, equip cost, stat application. **~15+ cards.**
+
+6. **Aura/enchant system** — Attach on ETB, apply continuous effects while attached, fall-off SBA. **~15+ cards.**
+
+7. **X-cost spells** — Announce X, track on stack, pass to effects. **~10+ cards.**
+
+8. **Impulse draw** — Exile-and-play tracking with expiration. **~10+ cards.**
 
 ### Phase 3: Advanced Systems
 
-8. **Replacement effects** -- Event interception pipeline. Required for damage prevention, death replacement, Doubling Season, "exile instead of dying."
+9. **Planeswalker system** — Loyalty abilities, can-be-attacked, damage redirection. **~10+ cards.**
 
-9. **X-cost spells** -- Variable cost determination + passing X to effects.
+10. **Spell/permanent copy** — Clone spells on stack, create token copies. **~8+ cards.**
 
-10. **Aura attachment** -- Auras attach to targets, apply continuous effects while attached.
+11. **Delayed triggers** — One-shot triggered abilities with expiration. **~5+ cards.**
 
-11. **Spell copy** -- Clone spells on the stack with new targets.
+12. **Graveyard casting** — Flashback, Escape, cast-from-graveyard. **~6+ cards.**
 
-12. **Planeswalker system** -- Loyalty as a resource, planeswalker abilities, damage redirection.
+13. **Saga enchantments** — Lore counters, chapter abilities. **~6+ cards.**
 
-13. **Additional combat phases** -- Extra attack steps.
+14. **Cost modification** — Apply CostReduction during cost calculation. **~5+ cards.**
+
+15. **Additional combat phases** — Extra attack steps. **~3 cards.**
 
 ### Phase 4: Set-Specific Mechanics
 
-14. **Behold** (ECL) -- Reveal-from-hand alternative cost/condition.
-15. **Vivid** (ECL) -- Color-count calculation for dynamic X values.
-16. **Learn** (TLA) -- May discard to draw keyword action.
-17. **Renew** (TDM) -- Counter-based death replacement.
-18. **Mobilize** (TDM) -- Create N 1/1 Soldier tokens. (Partially works via `CreateToken` already.)
+16. **Earthbend** (TLA) — Top-N selection, land to hand. **~20+ cards.**
+
+17. **Behold** (ECL) — Reveal-from-hand alternative cost. **~15+ cards.**
+
+18. **Renew/Endure** (TDM) — Counter-based death replacement (needs replacement pipeline). **~8+ cards.**
+
+19. ~~**Vivid** (ECL)~~ — **DONE.** Color-count calculation + 6 effect variants.
+
+20. ~~**Modal spells**~~ — **DONE.** `Effect::Modal` + `choose_mode()`.
+
+21. ~~**Fight/Bite**~~ — **DONE.** `Effect::Fight` + `Effect::Bite` with dual targeting.
+
+22. ~~**Token stat parsing**~~ — **DONE.** `CreateToken` parses P/T and keywords from name string.
+
+### Phase 5: Eliminate Custom Fallbacks
+
+After the above systems are in place, systematically replace remaining `Custom(String)` fallbacks with typed variants:
+
+- **Easy wins (~100 cards):** Generic stubs ("ETB effect", "Activated effect", "Spell effect") where the effect is a simple combination of existing typed variants
+- **Medium (~200 cards):** Cards needing one of the systems above (triggers, layers, combat) plus per-card typing
+- **Hard (~50+ cards):** Cards with truly unique mechanics needing new Effect variants
 
 ---
 
-## Per-Set Status
+## IX. Previously Completed Work
 
-Detailed per-card breakdowns with fix instructions are in `docs/`:
+**Batch 1-10 remediation** (2026-02-13 to 2026-02-14): Fixed ~60 cards by replacing Custom effects with typed variants. Added engine features: source-fallback for counters, Ward variant, EntersTappedUnless variant, mass-buff effects (BoostAllUntilEndOfTurn, GrantKeywordAllUntilEndOfTurn), AddCountersAll, AddCountersSelf, 7 cost implementations (RemoveCounters, Blight, ExileFromGraveyard, ExileFromHand, SacrificeOther, UntapSelf, Custom), Vivid mechanic (6 effect variants + color counting), Modal spells (Effect::Modal + ModalMode), Fight/Bite mechanics.
 
-| File | Set | Complete | Partial | Stub |
-|------|-----|----------|---------|------|
-| `docs/fdn-remediation.md` | Foundations | 95 | 126 | 267 |
-| `docs/tla-remediation.md` | Avatar: TLA | 39 | 22 | 219 |
-| `docs/tdm-remediation.md` | Tarkir: Dragonstorm | 97 | 115 | 59 |
-| `docs/ecl-remediation.md` | Lorwyn Eclipsed | 56 | 69 | 105 |
-
-*Note: These counts are outdated -- see the individual remediation docs for current status.*
-
-Each remediation doc includes:
-- Full card-by-card audit with working vs broken effects
-- Java source file references for each card
-- Specific fix instructions per card
-- Priority remediation roadmap for that set
+See `docs/work-queue.md` for the batch-fix loop and per-set remediation docs for card-level details.
