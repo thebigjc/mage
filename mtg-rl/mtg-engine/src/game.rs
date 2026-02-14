@@ -949,9 +949,121 @@ impl Game {
                         }
                     }
                 }
-                _ => {
-                    // Other costs (exile from hand, remove counters, sacrifice other, etc.)
-                    // will be implemented as cards need them
+                Cost::RemoveCounters(counter_type_name, count) => {
+                    let ct = crate::counters::CounterType::from_name(counter_type_name);
+                    if let Some(perm) = self.state.battlefield.get_mut(source_id) {
+                        let current = perm.counters.get(&ct);
+                        if current < *count {
+                            return false; // Not enough counters
+                        }
+                        perm.counters.remove(&ct, *count);
+                    } else {
+                        return false;
+                    }
+                }
+                Cost::Blight(count) => {
+                    // Blight: put N -1/-1 counters on a creature you control (typically self).
+                    // For simplicity, apply to source permanent.
+                    let ct = crate::counters::CounterType::M1M1;
+                    if let Some(perm) = self.state.battlefield.get_mut(source_id) {
+                        perm.counters.add(ct, *count);
+                    } else {
+                        return false;
+                    }
+                }
+                Cost::ExileFromGraveyard(count) => {
+                    let gy_cards: Vec<ObjectId> = self.state.players.get(&player_id)
+                        .map(|p| p.graveyard.iter().copied().collect())
+                        .unwrap_or_default();
+                    if gy_cards.len() < *count as usize {
+                        return false;
+                    }
+                    // Use choose_discard as a general card selection mechanism
+                    let view = crate::decision::GameView::placeholder();
+                    let to_exile = if let Some(dm) = self.decision_makers.get_mut(&player_id) {
+                        dm.choose_discard(&view, &gy_cards, *count as usize)
+                    } else {
+                        gy_cards.iter().rev().take(*count as usize).copied().collect()
+                    };
+                    for card_id in to_exile {
+                        if let Some(player) = self.state.players.get_mut(&player_id) {
+                            player.graveyard.remove(card_id);
+                        }
+                        self.state.exile.exile(card_id);
+                        self.state.set_zone(card_id, crate::constants::Zone::Exile, None);
+                    }
+                }
+                Cost::ExileFromHand(count) => {
+                    let hand: Vec<ObjectId> = self.state.players.get(&player_id)
+                        .map(|p| p.hand.iter().copied().collect())
+                        .unwrap_or_default();
+                    if hand.len() < *count as usize {
+                        return false;
+                    }
+                    let view = crate::decision::GameView::placeholder();
+                    let to_exile = if let Some(dm) = self.decision_makers.get_mut(&player_id) {
+                        dm.choose_discard(&view, &hand, *count as usize)
+                    } else {
+                        hand.iter().rev().take(*count as usize).copied().collect()
+                    };
+                    for card_id in to_exile {
+                        if let Some(player) = self.state.players.get_mut(&player_id) {
+                            player.hand.remove(card_id);
+                        }
+                        self.state.exile.exile(card_id);
+                        self.state.set_zone(card_id, crate::constants::Zone::Exile, None);
+                    }
+                }
+                Cost::SacrificeOther(filter) => {
+                    // Find permanents matching the filter that the player controls
+                    let candidates: Vec<ObjectId> = self.state.battlefield.iter()
+                        .filter(|perm| perm.controller == player_id && perm.id() != source_id)
+                        .filter(|perm| {
+                            let f = filter.to_lowercase();
+                            if f.contains("creature") && !perm.is_creature() { return false; }
+                            if f.contains("artifact") && !perm.is_artifact() { return false; }
+                            if f.contains("enchantment") && !perm.is_enchantment() { return false; }
+                            if f.contains("land") && !perm.is_land() { return false; }
+                            true
+                        })
+                        .map(|perm| perm.id())
+                        .collect();
+                    if candidates.is_empty() {
+                        return false;
+                    }
+                    // Pick one to sacrifice (use choose_targets-like selection)
+                    let chosen = candidates[0]; // Default: first candidate
+                    if let Some(perm) = self.state.battlefield.remove(chosen) {
+                        self.state.ability_store.remove_source(chosen);
+                        let owner = perm.owner();
+                        if let Some(player) = self.state.players.get_mut(&owner) {
+                            player.graveyard.add(chosen);
+                            self.state.set_zone(chosen, crate::constants::Zone::Graveyard, Some(owner));
+                        }
+                    }
+                }
+                Cost::RevealFromHand(_card_type) => {
+                    // Reveal cost: check that the player has a card of the required type.
+                    // For now, just check hand is non-empty (full type checking deferred).
+                    let hand_size = self.state.players.get(&player_id)
+                        .map(|p| p.hand.len())
+                        .unwrap_or(0);
+                    if hand_size == 0 {
+                        return false;
+                    }
+                }
+                Cost::UntapSelf => {
+                    if let Some(perm) = self.state.battlefield.get_mut(source_id) {
+                        if !perm.tapped {
+                            return false; // Already untapped, can't pay
+                        }
+                        perm.untap();
+                    } else {
+                        return false;
+                    }
+                }
+                Cost::Custom(_) => {
+                    // Custom costs: no-op (annotation only)
                 }
             }
         }
@@ -3530,5 +3642,183 @@ mod modal_test {
         // PickSecondModePlayer picks mode 1 (opponents lose life)
         assert_eq!(game.state.players[&p1].life, 20, "p1 should be unchanged");
         assert_eq!(game.state.players[&p2].life, 17, "p2 should have lost 3 life");
+    }
+}
+
+#[cfg(test)]
+mod cost_tests {
+    use super::*;
+    use crate::abilities::Cost;
+    use crate::card::CardData;
+    use crate::constants::{CardType, KeywordAbilities, Outcome};
+    use crate::counters::CounterType;
+    use crate::decision::*;
+    use crate::game::{GameConfig, PlayerConfig};
+    use crate::permanent::Permanent;
+    use crate::types::{ObjectId, PlayerId};
+
+    /// Decision maker that selects the last N cards for discard/exile choices.
+    struct LastCardPicker;
+
+    impl PlayerDecisionMaker for LastCardPicker {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction {
+            PlayerAction::Pass
+        }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, hand: &[ObjectId], count: usize) -> Vec<ObjectId> {
+            // Pick the last N cards
+            hand.iter().rev().take(count).copied().collect()
+        }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_deck(owner: PlayerId) -> Vec<CardData> {
+        (0..20).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), owner, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect()
+    }
+
+    fn setup_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(LastCardPicker)),
+                (p2, Box::new(LastCardPicker)),
+            ],
+        );
+        (game, p1, p2)
+    }
+
+    fn add_creature(game: &mut Game, owner: PlayerId, name: &str) -> ObjectId {
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(2);
+        card.toughness = Some(2);
+        card.keywords = KeywordAbilities::empty();
+        game.state.battlefield.add(Permanent::new(card, owner));
+        id
+    }
+
+    #[test]
+    fn pay_remove_counters_cost() {
+        let (mut game, p1, _p2) = setup_game();
+        let source_id = add_creature(&mut game, p1, "Counter Creature");
+
+        // Add 3 -1/-1 counters
+        game.state.battlefield.get_mut(source_id).unwrap()
+            .add_counters(CounterType::M1M1, 3);
+
+        // Pay 2 -1/-1 counter removal cost
+        assert!(game.pay_costs(p1, source_id, &[Cost::RemoveCounters("-1/-1".into(), 2)]));
+        assert_eq!(game.state.battlefield.get(source_id).unwrap().counters.get(&CounterType::M1M1), 1);
+
+        // Can't pay 2 more (only 1 left)
+        assert!(!game.pay_costs(p1, source_id, &[Cost::RemoveCounters("-1/-1".into(), 2)]));
+    }
+
+    #[test]
+    fn pay_blight_cost() {
+        let (mut game, p1, _p2) = setup_game();
+        let source_id = add_creature(&mut game, p1, "Blight Creature");
+
+        // Blight 2 puts 2 -1/-1 counters on self
+        assert!(game.pay_costs(p1, source_id, &[Cost::Blight(2)]));
+        assert_eq!(game.state.battlefield.get(source_id).unwrap().counters.get(&CounterType::M1M1), 2);
+        // Power should be reduced
+        assert_eq!(game.state.battlefield.get(source_id).unwrap().power(), 0);
+    }
+
+    #[test]
+    fn pay_exile_from_graveyard_cost() {
+        let (mut game, p1, _p2) = setup_game();
+        let source_id = add_creature(&mut game, p1, "Source");
+
+        // Add 3 cards to graveyard
+        let gy1 = ObjectId::new();
+        let gy2 = ObjectId::new();
+        let gy3 = ObjectId::new();
+        game.state.players.get_mut(&p1).unwrap().graveyard.add(gy1);
+        game.state.players.get_mut(&p1).unwrap().graveyard.add(gy2);
+        game.state.players.get_mut(&p1).unwrap().graveyard.add(gy3);
+
+        // Can't exile 4 (only 3)
+        assert!(!game.pay_costs(p1, source_id, &[Cost::ExileFromGraveyard(4)]));
+
+        // Exile 2
+        assert!(game.pay_costs(p1, source_id, &[Cost::ExileFromGraveyard(2)]));
+        assert_eq!(game.state.players.get(&p1).unwrap().graveyard.len(), 1);
+        // Exiled cards should be in exile zone
+        assert!(game.state.exile.contains(gy3) || game.state.exile.contains(gy2));
+    }
+
+    #[test]
+    fn pay_exile_from_hand_cost() {
+        let (mut game, p1, _p2) = setup_game();
+        let source_id = add_creature(&mut game, p1, "Source");
+
+        // Add 2 cards to hand
+        let h1 = ObjectId::new();
+        let h2 = ObjectId::new();
+        game.state.players.get_mut(&p1).unwrap().hand.add(h1);
+        game.state.players.get_mut(&p1).unwrap().hand.add(h2);
+        let before = game.state.players.get(&p1).unwrap().hand.len();
+
+        // Exile 1
+        assert!(game.pay_costs(p1, source_id, &[Cost::ExileFromHand(1)]));
+        assert_eq!(game.state.players.get(&p1).unwrap().hand.len(), before - 1);
+    }
+
+    #[test]
+    fn pay_sacrifice_other_cost() {
+        let (mut game, p1, _p2) = setup_game();
+        let source_id = add_creature(&mut game, p1, "Source");
+        let other_id = add_creature(&mut game, p1, "Other Creature");
+
+        // Sacrifice another creature
+        assert!(game.pay_costs(p1, source_id, &[Cost::SacrificeOther("a creature".into())]));
+        // The other creature should be gone
+        assert!(!game.state.battlefield.contains(other_id));
+        // Source should still be there
+        assert!(game.state.battlefield.contains(source_id));
+    }
+
+    #[test]
+    fn pay_untap_self_cost() {
+        let (mut game, p1, _p2) = setup_game();
+        let source_id = add_creature(&mut game, p1, "Untap Me");
+
+        // Can't untap (not tapped)
+        assert!(!game.pay_costs(p1, source_id, &[Cost::UntapSelf]));
+
+        // Tap it first
+        game.state.battlefield.get_mut(source_id).unwrap().tap();
+        assert!(game.state.battlefield.get(source_id).unwrap().tapped);
+
+        // Now untap cost works
+        assert!(game.pay_costs(p1, source_id, &[Cost::UntapSelf]));
+        assert!(!game.state.battlefield.get(source_id).unwrap().tapped);
     }
 }

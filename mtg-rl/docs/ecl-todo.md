@@ -4,7 +4,7 @@ Ordered by topological sort of the dependency graph. Engine capabilities are
 scheduled greedily: each step picks the capability that unlocks the most new
 cards. Multi-dependency cards appear under their last-needed capability.
 
-**133 cards complete** | **134 cards remaining** across **21 engine capabilities**
+**139 cards complete** | **128 cards remaining** across **21 engine capabilities**
 
 ## 1. Conditional/Dynamic Effects (COND)
 
@@ -18,21 +18,21 @@ cards. Multi-dependency cards appear under their last-needed capability.
 - [ ] Abigale, Eloquent First-Year — LoseAllAbilities effect, keyword counters (flying/first_strike/lifelink)
 - [ ] Boneclub Berserker
 - [ ] Boulder Dash — Multi-target damage split (2 to one target, 1 to another)
-- [ ] Bre of Clan Stoutarm
+- [x] Bre of Clan Stoutarm — activated flying+lifelink EOT typed, triggered reanimate typed (life-gain condition not enforced)
 - [ ] Bristlebane Outrider
 - [ ] Curious Colossus — LoseAllAbilities, AddCardSubType (Coward), SetBasePowerToughness 1/1 on all opponent creatures
 - [x] Dawnhand Eulogist — mill(3) + lose_life_opponents(2) + gain_life(2) (conditional Elf check not enforced)
 - [ ] Doran, Besieged by Time
 - [ ] Feisty Spikeling
 - [ ] Figure of Fable — Multi-level activated abilities changing type/base P/T, conditional on current subtype
-- [ ] Formidable Speaker — ETB may discard to search for creature, activated untap another permanent
+- [x] Formidable Speaker — activated untap typed with Permanent targeting, ETB discard-to-search is Custom
 - [x] Gallant Fowlknight
-- [ ] Glamer Gifter — Set base P/T 4/4 + gain all creature types on target until EOT
+- [x] Glamer Gifter — SetPowerToughness typed, Flash+Flying keywords, all-creature-types is Custom
 - [ ] Glen Elendra's Answer — Can't be countered, counter ALL opponent spells+abilities, create tokens equal to count
 - [ ] Gloom Ripper — Dynamic X = Elves you control + Elf cards in GY, +X/+0 to your creature, -0/-X to opponent's
 - [ ] Gravelgill Scoundrel — Attacks trigger may tap another creature for unblockable this turn
-- [ ] Hexing Squelcher — Can't be countered, Ward-pay 2 life, spells can't be countered static, grant ward to others
-- [ ] Illusion Spinners — Conditional flash (if you control Faerie), hexproof while untapped
+- [x] Hexing Squelcher — Ward typed, GrantKeyword for other creatures typed, cant-be-countered descriptions
+- [x] Illusion Spinners — Flying+Hexproof keywords set, conditional flash/hexproof described as Custom
 - [x] Impolite Entrance — Target creature gains trample+haste until EOT, draw a card
 - [ ] Kinbinding — Dynamic +X/+X where X=creatures entered this turn (watcher), begin-of-combat token creation
 - [ ] Kinscaer Sentry — Attacks then put creature from hand onto battlefield tapped+attacking if MV <= attacking count
@@ -44,7 +44,7 @@ cards. Multi-dependency cards appear under their last-needed capability.
 - [x] Morcant's Eyes — upkeep scry(1) typed, activated sac+mana with X tokens is Custom
 - [x] Morcant's Loyalist — Other Elves +1/+1 lord, dies then return another Elf card from GY to hand
 - [ ] Morningtide's Light — Mass flicker, prevent damage until next turn, exile self
-- [ ] Mornsong Aria — Players can't draw or gain life (static), each draw step: lose 3 life + search library
+- [x] Mornsong Aria — fully typed: CantGainLife + CantDrawExtraCards statics, LoseLife + search_library triggered
 - [x] Personify — flicker Custom + create_token typed, targets CreatureYouControl
 - [x] Pummeler for Hire — Ward {2} typed, ETB gain life dynamic is Custom
 - [ ] Raiding Schemes — Noncreature spells you cast have conspire (very complex stack manipulation)
@@ -72,7 +72,7 @@ cards. Multi-dependency cards appear under their last-needed capability.
 **Effort:** Medium | **Cards unlocked:** 15 | **Running total:** 66/181
 > RemoveCounters, Blight, ExileFromGraveyard pay_costs() match arms
 
-- [ ] **Implement Cost System engine support**
+- [x] **Implement Cost System engine support** — RemoveCounters, Blight, ExileFromGraveyard, ExileFromHand, SacrificeOther, UntapSelf match arms in pay_costs()
 
 ### Single-dependency cards (12)
 

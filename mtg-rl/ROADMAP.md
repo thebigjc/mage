@@ -22,6 +22,8 @@ These `Effect` enum variants exist in `abilities.rs` but have no implementation 
 
 **Batch 10 (2026-02-14):** Added `Effect::AddCountersSelf { counter_type, count }` variant + `add_counters_self()` constructor + match arm. Unlike `AddCounters` (source fallback only when targets empty), `AddCountersSelf` always applies to the source permanent regardless of other targets. Enables compound effects like "blight self + grant haste to target creature" (Warren Torchmaster).
 
+**Cost System (2026-02-14):** Implemented `pay_costs()` match arms for `RemoveCounters` (remove typed counters from source), `Blight` (add -1/-1 counters to source), `ExileFromGraveyard` (exile N cards from graveyard), `ExileFromHand` (exile N cards from hand), `SacrificeOther` (sacrifice another permanent matching filter), `UntapSelf` (untap cost), and `Custom` (no-op annotation). Previously these costs silently passed through the catch-all. 6 tests added.
+
 | Effect Variant | Description | Cards Blocked |
 |---------------|-------------|---------------|
 | `GainProtection` | Target gains protection from quality | ~5 |
