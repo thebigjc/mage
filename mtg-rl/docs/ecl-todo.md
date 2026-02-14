@@ -4,7 +4,7 @@ Ordered by topological sort of the dependency graph. Engine capabilities are
 scheduled greedily: each step picks the capability that unlocks the most new
 cards. Multi-dependency cards appear under their last-needed capability.
 
-**175 cards complete** | **92 cards remaining** across **21 engine capabilities**
+**181 cards complete** | **86 cards remaining** across **21 engine capabilities**
 
 ## 1. Conditional/Dynamic Effects (COND)
 
@@ -15,7 +15,7 @@ cards. Multi-dependency cards appear under their last-needed capability.
 
 ### Single-dependency cards (51)
 
-- [ ] Abigale, Eloquent First-Year — LoseAllAbilities effect, keyword counters (flying/first_strike/lifelink)
+- [x] Abigale, Eloquent First-Year — Keywords typed, ETB add_counters for keyword counters typed, LoseAllAbilities as Custom
 - [ ] Boneclub Berserker
 - [ ] Boulder Dash — Multi-target damage split (2 to one target, 1 to another)
 - [x] Bre of Clan Stoutarm — activated flying+lifelink EOT typed, triggered reanimate typed (life-gain condition not enforced)
@@ -34,7 +34,7 @@ cards. Multi-dependency cards appear under their last-needed capability.
 - [x] Hexing Squelcher — Ward typed, GrantKeyword for other creatures typed, cant-be-countered descriptions
 - [x] Illusion Spinners — Flying+Hexproof keywords set, conditional flash/hexproof described as Custom
 - [x] Impolite Entrance — Target creature gains trample+haste until EOT, draw a card
-- [ ] Kinbinding — Dynamic +X/+X where X=creatures entered this turn (watcher), begin-of-combat token creation
+- [x] Kinbinding — BeginCombat create_token typed, dynamic +X/+X static as Custom (watcher not enforced)
 - [ ] Kinscaer Sentry — Attacks then put creature from hand onto battlefield tapped+attacking if MV <= attacking count
 - [x] Lasting Tarfire — end step damage_opponents(2) (conditional counter check not enforced)
 - [ ] Lluwen, Imperfect Naturalist — Mill 4 + top-of-library manipulation, discard land cost, tokens = lands in GY
@@ -159,9 +159,9 @@ cards. Multi-dependency cards appear under their last-needed capability.
 
 ### Multi-dependency cards (4) — now fully unblocked
 
-- [ ] Bloodline Bidding _COND + TYPE_ — Convoke, choose creature type, return all creatures of type from GY to battlefield
+- [x] Bloodline Bidding _COND + TYPE_ — Convoke keyword, choose_creature_type() typed, mass reanimate as Custom
 - [x] Gathering Stone _CHOICE + TYPE_ — choose_creature_type() typed, CostReduction static, look-at-top is Custom
-- [ ] Selfless Safewright _COND + TYPE_ — Flash, Convoke, choose creature type, grant hexproof+indestructible until EOT
+- [x] Selfless Safewright _COND + TYPE_ — Flash+Convoke keywords, choose_creature_type() typed, grant hexproof+indestructible as Custom
 - [ ] Winnowing _COND + TYPE_ — Convoke, for each player choose creature, sac others not sharing type
 
 ## 6. Aura System (AURA)
@@ -295,13 +295,13 @@ cards. Multi-dependency cards appear under their last-needed capability.
 
 - [x] Crib Swap — exile() typed, opponent token is Custom
 - [x] Iron-Shield Elf — gain_keyword_eot("indestructible") typed, self-tap is Custom
-- [ ] Mutable Explorer (land tokens — needs land token creation)
+- [x] Mutable Explorer — create_token("Mutavault") typed ETB, Changeling keyword (land token type not enforced)
 - [x] Rooftop Percher — gain_life(3) typed, GY exile is Custom
 - [x] Temporal Cleansing — put_on_library() typed with PermanentFiltered targeting
 
 ### Multi-dependency cards (1) — now fully unblocked
 
-- [ ] Deepway Navigator _COND + MISC_
+- [x] Deepway Navigator _COND + MISC_ — Flash keyword, ETB untap Custom, conditional Merfolk +1/+0 as boost_controlled (watcher condition not enforced)
 
 ## 13. Evoke Mechanic (EVOKE)
 

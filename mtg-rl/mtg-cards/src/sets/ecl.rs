@@ -1151,7 +1151,7 @@ fn moonlit_lamenter(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn mutable_explorer(id: ObjectId, owner: PlayerId) -> CardData {
-    // 1/1 Shapeshifter for {2}{G}. Changeling. (ETB: create tapped Mutavault token)
+    // 1/1 Shapeshifter for {2}{G}. Changeling. ETB: create a tapped Mutavault land token.
     CardData { id, owner, name: "Mutable Explorer".into(), mana_cost: ManaCost::parse("{2}{G}"),
         card_types: vec![CardType::Creature], subtypes: vec![SubType::Shapeshifter],
         power: Some(1), toughness: Some(1), keywords: KeywordAbilities::CHANGELING,
@@ -1159,7 +1159,7 @@ fn mutable_explorer(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Mutable Explorer enters, create a tapped colorless land token named Mutavault.",
-                vec![Effect::Custom("Create a tapped Mutavault land token.".into())],
+                vec![Effect::create_token("Mutavault", 1)],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -1993,7 +1993,7 @@ fn abigale_eloquent_first_year(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, up to one other target creature loses all abilities. Put a flying counter, a first strike counter, and a lifelink counter on that creature.",
-                vec![Effect::Custom("Target creature loses all abilities and gets flying, first strike, and lifelink counters.".into())],
+                vec![Effect::Custom("Loses all abilities.".into()), Effect::add_counters("flying", 1), Effect::add_counters("first strike", 1), Effect::add_counters("lifelink", 1)],
                 TargetSpec::PermanentFiltered("another creature".into())),
         ],
         ..Default::default() }
@@ -2130,12 +2130,12 @@ fn blood_crypt(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [TYPE+COND] Convoke, choose creature type, return all creatures of type from GY to battlefield
 fn bloodline_bidding(id: ObjectId, owner: PlayerId) -> CardData {
-    // Sorcery for {6}{B}{B}. Convoke. Choose a creature type, return all creature cards of that type from your graveyard to the battlefield.
+    // Sorcery for {6}{B}{B}. Convoke. Choose a creature type, return all of type from GY to battlefield.
     CardData { id, owner, name: "Bloodline Bidding".into(), mana_cost: ManaCost::parse("{6}{B}{B}"),
         card_types: vec![CardType::Sorcery], keywords: KeywordAbilities::CONVOKE,
         rarity: Rarity::Rare,
         abilities: vec![Ability::spell(id,
-            vec![Effect::Custom("Choose a creature type. Return all creature cards of the chosen type from your graveyard to the battlefield.".into())],
+            vec![Effect::choose_creature_type(), Effect::Custom("Return all creature cards of the chosen type from your graveyard to the battlefield.".into())],
             TargetSpec::None)],
         ..Default::default() }
 }
@@ -3472,18 +3472,20 @@ fn sapling_nursery(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [TYPE+COND] Flash, Convoke, choose creature type, grant hexproof+indestructible until EOT
 fn selfless_safewright(id: ObjectId, owner: PlayerId) -> CardData {
+    // 4/2 Elf Warrior for {3}{G}{G}. Flash, Convoke.
+    // ETB: choose a creature type. Other permanents of that type gain hexproof+indestructible until EOT.
     CardData { id, owner, name: "Selfless Safewright".into(),
         mana_cost: ManaCost::parse("{3}{G}{G}"),
         card_types: vec![CardType::Creature],
         subtypes: vec![SubType::Elf, SubType::Warrior],
         power: Some(4), toughness: Some(2),
         rarity: Rarity::Rare,
-        keywords: KeywordAbilities::FLASH | KeywordAbilities::HEXPROOF | KeywordAbilities::INDESTRUCTIBLE,
+        keywords: KeywordAbilities::FLASH | KeywordAbilities::CONVOKE,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
-                    "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
-                    TargetSpec::None),
+                "When this creature enters, choose a creature type. Other permanents you control of the chosen type gain hexproof and indestructible until end of turn.",
+                vec![Effect::choose_creature_type(), Effect::Custom("Other permanents of chosen type gain hexproof and indestructible until EOT.".into())],
+                TargetSpec::None),
         ],
         ..Default::default() }
 }
