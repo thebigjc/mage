@@ -1860,6 +1860,7 @@ fn feed_the_flames(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Activated ability put creature from hand (P+T<=5), haste, end-step sacrifice
 fn meek_attack(id: ObjectId, owner: PlayerId) -> CardData {
     // Enchantment {2}{R}. Activated: cheat small creature from hand with haste.
     CardData { id, owner, name: "Meek Attack".into(), mana_cost: ManaCost::parse("{2}{R}"),
@@ -1979,6 +1980,7 @@ fn wild_unraveling(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ── Tier 3 — complex card implementations ────────────────────────────────────
 
+// ENGINE DEPS: [COND] LoseAllAbilities effect, keyword counters (flying/first_strike/lifelink)
 fn abigale_eloquent_first_year(id: ObjectId, owner: PlayerId) -> CardData {
     // Legendary 1/1 Bird Bard for {W/B}{W/B}. Flying, first strike, lifelink.
     // ETB: up to one other target creature loses all abilities, gets flying/first strike/lifelink counters.
@@ -2112,6 +2114,7 @@ fn blood_crypt(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [TYPE+COND] Convoke, choose creature type, return all creatures of type from GY to battlefield
 fn bloodline_bidding(id: ObjectId, owner: PlayerId) -> CardData {
     // Sorcery for {6}{B}{B}. Convoke. Choose a creature type, return all creature cards of that type from your graveyard to the battlefield.
     CardData { id, owner, name: "Bloodline Bidding".into(), mana_cost: ManaCost::parse("{6}{B}{B}"),
@@ -2242,6 +2245,7 @@ fn catharsis(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [BEHOLD+TYPE] Behold mechanic, creature type choice, search library, conditional battlefield vs hand placement
 fn celestial_reunion(id: ObjectId, owner: PlayerId) -> CardData {
     // Sorcery for {X}{G}. Optional additional cost: choose creature type and behold two.
     // Search library for creature card MV X or less.
@@ -2342,6 +2346,7 @@ fn collective_inferno(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] LoseAllAbilities, AddCardSubType (Coward), SetBasePowerToughness 1/1 on all opponent creatures
 fn curious_colossus(id: ObjectId, owner: PlayerId) -> CardData {
     // 7/7 Giant Warrior for {5}{W}{W}.
     // ETB: each creature target opponent controls loses all abilities, becomes Coward, base P/T 1/1.
@@ -2503,6 +2508,7 @@ fn eclipsed_realms(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [TRANSFORM] Transform/DFC, creature spells have convoke, other creatures have persist
 fn eirdu_carrier_of_dawn(id: ObjectId, owner: PlayerId) -> CardData {
     // Legendary 5/5 Elemental God for {3}{W}{W}. Flying, lifelink.
     // Creature spells you cast have convoke. Transforms.
@@ -2547,6 +2553,7 @@ fn emptiness(id: ObjectId, owner: PlayerId) -> CardData {
         ],
         ..Default::default() }
 }
+// ENGINE DEPS: [TRANSFORM] Transform/DFC system, discard-draw, conditional mana, BeginningOfMainPhase trigger
 fn ashling_rekindled(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Ashling, Rekindled".into(),
         card_types: vec![CardType::Creature],
@@ -2555,6 +2562,7 @@ fn ashling_rekindled(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [TRANSFORM+MANA] Transform/DFC, create Kithkin token on ETB/transform, dynamic mana based on creature count
 fn brigid_clachans_heart(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Brigid, Clachan's Heart".into(),
         card_types: vec![CardType::Creature],
@@ -2578,6 +2586,7 @@ fn evershrikes_gift(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Multi-level activated abilities changing type/base P/T, conditional on current subtype
 fn figure_of_fable(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Figure of Fable".into(),
         mana_cost: ManaCost::parse("{G/W}"),
@@ -2595,6 +2604,7 @@ fn figure_of_fable(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND+MANA] Changeling, any-color mana, animated artifact (becomes 4/4 creature until EOT)
 fn firdoch_core(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Firdoch Core".into(),
         mana_cost: ManaCost::parse("{3}"),
@@ -2611,6 +2621,7 @@ fn firdoch_core(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COST+DELAYED] ETB with -1/-1 counter, remove counter cost, delayed trigger (combat damage draw)
 fn flitterwing_nuisance(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Flitterwing Nuisance".into(),
         mana_cost: ManaCost::parse("{U}"),
@@ -2629,6 +2640,7 @@ fn flitterwing_nuisance(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [MANA+COND] Surveil 1, any-color mana + becomes that color until EOT, once per turn
 fn foraging_wickermaw(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Foraging Wickermaw".into(),
         mana_cost: ManaCost::parse("{2}"),
@@ -2645,6 +2657,7 @@ fn foraging_wickermaw(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [TYPE+CHOICE] Choose creature type, cost reduction for chosen type, look at top card + conditional reveal
 fn gathering_stone(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Gathering Stone".into(),
         mana_cost: ManaCost::parse("{4}"),
@@ -2694,6 +2707,7 @@ fn gilt_leafs_embrace(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Set base P/T 4/4 + gain all creature types on target until EOT
 fn glamer_gifter(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Glamer Gifter".into(),
         mana_cost: ManaCost::parse("{1}{U}"),
@@ -2711,6 +2725,7 @@ fn glamer_gifter(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COST] ETB with -1/-1 counter, remove counter cost, counter noncreature spell, target's controller draws
 fn glen_elendra_guardian(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Glen Elendra Guardian".into(),
         mana_cost: ManaCost::parse("{2}{U}"),
@@ -2729,6 +2744,7 @@ fn glen_elendra_guardian(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [EXILE_CAST+COND] Replacement effect (exile with dream counter instead of GY), attacks trigger cast from exile free
 fn goliath_daydreamer(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Goliath Daydreamer".into(),
         mana_cost: ManaCost::parse("{2}{R}{R}"),
@@ -2750,6 +2766,7 @@ fn goliath_daydreamer(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [TRANSFORM+COST] Transform/DFC, return Goblin from GY, attacks blight then token copy tapped+attacking
 fn grub_storied_matriarch(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Grub, Storied Matriarch".into(),
         card_types: vec![CardType::Creature],
@@ -2788,6 +2805,7 @@ fn hallowed_fountain(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [TYPE] Convoke, choose creature type, draw cards equal to permanents of that type
 fn harmonized_crescendo(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Harmonized Crescendo".into(),
         mana_cost: ManaCost::parse("{4}{U}{U}"),
@@ -2801,6 +2819,7 @@ fn harmonized_crescendo(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Can't be countered, Ward-pay 2 life, spells can't be countered static, grant ward to others
 fn hexing_squelcher(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Hexing Squelcher".into(),
         mana_cost: ManaCost::parse("{1}{R}"),
@@ -2816,6 +2835,7 @@ fn hexing_squelcher(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COST+COND] ETB this/another Elf then opponents blight 1, tap 3 Elves then proliferate (sorcery speed)
 fn high_perfect_morcant(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "High Perfect Morcant".into(),
         mana_cost: ManaCost::parse("{2}{B}{G}"),
@@ -2827,6 +2847,7 @@ fn high_perfect_morcant(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Conditional flash (if you control Faerie), hexproof while untapped
 fn illusion_spinners(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Illusion Spinners".into(),
         mana_cost: ManaCost::parse("{4}{U}"),
@@ -2856,6 +2877,7 @@ fn keep_out(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Dynamic +X/+X where X=creatures entered this turn (watcher), begin-of-combat token creation
 fn kinbinding(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Kinbinding".into(),
         mana_cost: ManaCost::parse("{3}{W}{W}"),
@@ -2869,6 +2891,7 @@ fn kinbinding(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Attacks then put creature from hand onto battlefield tapped+attacking if MV <= attacking count
 fn kinscaer_sentry(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Kinscaer Sentry".into(),
         mana_cost: ManaCost::parse("{1}{W}"),
@@ -2887,6 +2910,13 @@ fn kinscaer_sentry(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// TRIAGED: Lasting Tarfire is an Enchantment {1}{R}
+// "At the beginning of each end step, if you put a counter on a creature this turn,
+//  this enchantment deals 2 damage to each opponent."
+// Needs: conditional end-step trigger + watcher tracking CountersAdded on creatures by player.
+// Engine has: beginning_of_end_step_triggered, DealDamageOpponents, CountersAdded event type,
+// CustomWatcher infra. Missing: conditional trigger check (intervening-if clause on watcher state).
+// Category: COND (Conditional/Dynamic Effects)
 fn lasting_tarfire(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Lasting Tarfire".into(),
         mana_cost: ManaCost::parse("{1}{R}"),
@@ -2895,6 +2925,7 @@ fn lasting_tarfire(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Mill 4 + top-of-library manipulation, discard land cost, tokens = lands in GY
 fn lluwen_imperfect_naturalist(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Lluwen, Imperfect Naturalist".into(),
         mana_cost: ManaCost::parse("{B/G}{B/G}"),
@@ -2917,6 +2948,7 @@ fn lluwen_imperfect_naturalist(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COST] ETB with 3 -1/-1 counters, remove counter costs, draw card, tap+stun counter
 fn loch_mare(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Loch Mare".into(),
         mana_cost: ManaCost::parse("{1}{U}"),
@@ -2953,6 +2985,7 @@ fn lofty_dreams(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [EXILE_CAST+COND] ETB this/Elf/Faerie exile opponent top 2, cast from exile with MV restriction, once per turn
 fn maralen_fae_ascendant(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Maralen, Fae Ascendant".into(),
         mana_cost: ManaCost::parse("{2}{B}{G}{U}"),
@@ -2984,6 +3017,7 @@ fn mirrormind_crown(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COST+COND] ETB with 6 -1/-1 counters, trigger on permanent cards to GY then remove -1/-1 counter
 fn moonshadow(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Moonshadow".into(),
         mana_cost: ManaCost::parse("{B}"),
@@ -2994,6 +3028,7 @@ fn moonshadow(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Other Elves +1/+1 lord, dies then return another Elf card from GY to hand
 fn morcants_loyalist(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Morcant's Loyalist".into(),
         mana_cost: ManaCost::parse("{1}{B}{G}"),
@@ -3013,6 +3048,7 @@ fn morcants_loyalist(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Players can't draw or gain life (static), each draw step: lose 3 life + search library
 fn mornsong_aria(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Mornsong Aria".into(),
         mana_cost: ManaCost::parse("{1}{B}{B}"),
@@ -3042,6 +3078,7 @@ fn noggle_the_mind(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COPY] Changeling, Convoke, enter as copy of creature with changeling (clone effect)
 fn omni_changeling(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Omni-Changeling".into(),
         mana_cost: ManaCost::parse("{3}{U}{U}"),
@@ -3065,6 +3102,7 @@ fn overgrown_tomb(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [MODAL] Choose one or both, exile 2 from opponent hand, remove all counters from creature
 fn perfect_intimidation(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Perfect Intimidation".into(),
         mana_cost: ManaCost::parse("{3}{B}"),
@@ -3096,6 +3134,7 @@ fn pitiless_fists(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [VIVID] Vivid (search X basic lands, X=colors), play additional land each turn
 fn prismatic_undercurrents(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Prismatic Undercurrents".into(),
         mana_cost: ManaCost::parse("{3}{G}"),
@@ -3113,6 +3152,7 @@ fn prismatic_undercurrents(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [VIVID+CHOICE] ETB draw + choose color + become that color, activated draw if 5 colors
 fn pucas_eye(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Puca's Eye".into(),
         mana_cost: ManaCost::parse("{2}"),
@@ -3127,6 +3167,7 @@ fn pucas_eye(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Ward {2}, ETB gain X life where X=greatest power among Giants you control
 fn pummeler_for_hire(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Pummeler for Hire".into(),
         mana_cost: ManaCost::parse("{4}{G}"),
@@ -3157,6 +3198,7 @@ fn pyrrhic_strike(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COST] ETB with 2 -1/-1 counters, remove 2 counters cost, return creature MV<=3 from GY
 fn reaping_willow(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Reaping Willow".into(),
         mana_cost: ManaCost::parse("{1}{W/B}{W/B}{W/B}"),
@@ -3168,6 +3210,7 @@ fn reaping_willow(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Conditional dies trigger (if had -1/-1 counter), return to battlefield + lose all abilities
 fn retched_wretch(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Retched Wretch".into(),
         mana_cost: ManaCost::parse("{2}{B}"),
@@ -3184,6 +3227,7 @@ fn retched_wretch(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Flash, grant persist until EOT, activated remove any number of counters (sorcery speed)
 fn rhys_the_evermore(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Rhys, the Evermore".into(),
         mana_cost: ManaCost::parse("{1}{W}"),
@@ -3202,6 +3246,7 @@ fn rhys_the_evermore(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [TYPE+COPY] Choose creature type, charge counters on type ETB, remove 3 charges then copy next spell
 fn rimefire_torque(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Rimefire Torque".into(),
         mana_cost: ManaCost::parse("{1}{U}"),
@@ -3217,6 +3262,7 @@ fn rimefire_torque(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [VIVID+IMPULSE] Vivid reveal X nonland cards, exile one per color, cast this turn
 fn sanar_innovative_first_year(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Sanar, Innovative First-Year".into(),
         mana_cost: ManaCost::parse("{2}{U/R}{U/R}"),
@@ -3228,6 +3274,7 @@ fn sanar_innovative_first_year(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Affinity for Forests, landfall then Treefolk token, exile self then indestructible until EOT
 fn sapling_nursery(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Sapling Nursery".into(),
         mana_cost: ManaCost::parse("{6}{G}{G}"),
@@ -3244,6 +3291,7 @@ fn sapling_nursery(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [TYPE+COND] Flash, Convoke, choose creature type, grant hexproof+indestructible until EOT
 fn selfless_safewright(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Selfless Safewright".into(),
         mana_cost: ManaCost::parse("{3}{G}{G}"),
@@ -3261,6 +3309,7 @@ fn selfless_safewright(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COST+IMPULSE] Attacks then blight 1, creature with counters dies then impulse draw equal to counter count
 fn shadow_urchin(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Shadow Urchin".into(),
         mana_cost: ManaCost::parse("{2}{B/R}"),
@@ -3292,6 +3341,7 @@ fn shimmerwilds_growth(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COPY] Flying, Wither, copy instant/sorcery with single target + both gain wither
 fn spinerock_tyrant(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Spinerock Tyrant".into(),
         mana_cost: ManaCost::parse("{3}{R}{R}"),
@@ -3328,6 +3378,7 @@ fn spiral_into_solitude(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Choose 2 creatures, draw X + +X/+X + trample where X=power difference
 fn spry_and_mighty(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Spry and Mighty".into(),
         mana_cost: ManaCost::parse("{4}{G}"),
@@ -3368,6 +3419,7 @@ fn steam_vents(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Cost reduction by greatest MV among Elementals, if cast then bounce all non-Elemental creatures
 fn sunderflock(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Sunderflock".into(),
         mana_cost: ManaCost::parse("{7}{U}{U}"),
@@ -3388,6 +3440,7 @@ fn sunderflock(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [TRANSFORM] Transform/DFC, can't be blocked, grant combat-damage-draw, protection from colors
 fn sygg_wanderwine_wisdom(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Sygg, Wanderwine Wisdom".into(),
         card_types: vec![CardType::Creature],
@@ -3411,6 +3464,7 @@ fn syggs_command(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Other creatures hexproof from each of their colors, make creature all colors
 fn tam_mindful_first_year(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Tam, Mindful First-Year".into(),
         mana_cost: ManaCost::parse("{1}{G/U}"),
@@ -3432,6 +3486,7 @@ fn tam_mindful_first_year(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] ETB opponent reveals X cards (X=Goblins), choose one to exile, may cast instant/sorcery
 fn taster_of_wares(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Taster of Wares".into(),
         mana_cost: ManaCost::parse("{2}{B}"),
@@ -3456,6 +3511,7 @@ fn temple_garden(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [TRANSFORM] Transform/DFC, mill + conditional gain life, exile Elf for opponents lose life
 fn trystan_callous_cultivator(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Trystan, Callous Cultivator".into(),
         card_types: vec![CardType::Creature],
@@ -3479,6 +3535,7 @@ fn trystans_command(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND+COPY] ETB surveil 2, creatures from GY entering then create token copy (once per turn)
 fn twilight_diviner(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Twilight Diviner".into(),
         mana_cost: ManaCost::parse("{2}{B}"),
@@ -3495,6 +3552,7 @@ fn twilight_diviner(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Other Elemental triggered abilities trigger additional time (replacement effect)
 fn twinflame_travelers(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Twinflame Travelers".into(),
         mana_cost: ManaCost::parse("{2}{U}{R}"),
@@ -3511,6 +3569,7 @@ fn twinflame_travelers(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [MODAL+TYPE] Choose one: return creature from GY; or return 2 creatures sharing type from GY
 fn unbury(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Unbury".into(),
         mana_cost: ManaCost::parse("{1}{B}"),
@@ -3537,6 +3596,7 @@ fn unforgiving_aim(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [EVOKE+COND] Evoke, conditional ETB (if RR then 3 damage, if GG then search land + gain 2 life)
 fn vibrance(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Vibrance".into(),
         mana_cost: ManaCost::parse("{3}{R/G}{R/G}"),
@@ -3552,6 +3612,7 @@ fn vibrance(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Convoke, bounce 1-2 nonland permanents, conditional Merfolk tokens
 fn wanderwine_farewell(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Wanderwine Farewell".into(),
         mana_cost: ManaCost::parse("{5}{U}{U}"),
@@ -3566,6 +3627,7 @@ fn wanderwine_farewell(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] End step trigger if another creature entered this turn then surveil 1
 fn wary_farmer(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Wary Farmer".into(),
         mana_cost: ManaCost::parse("{1}{G/W}{G/W}"),
@@ -3576,6 +3638,7 @@ fn wary_farmer(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [VIVID] Vivid cost reduction, Reach, Trample
 fn wildvine_pummeler(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Wildvine Pummeler".into(),
         mana_cost: ManaCost::parse("{6}{G}"),
@@ -3592,6 +3655,7 @@ fn wildvine_pummeler(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [TYPE+COND] Convoke, for each player choose creature, sac others not sharing type
 fn winnowing(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Winnowing".into(),
         mana_cost: ManaCost::parse("{4}{W}{W}"),
@@ -3605,6 +3669,7 @@ fn winnowing(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [EVOKE+COND] Evoke, conditional ETB (if GG exile artifact/enchantment, if UU draw 2 discard 1)
 fn wistfulness(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Wistfulness".into(),
         mana_cost: ManaCost::parse("{3}{G/U}{G/U}"),
@@ -3639,6 +3704,7 @@ fn ajani_outland_chaperone(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COST] Blight cost (OrCost: blight 1 or pay {3}), exile target creature
 fn bogslithers_embrace(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Bogslither's Embrace".into(), mana_cost: ManaCost::parse("{1}{B}"),
         card_types: vec![CardType::Sorcery],
@@ -3664,6 +3730,7 @@ fn boneclub_berserker(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Multi-target damage split (2 to one target, 1 to another)
 fn boulder_dash(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Boulder Dash".into(), mana_cost: ManaCost::parse("{1}{R}"),
         card_types: vec![CardType::Sorcery],
@@ -3676,6 +3743,7 @@ fn boulder_dash(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [BEHOLD+COST] Behold+exile cost, tap+stun counter on ETB/tap, LTB return exiled card
 fn champions_of_the_shoal(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Champions of the Shoal".into(), mana_cost: ManaCost::parse("{3}{U}"),
         card_types: vec![CardType::Creature],
@@ -3728,6 +3796,7 @@ fn creakwood_safewright(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Mill 3, conditional (Elf in GY) opponents lose 2 life + gain 2 life
 fn dawnhand_eulogist(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Dawnhand Eulogist".into(), mana_cost: ManaCost::parse("{3}{B}"),
         card_types: vec![CardType::Creature],
@@ -3745,6 +3814,7 @@ fn dawnhand_eulogist(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [EXILE_CAST] Exile from opponent libraries until MV>=5, cast from exile without paying costs until EOT
 fn dream_harvest(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Dream Harvest".into(), mana_cost: ManaCost::parse("{5}{U/B}{U/B}"),
         card_types: vec![CardType::Sorcery],
@@ -3757,6 +3827,7 @@ fn dream_harvest(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [DELAYED+IMPULSE] X damage, delayed trigger on creature death, exile cards equal to power, play until next turn end
 fn end_blaze_epiphany(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "End-Blaze Epiphany".into(), mana_cost: ManaCost::parse("{X}{R}"),
         card_types: vec![CardType::Instant],
@@ -3769,6 +3840,7 @@ fn end_blaze_epiphany(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [MANA] Conditional mana (2 any color, only for Elemental spells/abilities)
 fn flamebraider(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Flamebraider".into(), mana_cost: ManaCost::parse("{1}{R}"),
         card_types: vec![CardType::Creature],
@@ -3778,6 +3850,7 @@ fn flamebraider(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] ETB may discard to search for creature, activated untap another permanent
 fn formidable_speaker(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Formidable Speaker".into(), mana_cost: ManaCost::parse("{2}{G}"),
         card_types: vec![CardType::Creature],
@@ -3799,6 +3872,7 @@ fn formidable_speaker(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Can't be countered, counter ALL opponent spells+abilities, create tokens equal to count
 fn glen_elendras_answer(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Glen Elendra's Answer".into(), mana_cost: ManaCost::parse("{2}{U}{U}"),
         card_types: vec![CardType::Instant],
@@ -3811,6 +3885,7 @@ fn glen_elendras_answer(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Dynamic X = Elves you control + Elf cards in GY, +X/+0 to your creature, -0/-X to opponent's
 fn gloom_ripper(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Gloom Ripper".into(), mana_cost: ManaCost::parse("{3}{B}{B}"),
         card_types: vec![CardType::Creature],
@@ -3840,6 +3915,7 @@ fn goatnap(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Attacks trigger may tap another creature for unblockable this turn
 fn gravelgill_scoundrel(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Gravelgill Scoundrel".into(), mana_cost: ManaCost::parse("{1}{U}"),
         card_types: vec![CardType::Creature],
@@ -3857,16 +3933,26 @@ fn gravelgill_scoundrel(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// TRIAGED: Hovel Hurler is a 6/7 Giant Warrior for {3}{R/W}{R/W}
+// "This creature enters with two -1/-1 counters on it." (replacement effect, not trigger)
+// "{R/W}{R/W}, Remove a counter from this creature: Another target creature you control
+//  gets +1/+0 and gains flying until end of turn. Activate only as a sorcery."
+// NOTE: Current stub is WRONG — card does NOT have innate flying! The flying keyword was incorrect.
+// Needs: ETB-with-counters replacement, RemoveCounters cost (any counter, not typed),
+//   sorcery-speed activated ability restriction, boost+grant-flying-eot on target.
+// Engine has: Cost::RemoveCounters, AddCountersSelf, gain_keyword_eot, boost effects.
+// Missing: ETB-with-counters as replacement (vs trigger), sorcery-speed ability restriction.
+// Category: COST (Cost System — RemoveCounters)
 fn hovel_hurler(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Hovel Hurler".into(), mana_cost: ManaCost::parse("{3}{R/W}{R/W}"),
         card_types: vec![CardType::Creature],
         subtypes: vec![SubType::Giant, SubType::Warrior],
         power: Some(6), toughness: Some(7),
-        keywords: KeywordAbilities::FLYING,
         rarity: Rarity::Common,
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Target creature gains trample+haste until EOT, draw a card
 fn impolite_entrance(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Impolite Entrance".into(), mana_cost: ManaCost::parse("{R}"),
         card_types: vec![CardType::Sorcery],
@@ -3880,6 +3966,7 @@ fn impolite_entrance(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COPY+BEHOLD] Token copy of creature with haste + end-step sacrifice, Flashback with behold 3 Elementals
 fn kindle_the_inner_flame(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Kindle the Inner Flame".into(), mana_cost: ManaCost::parse("{3}{R}"),
         card_types: vec![CardType::Kindred, CardType::Sorcery],
@@ -3901,6 +3988,7 @@ fn kindle_the_inner_flame(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COPY] Tap 2 creatures cost, copy target triggered ability, once per turn
 fn kirol_attentive_first_year(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Kirol, Attentive First-Year".into(), mana_cost: ManaCost::parse("{1}{R/W}{R/W}"),
         card_types: vec![CardType::Creature],
@@ -3911,6 +3999,7 @@ fn kirol_attentive_first_year(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [VIVID+COND] Vivid (X = colors among permanents), create X Kithkin tokens, tap 3 creatures then +3/+0 + flying
 fn kithkeeper(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Kithkeeper".into(), mana_cost: ManaCost::parse("{6}{W}"),
         card_types: vec![CardType::Creature],
@@ -3921,6 +4010,7 @@ fn kithkeeper(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND+MANA] All creatures have haste (global static), basic land mana doubling
 fn lavaleaper(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Lavaleaper".into(), mana_cost: ManaCost::parse("{3}{R}"),
         card_types: vec![CardType::Creature],
@@ -3931,6 +4021,7 @@ fn lavaleaper(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [BEHOLD+MANA] Behold Elf or pay {2}, conditional mana (GG if Elf in GY)
 fn lys_alana_dignitary(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Lys Alana Dignitary".into(), mana_cost: ManaCost::parse("{1}{G}"),
         card_types: vec![CardType::Creature],
@@ -3940,6 +4031,7 @@ fn lys_alana_dignitary(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Attacks then may tap Merfolk then return creature MV<=3 from GY to battlefield
 fn meanders_guide(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Meanders Guide".into(), mana_cost: ManaCost::parse("{2}{W}"),
         card_types: vec![CardType::Creature],
@@ -3998,6 +4090,7 @@ fn moon_vigil_adherents(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Upkeep surveil 1, sac + mana cost then create X Elf tokens (X=Elf cards in GY), sorcery speed
 fn morcants_eyes(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Morcant's Eyes".into(), mana_cost: ManaCost::parse("{1}{G}"),
         card_types: vec![CardType::Kindred, CardType::Enchantment],
@@ -4013,6 +4106,7 @@ fn morcants_eyes(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Mass flicker, prevent damage until next turn, exile self
 fn morningtides_light(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Morningtide's Light".into(), mana_cost: ManaCost::parse("{3}{W}"),
         card_types: vec![CardType::Sorcery],
@@ -4025,6 +4119,7 @@ fn morningtides_light(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [BEHOLD+COND] Behold Goblin or pay {2}, can't block, dies then destroy opponent creature power<=2
 fn mudbutton_cursetosser(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Mudbutton Cursetosser".into(), mana_cost: ManaCost::parse("{B}"),
         card_types: vec![CardType::Creature],
@@ -4041,6 +4136,7 @@ fn mudbutton_cursetosser(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [TRANSFORM+PW] Transform/DFC Planeswalker, loyalty abilities, mill, token creation, emblem
 fn oko_lorwyn_liege(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Oko, Lorwyn Liege".into(),
         card_types: vec![CardType::Creature],
@@ -4054,6 +4150,7 @@ fn oko_lorwyn_liege(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Flicker (exile+return own creature), create 1/1 changeling token
 fn personify(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Personify".into(), mana_cost: ManaCost::parse("{1}{W}"),
         card_types: vec![CardType::Instant],
@@ -4066,6 +4163,7 @@ fn personify(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Noncreature spells you cast have conspire (very complex stack manipulation)
 fn raiding_schemes(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Raiding Schemes".into(), mana_cost: ManaCost::parse("{3}{R}{G}"),
         card_types: vec![CardType::Enchantment],
@@ -4077,6 +4175,7 @@ fn raiding_schemes(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COST] Optional blight 1, destroy creature MV<=2, conditional gain 2 life if blighted
 fn requiting_hex(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Requiting Hex".into(), mana_cost: ManaCost::parse("{B}"),
         card_types: vec![CardType::Instant],
@@ -4089,6 +4188,7 @@ fn requiting_hex(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] +2/+2 + first strike until EOT + untap target creature
 fn riverguards_reflexes(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Riverguard's Reflexes".into(), mana_cost: ManaCost::parse("{1}{W}"),
         card_types: vec![CardType::Instant],
@@ -4118,6 +4218,7 @@ fn slumbering_walker(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [BEHOLD+COND] Behold Elemental or pay {2}, grant trample, 3rd resolution adds RRRR
 fn soulbright_seeker(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Soulbright Seeker".into(), mana_cost: ManaCost::parse("{R}"),
         card_types: vec![CardType::Creature],
@@ -4135,6 +4236,7 @@ fn soulbright_seeker(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Cost reduction if creature attacking you, put spell/creature on top/bottom of library
 fn swat_away(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Swat Away".into(), mana_cost: ManaCost::parse("{2}{U}{U}"),
         card_types: vec![CardType::Instant],
@@ -4147,6 +4249,7 @@ fn swat_away(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Search basic land to battlefield tapped, conditional create Treefolk token if 7+ lands/Treefolk
 fn tend_the_sprigs(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Tend the Sprigs".into(), mana_cost: ManaCost::parse("{2}{G}"),
         card_types: vec![CardType::Sorcery],
@@ -4159,6 +4262,7 @@ fn tend_the_sprigs(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [CHOICE] Draw 3, then discard 2 unless you discard a creature card
 fn thirst_for_identity(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Thirst for Identity".into(), mana_cost: ManaCost::parse("{2}{U}"),
         card_types: vec![CardType::Instant],
@@ -4171,6 +4275,7 @@ fn thirst_for_identity(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Becomes tapped trigger then another Merfolk gets +2/+0 until EOT
 fn tributary_vaulter(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Tributary Vaulter".into(), mana_cost: ManaCost::parse("{2}{W}"),
         card_types: vec![CardType::Creature],
@@ -4188,6 +4293,7 @@ fn tributary_vaulter(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Must be blocked if able, attacks then another Elf gets +2/+1
 fn vinebred_brawler(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Vinebred Brawler".into(), mana_cost: ManaCost::parse("{2}{G}"),
         card_types: vec![CardType::Creature],
@@ -4204,6 +4310,7 @@ fn vinebred_brawler(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
+// ENGINE DEPS: [COND] Activated: {1}, T, tap another creature then tap opponent creature
 fn wanderbrine_trapper(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Wanderbrine Trapper".into(), mana_cost: ManaCost::parse("{W}"),
         card_types: vec![CardType::Creature],
