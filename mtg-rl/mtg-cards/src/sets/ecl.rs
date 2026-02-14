@@ -3,7 +3,7 @@
 
 use crate::cards::basic_lands;
 use crate::registry::CardRegistry;
-use mtg_engine::abilities::{Ability, Cost, Effect, StaticEffect, TargetSpec};
+use mtg_engine::abilities::{Ability, Cost, Effect, ModalMode, StaticEffect, TargetSpec};
 use mtg_engine::card::CardData;
 use mtg_engine::constants::*;
 use mtg_engine::events::EventType;
@@ -2019,22 +2019,36 @@ fn aquitects_defenses(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn ashlings_command(id: ObjectId, owner: PlayerId) -> CardData {
-    // Kindred Instant — Elemental for {3}{U}{R}. Choose two modes.
+    // {3}{U}{R} Kindred Instant — Elemental. Choose two of 4 modes.
     CardData { id, owner, name: "Ashling's Command".into(), mana_cost: ManaCost::parse("{3}{U}{R}"),
         card_types: vec![CardType::Kindred, CardType::Instant], subtypes: vec![SubType::Elemental],
         rarity: Rarity::Rare,
         abilities: vec![Ability::spell(id,
-            vec![Effect::Custom("Choose two: copy target Elemental; target player draws two; deal 2 to each creature target player controls; target player creates two Treasures.".into())],
+            vec![Effect::modal(vec![
+                ModalMode::new("Create a token that's a copy of target Elemental you control.",
+                    vec![Effect::Custom("Create token copy of target Elemental.".into())]),
+                ModalMode::new("Target player draws two cards.",
+                    vec![Effect::draw_cards(2)]),
+                ModalMode::new("Deal 2 damage to each creature target player controls.",
+                    vec![Effect::DealDamageAll { amount: 2, filter: "creature target player controls".into() }]),
+                ModalMode::new("Target player creates two Treasure tokens.",
+                    vec![Effect::create_token("Treasure", 2)]),
+            ], 2, 2)],
             TargetSpec::Custom("various".into()))],
         ..Default::default() }
 }
 
 fn aunties_sentence(id: ObjectId, owner: PlayerId) -> CardData {
-    // Sorcery for {1}{B}. Choose one: opponent discards nonland permanent card; or target creature gets -2/-2 until EOT.
+    // {1}{B} Sorcery. Choose one: opponent reveals hand, discard nonland permanent; or creature -2/-2 until EOT.
     CardData { id, owner, name: "Auntie's Sentence".into(), mana_cost: ManaCost::parse("{1}{B}"),
         card_types: vec![CardType::Sorcery], rarity: Rarity::Common,
         abilities: vec![Ability::spell(id,
-            vec![Effect::Custom("Choose one: target opponent reveals hand, discard a nonland permanent card; or target creature gets -2/-2 until end of turn.".into())],
+            vec![Effect::modal(vec![
+                ModalMode::new("Target opponent reveals their hand. You choose a nonland permanent card from it. That player discards that card.",
+                    vec![Effect::discard_opponents(1)]),
+                ModalMode::new("Target creature gets -2/-2 until end of turn.",
+                    vec![Effect::boost_until_eot(-2, -2)]),
+            ], 1, 1)],
             TargetSpec::Custom("opponent or creature".into()))],
         ..Default::default() }
 }
@@ -2167,13 +2181,22 @@ fn bre_of_clan_stoutarm(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn brigids_command(id: ObjectId, owner: PlayerId) -> CardData {
-    // Kindred Sorcery — Kithkin for {1}{G}{W}. Choose two modes.
+    // {1}{G}{W} Kindred Sorcery — Kithkin. Choose two of 4 modes.
     CardData { id, owner, name: "Brigid's Command".into(), mana_cost: ManaCost::parse("{1}{G}{W}"),
         card_types: vec![CardType::Kindred, CardType::Sorcery],
         subtypes: vec![SubType::Custom("Kithkin".into())],
         rarity: Rarity::Rare,
         abilities: vec![Ability::spell(id,
-            vec![Effect::Custom("Choose two: copy target Kithkin you control; target player creates 1/1 Kithkin token; target creature +3/+3 until EOT; target creature you control fights target creature an opponent controls.".into())],
+            vec![Effect::modal(vec![
+                ModalMode::new("Create a token that's a copy of target Kithkin you control.",
+                    vec![Effect::Custom("Create token copy of target Kithkin.".into())]),
+                ModalMode::new("Target player creates a 1/1 green and white Kithkin creature token.",
+                    vec![Effect::create_token("1/1 Kithkin", 1)]),
+                ModalMode::new("Target creature you control gets +3/+3 until end of turn.",
+                    vec![Effect::boost_until_eot(3, 3)]),
+                ModalMode::new("Target creature you control fights target creature an opponent controls.",
+                    vec![Effect::Fight]),
+            ], 2, 2)],
             TargetSpec::Custom("various".into()))],
         ..Default::default() }
 }
@@ -2807,16 +2830,26 @@ fn grub_storied_matriarch(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn grubs_command(id: ObjectId, owner: PlayerId) -> CardData {
+    // {3}{B}{R} Kindred Sorcery — Goblin. Choose two of 4 modes.
     CardData { id, owner, name: "Grub's Command".into(),
         mana_cost: ManaCost::parse("{3}{B}{R}"),
         card_types: vec![CardType::Kindred, CardType::Sorcery],
         subtypes: vec![SubType::Goblin],
         rarity: Rarity::Rare,
-        keywords: KeywordAbilities::HASTE,
         abilities: vec![
             Ability::spell(id,
-                    vec![Effect::destroy()],
-                    TargetSpec::Creature),
+                vec![Effect::modal(vec![
+                    ModalMode::new("Create a token that's a copy of target Goblin you control.",
+                        vec![Effect::Custom("Create token copy of target Goblin.".into())]),
+                    ModalMode::new("Creatures target player controls get +1/+1 and gain haste until end of turn.",
+                        vec![Effect::boost_all_eot("creatures target player controls", 1, 1),
+                             Effect::grant_keyword_all_eot("creatures target player controls", "haste")]),
+                    ModalMode::new("Destroy target artifact or creature.",
+                        vec![Effect::destroy()]),
+                    ModalMode::new("Target player mills five cards, then puts each Goblin card milled this way into their hand.",
+                        vec![Effect::mill(5), Effect::Custom("Return milled Goblins to hand.".into())]),
+                ], 2, 2)],
+                TargetSpec::Custom("various".into())),
         ],
         ..Default::default() }
 }
@@ -3194,14 +3227,20 @@ fn overgrown_tomb(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [MODAL] Choose one or both, exile 2 from opponent hand, remove all counters from creature
 fn perfect_intimidation(id: ObjectId, owner: PlayerId) -> CardData {
+    // {3}{B} Sorcery. Choose one or both: opponent exiles 2 from hand; or remove all counters from creature.
     CardData { id, owner, name: "Perfect Intimidation".into(),
         mana_cost: ManaCost::parse("{3}{B}"),
         card_types: vec![CardType::Sorcery],
         rarity: Rarity::Uncommon,
         abilities: vec![
             Ability::spell(id,
-                    vec![Effect::Custom("Spell effect.".into())],
-                    TargetSpec::None),
+                vec![Effect::modal(vec![
+                    ModalMode::new("Target opponent exiles two cards from their hand.",
+                        vec![Effect::Custom("Target opponent exiles two cards from hand.".into())]),
+                    ModalMode::new("Remove all counters from target creature.",
+                        vec![Effect::Custom("Remove all counters from target creature.".into())]),
+                ], 1, 2)],
+                TargetSpec::Custom("opponent and/or creature".into())),
         ],
         ..Default::default() }
 }
@@ -3579,16 +3618,25 @@ fn sygg_wanderwine_wisdom(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn syggs_command(id: ObjectId, owner: PlayerId) -> CardData {
+    // {1}{W}{U} Kindred Sorcery — Merfolk. Choose two of 4 modes.
     CardData { id, owner, name: "Sygg's Command".into(),
         mana_cost: ManaCost::parse("{1}{W}{U}"),
         card_types: vec![CardType::Kindred, CardType::Sorcery],
         subtypes: vec![SubType::Merfolk],
         rarity: Rarity::Rare,
-        keywords: KeywordAbilities::LIFELINK,
         abilities: vec![
             Ability::spell(id,
-                    vec![Effect::Custom("Spell effect.".into())],
-                    TargetSpec::None),
+                vec![Effect::modal(vec![
+                    ModalMode::new("Create a token that's a copy of target Merfolk you control.",
+                        vec![Effect::Custom("Create token copy of target Merfolk.".into())]),
+                    ModalMode::new("Creatures target player controls gain lifelink until end of turn.",
+                        vec![Effect::grant_keyword_all_eot("creatures target player controls", "lifelink")]),
+                    ModalMode::new("Target player draws a card.",
+                        vec![Effect::draw_cards(1)]),
+                    ModalMode::new("Tap target creature. Put a stun counter on it.",
+                        vec![Effect::TapTarget, Effect::add_counters("stun", 1)]),
+                ], 2, 2)],
+                TargetSpec::Custom("various".into())),
         ],
         ..Default::default() }
 }
@@ -3716,14 +3764,20 @@ fn twinflame_travelers(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [MODAL+TYPE] Choose one: return creature from GY; or return 2 creatures sharing type from GY
 fn unbury(id: ObjectId, owner: PlayerId) -> CardData {
+    // {1}{B} Instant. Choose one: return creature from GY to hand; or return 2 sharing type from GY to hand.
     CardData { id, owner, name: "Unbury".into(),
         mana_cost: ManaCost::parse("{1}{B}"),
         card_types: vec![CardType::Instant],
         rarity: Rarity::Uncommon,
         abilities: vec![
             Ability::spell(id,
-                    vec![Effect::Custom("Spell effect.".into())],
-                    TargetSpec::None),
+                vec![Effect::modal(vec![
+                    ModalMode::new("Return target creature card from your graveyard to your hand.",
+                        vec![Effect::ReturnFromGraveyard]),
+                    ModalMode::new("Return two target creature cards that share a creature type from your graveyard to your hand.",
+                        vec![Effect::ReturnFromGraveyard, Effect::ReturnFromGraveyard]),
+                ], 1, 1)],
+                TargetSpec::CardInYourGraveyard),
         ],
         ..Default::default() }
 }

@@ -197,10 +197,26 @@ pub enum Effect {
     /// Target gains hexproof until end of turn.
     Hexproof,
 
+    // -- Modal --
+    /// Modal spell: choose min_modes to max_modes from the list, then
+    /// execute each chosen mode's effects in order. Uses `choose_mode()`
+    /// from the player decision maker.
+    Modal { modes: Vec<ModalMode>, min_modes: usize, max_modes: usize },
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
     Custom(String),
+}
+
+/// One mode of a modal spell. Each mode has a description and a set of
+/// effects to execute if that mode is chosen.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ModalMode {
+    /// Human-readable description of this mode (e.g. "Deal 3 damage to any target").
+    pub description: String,
+    /// The effects to execute when this mode is chosen.
+    pub effects: Vec<Effect>,
 }
 
 // ---------------------------------------------------------------------------
@@ -831,6 +847,21 @@ impl Effect {
     /// "Target gains hexproof until end of turn."
     pub fn hexproof() -> Self {
         Effect::Hexproof
+    }
+
+    /// "Choose N of M modes" — modal spell effect.
+    pub fn modal(modes: Vec<ModalMode>, min_modes: usize, max_modes: usize) -> Self {
+        Effect::Modal { modes, min_modes, max_modes }
+    }
+}
+
+impl ModalMode {
+    /// Create a new modal mode.
+    pub fn new(description: &str, effects: Vec<Effect>) -> Self {
+        ModalMode {
+            description: description.to_string(),
+            effects,
+        }
     }
 }
 

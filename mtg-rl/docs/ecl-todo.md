@@ -4,7 +4,7 @@ Ordered by topological sort of the dependency graph. Engine capabilities are
 scheduled greedily: each step picks the capability that unlocks the most new
 cards. Multi-dependency cards appear under their last-needed capability.
 
-**126 cards complete** | **141 cards remaining** across **21 engine capabilities**
+**133 cards complete** | **134 cards remaining** across **21 engine capabilities**
 
 ## 1. Conditional/Dynamic Effects (COND)
 
@@ -250,20 +250,20 @@ cards. Multi-dependency cards appear under their last-needed capability.
 **Effort:** Hard | **Cards unlocked:** 7 | **Running total:** 135/181
 > Mode selection + conditional resolution
 
-- [ ] **Implement Modal Spells engine support**
+- [x] **Implement Modal Spells engine support** — `Effect::Modal { modes, min_modes, max_modes }` + `ModalMode` struct + `execute_effects()` match arm using `choose_mode()`
 
 ### Single-dependency cards (6)
 
-- [ ] Ashling's Command
-- [ ] Auntie's Sentence
-- [ ] Brigid's Command
-- [ ] Grub's Command
-- [ ] Perfect Intimidation — Choose one or both, exile 2 from opponent hand, remove all counters from creature
-- [ ] Sygg's Command
+- [x] Ashling's Command
+- [x] Auntie's Sentence
+- [x] Brigid's Command
+- [x] Grub's Command
+- [x] Perfect Intimidation — Choose one or both, exile 2 from opponent hand, remove all counters from creature
+- [x] Sygg's Command
 
 ### Multi-dependency cards (1) — now fully unblocked
 
-- [ ] Unbury _MODAL + TYPE_ — Choose one: return creature from GY; or return 2 creatures sharing type from GY
+- [x] Unbury _MODAL + TYPE_ — Choose one: return creature from GY; or return 2 creatures sharing type from GY
 
 ## 11. Transform/DFC (TRANSFORM)
 
