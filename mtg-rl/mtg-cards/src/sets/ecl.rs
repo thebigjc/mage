@@ -3415,6 +3415,9 @@ fn retched_wretch(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [COND] Flash, grant persist until EOT, activated remove any number of counters (sorcery speed)
 fn rhys_the_evermore(id: ObjectId, owner: PlayerId) -> CardData {
+    // Legendary 2/2 Elf Warrior for {1}{W}. Flash.
+    // ETB: another target creature gains persist until EOT.
+    // {W}, {T}: Remove any number of counters from target creature you control. Sorcery speed.
     CardData { id, owner, name: "Rhys, the Evermore".into(),
         mana_cost: ManaCost::parse("{1}{W}"),
         card_types: vec![CardType::Creature],
@@ -3425,9 +3428,14 @@ fn rhys_the_evermore(id: ObjectId, owner: PlayerId) -> CardData {
         keywords: KeywordAbilities::FLASH,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
-                    "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
-                    TargetSpec::Permanent),
+                "When Rhys enters, another target creature you control gains persist until end of turn.",
+                vec![Effect::gain_keyword_eot("persist")],
+                TargetSpec::CreatureYouControl),
+            Ability::activated(id,
+                "{W}, {T}: Remove any number of counters from target creature you control. Activate only as a sorcery.",
+                vec![Cost::pay_mana("{W}"), Cost::TapSelf],
+                vec![Effect::Custom("Remove any number of counters from target creature.".into())],
+                TargetSpec::CreatureYouControl),
         ],
         ..Default::default() }
 }
@@ -3863,15 +3871,18 @@ fn vibrance(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [COND] Convoke, bounce 1-2 nonland permanents, conditional Merfolk tokens
 fn wanderwine_farewell(id: ObjectId, owner: PlayerId) -> CardData {
+    // Kindred Sorcery — Merfolk for {5}{U}{U}. Convoke.
+    // Return 1-2 target nonland permanents to hands. If you control a Merfolk, create tokens.
     CardData { id, owner, name: "Wanderwine Farewell".into(),
         mana_cost: ManaCost::parse("{5}{U}{U}"),
         card_types: vec![CardType::Kindred, CardType::Sorcery],
         subtypes: vec![SubType::Merfolk],
+        keywords: KeywordAbilities::CONVOKE,
         rarity: Rarity::Uncommon,
         abilities: vec![
             Ability::spell(id,
-                    vec![Effect::Custom("Spell effect.".into())],
-                    TargetSpec::None),
+                vec![Effect::bounce(), Effect::Custom("If you control a Merfolk, create a 1/1 Merfolk token for each permanent returned.".into())],
+                TargetSpec::PermanentFiltered("nonland permanent".into())),
         ],
         ..Default::default() }
 }

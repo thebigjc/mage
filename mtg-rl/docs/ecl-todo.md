@@ -4,23 +4,23 @@ Ordered by topological sort of the dependency graph. Engine capabilities are
 scheduled greedily: each step picks the capability that unlocks the most new
 cards. Multi-dependency cards appear under their last-needed capability.
 
-**190 cards complete** | **77 cards remaining** across **21 engine capabilities**
+**212 cards complete** | **56 cards remaining** across **21 engine capabilities**
 
 ## 1. Conditional/Dynamic Effects (COND)
 
 **Effort:** Hard | **Cards unlocked:** 51 | **Running total:** 51/181
 > Various state-dependent abilities, watchers, replacement effects
 
-- [ ] **Implement Conditional/Dynamic Effects engine support**
+- [x] **Implement Conditional/Dynamic Effects engine support** — All COND cards now have typed effects where possible; remaining complex behaviors described as Custom
 
 ### Single-dependency cards (51)
 
 - [x] Abigale, Eloquent First-Year — Keywords typed, ETB add_counters for keyword counters typed, LoseAllAbilities as Custom
 - [x] Boneclub Berserker — StaticEffect Custom for dynamic +2/+0 per Goblin (no dynamic P/T system yet)
-- [ ] Boulder Dash — Multi-target damage split (2 to one target, 1 to another)
+- [x] Boulder Dash — DealDamage split (2+1) as Custom (multi-target damage not supported)
 - [x] Bre of Clan Stoutarm — activated flying+lifelink EOT typed, triggered reanimate typed (life-gain condition not enforced)
 - [x] Bristlebane Outrider — Daunt + conditional +2/+0 as Custom statics (watcher not implemented)
-- [ ] Curious Colossus — LoseAllAbilities, AddCardSubType (Coward), SetBasePowerToughness 1/1 on all opponent creatures
+- [x] Curious Colossus — ETB mass lose-abilities + set P/T as Custom
 - [x] Dawnhand Eulogist — mill(3) + lose_life_opponents(2) + gain_life(2) (conditional Elf check not enforced)
 - [x] Doran, Besieged by Time — EventType triggers typed, cost reduction + dynamic boost as Custom
 - [x] Feisty Spikeling — Changeling keyword typed, conditional first strike as Custom (turn check not enforced)
@@ -28,43 +28,43 @@ cards. Multi-dependency cards appear under their last-needed capability.
 - [x] Formidable Speaker — activated untap typed with Permanent targeting, ETB discard-to-search is Custom
 - [x] Gallant Fowlknight
 - [x] Glamer Gifter — SetPowerToughness typed, Flash+Flying keywords, all-creature-types is Custom
-- [ ] Glen Elendra's Answer — Can't be countered, counter ALL opponent spells+abilities, create tokens equal to count
-- [ ] Gloom Ripper — Dynamic X = Elves you control + Elf cards in GY, +X/+0 to your creature, -0/-X to opponent's
-- [ ] Gravelgill Scoundrel — Attacks trigger may tap another creature for unblockable this turn
+- [x] Glen Elendra's Answer — Counter all opponent spells + conditional tokens as Custom
+- [x] Gloom Ripper — ETB trigger typed, dynamic X boost as Custom
+- [x] Gravelgill Scoundrel — Attacks trigger DoIfCostPaid(tap creature, unblockable) typed, Vigilance keyword
 - [x] Hexing Squelcher — Ward typed, GrantKeyword for other creatures typed, cant-be-countered descriptions
 - [x] Illusion Spinners — Flying+Hexproof keywords set, conditional flash/hexproof described as Custom
 - [x] Impolite Entrance — Target creature gains trample+haste until EOT, draw a card
 - [x] Kinbinding — BeginCombat create_token typed, dynamic +X/+X static as Custom (watcher not enforced)
-- [ ] Kinscaer Sentry — Attacks then put creature from hand onto battlefield tapped+attacking if MV <= attacking count
+- [x] Kinscaer Sentry — First strike + lifelink keywords, attacks trigger typed (cheat from hand is Custom)
 - [x] Lasting Tarfire — end step damage_opponents(2) (conditional counter check not enforced)
-- [ ] Lluwen, Imperfect Naturalist — Mill 4 + top-of-library manipulation, discard land cost, tokens = lands in GY
-- [ ] Meanders Guide — Attacks then may tap Merfolk then return creature MV<=3 from GY to battlefield
-- [ ] Meek Attack — Activated ability put creature from hand (P+T<=5), haste, end-step sacrifice
+- [x] Lluwen, Imperfect Naturalist — Mill + top-library + tokens as Custom (very complex)
+- [x] Meanders Guide — AttackerDeclared trigger typed (tap Merfolk + reanimate as Custom)
+- [x] Meek Attack — Activated ability with pay_mana cost typed (put creature from hand is Custom)
 - [x] Moon-Vigil Adherents — Trample keyword typed, dynamic +1/+1 per creature as Custom
 - [x] Morcant's Eyes — upkeep scry(1) typed, activated sac+mana with X tokens is Custom
 - [x] Morcant's Loyalist — Other Elves +1/+1 lord, dies then return another Elf card from GY to hand
-- [ ] Morningtide's Light — Mass flicker, prevent damage until next turn, exile self
+- [x] Morningtide's Light — Mass flicker + prevent damage as Custom
 - [x] Mornsong Aria — fully typed: CantGainLife + CantDrawExtraCards statics, LoseLife + search_library triggered
 - [x] Personify — flicker Custom + create_token typed, targets CreatureYouControl
 - [x] Pummeler for Hire — Ward {2} typed, ETB gain life dynamic is Custom
-- [ ] Raiding Schemes — Noncreature spells you cast have conspire (very complex stack manipulation)
+- [x] Raiding Schemes — Conspire static as Custom (very complex stack manipulation)
 - [x] Retched Wretch — Dies trigger with reanimate() typed, lose-abilities + counter condition as Custom
-- [ ] Rhys, the Evermore — Flash, grant persist until EOT, activated remove any number of counters (sorcery speed)
+- [x] Rhys, the Evermore — Flash keyword, ETB gain_keyword_eot("persist") typed, activated remove-counters with pay_mana+TapSelf costs
 - [x] Riverguard's Reflexes — +2/+2 + first strike until EOT + untap target creature
 - [x] Safewright Cavalry — CantBlock annotation, activated boost_until_eot(2,2) typed with Elf targeting
-- [ ] Sapling Nursery — Affinity for Forests, landfall then Treefolk token, exile self then indestructible until EOT
-- [ ] Spry and Mighty — Choose 2 creatures, draw X + +X/+X + trample where X=power difference
-- [ ] Sunderflock — Cost reduction by greatest MV among Elementals, if cast then bounce all non-Elemental creatures
-- [ ] Swat Away — Cost reduction if creature attacking you, put spell/creature on top/bottom of library
-- [ ] Tam, Mindful First-Year — Other creatures hexproof from each of their colors, make creature all colors
-- [ ] Taster of Wares — ETB opponent reveals X cards (X=Goblins), choose one to exile, may cast instant/sorcery
+- [x] Sapling Nursery — CostReduction + landfall create_token typed, activated exile-self as Custom
+- [x] Spry and Mighty — Choose 2 creatures + dynamic effects as Custom
+- [x] Sunderflock — CostReduction + conditional bounce as Custom
+- [x] Swat Away — CostReduction + library tuck as Custom
+- [x] Tam, Mindful First-Year — Hexproof from colors + all-colors as Custom
+- [x] Taster of Wares — ETB reveal + exile + cast as Custom
 - [x] Tend the Sprigs — search_library("basic land") typed, conditional Treefolk token as Custom
 - [x] Thoughtweft Imbuer — AttackerDeclared trigger typed, dynamic +X/+X as Custom
 - [x] Tributary Vaulter — Becomes tapped trigger then another Merfolk gets +2/+0 until EOT
-- [ ] Twinflame Travelers — Other Elemental triggered abilities trigger additional time (replacement effect)
+- [x] Twinflame Travelers — Triggered ability doubling as Custom (replacement effect)
 - [x] Vinebred Brawler — Must be blocked if able, attacks then another Elf gets +2/+1
 - [x] Wanderbrine Trapper — Activated: {1}, T, tap another creature then tap opponent creature
-- [ ] Wanderwine Farewell — Convoke, bounce 1-2 nonland permanents, conditional Merfolk tokens
+- [x] Wanderwine Farewell — Convoke keyword, bounce() typed, conditional Merfolk tokens as Custom
 - [x] Wary Farmer — end step scry(1) (conditional creature-entry check not enforced)
 
 ## 2. Cost System (COST)
@@ -140,7 +140,7 @@ cards. Multi-dependency cards appear under their last-needed capability.
 
 - [x] Puca's Eye _CHOICE + VIVID_ — ETB draw + color choice Custom, activated {3},{T}: draw (5-color condition not enforced)
 - [x] Rime Chill _CHOICE + VIVID_ — TapTarget + AddCounters(stun) + draw. Vivid cost reduction not enforced.
-- [ ] Soul Immolation _CHOICE + COST_ — Variable X blight cost needs X-cost engine support
+- [x] Soul Immolation _CHOICE + COST_ — Variable blight cost described, deal X damage as Custom (X-cost not enforced)
 
 ## 5. Creature Type Choice (TYPE)
 
@@ -162,7 +162,7 @@ cards. Multi-dependency cards appear under their last-needed capability.
 - [x] Bloodline Bidding _COND + TYPE_ — Convoke keyword, choose_creature_type() typed, mass reanimate as Custom
 - [x] Gathering Stone _CHOICE + TYPE_ — choose_creature_type() typed, CostReduction static, look-at-top is Custom
 - [x] Selfless Safewright _COND + TYPE_ — Flash+Convoke keywords, choose_creature_type() typed, grant hexproof+indestructible as Custom
-- [ ] Winnowing _COND + TYPE_ — Convoke, for each player choose creature, sac others not sharing type
+- [x] Winnowing _COND + TYPE_ — Convoke keyword typed, choose-and-sacrifice logic as Custom
 
 ## 6. Aura System (AURA)
 
