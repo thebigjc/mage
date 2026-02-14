@@ -766,6 +766,7 @@ mod tests {
             &[Effect::Destroy],
             test.player_a_id,
             &[bear_id],
+            None,
         );
         game.process_state_based_actions();
 
@@ -791,6 +792,7 @@ mod tests {
             &[Effect::DealDamage { amount: 3 }],
             test.player_a_id,
             &[bear_id],
+            None,
         );
         game.process_state_based_actions();
 
@@ -814,6 +816,7 @@ mod tests {
             &[Effect::Exile],
             test.player_b_id,
             &[bear_id],
+            None,
         );
 
         test.assert_permanent_count(Player::A, "Grizzly Bears", 0);
@@ -830,6 +833,7 @@ mod tests {
             &[Effect::GainLife { amount: 5 }],
             test.player_a_id,
             &[],
+            None,
         );
 
         test.assert_life(Player::A, 25);
@@ -848,5 +852,52 @@ mod tests {
 
         let final_count = game.state.player(test.player_a_id).unwrap().hand.len();
         assert_eq!(final_count, initial + 3);
+    }
+
+    #[test]
+    fn framework_create_token_effect() {
+        let mut test = GameTest::new();
+        test.execute();
+
+        // Create two 3/3 Knight tokens
+        let game = test.game.as_mut().unwrap();
+        game.execute_effects(
+            &[Effect::create_token("3/3 Knight", 2)],
+            test.player_a_id,
+            &[],
+            None,
+        );
+
+        // Should have 2 Knight tokens on the battlefield
+        test.assert_permanent_count(Player::A, "3/3 Knight", 2);
+        // Verify P/T is correct
+        test.assert_power_toughness(Player::A, "3/3 Knight", 3, 3);
+    }
+
+    #[test]
+    fn framework_create_token_with_keyword() {
+        let mut test = GameTest::new();
+        test.execute();
+
+        // Create a 5/5 Dragon with flying
+        {
+            let game = test.game.as_mut().unwrap();
+            game.execute_effects(
+                &[Effect::create_token("5/5 Dragon with flying", 1)],
+                test.player_a_id,
+                &[],
+                None,
+            );
+        }
+
+        test.assert_permanent_count(Player::A, "5/5 Dragon with flying", 1);
+        test.assert_power_toughness(Player::A, "5/5 Dragon with flying", 5, 5);
+
+        // Verify flying keyword
+        let perm = test.game().state.battlefield
+            .controlled_by(test.player_id(Player::A))
+            .find(|p| p.name() == "5/5 Dragon with flying")
+            .unwrap();
+        assert!(perm.has_keyword(KeywordAbilities::FLYING));
     }
 }

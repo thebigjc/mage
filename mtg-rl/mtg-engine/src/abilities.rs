@@ -75,6 +75,8 @@ pub enum Effect {
     GainLife { amount: u32 },
     /// Lose life (target player).
     LoseLife { amount: u32 },
+    /// Each opponent loses life.
+    LoseLifeOpponents { amount: u32 },
     /// Set life total.
     SetLife { amount: i32 },
 
@@ -99,6 +101,8 @@ pub enum Effect {
     DrawCards { count: u32 },
     /// Discard cards.
     DiscardCards { count: u32 },
+    /// Each opponent discards N cards.
+    DiscardOpponents { count: u32 },
     /// Mill cards (library to graveyard).
     Mill { count: u32 },
     /// Scry N (look at top N, put any on bottom in any order).
@@ -109,6 +113,11 @@ pub enum Effect {
     // -- Counters --
     /// Put counters on target.
     AddCounters { counter_type: String, count: u32 },
+    /// Put counters on the source permanent (self), regardless of targets.
+    /// Used in compound effects where other effects target a different permanent.
+    AddCountersSelf { counter_type: String, count: u32 },
+    /// Put counters on all permanents matching filter.
+    AddCountersAll { counter_type: String, count: u32, filter: String },
     /// Remove counters from target.
     RemoveCounters { counter_type: String, count: u32 },
 
@@ -130,18 +139,28 @@ pub enum Effect {
     MustBlock,
     /// Prevent combat damage.
     PreventCombatDamage,
+    /// Fight — source creature and target creature each deal damage equal
+    /// to their power to each other.
+    Fight,
+    /// Bite — source creature deals damage equal to its power to target
+    /// creature (one-way; the target does not deal damage back).
+    Bite,
 
     // -- Stats --
     /// Give +N/+M until end of turn.
     BoostUntilEndOfTurn { power: i32, toughness: i32 },
     /// Give +N/+M permanently (e.g. from counters, applied differently).
     BoostPermanent { power: i32, toughness: i32 },
+    /// Give all matching creatures +N/+M until end of turn.
+    BoostAllUntilEndOfTurn { filter: String, power: i32, toughness: i32 },
     /// Set power and toughness.
     SetPowerToughness { power: i32, toughness: i32 },
 
     // -- Keywords --
     /// Grant a keyword ability until end of turn.
     GainKeywordUntilEndOfTurn { keyword: String },
+    /// Grant a keyword to all matching creatures until end of turn.
+    GrantKeywordAllUntilEndOfTurn { filter: String, keyword: String },
     /// Grant a keyword ability permanently.
     GainKeyword { keyword: String },
     /// Remove a keyword ability.
@@ -202,6 +221,13 @@ pub enum TargetSpec {
     CardInGraveyard,
     /// Target card in your graveyard.
     CardInYourGraveyard,
+    /// Target creature you control.
+    CreatureYouControl,
+    /// Target creature you don't control (opponent's creature).
+    OpponentCreature,
+    /// Two targets (e.g. fight spells: your creature + opponent's creature).
+    /// targets[0] comes from `first`, targets[1] from `second`.
+    Pair { first: Box<TargetSpec>, second: Box<TargetSpec> },
     /// Multiple targets of the same type.
     Multiple { spec: Box<TargetSpec>, count: usize },
     /// Custom targeting (described by text).
@@ -581,6 +607,11 @@ impl Effect {
         Effect::LoseLife { amount }
     }
 
+    /// "Each opponent loses N life."
+    pub fn lose_life_opponents(amount: u32) -> Self {
+        Effect::LoseLifeOpponents { amount }
+    }
+
     /// "Target creature gets +N/+M until end of turn."
     pub fn boost_until_eot(power: i32, toughness: i32) -> Self {
         Effect::BoostUntilEndOfTurn { power, toughness }
@@ -589,6 +620,15 @@ impl Effect {
     /// "Target creature gets +N/+M."
     pub fn boost_permanent(power: i32, toughness: i32) -> Self {
         Effect::BoostPermanent { power, toughness }
+    }
+
+    /// "Creatures [matching filter] get +N/+M until end of turn."
+    pub fn boost_all_eot(filter: &str, power: i32, toughness: i32) -> Self {
+        Effect::BoostAllUntilEndOfTurn {
+            filter: filter.to_string(),
+            power,
+            toughness,
+        }
     }
 
     /// "Create N token(s)."
@@ -628,6 +668,11 @@ impl Effect {
         Effect::DiscardCards { count }
     }
 
+    /// "Each opponent discards N cards."
+    pub fn discard_opponents(count: u32) -> Self {
+        Effect::DiscardOpponents { count }
+    }
+
     /// "Return target to owner's hand."
     pub fn bounce() -> Self {
         Effect::Bounce
@@ -659,6 +704,24 @@ impl Effect {
         }
     }
 
+    /// "Put counters on this permanent." Always targets the source, even when
+    /// the ability has other targets (e.g. compound blight + target haste).
+    pub fn add_counters_self(counter_type: &str, count: u32) -> Self {
+        Effect::AddCountersSelf {
+            counter_type: counter_type.to_string(),
+            count,
+        }
+    }
+
+    /// "Put N counters on each permanent matching filter."
+    pub fn add_counters_all(counter_type: &str, count: u32, filter: &str) -> Self {
+        Effect::AddCountersAll {
+            counter_type: counter_type.to_string(),
+            count,
+            filter: filter.to_string(),
+        }
+    }
+
     /// "Tap target permanent."
     pub fn tap_target() -> Self {
         Effect::TapTarget
@@ -679,6 +742,24 @@ impl Effect {
         Effect::GainKeywordUntilEndOfTurn {
             keyword: keyword.to_string(),
         }
+    }
+
+    /// "Creatures [matching filter] gain [keyword] until end of turn."
+    pub fn grant_keyword_all_eot(filter: &str, keyword: &str) -> Self {
+        Effect::GrantKeywordAllUntilEndOfTurn {
+            filter: filter.to_string(),
+            keyword: keyword.to_string(),
+        }
+    }
+
+    /// "This creature fights target creature." (mutual damage)
+    pub fn fight() -> Self {
+        Effect::Fight
+    }
+
+    /// "This creature deals damage equal to its power to target." (one-way)
+    pub fn bite() -> Self {
+        Effect::Bite
     }
 
     /// "Set power and toughness."
@@ -774,6 +855,34 @@ impl StaticEffect {
         StaticEffect::CostReduction {
             filter: filter.to_string(),
             amount,
+        }
+    }
+
+    /// "Ward {cost}" — counter targeting spells/abilities unless opponent pays cost.
+    pub fn ward(cost: &str) -> Self {
+        StaticEffect::Ward {
+            cost: cost.to_string(),
+        }
+    }
+
+    /// "This land enters tapped unless [condition]."
+    pub fn enters_tapped_unless(condition: &str) -> Self {
+        StaticEffect::EntersTappedUnless {
+            condition: condition.to_string(),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Common target spec builders
+// ---------------------------------------------------------------------------
+
+impl TargetSpec {
+    /// Fight/Bite targeting: "target creature you control" + "target creature you don't control".
+    pub fn fight_targets() -> Self {
+        TargetSpec::Pair {
+            first: Box::new(TargetSpec::CreatureYouControl),
+            second: Box::new(TargetSpec::OpponentCreature),
         }
     }
 }
@@ -887,6 +996,15 @@ pub enum StaticEffect {
     CantGainLife,
     /// Other players can't draw extra cards.
     CantDrawExtraCards,
+    /// Ward — when this becomes the target of a spell or ability an opponent
+    /// controls, counter it unless that player pays the specified cost.
+    Ward {
+        cost: String,
+    },
+    /// Enters tapped unless a condition is met (e.g. "you control a Plains or an Island").
+    EntersTappedUnless {
+        condition: String,
+    },
     /// Custom continuous effect.
     Custom(String),
 }
@@ -1292,6 +1410,27 @@ mod tests {
             StaticEffect::CostReduction { filter, amount } => {
                 assert_eq!(filter, "creature spells");
                 assert_eq!(amount, 1);
+            }
+            _ => panic!("wrong variant"),
+        }
+
+        match StaticEffect::ward("{2}") {
+            StaticEffect::Ward { cost } => {
+                assert_eq!(cost, "{2}");
+            }
+            _ => panic!("wrong variant"),
+        }
+
+        match StaticEffect::ward("Discard a card.") {
+            StaticEffect::Ward { cost } => {
+                assert_eq!(cost, "Discard a card.");
+            }
+            _ => panic!("wrong variant"),
+        }
+
+        match StaticEffect::enters_tapped_unless("you control a Plains or an Island") {
+            StaticEffect::EntersTappedUnless { condition } => {
+                assert_eq!(condition, "you control a Plains or an Island");
             }
             _ => panic!("wrong variant"),
         }

@@ -43,7 +43,8 @@ The Rust MTG engine is split across several crates under `mtg-rl/`:
 | `Effect::DrawCards { count }` | Controller draws N cards |
 | `Effect::GainLife { amount }` | Controller gains N life |
 | `Effect::LoseLife { amount }` | Controller loses N life |
-| `Effect::DealDamageOpponents { amount }` | Each opponent loses N life |
+| `Effect::DealDamageOpponents { amount }` | Each opponent loses N life (damage) |
+| `Effect::LoseLifeOpponents { amount }` | Each opponent loses N life (life loss, not damage) |
 | `Effect::AddCounters { counter_type, count }` | Puts counters on target permanents |
 | `Effect::BoostUntilEndOfTurn { power, toughness }` | Grants +N/+M (simplified via counters) |
 | `Effect::TapTarget` | Taps target permanent |
@@ -200,10 +201,22 @@ These cards use only functional Effect variants and typed StaticEffect variants.
 - [x] **Pacifism** -- Static: `CantAttack` + `CantBlock` on enchanted creature
 - [x] **Alesha, Who Laughs at Fate** -- Attack trigger: `AddCounters("+1/+1", 1)` (second ability uses `Reanimate` which now works)
 - [x] **Stromkirk Noble** -- Combat damage trigger: `AddCounters("+1/+1", 1)` (can't-be-blocked-by-Humans is Custom)
+- [x] **Icewind Elemental** -- ETB: `DrawCards(1)` + `DiscardCards(1)` -- **FIXED** (was `Effect::Custom("When this creature enters, draw a card, then discard a card.")`, now uses typed `draw_cards(1)` + `discard_cards(1)`)
+- [x] **Refute** -- Spell: `CounterSpell` + `DrawCards(1)` + `DiscardCards(1)` -- **FIXED** (was `Effect::Custom("Counter target spell. Draw a card, then discard a card.")`, now uses typed effects + fixed TargetSpec to Spell)
+- [x] **Day of Judgment** -- Spell: `DestroyAll("creatures")` -- **FIXED** (was `Effect::Custom("Destroy all creatures.")`, now uses typed `destroy_all`)
+- [x] **Diregraf Ghoul** -- Static: `EntersTapped` -- **FIXED** (was `StaticEffect::Custom("Enters tapped.")`)
+- [x] **Frenzied Goblin** -- Attack trigger: `CantBlock` -- **FIXED** (was `Effect::Custom("Target creature can't block this turn.")`)
+- [x] **Guarded Heir** -- ETB: `create_token("3/3 Knight", 2)` -- **FIXED** (was `Effect::Custom("...create two 3/3 white Knight creature tokens...")`)
+- [x] **Prideful Parent** -- ETB: `create_token("1/1 Cat", 1)` -- **FIXED** (was `Effect::Custom("...create a 1/1 white Cat creature token.")`)
+- [x] **Resolute Reinforcements** -- ETB: `create_token("1/1 Soldier", 1)` -- **FIXED** (was `Effect::Custom`)
+- [x] **Release the Dogs** -- Spell: `create_token("1/1 Dog", 4)` -- **FIXED** (was `Effect::Custom`)
+- [x] **Dwynen's Elite** -- ETB: `create_token("1/1 Elf Warrior", 1)` -- **FIXED** (was `Effect::Custom`, conditional ignored)
+- [x] **Dragonmaster Outcast** -- Upkeep: `create_token("5/5 Dragon with flying", 1)` -- **FIXED** (was `Effect::Custom`, conditional ignored)
+- [x] **Searslicer Goblin** -- End step: `create_token("1/1 Goblin", 1)` -- **FIXED** (was `Effect::Custom`, conditional ignored)
 
 **Reclassification note:** Several cards listed above have minor partial elements (e.g., kicker not working, one Custom effect alongside working ones). For precise classification, see the Partial section below which lists the exact broken parts.
 
-**Total truly complete (all effects functional, no Custom):** 95 cards
+**Total truly complete (all effects functional, no Custom):** 102 cards
 
 ---
 
@@ -211,18 +224,12 @@ These cards use only functional Effect variants and typed StaticEffect variants.
 
 These cards have SOME typed effects that work but also use `Effect::Custom(...)`, `StaticEffect::Custom(...)`, or `Cost::Custom(...)` for one or more abilities. The Custom parts are no-ops during gameplay.
 
-- [ ] **Burglar Rat** -- What works: creature body (1/1). What's broken: ETB `Effect::Custom("Each opponent discards a card.")`.
-  - **Java source**: `Mage.Sets/src/mage/cards/b/BurglarRat.java`
-  - **What it should do**: Each opponent discards a card on ETB
-  - **Fix needed**: Replace with `Effect::DiscardCards { count: 1 }` but modify to target opponents, or add `Effect::OpponentDiscards { count }` variant
+- [x] **Burglar Rat** -- FIXED (Batch 3). ETB now uses `Effect::discard_opponents(1)`.
 
 - [ ] **Campus Guide** -- What works: creature body. ETB SearchLibrary NOW WORKS (NOW IMPLEMENTED).
   - **Java source**: `Mage.Sets/src/mage/cards/c/CampusGuide.java`
 
-- [ ] **Diregraf Ghoul** -- What works: creature body. What's broken: `StaticEffect::Custom("Enters tapped.")`.
-  - **Java source**: `Mage.Sets/src/mage/cards/d/DiregrafGhoul.java`
-  - **What it should do**: Enters the battlefield tapped
-  - **Fix needed**: Use `StaticEffect::EntersTapped { filter: "self".into() }` instead
+- [x] **Diregraf Ghoul** -- `StaticEffect::EntersTapped { filter: "self".into() }` -- **FIXED** (was `StaticEffect::Custom("Enters tapped.")`, now uses typed variant)
 
 - [ ] **Erudite Wizard** -- What works: creature body. ETB Scry(1) NOW WORKS (NOW IMPLEMENTED).
   - **Java source**: `Mage.Sets/src/mage/cards/e/EruditeWizard.java`
@@ -245,20 +252,11 @@ These cards have SOME typed effects that work but also use `Effect::Custom(...)`
   - **What it should do**: Create variable number of tokens
   - **Fix needed**: Add dynamic token count support or implement as Custom logic
 
-- [ ] **Marauding Blight-Priest** -- What works: 3/2 creature. What's broken: GainLife trigger `Effect::Custom("Each opponent loses 1 life.")`.
-  - **Java source**: `Mage.Sets/src/mage/cards/m/MaraudingBlightPriest.java`
-  - **What it should do**: Each opponent loses 1 life when you gain life
-  - **Fix needed**: Replace with `Effect::DealDamageOpponents { amount: 1 }` (or `Effect::LoseLife` targeting opponents)
+- [x] **Marauding Blight-Priest** -- GainLife trigger: `LoseLifeOpponents(1)` -- **FIXED** (was Custom, now uses `Effect::lose_life_opponents(1)`)
 
-- [ ] **Pulse Tracker** -- What works: 1/1 creature. What's broken: Attack trigger `Effect::Custom("Each opponent loses 1 life.")`.
-  - **Java source**: `Mage.Sets/src/mage/cards/p/PulseTracker.java`
-  - **What it should do**: Each opponent loses 1 life when it attacks
-  - **Fix needed**: Replace with `Effect::DealDamageOpponents { amount: 1 }`
+- [x] **Pulse Tracker** -- Attack trigger: `LoseLifeOpponents(1)` -- **FIXED** (was Custom, now uses `Effect::lose_life_opponents(1)`)
 
-- [ ] **Vampire Spawn** -- What works: 2/3 creature. What's broken: ETB `Effect::Custom("Each opponent loses 2 life, you gain 2 life.")`.
-  - **Java source**: `Mage.Sets/src/mage/cards/v/VampireSpawn.java`
-  - **What it should do**: Each opponent loses 2 life, you gain 2 life
-  - **Fix needed**: Replace with `Effect::DealDamageOpponents { amount: 2 }` + `Effect::GainLife { amount: 2 }`
+- [x] **Vampire Spawn** -- ETB: `LoseLifeOpponents(2)` + `GainLife(2)` -- **FIXED** (was Custom, now uses typed effects)
 
 - [ ] **Axgard Cavalry** -- What works: creature body, tap cost. GainKeywordUntilEndOfTurn NOW WORKS (NOW IMPLEMENTED).
 
@@ -296,8 +294,7 @@ These cards have SOME typed effects that work but also use `Effect::Custom(...)`
 - [ ] **Feldon's Cane** -- What works: tap cost. What's broken: `Cost::Custom("Exile")` + `Effect::Custom("Shuffle your graveyard into your library.")`.
   - **Fix needed**: Add self-exile cost support + graveyard shuffle effect
 
-- [ ] **Phyrexian Arena** -- What works: `DrawCards(1)` on upkeep. What's broken: `Effect::Custom("You lose 1 life.")`.
-  - **Fix needed**: Replace with `Effect::LoseLife { amount: 1 }`
+- [x] **Phyrexian Arena** -- Upkeep: `DrawCards(1)` + `LoseLife(1)` -- **FIXED** (was Custom, now uses `Effect::lose_life(1)`)
 
 - [ ] **Swiftfoot Boots** -- What works: `GrantKeyword("hexproof, haste")`. What's broken: Equip `Effect::Custom("Attach...")`.
   - **Fix needed**: Implement Equipment attach effect
@@ -311,19 +308,17 @@ These cards have SOME typed effects that work but also use `Effect::Custom(...)`
 - [ ] **Tempest Djinn** -- What works: 0/4 flying creature. What's broken: `StaticEffect::Custom("+1/+0 for each basic Island you control.")`.
   - **Fix needed**: Add dynamic P/T boost based on land count
 
-- [ ] **Tolarian Terror** -- What works: 5/5 ward creature. What's broken: `CostReduction` for instants/sorceries in graveyard -- works conceptually but may not be correctly applied.
+- [ ] **Tolarian Terror** -- What works: 5/5 ward creature, Ward {2} (**FIXED** -- typed `StaticEffect::Ward` + WARD keyword). What's broken: `CostReduction` for instants/sorceries in graveyard -- works conceptually but may not be correctly applied.
   - **Fix needed**: Verify cost reduction engine support
 
 - [ ] **Solemn Simulacrum** -- What works: Dies trigger `DrawCards(1)`. SearchLibrary NOW WORKS (NOW IMPLEMENTED).
 
-- [ ] **Vampire Neonate** -- What works: 0/3 creature. What's broken: Activated `Effect::Custom("Each opponent loses 1 life, you gain 1 life.")`.
-  - **Fix needed**: Replace with `Effect::DealDamageOpponents { amount: 1 }` + `Effect::GainLife { amount: 1 }`
+- [x] **Vampire Neonate** -- Activated: `LoseLifeOpponents(1)` + `GainLife(1)` -- **FIXED** (was Custom, now uses typed effects)
 
 - [ ] **Goblin Smuggler** -- What works: 2/2 haste creature. What's broken: Activated `Effect::Custom("Target creature with power 2 or less can't be blocked this turn.")`.
   - **Fix needed**: Add can't-be-blocked-this-turn effect
 
-- [ ] **Frenzied Goblin** -- What works: 1/1 creature. What's broken: Attack trigger `Effect::Custom("Target creature can't block this turn.")`.
-  - **Fix needed**: Add `Effect::CantBlock` resolution or use existing variant
+- [x] **Frenzied Goblin** -- Attack trigger: `Effect::CantBlock` -- **FIXED** (was `Effect::Custom("Target creature can't block this turn.")`, now uses typed `CantBlock` variant)
 
 - [ ] **Ghitu Lavarunner** -- What works: 1/2 creature. What's broken: `StaticEffect::Custom("+1/+0 and haste if 2+ instants/sorceries in graveyard.")`.
   - **Fix needed**: Add conditional static P/T boost
@@ -370,14 +365,13 @@ These cards have SOME typed effects that work but also use `Effect::Custom(...)`
 - [ ] **Aetherize** -- What works: nothing functional. What's broken: `Effect::Custom("Return all attacking creatures to their owners' hands.")`.
   - **Fix needed**: Add mass-bounce effect for attacking creatures
 
-- [ ] **Bite Down** -- What works: nothing functional. What's broken: `Effect::Custom("Target creature you control deals damage equal to its power...")`.
+- [x] **Bite Down** -- Fixed: `Effect::bite()`. (Batch 8)
   - **Fix needed**: Add fight/bite effect
 
-- [ ] **Crash Through** -- What works: `DrawCards(1)`. What's broken: `Effect::Custom("Creatures you control gain trample until end of turn.")`.
+- [x] **Crash Through** -- `grant_keyword_all_eot("creatures you control", "trample")` + `draw_cards(1)`. Fixed in Batch 7.
   - **Fix needed**: Mass keyword grant until EOT
 
-- [ ] **Day of Judgment** -- What works: nothing functional. What's broken: `Effect::Custom("Destroy all creatures.")` -- NOTE: `Effect::DestroyAll` is now implemented in the engine, but this card still uses `Effect::Custom(...)` and needs to be changed to use the typed variant.
-  - **Fix needed**: Replace `Effect::Custom(...)` with `Effect::DestroyAll { filter: "creatures" }`
+- [x] **Day of Judgment** -- `Effect::destroy_all("creatures")` -- **FIXED** (was `Effect::Custom("Destroy all creatures.")`, now uses typed `DestroyAll` variant)
 
 - [ ] **Macabre Waltz** -- What works: `DiscardCards(1)`. ReturnFromGraveyard NOW WORKS (NOW IMPLEMENTED).
 
@@ -400,13 +394,13 @@ These cards have SOME typed effects that work but also use `Effect::Custom(...)`
 - [ ] **Valorous Stance** -- What works: nothing functional. What's broken: modal `Effect::Custom(...)`.
   - **Fix needed**: Implement modal spell framework
 
-- [ ] **Heroic Reinforcements** -- What works: `CreateToken("1/1 Soldier", 2)`. What's broken: 2x `Effect::Custom(...)` for mass buff/haste.
+- [x] **Heroic Reinforcements** -- CreateToken + boost_all_eot + grant_keyword_all_eot (haste). Fixed in Batch 7.
   - **Fix needed**: Mass boost + keyword grant effects
 
-- [ ] **Make a Stand** -- What works: nothing functional. What's broken: 2x `Effect::Custom(...)` for mass buff/indestructible.
+- [x] **Make a Stand** -- boost_all_eot(+1/+0) + grant_keyword_all_eot(indestructible). Fixed in Batch 7.
   - **Fix needed**: Mass boost + keyword grant effects
 
-- [ ] **Overrun** -- What works: nothing functional. What's broken: 2x `Effect::Custom(...)` for mass buff/trample.
+- [x] **Overrun** -- boost_all_eot(+3/+3) + grant_keyword_all_eot(trample). Fixed in Batch 7.
   - **Fix needed**: Mass boost + keyword grant effects
 
 - [ ] **Fog Bank** -- What works: 0/2 defender flying creature. What's broken: `StaticEffect::Custom("Prevent all combat damage to and from Fog Bank.")`.
@@ -434,7 +428,7 @@ These cards have SOME typed effects that work but also use `Effect::Custom(...)`
 
 - [ ] **Ball Lightning** -- What works: 6/1 trample haste. Sacrifice NOW WORKS (NOW IMPLEMENTED).
 
-- [ ] **Balmor, Battlemage Captain** -- What works: 1/3 flying creature. What's broken: SpellCast `Effect::Custom("Creatures you control get +1/+0 and gain trample until end of turn.")`.
+- [x] **Balmor, Battlemage Captain** -- SpellCast trigger: boost_all_eot(+1/+0) + grant_keyword_all_eot(trample). Fixed in Batch 7.
   - **Fix needed**: Mass boost + keyword grant
 
 - [ ] **Banner of Kinship** -- What works: nothing. What's broken: ETB `Effect::Custom(...)` + `StaticEffect::Custom(...)`.
@@ -470,7 +464,7 @@ These cards have stats/keywords but their abilities are entirely `Effect::Custom
 
 - [ ] **Charming Prince** -- 2/2 Human Noble, modal ETB (all Custom)
   - **Java source**: `Mage.Sets/src/mage/cards/c/CharmingPrince.java`
-- [ ] **Claws Out** -- Instant, spell effect (Custom)
+- [x] **Claws Out** -- boost_all_eot(+2/+2). Cost reduction still Custom. Fixed in Batch 7.
   - **Java source**: `Mage.Sets/src/mage/cards/c/ClawsOut.java`
 - [ ] **Consuming Aberration** -- P/T Custom + attack trigger Custom
   - **Java source**: `Mage.Sets/src/mage/cards/c/ConsumingAberration.java`
@@ -592,10 +586,10 @@ These cards have stats/keywords but their abilities are entirely `Effect::Custom
 8. **Implement `DealDamageAll`** in `execute_effects()` -- **DONE**
 
 ### Phase 2: Fix easy card-level issues
-1. Fix Phyrexian Arena: change `Effect::Custom("You lose 1 life.")` to `Effect::LoseLife { amount: 1 }`
-2. Fix Vampire Spawn/Pulse Tracker/Marauding Blight-Priest: use `DealDamageOpponents` + `GainLife`
-3. Fix Vampire Neonate: use `DealDamageOpponents` + `GainLife`
-4. Fix Diregraf Ghoul: use `StaticEffect::EntersTapped`
+1. ~~Fix Phyrexian Arena: change `Effect::Custom("You lose 1 life.")` to `Effect::LoseLife { amount: 1 }`~~ -- **DONE**
+2. ~~Fix Vampire Spawn/Pulse Tracker/Marauding Blight-Priest: use `LoseLifeOpponents` + `GainLife`~~ -- **DONE**
+3. ~~Fix Vampire Neonate: use `LoseLifeOpponents` + `GainLife`~~ -- **DONE**
+4. ~~Fix Diregraf Ghoul: use `StaticEffect::EntersTapped`~~ -- **DONE**
 5. Fix incomplete dual lands (copy Azorius Guildgate pattern to other guildgates)
 6. Fix incomplete gain lands (copy Bloodfell Caves pattern)
 

@@ -340,11 +340,11 @@ fn adorned_crocodile(id: ObjectId, owner: PlayerId) -> CardData {
 fn aegis_sculptor(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Aegis Sculptor".into(), mana_cost: ManaCost::parse("{3}{U}"),
         card_types: vec![CardType::Creature], subtypes: vec![SubType::Bird, SubType::Wizard],
-        power: Some(2), toughness: Some(3), keywords: KeywordAbilities::FLYING,
+        power: Some(2), toughness: Some(3), keywords: KeywordAbilities::FLYING | KeywordAbilities::WARD,
         rarity: Rarity::Uncommon,
         abilities: vec![
             Ability::static_ability(id, "Ward {2}",
-                vec![StaticEffect::Custom("Ward {2}".into())]),
+                vec![StaticEffect::ward("{2}")]),
             Ability::triggered(id,
                 "At the beginning of your upkeep, you may exile two cards from your graveyard. If you do, put a +1/+1 counter on this creature.",
                 vec![EventType::UpkeepStep],
@@ -1037,7 +1037,7 @@ fn skirmish_rhino(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, each opponent loses 2 life and you gain 2 life.",
-                vec![Effect::Custom("Each opponent loses 2 life.".into()), Effect::gain_life(2)],
+                vec![Effect::lose_life_opponents(2), Effect::gain_life(2)],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -1228,7 +1228,7 @@ fn knockout_maneuver(id: ObjectId, owner: PlayerId) -> CardData {
     // Sorcery {2}{G}. +1/+1 counter on your creature, then it fights opponent's creature.
     CardData { id, owner, name: "Knockout Maneuver".into(), mana_cost: ManaCost::parse("{2}{G}"),
         card_types: vec![CardType::Sorcery], rarity: Rarity::Common,
-        abilities: vec![Ability::spell(id, vec![Effect::add_p1p1_counters(1), Effect::Custom("Target creature you control fights target creature you don't control.".into())], TargetSpec::Creature)],
+        abilities: vec![Ability::spell(id, vec![Effect::add_p1p1_counters(1), Effect::bite()], TargetSpec::fight_targets())],
         ..Default::default() }
 }
 
@@ -1252,7 +1252,7 @@ fn piercing_exhale(id: ObjectId, owner: PlayerId) -> CardData {
     // Instant {1}{G}. Behold Dragon. Your creature fights target. If beheld, surveil 2.
     CardData { id, owner, name: "Piercing Exhale".into(), mana_cost: ManaCost::parse("{1}{G}"),
         card_types: vec![CardType::Instant], rarity: Rarity::Common,
-        abilities: vec![Ability::spell(id, vec![Effect::Custom("Target creature you control fights target creature you don't control.".into())], TargetSpec::Creature)],
+        abilities: vec![Ability::spell(id, vec![Effect::bite()], TargetSpec::fight_targets())],
         ..Default::default() }
 }
 
@@ -1984,10 +1984,10 @@ fn ambling_stormshell(id: ObjectId, owner: PlayerId) -> CardData {
     // Attacks: put 3 stun counters on it, draw 3. Whenever you cast a Turtle spell, untap this.
     CardData { id, owner, name: "Ambling Stormshell".into(), mana_cost: ManaCost::parse("{3}{U}{U}"),
         card_types: vec![CardType::Creature], subtypes: vec![SubType::Turtle],
-        power: Some(5), toughness: Some(9), rarity: Rarity::Rare,
+        power: Some(5), toughness: Some(9), keywords: KeywordAbilities::WARD, rarity: Rarity::Rare,
         abilities: vec![
             Ability::static_ability(id, "Ward {2}",
-                vec![StaticEffect::Custom("Ward {2}".into())]),
+                vec![StaticEffect::ward("{2}")]),
             Ability::triggered(id,
                 "Whenever this creature attacks, put three stun counters on it and draw three cards.",
                 vec![EventType::AttackerDeclared],
@@ -2034,7 +2034,7 @@ fn barrensteppe_siege(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "Abzan — At the beginning of your end step, put a +1/+1 counter on each creature you control.",
                 vec![EventType::EndStep],
-                vec![Effect::Custom("Put +1/+1 counter on each creature you control.".into())],
+                vec![Effect::add_counters_all("+1/+1", 1, "creatures you control")],
                 TargetSpec::None),
             Ability::triggered(id,
                 "Mardu — At the beginning of your end step, if a creature died under your control this turn, each opponent sacrifices a creature.",
@@ -2107,7 +2107,7 @@ fn cori_mountain_monastery(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "This land enters tapped unless you control a Plains or an Island.",
-                vec![StaticEffect::Custom("Enters tapped unless you control Plains or Island.".into())]),
+                vec![StaticEffect::enters_tapped_unless("you control a Plains or an Island")]),
             Ability::mana_ability(id, "{T}: Add {R}.", Mana::red(1)),
             Ability::activated(id,
                 "{3}{R}, {T}: Exile the top card of your library. Until the end of your next turn, you may play that card.",
@@ -2150,7 +2150,7 @@ fn dalkovan_encampment(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "This land enters tapped unless you control a Swamp or a Mountain.",
-                vec![StaticEffect::Custom("Enters tapped unless you control Swamp or Mountain.".into())]),
+                vec![StaticEffect::enters_tapped_unless("you control a Swamp or a Mountain")]),
             Ability::mana_ability(id, "{T}: Add {W}.", Mana::white(1)),
             Ability::activated(id,
                 "{3}{W}, {T}: Create a 1/1 white Soldier creature token.",
@@ -3722,11 +3722,11 @@ fn dirgur_island_dragon(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Creature],
         subtypes: vec![SubType::Dragon],
         power: Some(4), toughness: Some(4),
-        keywords: KeywordAbilities::FLYING,
+        keywords: KeywordAbilities::FLYING | KeywordAbilities::WARD,
         rarity: Rarity::Common,
         abilities: vec![
             Ability::static_ability(id, "Ward {2}",
-                vec![StaticEffect::Custom("Ward {2}".into())]),
+                vec![StaticEffect::ward("{2}")]),
         ],
         ..Default::default() }
 }
@@ -4070,12 +4070,12 @@ fn scavenger_regent(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Creature],
         subtypes: vec![SubType::Dragon],
         power: Some(4), toughness: Some(4),
-        keywords: KeywordAbilities::FLYING,
+        keywords: KeywordAbilities::FLYING | KeywordAbilities::WARD,
         rarity: Rarity::Common,
         abilities: vec![
             Ability::static_ability(id,
                 "Ward -- Discard a card.",
-                vec![StaticEffect::Custom("Ward -- Discard a card.".into())]),
+                vec![StaticEffect::ward("Discard a card.")]),
         ],
         ..Default::default() }
 }

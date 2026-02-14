@@ -2302,8 +2302,8 @@ fn bite_down(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Instant], rarity: Rarity::Common,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::Custom("Target creature you control deals damage equal to its power to target creature or planeswalker you don't control.".into())],
-                TargetSpec::Creature),
+                vec![Effect::bite()],
+                TargetSpec::fight_targets()),
         ],
         ..Default::default() }
 }
@@ -5249,8 +5249,8 @@ fn affectionate_indrik(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "When Affectionate Indrik enters the battlefield, you may have it fight target creature you don't control.",
                 vec![EventType::EnteredTheBattlefield],
-                vec![Effect::Custom("When Affectionate Indrik enters the battlefield, you may have it fight target creature you don't control.".into())],
-                TargetSpec::None),
+                vec![Effect::fight()],
+                TargetSpec::OpponentCreature),
         ],
         ..Default::default() }
 }
@@ -6014,8 +6014,8 @@ fn felling_blow(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::Custom("Put a +1/+1 counter on target creature you control. Then that creature deals damage equal to its power to target creature an opponent controls.".into())],
-                TargetSpec::None),
+                vec![Effect::add_p1p1_counters(1), Effect::bite()],
+                TargetSpec::fight_targets()),
         ],
         ..Default::default() }
 }

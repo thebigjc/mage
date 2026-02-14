@@ -153,25 +153,19 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: Dies: put a -1/-1 counter on target creature.
   - **Fix needed**: Verify targeting works for dies triggers.
 
-- [ ] **Blighted Blackthorn** — What works: `draw_cards(1)`, `lose_life(1)`. What's broken: `Effect::Custom("Put two -1/-1 counters on Blighted Blackthorn")` — self-blight is a no-op.
-  - **Java source**: `Mage.Sets/src/mage/cards/b/BlightedBlackthorn.java`
-  - **What it should do**: ETB/attacks: put two -1/-1 counters on itself, then draw a card, lose 1 life.
-  - **Fix needed**: Replace Custom with `Effect::add_counters("-1/-1", 2)` targeting self.
+- [x] **Blighted Blackthorn** — ETB/attacks: `add_counters("-1/-1", 2)` + `draw_cards(1)` + `lose_life(1)` — **FIXED** (was `Effect::Custom("Put two -1/-1 counters on Blighted Blackthorn")`, now uses typed `add_counters` with source fallback)
 
-- [ ] **Brambleback Brute** — What works: ETB `add_counters("-1/-1", 2)`. What's broken: activated ability uses `Effect::Custom("can't block")`.
-  - **Java source**: `Mage.Sets/src/mage/cards/b/BramblebackBrute.java`
-  - **What it should do**: {1}{R}: Target creature can't block this turn.
-  - **Fix needed**: Add `Effect::CantBlockThisTurn` variant or use existing restriction effect.
+- [x] **Brambleback Brute** — ETB `add_counters("-1/-1", 2)` + activated: `Effect::CantBlock` — **FIXED** (was `Effect::Custom("Target creature can't block this turn.")`, now uses typed `CantBlock` variant)
 
 - [ ] **Burdened Stoneback** — What works: ETB `add_counters("-1/-1", 2)`. `gain_keyword_eot("indestructible")` NOW WORKS.
   - **Java source**: `Mage.Sets/src/mage/cards/b/BurdenedStoneback.java`
   - **What it should do**: {2}{W}: Gains indestructible until end of turn.
   - **Status**: Keyword grant now implemented. Card may be fully functional.
 
-- [ ] **Champion of the Weird** — What works: none of the effects. What's broken: Both `Cost::Custom` and `Effect::Custom` on all abilities.
+- [ ] **Champion of the Weird** — What works: `LoseLifeOpponents(2)` on activated ability. What's broken: `Cost::Custom` (blight counter), behold mechanic, and return-exiled-card effect.
   - **Java source**: `Mage.Sets/src/mage/cards/c/ChampionOfTheWeird.java`
   - **What it should do**: Behold a Goblin + exile it. {1}{B}, blight 1: each opponent loses 2 life. Leaves: return exiled card.
-  - **Fix needed**: Implement behold mechanic, `LoseLife` for opponents, and return-exiled-card effect.
+  - **Fix needed**: Implement behold mechanic, blight cost, and return-exiled-card effect. (`LoseLifeOpponents` now works.)
 
 - [ ] **Champions of the Perfect** — What works: `draw_cards(1)` on spell cast. What's broken: LTB returns exiled card (Custom).
   - **Java source**: `Mage.Sets/src/mage/cards/c/ChampionsOfThePerfect.java`
@@ -188,10 +182,7 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: ETB: pay {2} or put two -1/-1 counters on it.
   - **Fix needed**: Need player choice + conditional self-counter placement.
 
-- [ ] **Dream Seizer** — What works: flying. What's broken: ETB `Effect::Custom("blight 1, each opponent discards")`.
-  - **Java source**: `Mage.Sets/src/mage/cards/d/DreamSeizer.java`
-  - **What it should do**: ETB: put -1/-1 counter on it. When you do, each opponent discards.
-  - **Fix needed**: Split into self-counter + opponent discard trigger.
+- [x] **Dream Seizer** — FIXED (Batch 3). ETB now uses `add_counters("-1/-1", 1), discard_opponents(1)`.
 
 - [ ] **Dundoolin Weaver** — What works: stats. `return_from_graveyard()` NOW WORKS.
   - **Java source**: `Mage.Sets/src/mage/cards/d/DundoolinWeaver.java`
@@ -223,10 +214,7 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: Look at top 4, may reveal Merfolk/Plains/Island to hand.
   - **Fix needed**: Same as above.
 
-- [ ] **Encumbered Reejerey** — What works: ETB `add_counters("-1/-1", 3)`. `RemoveCounters` NOW WORKS (but card code uses Custom, needs update to use typed `remove_counters` instead).
-  - **Java source**: `Mage.Sets/src/mage/cards/e/EncumberedReejerey.java`
-  - **What it should do**: Becomes tapped: remove a -1/-1 counter.
-  - **Fix needed**: Replace `Effect::Custom("Remove a -1/-1 counter")` with `Effect::remove_counters("-1/-1", 1)` in card code.
+- [x] **Encumbered Reejerey** — ETB `add_counters("-1/-1", 3)` + tapped trigger: `RemoveCounters { counter_type: "-1/-1", count: 1 }` — **FIXED** (was `Effect::Custom("Remove a -1/-1 counter from Encumbered Reejerey.")`, now uses typed `RemoveCounters` with source fallback)
 
 - [ ] **Explosive Prodigy** — What works: stats. What's broken: ETB `Effect::Custom("X damage where X = colors")`.
   - **Java source**: `Mage.Sets/src/mage/cards/e/ExplosiveProdigy.java`
@@ -283,10 +271,7 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: Precombat main: blight 2 or lose 3 life.
   - **Fix needed**: Implement player choice mechanic.
 
-- [ ] **Heirloom Auntie** — What works: ETB `add_counters("-1/-1", 2)`. `scry(1)` NOW WORKS. What's broken: `Effect::Custom("Remove counter")` still a no-op (but `RemoveCounters` effect exists -- card needs update to use typed variant).
-  - **Java source**: `Mage.Sets/src/mage/cards/h/HeirloomAuntie.java`
-  - **What it should do**: Creature dies: surveil 1 + remove -1/-1 counter.
-  - **Fix needed**: Replace `Effect::Custom("Remove counter")` with `Effect::remove_counters("-1/-1", 1)` in card code.
+- [x] **Heirloom Auntie** — ETB `add_counters("-1/-1", 2)` + creature dies: `scry(1)` + `RemoveCounters { counter_type: "-1/-1", count: 1 }` — **FIXED** (was `Effect::Custom("Remove a -1/-1 counter from Heirloom Auntie.")`, now uses typed `RemoveCounters` with source fallback)
 
 - [ ] **Iron-Shield Elf** — `gain_keyword_eot("indestructible")` NOW WORKS, `Cost::Discard(1)` may work. What's broken: `Effect::Custom("Tap Iron-Shield Elf")` self-tap is still a no-op.
   - **Java source**: `Mage.Sets/src/mage/cards/i/IronShieldElf.java`
@@ -323,10 +308,7 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: Vivid: ETB other creatures get +X/+X.
   - **Fix needed**: Implement Vivid mass boost.
 
-- [ ] **Reluctant Dounguard** — What works: ETB `add_counters("-1/-1", 2)`. `RemoveCounters` concept NOW WORKS (but card code uses Custom, needs update to use typed `remove_counters` instead).
-  - **Java source**: `Mage.Sets/src/mage/cards/r/ReluctantDounguard.java`
-  - **What it should do**: Other creature ETB: remove a -1/-1 counter.
-  - **Fix needed**: Replace `Effect::Custom("remove -1/-1 counter")` with `Effect::remove_counters("-1/-1", 1)` in card code.
+- [x] **Reluctant Dounguard** — ETB `add_counters("-1/-1", 2)` + other creature ETB: `RemoveCounters { counter_type: "-1/-1", count: 1 }` — **FIXED** (was `Effect::Custom("Remove a -1/-1 counter from Reluctant Dounguard.")`, now uses typed `RemoveCounters` with source fallback)
 
 - [ ] **Rooftop Percher** — What works: changeling, flying, `gain_life(3)`. What's broken: `Effect::Custom("exile two cards from graveyards")`.
   - **Java source**: `Mage.Sets/src/mage/cards/r/RooftopPercher.java`
@@ -363,20 +345,14 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: Dies: exile top card to play.
   - **Fix needed**: Implement impulse draw from death trigger.
 
-- [ ] **Sourbread Auntie** — What works: `create_token("1/1 Goblin", 2)`. What's broken: `Effect::Custom("put two -1/-1 counters on Sourbread Auntie")`.
-  - **Java source**: `Mage.Sets/src/mage/cards/s/SourbreadAuntie.java`
-  - **What it should do**: ETB: blight 2 + create two Goblin tokens.
-  - **Fix needed**: Replace Custom with `add_counters("-1/-1", 2)` targeting self.
+- [x] **Sourbread Auntie** — ETB: `add_counters("-1/-1", 2)` + `create_token("1/1 Goblin", 2)` — **FIXED** (was `Effect::Custom("Put two -1/-1 counters on Sourbread Auntie.")`, now uses typed `add_counters` with source fallback)
 
 - [ ] **Squawkroaster** — What works: double strike. What's broken: `StaticEffect::Custom("power = colors among permanents")`.
   - **Java source**: `Mage.Sets/src/mage/cards/s/Squawkroaster.java`
   - **What it should do**: Vivid: power equals colors among your permanents.
   - **Fix needed**: Implement Vivid P/T-setting static effect.
 
-- [ ] **Sting-Slinger** — What works: `damage_opponents(2)`. What's broken: `Effect::Custom("put a -1/-1 counter on Sting-Slinger")` — self-blight is no-op.
-  - **Java source**: `Mage.Sets/src/mage/cards/s/StingSlinger.java`
-  - **What it should do**: {1}{R}, T, blight 1: 2 damage to opponents.
-  - **Fix needed**: Replace Custom with self-targeting `add_counters`.
+- [x] **Sting-Slinger** — Activated: `add_counters("-1/-1", 1)` + `damage_opponents(2)` — **FIXED** (was `Effect::Custom("Put a -1/-1 counter on Sting-Slinger.")`, now uses typed `add_counters` with source fallback)
 
 - [ ] **Stoic Grove-Guide** — What works: `create_token("2/2 Elf Warrior", 1)`. What's broken: `Cost::Custom("exile from graveyard")`.
   - **Java source**: `Mage.Sets/src/mage/cards/s/StoicGroveGuide.java`
@@ -393,7 +369,7 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: Attacks alone: gets +X/+X where X = Kithkin count.
   - **Fix needed**: Dynamic P/T boost based on creature count.
 
-- [ ] **Timid Shieldbearer** — What works: stats. What's broken: activated `Effect::Custom("creatures +1/+1 until EOT")`.
+- [x] **Timid Shieldbearer** — Activated: boost_all_eot(+1/+1). Fixed in Batch 7.
   - **Java source**: `Mage.Sets/src/mage/cards/t/TimidShieldbearer.java`
   - **What it should do**: {4}{W}: creatures you control get +1/+1 until EOT.
   - **Fix needed**: Implement mass boost effect.
@@ -408,25 +384,23 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: Opponent's turn spell: may pay 1 life, draw a card.
   - **Fix needed**: Implement optional life-payment + draw.
 
-- [ ] **Warren Torchmaster** — What works: stats. What's broken: triggered `Effect::Custom("blight 1, grant haste")`.
+- [x] **Warren Torchmaster** — FIXED (Batch 10). `Effect::Custom` → `add_counters_self("-1/-1", 1)` + `gain_keyword_eot("haste")` with `TargetSpec::Creature` + `.set_optional()`. Uses new `AddCountersSelf` variant that always targets source.
   - **Java source**: `Mage.Sets/src/mage/cards/w/WarrenTorchmaster.java`
-  - **What it should do**: Begin combat: may blight 1 to give target creature haste.
-  - **Fix needed**: Implement self-counter + keyword granting.
 
 - [ ] **Scarblades Malice** — `gain_keyword_eot("deathtouch")` + `gain_keyword_eot("lifelink")` NOW WORK. What's broken: delayed death trigger `Effect::Custom` for creating 2/2 Elf on death is still a no-op.
   - **Java source**: `Mage.Sets/src/mage/cards/s/ScarbladesMalice.java`
   - **What it should do**: Creature gains deathtouch + lifelink. If it dies, create 2/2 Elf.
   - **Fix needed**: Implement delayed death trigger for token creation.
 
-- [ ] **Assert Perfection** — What works: `boost_until_eot(1, 0)`. What's broken: `Effect::Custom("fights target creature")`.
+- [x] **Assert Perfection** — Fixed: `boost_until_eot(1, 0), Effect::bite()` + `TargetSpec::fight_targets()`. (Batch 8)
   - **Java source**: `Mage.Sets/src/mage/cards/a/AssertPerfection.java`
   - **What it should do**: +1/+0, then fights opponent's creature.
   - **Fix needed**: Implement `Effect::Fight`.
 
-- [ ] **Boggart Mischief** — What works: stats. What's broken: Both ETB and dies triggers are `Effect::Custom`.
+- [ ] **Boggart Mischief** — What works: dies trigger `LoseLifeOpponents(1)` + `GainLife(1)`. What's broken: ETB still `Effect::Custom` (blight choice + token creation).
   - **Java source**: `Mage.Sets/src/mage/cards/b/BoggartMischief.java`
   - **What it should do**: ETB: blight 1 to create 2 Goblin tokens. Goblin dies: opponents lose 1, you gain 1.
-  - **Fix needed**: Complex — needs blight choice + conditional token + drain trigger.
+  - **Fix needed**: Blight choice + conditional token creation on ETB. (Dies trigger now works.)
 
 - [ ] **Burning Curiosity** — What works: nothing. What's broken: `Effect::Custom("exile top 3, play until next end")`.
   - **Java source**: `Mage.Sets/src/mage/cards/b/BurningCuriosity.java`
@@ -443,7 +417,7 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: Put nonland permanent second from top or on bottom.
   - **Fix needed**: Implement library-tuck effect.
 
-- [ ] **Darkness Descends** — What works: nothing. What's broken: `Effect::Custom("two -1/-1 counters on each creature")`.
+- [x] **Darkness Descends** — Fixed: `Effect::Custom` → `Effect::add_counters_all("-1/-1", 2, "creatures")` (Batch 9).
   - **Java source**: `Mage.Sets/src/mage/cards/d/DarknessDescends.java`
   - **What it should do**: Put two -1/-1 counters on each creature.
   - **Fix needed**: Implement mass counter placement.
@@ -505,7 +479,7 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: When another Elemental ETBs: deal damage equal to its power. Leaves: return exiled.
   - **Fix needed**: Dynamic damage calculation + behold + return-exiled.
 
-- [ ] **Catharsis** — What works: `create_token("1/1 Kithkin", 2)` (if {W}{W} spent). What's broken: RR ETB `Effect::Custom("creatures +1/+1 and haste")`, `StaticEffect::Custom("Evoke")`.
+- [x] **Catharsis** — ETB: create_token + boost_all_eot + grant_keyword_all_eot(haste). Evoke still Custom. Fixed in Batch 7.
   - **Java source**: `Mage.Sets/src/mage/cards/c/Catharsis.java`
   - **What it should do**: Incarnation with color-spent ETBs and evoke.
   - **Fix needed**: Color-spent detection, mass boost+haste, evoke mechanic.
@@ -525,10 +499,10 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: ETB: untap Merfolk. 3+ Merfolk attacked: Merfolk get +1/+0.
   - **Fix needed**: Mass untap effect + conditional static boost.
 
-- [ ] **Bristlebane Battler** — What works: trample, ETB `add_counters("-1/-1", 5)`. What's broken: `StaticEffect::Custom("Ward {2}")`, `Effect::Custom("remove counter")`.
+- [ ] **Bristlebane Battler** — What works: trample, ETB `add_counters("-1/-1", 5)`, creature ETB: `RemoveCounters` (**FIXED**), Ward {2} (**FIXED** -- typed `StaticEffect::Ward` + WARD keyword). What's broken: nothing major remaining.
   - **Java source**: `Mage.Sets/src/mage/cards/b/BristlebaneBattler.java`
   - **What it should do**: Ward {2}. ETB with 5 -1/-1 counters. Creature ETB: remove counter.
-  - **Fix needed**: Implement Ward + remove-counter trigger.
+  - **Fix needed**: Implement Ward (remove-counter trigger now fixed).
 
 - [ ] **Bristlebane Outrider** — What works: stats. What's broken: Both `StaticEffect::Custom` (daunt + conditional boost).
   - **Java source**: `Mage.Sets/src/mage/cards/b/BristlebaneOutrider.java`
@@ -838,7 +812,7 @@ These cards exist as permanents with correct stats/types but none of their speci
 - [ ] **Champions of the Shoal** — 4/6 Merfolk with `Effect::Custom("tap + stun counter")`. Placeholder.
   - **Java source**: `Mage.Sets/src/mage/cards/c/ChampionsOfTheShoal.java`
 
-- [ ] **Clachan Festival** — Kindred enchantment with all `Effect::Custom` + `Cost::Custom`. Placeholder.
+- [x] **Clachan Festival** — **FIXED** (ETB: `create_token("1/1 Kithkin", 2)`, Activated: `Cost::pay_mana("{4}{W}")` + `create_token("1/1 Kithkin", 1)`)
   - **Java source**: `Mage.Sets/src/mage/cards/c/ClachanFestival.java`
 
 - [ ] **Creakwood Safewright** — 5/5 Elf with `Effect::Custom("end step remove counter")`. Placeholder.
@@ -898,9 +872,7 @@ These cards exist as permanents with correct stats/types but none of their speci
 - [ ] **Mirrorform** — Instant with `Effect::Custom("mass copy")`. Placeholder.
   - **Java source**: `Mage.Sets/src/mage/cards/m/Mirrorform.java`
 
-- [ ] **Mistmeadow Council** — 4/3 Kithkin with `Effect::Custom("draw a card")` — uses Custom instead of typed `draw_cards(1)`.
-  - **Java source**: `Mage.Sets/src/mage/cards/m/MistmeadowCouncil.java`
-  - **Fix needed**: Replace `Effect::Custom` with `Effect::draw_cards(1)`.
+- [x] **Mistmeadow Council** — 4/3 Kithkin, ETB: `draw_cards(1)` — **FIXED** (was `Effect::Custom("When this creature enters, draw a card.")`, now uses typed `draw_cards(1)`)
 
 - [ ] **Moon-Vigil Adherents** — 0/0 Elf, trample with `StaticEffect::Custom("+1/+1 per creature")`. Placeholder.
   - **Java source**: `Mage.Sets/src/mage/cards/m/MoonVigilAdherents.java`
@@ -965,9 +937,10 @@ Now implemented. Cards using `gain_keyword_eot()` are functional.
 ~~Unblocks: Lys Alana Informant, Shore Lurker, Unwelcome Sprite, Heirloom Auntie, Dawnhand Dissident, Morcant's Eyes.~~
 Now implemented. Surveil approximated as scry.
 
-### 3. Update cards using `Effect::Custom` for `RemoveCounters`
-The `RemoveCounters` effect is NOW IMPLEMENTED in the engine, but several cards still use `Effect::Custom` strings instead of the typed variant.
-Cards needing card-code updates: Encumbered Reejerey, Reluctant Dounguard, Heirloom Auntie, Bristlebane Battler, Creakwood Safewright, Slumbering Walker.
+### ~~3. Update cards using `Effect::Custom` for `RemoveCounters`~~ MOSTLY DONE
+The `RemoveCounters` effect is implemented, and the engine now falls back to source permanent when no targets are present.
+~~Cards needing card-code updates: Encumbered Reejerey, Reluctant Dounguard, Heirloom Auntie, Bristlebane Battler~~ -- **DONE** (Batch 2).
+Cards still needing updates: Creakwood Safewright, Slumbering Walker.
 
 ### ~~4. Implement `ReturnFromGraveyard` and `Reanimate` in execute_effects()~~ DONE
 ~~Unblocks: Dundoolin Weaver, Graveshifter, Midnight Tilling, Dose of Dawnglow, Emptiness, Bre of Clan Stoutarm, Dawn-Blessed Pennant.~~
@@ -980,15 +953,15 @@ Now implemented. Cards using `search_library(filter)` are functional.
 ### 6. Implement Vivid mechanic (count colors among permanents)
 Unblocks: Explosive Prodigy, Glister Bairn, Luminollusk, Prismabasher, Shimmercreep, Shinestriker, Squawkroaster, Rime Chill.
 
-### 7. Fix easy Custom-to-typed replacements
-Several cards use `Effect::Custom` for effects that already have typed variants:
-- Mistmeadow Council: replace Custom with `draw_cards(1)`
-- Sourbread Auntie: replace Custom blight with `add_counters("-1/-1", 2)` (targeting self)
-- Blighted Blackthorn: same self-counter replacement
-- Sting-Slinger: same self-counter replacement
-- Encumbered Reejerey: replace Custom with `remove_counters("-1/-1", 1)`
-- Reluctant Dounguard: replace Custom with `remove_counters("-1/-1", 1)`
-- Heirloom Auntie: replace Custom with `remove_counters("-1/-1", 1)`
+### ~~7. Fix easy Custom-to-typed replacements~~ DONE (Batch 2)
+~~Several cards use `Effect::Custom` for effects that already have typed variants:~~
+- ~~Mistmeadow Council: replace Custom with `draw_cards(1)`~~ **DONE**
+- ~~Sourbread Auntie: replace Custom blight with `add_counters("-1/-1", 2)` (targeting self)~~ **DONE**
+- ~~Blighted Blackthorn: same self-counter replacement~~ **DONE**
+- ~~Sting-Slinger: same self-counter replacement~~ **DONE**
+- ~~Encumbered Reejerey: replace Custom with `remove_counters("-1/-1", 1)`~~ **DONE**
+- ~~Reluctant Dounguard: replace Custom with `remove_counters("-1/-1", 1)`~~ **DONE**
+- ~~Heirloom Auntie: replace Custom with `remove_counters("-1/-1", 1)`~~ **DONE**
 
 ### 8. Implement shock land ETB replacement effect
 Unblocks: Blood Crypt, Hallowed Fountain, Overgrown Tomb, Steam Vents, Temple Garden (5 lands).

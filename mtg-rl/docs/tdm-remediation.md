@@ -187,7 +187,7 @@ These cards use only implemented Effect variants and will work correctly during 
 
 These cards have some working typed effects but also use `Effect::Custom(...)`, `StaticEffect::Custom(...)`, `Cost::Custom(...)`, or no-op Effect variants for one or more abilities.
 
-- [ ] **Aegis Sculptor** — 2/3 flying for {3}{U}. What works: AddCounters (+1/+1 counter on upkeep). What's broken: `StaticEffect::Custom("Ward {2}")` (Ward is non-functional).
+- [ ] **Aegis Sculptor** — 2/3 flying for {3}{U}. What works: AddCounters (+1/+1 counter on upkeep), Ward {2} (**FIXED** -- typed `StaticEffect::Ward` + WARD keyword). What's broken: upkeep exile condition not checked.
   - **Java source**: `Mage.Sets/src/mage/cards/a/AegisSculptor.java`
   - **What it should do**: Ward {2} (counter spell targeting this unless opponent pays {2}); upkeep: exile 2 cards from graveyard to put +1/+1 counter.
   - **Fix needed**: Implement Ward as a StaticEffect variant or triggered replacement effect. The exile-2-from-graveyard condition is also not enforced.
@@ -289,7 +289,7 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
 - [ ] **Kishla Skimmer** — 2/2 flying for {G}{U}. What works: DrawCards 1. What's broken: trigger condition "card leaves graveyard during your turn" uses generic ZoneChange.
   - **Fix needed**: Proper zone-change filtering for graveyard-leave events.
 
-- [ ] **Knockout Maneuver** — Sorcery {2}{G}. What works: AddCounters +1/+1. What's broken: `Effect::Custom("Target creature you control fights target creature you don't control.")`.
+- [x] **Knockout Maneuver** — Fixed: `add_p1p1_counters(1), Effect::bite()` + `TargetSpec::fight_targets()`. (Batch 8)
   - **Java source**: `Mage.Sets/src/mage/cards/k/KnockoutManeuver.java`
   - **Fix needed**: Implement Fight mechanic.
 
@@ -320,7 +320,7 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
   - **Java source**: `Mage.Sets/src/mage/cards/o/OverwhelmingSurge.java`
   - **Fix needed**: Modal spell support.
 
-- [ ] **Piercing Exhale** — Instant {1}{G}. All Custom: fight effect.
+- [x] **Piercing Exhale** — Fixed: `Effect::bite()` + `TargetSpec::fight_targets()`. (Batch 8)
   - **Java source**: `Mage.Sets/src/mage/cards/p/PiercingExhale.java`
   - **Fix needed**: Fight mechanic.
 
@@ -354,8 +354,7 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
   - **Java source**: `Mage.Sets/src/mage/cards/s/SibsigAppraiser.java`
   - **Fix needed**: "Look at top N, distribute" effect.
 
-- [ ] **Skirmish Rhino** — 3/4 trample for {W}{B}{G}. What works: GainLife 2. What's broken: `Effect::Custom("Each opponent loses 2 life.")` (should use DealDamageOpponents).
-  - **Fix needed**: Replace `Custom("Each opponent loses 2 life.")` with `Effect::DealDamageOpponents { amount: 2 }`.
+- [x] **Skirmish Rhino** — 3/4 trample for {W}{B}{G}. ETB: `LoseLifeOpponents(2)` + `GainLife(2)` -- **FIXED** (was Custom, now uses `Effect::lose_life_opponents(2)`).
 
 - [ ] **Snakeskin Veil** — Instant {G}. What works: AddCounters +1/+1 + Hexproof until EOT. **(NOW IMPLEMENTED — Hexproof NOW WORKS)**
 
@@ -425,15 +424,15 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
   - **Java source**: `Mage.Sets/src/mage/cards/a/AllOutAssault.java`
   - **Fix needed**: Additional combat phase + untap-all-on-attack.
 
-- [ ] **Ambling Stormshell** — 5/9 for {3}{U}{U}. What works: AddCounters (stun) + DrawCards 3. What's broken: `StaticEffect::Custom("Ward {2}")` + UntapTarget (may work).
+- [ ] **Ambling Stormshell** — 5/9 for {3}{U}{U}. What works: AddCounters (stun) + DrawCards 3, Ward {2} (**FIXED** -- typed `StaticEffect::Ward` + WARD keyword). What's broken: UntapTarget on Turtle cast (may work).
   - **Fix needed**: Implement Ward.
 
 - [ ] **Anafenza, Unyielding Lineage** — 2/2 flash/first strike for {2}{W}. What's broken: `Effect::Custom("Endure 2...")` — should use AddCounters.
   - **Fix needed**: Replace Custom with `AddCounters { counter_type: "+1/+1", count: 2 }`.
 
-- [ ] **Barrensteppe Siege** — Enchantment {2}{W}{B}. What's broken: ETB choose mode (Custom) + both triggered abilities use Custom.
+- [ ] **Barrensteppe Siege** — Enchantment {2}{W}{B}. What's broken: ETB choose mode (Custom) + Mardu mode uses Custom. Abzan mode fixed (Batch 9): `Effect::Custom` → `Effect::add_counters_all("+1/+1", 1, "creatures you control")`.
   - **Java source**: `Mage.Sets/src/mage/cards/b/BarrensteppeSiege.java`
-  - **Fix needed**: Modal ETB choice + implement both modes properly.
+  - **Fix needed**: Modal ETB choice + Mardu mode ("each opponent sacrifices a creature").
 
 - [ ] **Betor, Kin to All** — 5/7 flying legendary for {2}{W}{B}{G}. What's broken: All Custom (toughness threshold draw/untap/half-life).
   - **Java source**: `Mage.Sets/src/mage/cards/b/BetorKinToAll.java`
@@ -447,8 +446,8 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
   - **Java source**: `Mage.Sets/src/mage/cards/c/CallTheSpiritDragons.java`
   - **Fix needed**: Complex upkeep trigger with color-based targeting + alt win condition.
 
-- [ ] **Cori Mountain Monastery** — Land. What works: mana ability ({T}: Add {R}). What's broken: `StaticEffect::Custom("Enters tapped unless...")` + activated `Effect::Custom("Exile top card, play until end of next turn.")`.
-  - **Fix needed**: Conditional ETB tapped + impulse draw effect.
+- [x] **Cori Mountain Monastery** — Land. What works: mana ability ({T}: Add {R}), `StaticEffect::EntersTappedUnless` (conditional ETB). What's broken: activated `Effect::Custom("Exile top card, play until end of next turn.")`.
+  - **Batch 6**: Fixed `StaticEffect::Custom` → `StaticEffect::enters_tapped_unless("you control a Plains or an Island")`. Impulse draw still Custom.
 
 - [ ] **Cori Steel-Cutter** — Equipment {1}{R}. What works: Static boost +2/+0 + grant trample/haste (if continuous effects work) + CreateToken (Monk). What's broken: Equip activated ability `Effect::Custom("Attach...")`.
   - **Fix needed**: Implement Equip as an effect.
@@ -717,11 +716,11 @@ These cards are stat/keyword-only with no functional abilities. They exist as pe
   - **Java source**: `Mage.Sets/src/mage/cards/k/KrumarInitiate.java`
   - **What it should do**: Creature with abilities from Java source.
 
-- [ ] **Scavenger Regent** — 4/4 flying Dragon. Missing mana cost! No abilities in Rust.
+- [ ] **Scavenger Regent** — 4/4 flying Dragon. Ward -- Discard a card (**FIXED** -- typed `StaticEffect::Ward` + WARD keyword). Still missing mana cost.
   - **Java source**: `Mage.Sets/src/mage/cards/s/ScavengerRegent.java`
   - **What it should do**: Dragon with ETB or triggered abilities.
 
-- [ ] **Dirgur Island Dragon** — 4/4 flying Dragon. Missing mana cost! Only Ward {2} (Custom, non-functional).
+- [ ] **Dirgur Island Dragon** — 4/4 flying Dragon. Ward {2} (**FIXED** -- typed `StaticEffect::Ward` + WARD keyword). Still missing mana cost.
   - **Java source**: `Mage.Sets/src/mage/cards/d/DirgurIslandDragon.java`
   - **What it should do**: Dragon with Ward {2} and likely other abilities.
 

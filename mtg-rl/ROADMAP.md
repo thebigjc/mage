@@ -8,7 +8,19 @@ This document describes implementation gaps in the mtg-rl engine and cards, orga
 
 These `Effect` enum variants exist in `abilities.rs` but have no implementation in `execute_effects()` -- they fall through to `_ => {}` and silently do nothing at runtime.
 
-**Recently implemented:** The following Effect variants were previously no-ops but now have working implementations in `execute_effects()`: `Scry`, `SearchLibrary`, `ReturnFromGraveyard`, `Reanimate`, `GainKeywordUntilEndOfTurn`, `GainKeyword`, `LoseKeyword`, `Indestructible`, `Hexproof`, `CantBlock`, `Sacrifice`, `DestroyAll`, `DealDamageAll`, `RemoveCounters`, `CreateTokenTappedAttacking`, `BoostPermanent`, `SetPowerToughness`. Token stat parsing is also implemented (`CreateToken` now parses P/T and keywords from `token_name`).
+**Recently implemented:** The following Effect variants were previously no-ops but now have working implementations in `execute_effects()`: `Scry`, `SearchLibrary`, `ReturnFromGraveyard`, `Reanimate`, `GainKeywordUntilEndOfTurn`, `GainKeyword`, `LoseKeyword`, `Indestructible`, `Hexproof`, `CantBlock`, `Sacrifice`, `DestroyAll`, `DealDamageAll`, `RemoveCounters`, `CreateTokenTappedAttacking`, `BoostPermanent`, `SetPowerToughness`, `LoseLifeOpponents`. Token stat parsing is also implemented (`CreateToken` now parses P/T and keywords from `token_name`).
+
+**Batch 2 engine change (2026-02-13):** Modified `execute_effects` to accept an optional `source: Option<ObjectId>` parameter. When `AddCounters` or `RemoveCounters` effects have no selected targets, they now fall back to the source permanent. This enables self-targeting counter effects (e.g., blight creatures putting -1/-1 counters on themselves) without requiring explicit target selection. Test: `add_counters_self_when_no_targets`.
+
+**Batch 5 (2026-02-13):** Added `StaticEffect::Ward { cost: String }` variant + `ward()` builder. Ward is a triggered ability that counters targeting spells/abilities unless the opponent pays the cost. The engine stores it as structured data (not yet mechanically enforced during targeting). Replaced `StaticEffect::Custom("Ward ...")` on 7 cards across FDN/TDM/ECL and added `KeywordAbilities::WARD` flags.
+
+**Batch 6 (2026-02-13):** Added `StaticEffect::EntersTappedUnless { condition: String }` variant + `enters_tapped_unless()` builder. Stored as structured data; mechanical enforcement deferred. Replaced `StaticEffect::Custom("Enters tapped unless ...")` on 2 TDM lands (Cori Mountain Monastery, Dalkovan Encampment).
+
+**Batch 7 (2026-02-13):** Added `Effect::BoostAllUntilEndOfTurn { filter, power, toughness }` and `Effect::GrantKeywordAllUntilEndOfTurn { filter, keyword }` variants with constructors and match arms. These mass-buff effects apply to all creatures matching the filter controlled by the effect's controller. Replaced Custom effects on 8 cards (6 FDN, 2 ECL) with 12 effect swaps total.
+
+**Batch 9 (2026-02-13):** Added `Effect::AddCountersAll { counter_type, count, filter }` variant + `add_counters_all()` constructor + match arm. Puts N counters of specified type on all creatures matching filter, with "you control" support. Fixed ECL Darkness Descends and partially fixed TDM Barrensteppe Siege (Abzan mode only).
+
+**Batch 10 (2026-02-14):** Added `Effect::AddCountersSelf { counter_type, count }` variant + `add_counters_self()` constructor + match arm. Unlike `AddCounters` (source fallback only when targets empty), `AddCountersSelf` always applies to the source permanent regardless of other targets. Enables compound effects like "blight self + grant haste to target creature" (Warren Torchmaster).
 
 | Effect Variant | Description | Cards Blocked |
 |---------------|-------------|---------------|
@@ -48,9 +60,8 @@ These are features that require new engine architecture, not just new match arms
 - X is not tracked or passed to effects
 - **Blocked cards:** Day of Black Sun, Spectral Denial (partially works), Genesis Wave, Finale of Revelation (~10+ cards)
 
-#### Fight/Bite Mechanic
-- No creature-vs-creature damage assignment outside combat
-- **Blocked cards:** Bite Down, Earth Rumble, Knockout Maneuver, Piercing Exhale, Dragonclaw Strike, Assert Perfection (~10+ cards)
+#### ~~Fight/Bite Mechanic~~ (DONE)
+`Effect::Fight` (mutual damage) and `Effect::Bite` (one-way damage) implemented with proper two-target selection via `TargetSpec::Pair { CreatureYouControl, OpponentCreature }`. Matches Java's `FightTargetsEffect` / `DamageWithPowerFromOneToAnotherTargetEffect` pattern. Compound effects (e.g. +1/+1 counter then bite) correctly apply pre-fight/bite effects only to `targets[0]` (your creature). Fixed 6 cards (Bite Down, Affectionate Indrik, Felling Blow, Knockout Maneuver, Piercing Exhale, Assert Perfection). ETB triggers (Affectionate Indrik) use `TargetSpec::OpponentCreature` with source as fighter. Remaining fight/bite cards blocked by modal spells (Batch 11), X-cost (Batch 15), or other missing systems.
 
 #### ~~Token Stat Parsing~~ (DONE)
 `CreateToken` now parses P/T and keywords from `token_name` strings (e.g., '4/4 Dragon with flying' creates a 4/4 with flying). Cards using correctly-formatted token names now work.
@@ -112,13 +123,23 @@ These unblock the most cards per effort invested.
 1. **Token stat parsing** -- **DONE** -- Parse power/toughness/keywords from `token_name` string in `CreateToken`. Unblocks ~30 cards that already create tokens but with wrong stats.
 
 2. **Fix easy card-level bugs** -- Many cards use `Effect::Custom(...)` when a typed variant already exists. Examples:
-   - Phyrexian Arena: `Custom("You lose 1 life.")` -> `LoseLife { amount: 1 }`
-   - Pulse Tracker/Marauding Blight-Priest/Vampire Spawn: `Custom("Each opponent loses N life")` -> `DealDamageOpponents { amount: N }`
-   - Diregraf Ghoul: `StaticEffect::Custom("Enters tapped.")` -> `StaticEffect::EntersTapped`
+   - ~~Phyrexian Arena: `Custom("You lose 1 life.")` -> `LoseLife { amount: 1 }`~~ **DONE**
+   - ~~Pulse Tracker/Marauding Blight-Priest/Vampire Spawn/Vampire Neonate: `Custom("Each opponent loses N life")` -> `LoseLifeOpponents { amount: N }`~~ **DONE**
+   - ~~Skirmish Rhino (TDM), Champion of the Weird (ECL), Boggart Mischief (ECL): opponent life loss Custom -> `LoseLifeOpponents`~~ **DONE**
+   - ~~Diregraf Ghoul: `StaticEffect::Custom("Enters tapped.")` -> `StaticEffect::EntersTapped`~~ **DONE**
    - Incomplete dual lands: copy the Azorius Guildgate / Bloodfell Caves pattern
-   - Sourbread Auntie/Sting-Slinger/Blighted Blackthorn: self-counter Custom -> `AddCounters` targeting self
+   - ~~Sourbread Auntie/Sting-Slinger/Blighted Blackthorn: self-counter Custom -> `AddCounters` targeting self~~ **DONE**
+   - ~~Day of Judgment: `Custom("Destroy all creatures.")` -> `DestroyAll`~~ **DONE**
+   - ~~Frenzied Goblin/Brambleback Brute: `Custom("can't block")` -> `CantBlock`~~ **DONE**
+   - ~~Icewind Elemental/Refute: loot/counter Custom -> typed effects~~ **DONE**
+   - ~~ECL RemoveCounters cards (Encumbered Reejerey, Reluctant Dounguard, Heirloom Auntie, Bristlebane Battler): Custom -> `RemoveCounters` with source fallback~~ **DONE**
+   - ~~Mistmeadow Council: Custom -> `draw_cards(1)`~~ **DONE**
+   - ~~Guarded Heir, Prideful Parent, Resolute Reinforcements, Release the Dogs, Dwynen's Elite, Dragonmaster Outcast, Searslicer Goblin: token creation Custom -> `create_token()`~~ **DONE**
+   - ~~Clachan Festival (ECL): token creation Custom + Cost::Custom -> `create_token()` + `Cost::pay_mana()`~~ **DONE**
+   - ~~Burglar Rat/Dream Seizer/Arbiter of Woe/Bloodtithe Collector: opponent discard Custom -> `DiscardOpponents { count }`~~ **DONE**
+   - ~~Warren Torchmaster: compound blight self + target haste Custom -> `AddCountersSelf` + `GainKeywordUntilEndOfTurn`~~ **DONE**
 
-3. **Fight mechanic** -- New `Effect::Fight` variant. Two creatures deal damage equal to their power to each other. Unblocks ~10 cards.
+3. ~~**Fight mechanic** -- New `Effect::Fight` and `Effect::Bite` variants. Fight = mutual damage, Bite = one-way. Fixed 6 cards.~~ **PARTIAL** — auto-selects strongest creature instead of player choice (needs multi-target `TargetSpec`). ETB triggers correct; spell-based is heuristic.
 
 ### Phase 2: Key Missing Mechanics
 

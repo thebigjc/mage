@@ -351,11 +351,11 @@ fn blighted_blackthorn(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Blighted Blackthorn enters or attacks, put two -1/-1 counters on it, then draw a card and lose 1 life.",
-                vec![Effect::Custom("Put two -1/-1 counters on Blighted Blackthorn.".into()), Effect::draw_cards(1), Effect::lose_life(1)],
+                vec![Effect::add_counters("-1/-1", 2), Effect::draw_cards(1), Effect::lose_life(1)],
                 TargetSpec::None),
             Ability::attacks_triggered(id,
                 "Whenever Blighted Blackthorn attacks, put two -1/-1 counters on it, then draw a card and lose 1 life.",
-                vec![Effect::Custom("Put two -1/-1 counters on Blighted Blackthorn.".into()), Effect::draw_cards(1), Effect::lose_life(1)],
+                vec![Effect::add_counters("-1/-1", 2), Effect::draw_cards(1), Effect::lose_life(1)],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -428,7 +428,7 @@ fn brambleback_brute(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "{1}{R}: Target creature can't block this turn.",
                 vec![Cost::pay_mana("{1}{R}")],
-                vec![Effect::Custom("Target creature can't block this turn.".into())],
+                vec![Effect::CantBlock],
                 TargetSpec::Creature),
         ],
         ..Default::default() }
@@ -462,7 +462,7 @@ fn champion_of_the_weird(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "{1}{B}, Put a -1/-1 counter on this creature: Each opponent loses 2 life.",
                 vec![Cost::pay_mana("{1}{B}"), Cost::Custom("Put a -1/-1 counter on this creature".into())],
-                vec![Effect::Custom("Each opponent loses 2 life.".into())],
+                vec![Effect::lose_life_opponents(2)],
                 TargetSpec::None),
             Ability::triggered(id,
                 "When this creature leaves the battlefield, return the exiled card to its owner's hand.",
@@ -593,7 +593,7 @@ fn dream_seizer(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Dream Seizer enters, put a -1/-1 counter on it. When you do, each opponent discards a card.",
-                vec![Effect::Custom("Put a -1/-1 counter on Dream Seizer. Each opponent discards a card.".into())],
+                vec![Effect::add_counters("-1/-1", 1), Effect::discard_opponents(1)],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -712,7 +712,7 @@ fn encumbered_reejerey(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "Whenever Encumbered Reejerey becomes tapped, remove a -1/-1 counter from it.",
                 vec![EventType::Tapped],
-                vec![Effect::Custom("Remove a -1/-1 counter from Encumbered Reejerey.".into())],
+                vec![Effect::RemoveCounters { counter_type: "-1/-1".into(), count: 1 }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -989,7 +989,7 @@ fn heirloom_auntie(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::any_creature_dies_triggered(id,
                 "Whenever another creature you control dies, surveil 1 and remove a -1/-1 counter from Heirloom Auntie.",
-                vec![Effect::scry(1), Effect::Custom("Remove a -1/-1 counter from Heirloom Auntie.".into())],
+                vec![Effect::scry(1), Effect::RemoveCounters { counter_type: "-1/-1".into(), count: 1 }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -1253,7 +1253,7 @@ fn reluctant_dounguard(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::other_creature_etb_triggered(id,
                 "Whenever another creature enters under your control, remove a -1/-1 counter from Reluctant Dounguard.",
-                vec![Effect::Custom("Remove a -1/-1 counter from Reluctant Dounguard.".into())],
+                vec![Effect::RemoveCounters { counter_type: "-1/-1".into(), count: 1 }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -1435,7 +1435,7 @@ fn sourbread_auntie(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Sourbread Auntie enters, put two -1/-1 counters on it and create two 1/1 black and red Goblin creature tokens.",
-                vec![Effect::Custom("Put two -1/-1 counters on Sourbread Auntie.".into()), Effect::create_token("1/1 Goblin", 2)],
+                vec![Effect::add_counters("-1/-1", 2), Effect::create_token("1/1 Goblin", 2)],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -1464,7 +1464,7 @@ fn sting_slinger(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "{1}{R}, {T}, Put a -1/-1 counter on Sting-Slinger: It deals 2 damage to each opponent.",
                 vec![Cost::pay_mana("{1}{R}"), Cost::tap_self()],
-                vec![Effect::Custom("Put a -1/-1 counter on Sting-Slinger.".into()), Effect::damage_opponents(2)],
+                vec![Effect::add_counters("-1/-1", 1), Effect::damage_opponents(2)],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -1596,7 +1596,7 @@ fn timid_shieldbearer(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "{4}{W}: Creatures you control get +1/+1 until end of turn.",
                 vec![Cost::pay_mana("{4}{W}")],
-                vec![Effect::Custom("Creatures you control get +1/+1 until end of turn.".into())],
+                vec![Effect::boost_all_eot("creatures you control", 1, 1)],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -1688,8 +1688,8 @@ fn warren_torchmaster(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "At the beginning of combat on your turn, you may put a -1/-1 counter on Warren Torchmaster. If you do, target creature gains haste until end of turn.",
                 vec![EventType::BeginCombat],
-                vec![Effect::Custom("Put a -1/-1 counter on Warren Torchmaster. Target creature gains haste until end of turn.".into())],
-                TargetSpec::Creature),
+                vec![Effect::add_counters_self("-1/-1", 1), Effect::gain_keyword_eot("haste")],
+                TargetSpec::Creature).set_optional(),
         ],
         ..Default::default() }
 }
@@ -1796,7 +1796,7 @@ fn assert_perfection(id: ObjectId, owner: PlayerId) -> CardData {
     // Sorcery {1}{G}. Target creature +1/+0, then fights opponent's creature.
     CardData { id, owner, name: "Assert Perfection".into(), mana_cost: ManaCost::parse("{1}{G}"),
         card_types: vec![CardType::Sorcery], rarity: Rarity::Common,
-        abilities: vec![Ability::spell(id, vec![Effect::boost_until_eot(1, 0), Effect::Custom("It fights target creature you don't control.".into())], TargetSpec::Creature)],
+        abilities: vec![Ability::spell(id, vec![Effect::boost_until_eot(1, 0), Effect::bite()], TargetSpec::fight_targets())],
         ..Default::default() }
 }
 
@@ -1830,7 +1830,7 @@ fn boggart_mischief(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::any_creature_dies_triggered(id,
                 "Whenever a Goblin you control dies, each opponent loses 1 life and you gain 1 life.",
-                vec![Effect::Custom("Each opponent loses 1 life, you gain 1 life.".into())],
+                vec![Effect::lose_life_opponents(1), Effect::gain_life(1)],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -1840,7 +1840,7 @@ fn darkness_descends(id: ObjectId, owner: PlayerId) -> CardData {
     // Sorcery {2}{B}{B}. Put two -1/-1 counters on each creature.
     CardData { id, owner, name: "Darkness Descends".into(), mana_cost: ManaCost::parse("{2}{B}{B}"),
         card_types: vec![CardType::Sorcery], rarity: Rarity::Rare,
-        abilities: vec![Ability::spell(id, vec![Effect::Custom("Put two -1/-1 counters on each creature.".into())], TargetSpec::None)],
+        abilities: vec![Ability::spell(id, vec![Effect::add_counters_all("-1/-1", 2, "creatures")], TargetSpec::None)],
         ..Default::default() }
 }
 
@@ -2182,11 +2182,11 @@ fn bristlebane_battler(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Creature],
         subtypes: vec![SubType::Custom("Kithkin".into()), SubType::Soldier],
         power: Some(6), toughness: Some(6),
-        keywords: KeywordAbilities::TRAMPLE,
+        keywords: KeywordAbilities::TRAMPLE | KeywordAbilities::WARD,
         rarity: Rarity::Rare,
         abilities: vec![
             Ability::static_ability(id, "Ward {2}",
-                vec![StaticEffect::Custom("Ward {2}".into())]),
+                vec![StaticEffect::ward("{2}")]),
             Ability::enters_battlefield_triggered(id,
                 "This creature enters with five -1/-1 counters on it.",
                 vec![Effect::add_counters("-1/-1", 5)],
@@ -2194,7 +2194,7 @@ fn bristlebane_battler(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "Whenever another creature you control enters while this creature has a -1/-1 counter on it, remove a -1/-1 counter from this creature.",
                 vec![EventType::EnteredTheBattlefield],
-                vec![Effect::Custom("Remove a -1/-1 counter from this creature.".into())],
+                vec![Effect::RemoveCounters { counter_type: "-1/-1".into(), count: 1 }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -2234,7 +2234,7 @@ fn catharsis(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, if {R}{R} was spent to cast it, creatures you control get +1/+1 and gain haste until end of turn.",
-                vec![Effect::Custom("Creatures you control get +1/+1 and gain haste until end of turn.".into())],
+                vec![Effect::boost_all_eot("creatures you control", 1, 1), Effect::grant_keyword_all_eot("creatures you control", "haste")],
                 TargetSpec::None),
             Ability::static_ability(id, "Evoke {R/W}{R/W}",
                 vec![StaticEffect::Custom("Evoke {R/W}{R/W}".into())]),
@@ -3701,12 +3701,12 @@ fn clachan_festival(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "When this enchantment enters, create two 1/1 green and white Kithkin creature tokens.",
                 vec![EventType::EnteredTheBattlefield],
-                vec![Effect::Custom("When this enchantment enters, create two 1/1 green and white Kithkin creature tokens.".into())],
+                vec![Effect::create_token("1/1 Kithkin", 2)],
                 TargetSpec::None),
             Ability::activated(id,
                 "{4}{W}: Create a 1/1 green and white Kithkin creature token.",
-                vec![Cost::Custom("{4}{W}: Create a 1/1 green and white Kithkin creature token.".into())],
-                vec![Effect::Custom("{4}{W}: Create a 1/1 green and white Kithkin creature token.".into())],
+                vec![Cost::pay_mana("{4}{W}")],
+                vec![Effect::create_token("1/1 Kithkin", 1)],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -3978,7 +3978,7 @@ fn mistmeadow_council(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "When this creature enters, draw a card.",
                 vec![EventType::EnteredTheBattlefield],
-                vec![Effect::Custom("When this creature enters, draw a card.".into())],
+                vec![Effect::draw_cards(1)],
                 TargetSpec::None),
         ],
         ..Default::default() }

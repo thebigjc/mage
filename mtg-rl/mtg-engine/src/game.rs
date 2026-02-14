@@ -672,12 +672,21 @@ impl Game {
             }
         }
 
+        // Select targets based on the spell's TargetSpec
+        let target_spec = card_data
+            .abilities
+            .iter()
+            .find(|a| a.ability_type == AbilityType::Spell)
+            .map(|a| a.targets.clone())
+            .unwrap_or(crate::abilities::TargetSpec::None);
+        let targets = self.select_targets_for_spec(&target_spec, player_id);
+
         // Put on the stack
         let stack_item = crate::zones::StackItem {
             id: card_id,
             kind: crate::zones::StackItemKind::Spell { card: card_data.clone() },
             controller: player_id,
-            targets: vec![],
+            targets,
             countered: false,
         };
         self.state.stack.push(stack_item);
@@ -738,16 +747,17 @@ impl Game {
                         .flat_map(|a| a.effects.clone())
                         .collect();
                     let targets = item.targets.clone();
-                    self.execute_effects(&effects, item.controller, &targets);
+                    self.execute_effects(&effects, item.controller, &targets, Some(item.id));
                     self.move_card_to_graveyard(item.id, item.controller);
                 }
             }
-            crate::zones::StackItemKind::Ability { ability_id, .. } => {
+            crate::zones::StackItemKind::Ability { ability_id, source_id, .. } => {
                 // Resolve ability: find its effects and execute them
+                let source = *source_id;
                 let ability_data = self.state.ability_store.get(*ability_id).cloned();
                 if let Some(ability) = ability_data {
                     let targets = item.targets.clone();
-                    self.execute_effects(&ability.effects, item.controller, &targets);
+                    self.execute_effects(&ability.effects, item.controller, &targets, Some(source));
                 }
             }
         }
@@ -945,8 +955,22 @@ impl Game {
     }
 
     /// Execute a list of effects for a controller with given targets.
-    pub fn execute_effects(&mut self, effects: &[Effect], controller: PlayerId, targets: &[ObjectId]) {
+    pub fn execute_effects(&mut self, effects: &[Effect], controller: PlayerId, all_targets: &[ObjectId], source: Option<ObjectId>) {
+        // For compound fight/bite spells (e.g. [AddCounters, Bite]), pre-fight/bite
+        // effects should only apply to the first target (your creature), matching
+        // Java's per-effect target assignment where AddCountersTargetEffect targets
+        // target 0 while DamageWithPowerFromOneToAnotherTargetEffect uses both.
+        let has_fight_or_bite = effects.iter().any(|e| matches!(e, Effect::Fight | Effect::Bite));
+
         for effect in effects {
+            let targets: &[ObjectId] = if has_fight_or_bite
+                && !matches!(effect, Effect::Fight | Effect::Bite)
+                && all_targets.len() >= 2
+            {
+                &all_targets[..1]
+            } else {
+                all_targets
+            };
             match effect {
                 Effect::DealDamage { amount } => {
                     // Deal damage to target permanents.
@@ -1014,6 +1038,17 @@ impl Game {
                         player.life -= *amount as i32;
                     }
                 }
+                Effect::LoseLifeOpponents { amount } => {
+                    let opponents: Vec<PlayerId> = self.state.turn_order.iter()
+                        .filter(|&&id| id != controller)
+                        .copied()
+                        .collect();
+                    for opp in opponents {
+                        if let Some(player) = self.state.players.get_mut(&opp) {
+                            player.life -= *amount as i32;
+                        }
+                    }
+                }
                 Effect::DealDamageOpponents { amount } => {
                     let opponents: Vec<PlayerId> = self.state.turn_order.iter()
                         .filter(|&&id| id != controller)
@@ -1027,9 +1062,25 @@ impl Game {
                 }
                 Effect::AddCounters { counter_type, count } => {
                     let ct = crate::counters::CounterType::from_name(counter_type);
-                    for &target_id in targets {
+                    // If no targets, fall back to source (self-targeting counters)
+                    let effective_targets: Vec<ObjectId> = if targets.is_empty() {
+                        source.into_iter().collect()
+                    } else {
+                        targets.to_vec()
+                    };
+                    for target_id in effective_targets {
                         if let Some(perm) = self.state.battlefield.get_mut(target_id) {
                             perm.add_counters(ct.clone(), *count);
+                        }
+                    }
+                }
+                Effect::AddCountersSelf { counter_type, count } => {
+                    // Always add counters to the source permanent, even when the
+                    // ability has other targets (e.g. blight self + grant haste to target).
+                    if let Some(source_id) = source {
+                        let ct = crate::counters::CounterType::from_name(counter_type);
+                        if let Some(perm) = self.state.battlefield.get_mut(source_id) {
+                            perm.add_counters(ct, *count);
                         }
                     }
                 }
@@ -1094,6 +1145,29 @@ impl Game {
                             player.hand.remove(card_id);
                         }
                         self.move_card_to_graveyard_inner(card_id, controller);
+                    }
+                }
+                Effect::DiscardOpponents { count } => {
+                    let opponents: Vec<PlayerId> = self.state.turn_order.iter()
+                        .filter(|&&id| id != controller)
+                        .copied()
+                        .collect();
+                    for opp in opponents {
+                        let hand: Vec<ObjectId> = self.state.players.get(&opp)
+                            .map(|p| p.hand.iter().copied().collect())
+                            .unwrap_or_default();
+                        let view = crate::decision::GameView::placeholder();
+                        let to_discard = if let Some(dm) = self.decision_makers.get_mut(&opp) {
+                            dm.choose_discard(&view, &hand, *count as usize)
+                        } else {
+                            hand.iter().rev().take(*count as usize).copied().collect()
+                        };
+                        for card_id in to_discard {
+                            if let Some(player) = self.state.players.get_mut(&opp) {
+                                player.hand.remove(card_id);
+                            }
+                            self.move_card_to_graveyard_inner(card_id, opp);
+                        }
                     }
                 }
                 Effect::Mill { count } => {
@@ -1276,7 +1350,13 @@ impl Game {
                 }
                 Effect::RemoveCounters { counter_type, count } => {
                     let ct = crate::counters::CounterType::from_name(counter_type);
-                    for &target_id in targets {
+                    // If no targets, fall back to source (self-targeting counters)
+                    let effective_targets: Vec<ObjectId> = if targets.is_empty() {
+                        source.into_iter().collect()
+                    } else {
+                        targets.to_vec()
+                    };
+                    for target_id in effective_targets {
                         if let Some(perm) = self.state.battlefield.get_mut(target_id) {
                             perm.counters.remove(&ct, *count);
                         }
@@ -1354,6 +1434,101 @@ impl Game {
                             if let Some(perm) = self.state.battlefield.get_mut(target_id) {
                                 perm.removed_keywords |= kw;
                             }
+                        }
+                    }
+                }
+                Effect::BoostAllUntilEndOfTurn { filter, power, toughness: _ } => {
+                    // Give all matching creatures controlled by the effect's controller +N/+M until EOT
+                    let you_control = filter.to_lowercase().contains("you control");
+                    let matching: Vec<ObjectId> = self.state.battlefield.iter()
+                        .filter(|p| p.is_creature()
+                            && (!you_control || p.controller == controller)
+                            && Self::matches_filter(p, filter))
+                        .map(|p| p.id())
+                        .collect();
+                    for id in matching {
+                        if let Some(perm) = self.state.battlefield.get_mut(id) {
+                            if *power > 0 {
+                                perm.add_counters(CounterType::P1P1, *power as u32);
+                            } else if *power < 0 {
+                                perm.add_counters(CounterType::M1M1, (-*power) as u32);
+                            }
+                        }
+                    }
+                }
+                Effect::GrantKeywordAllUntilEndOfTurn { filter, keyword } => {
+                    // Grant keyword to all matching creatures controlled by the effect's controller until EOT
+                    if let Some(kw) = crate::constants::KeywordAbilities::keyword_from_name(keyword) {
+                        let you_control = filter.to_lowercase().contains("you control");
+                        let matching: Vec<ObjectId> = self.state.battlefield.iter()
+                            .filter(|p| p.is_creature()
+                                && (!you_control || p.controller == controller)
+                                && Self::matches_filter(p, filter))
+                            .map(|p| p.id())
+                            .collect();
+                        for id in matching {
+                            if let Some(perm) = self.state.battlefield.get_mut(id) {
+                                perm.granted_keywords |= kw;
+                            }
+                        }
+                    }
+                }
+                Effect::Fight => {
+                    // Fight: two creatures deal damage equal to their power to each other.
+                    //
+                    // Target resolution (matches Java FightTargetsEffect):
+                    //   - If targets has 2+ entries: targets[0] = your creature, targets[1] = opponent's
+                    //   - If targets has 1 entry + source is creature: source fights targets[0]
+                    //   - Fallback: auto-select strongest on each side
+                    let (fighter_id, target_id) = Self::resolve_fight_pair(
+                        &self.state, targets, source, controller,
+                    );
+
+                    if let (Some(fid), Some(tid)) = (fighter_id, target_id) {
+                        if fid != tid {
+                            let fighter_power = self.state.battlefield.get(fid)
+                                .map(|p| p.power().max(0) as u32).unwrap_or(0);
+                            let target_power = self.state.battlefield.get(tid)
+                                .map(|p| p.power().max(0) as u32).unwrap_or(0);
+                            if let Some(target_perm) = self.state.battlefield.get_mut(tid) {
+                                target_perm.apply_damage(fighter_power);
+                            }
+                            if let Some(fighter_perm) = self.state.battlefield.get_mut(fid) {
+                                fighter_perm.apply_damage(target_power);
+                            }
+                        }
+                    }
+                }
+                Effect::Bite => {
+                    // Bite: source creature deals damage equal to its power to target
+                    // creature (one-way; the target does not deal damage back).
+                    // Same target resolution as Fight.
+                    let (biter_id, target_id) = Self::resolve_fight_pair(
+                        &self.state, targets, source, controller,
+                    );
+
+                    if let (Some(bid), Some(tid)) = (biter_id, target_id) {
+                        if bid != tid {
+                            let biter_power = self.state.battlefield.get(bid)
+                                .map(|p| p.power().max(0) as u32).unwrap_or(0);
+                            if let Some(target_perm) = self.state.battlefield.get_mut(tid) {
+                                target_perm.apply_damage(biter_power);
+                            }
+                        }
+                    }
+                }
+                Effect::AddCountersAll { counter_type, count, filter } => {
+                    let ct = crate::counters::CounterType::from_name(counter_type);
+                    let you_control = filter.to_lowercase().contains("you control");
+                    let matching: Vec<ObjectId> = self.state.battlefield.iter()
+                        .filter(|p| p.is_creature()
+                            && (!you_control || p.controller == controller)
+                            && Self::matches_filter(p, filter))
+                        .map(|p| p.id())
+                        .collect();
+                    for id in matching {
+                        if let Some(perm) = self.state.battlefield.get_mut(id) {
+                            perm.add_counters(ct.clone(), *count);
                         }
                     }
                 }
@@ -1505,6 +1680,200 @@ impl Game {
             }
         }
         false
+    }
+
+    /// Select targets for a spell/ability based on its TargetSpec.
+    ///
+    /// Builds the list of legal targets for the spec, asks the decision maker
+    /// to choose, and returns the selected ObjectIds. For `Pair` specs, the
+    /// first target comes from `first` and the second from `second`.
+    fn select_targets_for_spec(
+        &mut self,
+        spec: &crate::abilities::TargetSpec,
+        controller: PlayerId,
+    ) -> Vec<ObjectId> {
+        use crate::abilities::TargetSpec;
+
+        match spec {
+            TargetSpec::None => vec![],
+            TargetSpec::Pair { first, second } => {
+                let mut result = Vec::new();
+                let first_targets = self.select_targets_for_spec(first, controller);
+                result.extend(&first_targets);
+                let second_targets = self.select_targets_for_spec(second, controller);
+                result.extend(&second_targets);
+                result
+            }
+            _ => {
+                let legal = self.legal_targets_for_spec(spec, controller);
+                if legal.is_empty() {
+                    return vec![];
+                }
+                let requirement = crate::decision::TargetRequirement {
+                    description: Self::target_spec_description(spec),
+                    legal_targets: legal,
+                    min_targets: 1,
+                    max_targets: 1,
+                    required: true,
+                };
+                let outcome = Self::target_spec_outcome(spec);
+                let view = crate::decision::GameView::placeholder();
+                let chosen = if let Some(dm) = self.decision_makers.get_mut(&controller) {
+                    dm.choose_targets(&view, outcome, &requirement)
+                } else {
+                    // Fallback: pick the first legal target
+                    requirement.legal_targets.into_iter().take(1).collect()
+                };
+                // If decision maker returned empty, fall back to first legal target
+                if chosen.is_empty() {
+                    // Re-build legal targets since requirement was moved
+                    let legal = self.legal_targets_for_spec(spec, controller);
+                    legal.into_iter().take(1).collect()
+                } else {
+                    chosen
+                }
+            }
+        }
+    }
+
+    /// Build the list of legal target ObjectIds for a given TargetSpec.
+    fn legal_targets_for_spec(
+        &self,
+        spec: &crate::abilities::TargetSpec,
+        controller: PlayerId,
+    ) -> Vec<ObjectId> {
+        use crate::abilities::TargetSpec;
+        match spec {
+            TargetSpec::Creature => self
+                .state
+                .battlefield
+                .iter()
+                .filter(|p| p.is_creature())
+                .map(|p| p.id())
+                .collect(),
+            TargetSpec::CreatureYouControl => self
+                .state
+                .battlefield
+                .iter()
+                .filter(|p| p.is_creature() && p.controller == controller)
+                .map(|p| p.id())
+                .collect(),
+            TargetSpec::OpponentCreature => self
+                .state
+                .battlefield
+                .iter()
+                .filter(|p| p.is_creature() && p.controller != controller)
+                .map(|p| p.id())
+                .collect(),
+            TargetSpec::CreatureOrPlayer => {
+                let mut targets: Vec<ObjectId> = self
+                    .state
+                    .battlefield
+                    .iter()
+                    .filter(|p| p.is_creature())
+                    .map(|p| p.id())
+                    .collect();
+                // Player targeting would need a different mechanism;
+                // for now, just return creature targets
+                targets.sort(); // deterministic ordering
+                targets
+            }
+            TargetSpec::Permanent => self
+                .state
+                .battlefield
+                .iter()
+                .map(|p| p.id())
+                .collect(),
+            TargetSpec::PermanentFiltered(filter) => self
+                .state
+                .battlefield
+                .iter()
+                .filter(|p| Self::matches_filter(p, filter))
+                .map(|p| p.id())
+                .collect(),
+            TargetSpec::Spell => self
+                .state
+                .stack
+                .iter()
+                .map(|item| item.id)
+                .collect(),
+            _ => vec![], // None, CardInGraveyard, Multiple, Custom, Pair — handled elsewhere
+        }
+    }
+
+    /// Human-readable description for a TargetSpec.
+    fn target_spec_description(spec: &crate::abilities::TargetSpec) -> String {
+        use crate::abilities::TargetSpec;
+        match spec {
+            TargetSpec::Creature => "target creature".into(),
+            TargetSpec::CreatureYouControl => "target creature you control".into(),
+            TargetSpec::OpponentCreature => "target creature you don't control".into(),
+            TargetSpec::CreatureOrPlayer => "target creature or player".into(),
+            TargetSpec::Permanent => "target permanent".into(),
+            TargetSpec::PermanentFiltered(f) => format!("target {}", f),
+            TargetSpec::Spell => "target spell".into(),
+            _ => "target".into(),
+        }
+    }
+
+    /// Determine the Outcome for a TargetSpec (used to inform AI target choice).
+    fn target_spec_outcome(spec: &crate::abilities::TargetSpec) -> crate::constants::Outcome {
+        use crate::abilities::TargetSpec;
+        use crate::constants::Outcome;
+        match spec {
+            TargetSpec::CreatureYouControl => Outcome::Benefit,
+            TargetSpec::OpponentCreature => Outcome::Removal,
+            _ => Outcome::Detriment, // Default: assume targeting opponents
+        }
+    }
+
+    /// Resolve the fighter/target pair for Fight/Bite effects.
+    ///
+    /// Mirrors Java's FightTargetsEffect: uses two explicit targets when
+    /// available (targets[0] = your creature, targets[1] = opponent's creature).
+    /// Falls back to source creature for ETB triggers, or auto-selects
+    /// strongest creatures as last resort.
+    fn resolve_fight_pair(
+        state: &GameState,
+        targets: &[ObjectId],
+        source: Option<ObjectId>,
+        controller: PlayerId,
+    ) -> (Option<ObjectId>, Option<ObjectId>) {
+        // Two explicit targets from TargetSpec::Pair selection:
+        // targets[0] = creature you control, targets[1] = creature opponent controls
+        if targets.len() >= 2 {
+            let t0 = state.battlefield.get(targets[0]).map(|_| targets[0]);
+            let t1 = state.battlefield.get(targets[1]).map(|_| targets[1]);
+            if t0.is_some() && t1.is_some() {
+                return (t0, t1);
+            }
+        }
+
+        // Single target + source creature (ETB triggers like Affectionate Indrik):
+        // source = the creature, targets[0] = opponent's creature
+        if targets.len() == 1 {
+            if let Some(sid) = source {
+                if state.battlefield.get(sid).map_or(false, |p| p.is_creature()) {
+                    let tid = state.battlefield.get(targets[0]).map(|_| targets[0]);
+                    return (Some(sid), tid);
+                }
+            }
+        }
+
+        // Fallback: auto-select strongest creatures on each side
+        let fighter = state
+            .battlefield
+            .iter()
+            .filter(|p| p.controller == controller && p.is_creature())
+            .max_by_key(|p| p.power())
+            .map(|p| p.id());
+        let target = state
+            .battlefield
+            .iter()
+            .filter(|p| p.controller != controller && p.is_creature())
+            .max_by_key(|p| p.power())
+            .map(|p| p.id());
+        (fighter, target)
     }
 
     /// Check if the game should end and return a result if so.
@@ -2064,7 +2433,7 @@ mod tests {
         let initial_library = game.state.players.get(&p1).unwrap().library.len();
 
         // Execute a draw 2 effect
-        game.execute_effects(&[Effect::DrawCards { count: 2 }], p1, &[]);
+        game.execute_effects(&[Effect::DrawCards { count: 2 }], p1, &[], None);
 
         let final_hand = game.state.players.get(&p1).unwrap().hand.len();
         let final_library = game.state.players.get(&p1).unwrap().library.len();
@@ -2094,8 +2463,36 @@ mod tests {
             ],
         );
 
-        game.execute_effects(&[Effect::GainLife { amount: 5 }], p1, &[]);
+        game.execute_effects(&[Effect::GainLife { amount: 5 }], p1, &[], None);
         assert_eq!(game.state.players.get(&p1).unwrap().life, 25);
+    }
+
+    #[test]
+    fn lose_life_opponents_effect() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+                PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+
+        let mut game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(AlwaysPassPlayer)),
+                (p2, Box::new(AlwaysPassPlayer)),
+            ],
+        );
+
+        game.execute_effects(&[Effect::lose_life_opponents(3)], p1, &[], None);
+        // Controller's life should be unchanged
+        assert_eq!(game.state.players.get(&p1).unwrap().life, 20);
+        // Opponent loses 3 life
+        assert_eq!(game.state.players.get(&p2).unwrap().life, 17);
     }
 
     #[test]
@@ -2129,7 +2526,7 @@ mod tests {
         game.state.battlefield.add(Permanent::new(bear, p2));
 
         // Exile it
-        game.execute_effects(&[Effect::Exile], p1, &[bear_id]);
+        game.execute_effects(&[Effect::Exile], p1, &[bear_id], None);
 
         assert!(!game.state.battlefield.contains(bear_id));
         assert!(game.state.exile.contains(bear_id));
@@ -2167,7 +2564,7 @@ mod tests {
         let initial_hand = game.state.players.get(&p2).unwrap().hand.len();
 
         // Bounce it
-        game.execute_effects(&[Effect::Bounce], p1, &[bear_id]);
+        game.execute_effects(&[Effect::Bounce], p1, &[bear_id], None);
 
         assert!(!game.state.battlefield.contains(bear_id));
         assert_eq!(game.state.players.get(&p2).unwrap().hand.len(), initial_hand + 1);
@@ -2218,5 +2615,478 @@ mod tests {
         // The card should be in the graveyard
         let player = game.state.players.get(&p1).unwrap();
         assert!(player.graveyard.contains(source_id));
+    }
+
+    #[test]
+    fn add_counters_self_when_no_targets() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+                PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+
+        let mut game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(AlwaysPassPlayer)),
+                (p2, Box::new(AlwaysPassPlayer)),
+            ],
+        );
+
+        // Add a creature to the battlefield
+        let source_id = ObjectId::new();
+        let mut card = CardData::new(source_id, p1, "Blight Creature");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(3);
+        card.toughness = Some(7);
+        card.keywords = KeywordAbilities::empty();
+        game.state.battlefield.add(Permanent::new(card, p1));
+
+        // Execute AddCounters with no targets but with source — should add to self
+        game.execute_effects(
+            &[Effect::add_counters("-1/-1", 2)],
+            p1,
+            &[],
+            Some(source_id),
+        );
+
+        let perm = game.state.battlefield.get(source_id).unwrap();
+        assert_eq!(perm.counters.get(&CounterType::M1M1), 2);
+
+        // Execute RemoveCounters with no targets but with source — should remove from self
+        game.execute_effects(
+            &[Effect::RemoveCounters { counter_type: "-1/-1".into(), count: 1 }],
+            p1,
+            &[],
+            Some(source_id),
+        );
+
+        let perm = game.state.battlefield.get(source_id).unwrap();
+        assert_eq!(perm.counters.get(&CounterType::M1M1), 1);
+    }
+
+    #[test]
+    fn add_counters_self_with_separate_target() {
+        // Compound effect: AddCountersSelf puts -1/-1 on source while
+        // GainKeywordUntilEndOfTurn gives haste to a different target.
+        // Models Warren Torchmaster: blight self + target creature gains haste.
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+                PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+
+        let mut game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(AlwaysPassPlayer)),
+                (p2, Box::new(AlwaysPassPlayer)),
+            ],
+        );
+
+        // Source creature (Warren Torchmaster analog)
+        let source_id = ObjectId::new();
+        let mut card = CardData::new(source_id, p1, "Torchmaster");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(2);
+        card.toughness = Some(2);
+        card.keywords = KeywordAbilities::empty();
+        game.state.battlefield.add(Permanent::new(card, p1));
+
+        // Target creature (gets haste)
+        let target_id = ObjectId::new();
+        let mut card2 = CardData::new(target_id, p1, "Target Creature");
+        card2.card_types = vec![CardType::Creature];
+        card2.power = Some(3);
+        card2.toughness = Some(3);
+        card2.keywords = KeywordAbilities::empty();
+        game.state.battlefield.add(Permanent::new(card2, p1));
+
+        // Compound effect: blight self + grant haste to target
+        game.execute_effects(
+            &[Effect::add_counters_self("-1/-1", 1), Effect::gain_keyword_eot("haste")],
+            p1,
+            &[target_id],  // target creature
+            Some(source_id),  // source permanent
+        );
+
+        // Source should have -1/-1 counter (from AddCountersSelf)
+        let source_perm = game.state.battlefield.get(source_id).unwrap();
+        assert_eq!(source_perm.counters.get(&CounterType::M1M1), 1);
+        assert_eq!(source_perm.power(), 1); // 2 - 1
+        // Source should NOT have haste
+        assert!(!source_perm.granted_keywords.contains(KeywordAbilities::HASTE));
+
+        // Target should have haste (from GainKeywordUntilEndOfTurn)
+        let target_perm = game.state.battlefield.get(target_id).unwrap();
+        assert!(target_perm.granted_keywords.contains(KeywordAbilities::HASTE));
+        // Target should NOT have -1/-1 counter
+        assert_eq!(target_perm.counters.get(&CounterType::M1M1), 0);
+    }
+
+    /// A decision maker that actually discards when asked.
+    struct DiscardingPlayer;
+
+    impl PlayerDecisionMaker for DiscardingPlayer {
+        fn priority(&mut self, _game: &GameView<'_>, _legal: &[PlayerAction]) -> PlayerAction {
+            PlayerAction::Pass
+        }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, hand: &[ObjectId], count: usize) -> Vec<ObjectId> {
+            // Actually discard from the back of hand
+            hand.iter().rev().take(count).copied().collect()
+        }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    #[test]
+    fn discard_opponents_effect() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+                PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+
+        let mut game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(AlwaysPassPlayer)),
+                (p2, Box::new(DiscardingPlayer)),
+            ],
+        );
+
+        // Give opponent some cards in hand
+        let c1_id = ObjectId::new();
+        let c2_id = ObjectId::new();
+        let c3_id = ObjectId::new();
+        if let Some(player) = game.state.players.get_mut(&p2) {
+            player.hand.add(c1_id);
+            player.hand.add(c2_id);
+            player.hand.add(c3_id);
+        }
+
+        let p1_hand_before = game.state.players.get(&p1).unwrap().hand.len();
+        let p2_hand_before = game.state.players.get(&p2).unwrap().hand.len();
+        assert_eq!(p2_hand_before, 3);
+
+        // Each opponent discards 1
+        game.execute_effects(&[Effect::discard_opponents(1)], p1, &[], None);
+
+        // Controller's hand unchanged
+        assert_eq!(game.state.players.get(&p1).unwrap().hand.len(), p1_hand_before);
+        // Opponent lost 1 card
+        assert_eq!(game.state.players.get(&p2).unwrap().hand.len(), 2);
+    }
+
+    #[test]
+    fn boost_all_and_grant_keyword_all_until_eot() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+                PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+
+        let mut game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(AlwaysPassPlayer)),
+                (p2, Box::new(AlwaysPassPlayer)),
+            ],
+        );
+
+        // Put two creatures on P1's battlefield and one on P2's
+        let bear1 = make_creature("Grizzly Bears", p1, 2, 2);
+        let bear1_id = bear1.id;
+        let bear2 = make_creature("Runeclaw Bear", p1, 2, 2);
+        let bear2_id = bear2.id;
+        let opp_bear = make_creature("Opponent Bear", p2, 2, 2);
+        let opp_bear_id = opp_bear.id;
+
+        game.state.battlefield.add(Permanent::new(bear1, p1));
+        game.state.battlefield.add(Permanent::new(bear2, p1));
+        game.state.battlefield.add(Permanent::new(opp_bear, p2));
+
+        // Boost all creatures P1 controls +1/+1
+        game.execute_effects(
+            &[Effect::boost_all_eot("creatures you control", 1, 1)],
+            p1, &[], None,
+        );
+
+        // P1's creatures should be 3/x, opponent's should remain 2/x
+        assert_eq!(game.state.battlefield.get(bear1_id).unwrap().power(), 3);
+        assert_eq!(game.state.battlefield.get(bear2_id).unwrap().power(), 3);
+        assert_eq!(game.state.battlefield.get(opp_bear_id).unwrap().power(), 2);
+
+        // Grant trample to all creatures P1 controls
+        game.execute_effects(
+            &[Effect::grant_keyword_all_eot("creatures you control", "trample")],
+            p1, &[], None,
+        );
+
+        // P1's creatures should have trample, opponent's should not
+        assert!(game.state.battlefield.get(bear1_id).unwrap().has_keyword(KeywordAbilities::TRAMPLE));
+        assert!(game.state.battlefield.get(bear2_id).unwrap().has_keyword(KeywordAbilities::TRAMPLE));
+        assert!(!game.state.battlefield.get(opp_bear_id).unwrap().has_keyword(KeywordAbilities::TRAMPLE));
+    }
+
+    #[test]
+    fn fight_and_bite_effects() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+                PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+
+        let mut game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(AlwaysPassPlayer)),
+                (p2, Box::new(AlwaysPassPlayer)),
+            ],
+        );
+
+        // Set up: P1 has a 4/4, P2 has a 3/5
+        let fighter = make_creature("Fighter", p1, 4, 4);
+        let fighter_id = fighter.id;
+        let target = make_creature("Target", p2, 3, 5);
+        let target_id = target.id;
+
+        game.state.battlefield.add(Permanent::new(fighter, p1));
+        game.state.battlefield.add(Permanent::new(target, p2));
+
+        // Fight: mutual damage — fighter (4 power) vs target (3 power)
+        game.execute_effects(
+            &[Effect::fight()],
+            p1,
+            &[target_id],
+            Some(fighter_id),
+        );
+
+        // Fighter took 3 damage (from target's 3 power): 4 toughness - 3 = 1 remaining
+        let f = game.state.battlefield.get(fighter_id).unwrap();
+        assert_eq!(f.remaining_toughness(), 1);
+        // Target took 4 damage (from fighter's 4 power): 5 toughness - 4 = 1 remaining
+        let t = game.state.battlefield.get(target_id).unwrap();
+        assert_eq!(t.remaining_toughness(), 1);
+
+        // Clear damage for next test
+        game.state.battlefield.get_mut(fighter_id).unwrap().clear_damage();
+        game.state.battlefield.get_mut(target_id).unwrap().clear_damage();
+
+        // Bite: one-way damage — fighter deals 4 to target, target deals nothing back
+        game.execute_effects(
+            &[Effect::bite()],
+            p1,
+            &[target_id],
+            Some(fighter_id),
+        );
+
+        // Fighter should have no damage
+        let f = game.state.battlefield.get(fighter_id).unwrap();
+        assert_eq!(f.remaining_toughness(), 4);
+        // Target took 4 damage: 5 toughness - 4 = 1 remaining
+        let t = game.state.battlefield.get(target_id).unwrap();
+        assert_eq!(t.remaining_toughness(), 1);
+    }
+
+    #[test]
+    fn fight_auto_selects_creatures() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+                PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+
+        let mut game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(AlwaysPassPlayer)),
+                (p2, Box::new(AlwaysPassPlayer)),
+            ],
+        );
+
+        // P1 has a 2/2 and a 5/5; P2 has a 3/3
+        let small = make_creature("Small Bear", p1, 2, 2);
+        let big = make_creature("Big Bear", p1, 5, 5);
+        let big_id = big.id;
+        let opp = make_creature("Opponent Bear", p2, 3, 3);
+        let opp_id = opp.id;
+
+        game.state.battlefield.add(Permanent::new(small, p1));
+        game.state.battlefield.add(Permanent::new(big, p1));
+        game.state.battlefield.add(Permanent::new(opp, p2));
+
+        // Fight with no source, no targets — auto-selects strongest on each side
+        game.execute_effects(&[Effect::fight()], p1, &[], None);
+
+        // P1's 5/5 should fight P2's 3/3
+        // Big bear: 5 toughness - 3 damage = 2 remaining
+        let b = game.state.battlefield.get(big_id).unwrap();
+        assert_eq!(b.remaining_toughness(), 2);
+        // Opponent bear: 3 toughness - 5 damage = lethal
+        let o = game.state.battlefield.get(opp_id).unwrap();
+        assert!(o.has_lethal_damage());
+    }
+
+    #[test]
+    fn compound_bite_counters_only_on_your_creature() {
+        // Matches Java's Knockout Maneuver / Felling Blow pattern:
+        // AddCountersTargetEffect targets only target 0 (your creature),
+        // DamageWithPowerFromOneToAnotherTargetEffect uses both targets.
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+                PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+
+        let mut game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(AlwaysPassPlayer)),
+                (p2, Box::new(AlwaysPassPlayer)),
+            ],
+        );
+
+        // P1 has a 3/3, P2 has a 4/4
+        let my_creature = make_creature("My Creature", p1, 3, 3);
+        let my_id = my_creature.id;
+        let opp_creature = make_creature("Opp Creature", p2, 4, 4);
+        let opp_id = opp_creature.id;
+
+        game.state.battlefield.add(Permanent::new(my_creature, p1));
+        game.state.battlefield.add(Permanent::new(opp_creature, p2));
+
+        // Compound effect: +1/+1 counter then bite (like Knockout Maneuver)
+        // targets[0] = my creature, targets[1] = opponent creature
+        game.execute_effects(
+            &[Effect::add_p1p1_counters(1), Effect::bite()],
+            p1,
+            &[my_id, opp_id],
+            None,
+        );
+
+        // My creature should have the +1/+1 counter (3+1=4 power, 3+1=4 toughness)
+        let my = game.state.battlefield.get(my_id).unwrap();
+        assert_eq!(my.power(), 4, "My creature should have +1/+1 counter (4 power)");
+        assert_eq!(my.toughness(), 4, "My creature should have +1/+1 counter (4 toughness)");
+
+        // Opponent's creature should NOT have any counters
+        let opp = game.state.battlefield.get(opp_id).unwrap();
+        assert_eq!(opp.power(), 4, "Opponent creature should not have counters");
+
+        // Bite: my creature (now 4 power) deals 4 damage to opponent creature (4 toughness)
+        assert_eq!(opp.remaining_toughness(), 0, "Opponent took 4 damage from bite");
+        // My creature should have no damage (bite is one-way)
+        assert_eq!(my.remaining_toughness(), 4, "My creature took no damage from bite");
+    }
+
+    #[test]
+    fn add_counters_all_effect() {
+        let (p1, p2) = (PlayerId::new(), PlayerId::new());
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+                PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let mut game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(AlwaysPassPlayer)),
+                (p2, Box::new(AlwaysPassPlayer)),
+            ],
+        );
+
+        // Add creatures for both players
+        let c1 = ObjectId::new();
+        let mut card1 = CardData::new(c1, p1, "My Creature");
+        card1.card_types = vec![CardType::Creature];
+        card1.power = Some(3);
+        card1.toughness = Some(3);
+        game.state.battlefield.add(Permanent::new(card1, p1));
+
+        let c2 = ObjectId::new();
+        let mut card2 = CardData::new(c2, p2, "Opp Creature");
+        card2.card_types = vec![CardType::Creature];
+        card2.power = Some(2);
+        card2.toughness = Some(4);
+        game.state.battlefield.add(Permanent::new(card2, p2));
+
+        // AddCountersAll on "creatures" (no "you control") — hits both
+        game.execute_effects(
+            &[Effect::add_counters_all("-1/-1", 2, "creatures")],
+            p1,
+            &[],
+            None,
+        );
+
+        let p1c = game.state.battlefield.get(c1).unwrap();
+        assert_eq!(p1c.counters.get(&CounterType::M1M1), 2);
+        assert_eq!(p1c.power(), 1); // 3 - 2
+
+        let p2c = game.state.battlefield.get(c2).unwrap();
+        assert_eq!(p2c.counters.get(&CounterType::M1M1), 2);
+        assert_eq!(p2c.power(), 0); // 2 - 2
+
+        // AddCountersAll on "creatures you control" — hits only controller's
+        game.execute_effects(
+            &[Effect::add_counters_all("+1/+1", 1, "creatures you control")],
+            p1,
+            &[],
+            None,
+        );
+
+        let p1c = game.state.battlefield.get(c1).unwrap();
+        assert_eq!(p1c.counters.get(&CounterType::P1P1), 1);
+
+        let p2c = game.state.battlefield.get(c2).unwrap();
+        assert_eq!(p2c.counters.get(&CounterType::P1P1), 0); // unchanged
     }
 }
