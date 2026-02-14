@@ -4,7 +4,7 @@ Ordered by topological sort of the dependency graph. Engine capabilities are
 scheduled greedily: each step picks the capability that unlocks the most new
 cards. Multi-dependency cards appear under their last-needed capability.
 
-**159 cards complete** | **108 cards remaining** across **21 engine capabilities**
+**165 cards complete** | **102 cards remaining** across **21 engine capabilities**
 
 ## 1. Conditional/Dynamic Effects (COND)
 
@@ -147,20 +147,20 @@ cards. Multi-dependency cards appear under their last-needed capability.
 **Effort:** Medium | **Cards unlocked:** 9 | **Running total:** 96/181
 > Choose-type + conditional application, Convoke
 
-- [ ] **Implement Creature Type Choice engine support**
+- [x] **Implement Creature Type Choice engine support** — Added `Effect::ChooseCreatureType { restricted }` + `ChooseTypeAndDrawPerPermanent` variants with match arms. Stores chosen type on permanent's `chosen_type` field via `choose_option()`. 3 tests added.
 
 ### Single-dependency cards (5)
 
-- [ ] Chronicle of Victory
-- [ ] Collective Inferno
-- [ ] Dawn-Blessed Pennant
-- [ ] Eclipsed Realms
-- [ ] Harmonized Crescendo — Convoke, choose creature type, draw cards equal to permanents of that type
+- [x] Chronicle of Victory — choose_creature_type() typed, statics as annotation, SpellCast draw typed
+- [x] Collective Inferno — choose_creature_type() typed, Convoke keyword, damage doubling is Custom
+- [x] Dawn-Blessed Pennant — choose_creature_type_restricted() (8 ECL types), ETB gain_life typed, activated return_from_graveyard typed
+- [x] Eclipsed Realms — choose_creature_type_restricted() ETB, mana abilities typed (conditional spending not enforced)
+- [x] Harmonized Crescendo — choose_type_and_draw_per_permanent() fully typed, Convoke keyword
 
 ### Multi-dependency cards (4) — now fully unblocked
 
 - [ ] Bloodline Bidding _COND + TYPE_ — Convoke, choose creature type, return all creatures of type from GY to battlefield
-- [ ] Gathering Stone _CHOICE + TYPE_ — Choose creature type, cost reduction for chosen type, look at top card + conditional reveal
+- [x] Gathering Stone _CHOICE + TYPE_ — choose_creature_type() typed, CostReduction static, look-at-top is Custom
 - [ ] Selfless Safewright _COND + TYPE_ — Flash, Convoke, choose creature type, grant hexproof+indestructible until EOT
 - [ ] Winnowing _COND + TYPE_ — Convoke, for each player choose creature, sac others not sharing type
 

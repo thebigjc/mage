@@ -226,6 +226,14 @@ pub enum Effect {
         if_paid: Vec<Effect>,
         if_not_paid: Vec<Effect>,
     },
+    // -- Creature type choice --
+    /// "As this permanent enters, choose a creature type." Stores the
+    /// choice on the source permanent's `chosen_type` field.
+    /// `restricted` limits the available types (empty = any type).
+    ChooseCreatureType { restricted: Vec<String> },
+    /// "Choose a creature type. Draw a card for each permanent you control of that type."
+    ChooseTypeAndDrawPerPermanent,
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -895,6 +903,21 @@ impl Effect {
     /// "You may pay [cost]. If you do, [effects]. Otherwise, [else_effects]."
     pub fn do_if_cost_paid(cost: Cost, if_paid: Vec<Effect>, if_not_paid: Vec<Effect>) -> Self {
         Effect::DoIfCostPaid { cost, if_paid, if_not_paid }
+    }
+
+    /// "As this permanent enters, choose a creature type." (any type)
+    pub fn choose_creature_type() -> Self {
+        Effect::ChooseCreatureType { restricted: vec![] }
+    }
+
+    /// "As this permanent enters, choose [list of types]."
+    pub fn choose_creature_type_restricted(types: Vec<&str>) -> Self {
+        Effect::ChooseCreatureType { restricted: types.into_iter().map(|s| s.to_string()).collect() }
+    }
+
+    /// "Choose a creature type. Draw a card for each permanent you control of that type."
+    pub fn choose_type_and_draw_per_permanent() -> Self {
+        Effect::ChooseTypeAndDrawPerPermanent
     }
 }
 

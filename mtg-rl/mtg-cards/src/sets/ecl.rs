@@ -2335,7 +2335,7 @@ fn chronicle_of_victory(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "As Chronicle of Victory enters, choose a creature type.",
-                vec![Effect::Custom("Choose a creature type.".into())],
+                vec![Effect::choose_creature_type()],
                 TargetSpec::None),
             Ability::static_ability(id,
                 "Creatures you control of the chosen type get +2/+2 and have first strike and trample.",
@@ -2360,7 +2360,7 @@ fn collective_inferno(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "As this enchantment enters, choose a creature type.",
-                vec![Effect::Custom("Choose a creature type.".into())],
+                vec![Effect::choose_creature_type()],
                 TargetSpec::None),
             Ability::static_ability(id,
                 "Double all damage that sources you control of the chosen type would deal.",
@@ -2394,7 +2394,7 @@ fn dawn_blessed_pennant(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "As this artifact enters, choose Elemental, Elf, Faerie, Giant, Goblin, Kithkin, Merfolk, or Treefolk.",
-                vec![Effect::Custom("Choose a creature type.".into())],
+                vec![Effect::choose_creature_type_restricted(vec!["Elemental", "Elf", "Faerie", "Giant", "Goblin", "Kithkin", "Merfolk", "Treefolk"])],
                 TargetSpec::None),
             Ability::triggered(id,
                 "Whenever a permanent you control of the chosen type enters, you gain 1 life.",
@@ -2522,9 +2522,10 @@ fn eclipsed_realms(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Eclipsed Realms".into(),
         card_types: vec![CardType::Land], rarity: Rarity::Rare,
         abilities: vec![
-            Ability::static_ability(id,
+            Ability::enters_battlefield_triggered(id,
                 "As this land enters, choose Elemental, Elf, Faerie, Giant, Goblin, Kithkin, Merfolk, or Treefolk.",
-                vec![StaticEffect::Custom("Choose a creature type on ETB.".into())]),
+                vec![Effect::choose_creature_type_restricted(vec!["Elemental", "Elf", "Faerie", "Giant", "Goblin", "Kithkin", "Merfolk", "Treefolk"])],
+                TargetSpec::None),
             Ability::mana_ability(id, "{T}: Add {C}.", Mana::colorless(1)),
             Ability::mana_ability(id, "{T}: Add one mana of any color. Spend this mana only to cast a spell of the chosen type.", Mana::colorless(1)),
         ],
@@ -2706,12 +2707,17 @@ fn gathering_stone(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Uncommon,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
-                    "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
-                    TargetSpec::None),
+                "As Gathering Stone enters, choose a creature type.",
+                vec![Effect::choose_creature_type()],
+                TargetSpec::None),
             Ability::static_ability(id,
-                    "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                "Spells you cast of the chosen type cost {1} less to cast.",
+                vec![StaticEffect::CostReduction { filter: "spells of chosen type".into(), amount: 1 }]),
+            Ability::triggered(id,
+                "When this artifact enters and at the beginning of your upkeep, look at the top card of your library. If it's a card of the chosen type, you may reveal it and put it into your hand.",
+                vec![EventType::EnteredTheBattlefield, EventType::UpkeepStep],
+                vec![Effect::Custom("Look at top card, reveal if chosen type, may put to hand or graveyard.".into())],
+                TargetSpec::None),
         ],
         ..Default::default() }
 }
@@ -2878,7 +2884,7 @@ fn harmonized_crescendo(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Rare,
         abilities: vec![
             Ability::spell(id,
-                    vec![Effect::Custom("Spell effect.".into())],
+                    vec![Effect::choose_type_and_draw_per_permanent()],
                     TargetSpec::None),
         ],
         ..Default::default() }

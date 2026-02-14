@@ -1861,6 +1861,74 @@ impl Game {
                         self.execute_effects(if_not_paid, controller, targets, source);
                     }
                 }
+                Effect::ChooseCreatureType { restricted } => {
+                    // Build list of creature type options
+                    let options: Vec<crate::decision::NamedChoice> = if restricted.is_empty() {
+                        // Default ECL types when unrestricted
+                        vec!["Elemental", "Elf", "Faerie", "Giant", "Goblin", "Kithkin", "Merfolk", "Treefolk",
+                             "Human", "Warrior", "Wizard", "Rogue", "Cleric", "Shaman", "Soldier", "Knight"]
+                            .into_iter().enumerate()
+                            .map(|(i, s)| crate::decision::NamedChoice { index: i, description: s.to_string() })
+                            .collect()
+                    } else {
+                        restricted.iter().enumerate()
+                            .map(|(i, s)| crate::decision::NamedChoice { index: i, description: s.clone() })
+                            .collect()
+                    };
+                    let view = crate::decision::GameView::placeholder();
+                    let choice_idx = if let Some(dm) = self.decision_makers.get_mut(&controller) {
+                        dm.choose_option(&view, crate::constants::Outcome::Benefit, "Choose a creature type", &options)
+                    } else {
+                        0
+                    };
+                    if let Some(chosen) = options.get(choice_idx) {
+                        let subtype = crate::constants::SubType::Custom(chosen.description.clone().into());
+                        if let Some(source_id) = source {
+                            if let Some(perm) = self.state.battlefield.get_mut(source_id) {
+                                perm.chosen_type = Some(subtype);
+                            }
+                        }
+                    }
+                }
+                Effect::ChooseTypeAndDrawPerPermanent => {
+                    // Choose a creature type, then draw cards equal to permanents of that type
+                    let options: Vec<crate::decision::NamedChoice> =
+                        vec!["Elemental", "Elf", "Faerie", "Giant", "Goblin", "Kithkin", "Merfolk", "Treefolk",
+                             "Human", "Warrior", "Wizard", "Rogue", "Cleric", "Shaman", "Soldier", "Knight"]
+                            .into_iter().enumerate()
+                            .map(|(i, s)| crate::decision::NamedChoice { index: i, description: s.to_string() })
+                            .collect();
+                    let view = crate::decision::GameView::placeholder();
+                    let choice_idx = if let Some(dm) = self.decision_makers.get_mut(&controller) {
+                        dm.choose_option(&view, crate::constants::Outcome::Benefit, "Choose a creature type", &options)
+                    } else {
+                        0
+                    };
+                    if let Some(chosen) = options.get(choice_idx) {
+                        let type_name = &chosen.description;
+                        let count = self.state.battlefield.controlled_by(controller)
+                            .filter(|p| {
+                                p.card.subtypes.iter().any(|st| {
+                                    match st {
+                                        crate::constants::SubType::Custom(s) => s == type_name,
+                                        other => format!("{:?}", other) == *type_name,
+                                    }
+                                })
+                            })
+                            .count();
+                        if count > 0 {
+                            if let Some(player) = self.state.players.get_mut(&controller) {
+                                let drawn: Vec<_> = (0..count).filter_map(|_| player.library.draw()).collect();
+                                for card_id in &drawn {
+                                    player.hand.add(*card_id);
+                                }
+                                for card_id in drawn {
+                                    self.state.set_zone(card_id, crate::constants::Zone::Hand, Some(controller));
+                                }
+                            }
+                        }
+                    }
+                }
                 _ => {
                     // Remaining effects not yet implemented (protection, etc.)
                 }
@@ -4195,5 +4263,145 @@ mod choice_tests {
         // NeverPayPlayer says no, so blight 2 happens
         assert_eq!(game.state.players[&p1].life, 20); // no life paid
         assert_eq!(game.state.battlefield.get(src_id).unwrap().counters.get(&CounterType::M1M1), 2);
+    }
+}
+
+
+
+#[cfg(test)]
+mod type_choice_tests {
+    use super::*;
+    use crate::abilities::Effect;
+    use crate::card::CardData;
+    use crate::constants::{CardType, Outcome, SubType};
+    use crate::decision::*;
+    use crate::game::{GameConfig, PlayerConfig};
+    use crate::permanent::Permanent;
+    use crate::types::{ObjectId, PlayerId};
+
+    /// Decision maker that picks a given index for choose_option.
+    struct OptionPicker(usize);
+
+    impl PlayerDecisionMaker for OptionPicker {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction {
+            PlayerAction::Pass
+        }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize {
+            self.0
+        }
+    }
+
+    fn make_deck(owner: PlayerId) -> Vec<CardData> {
+        (0..20).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), owner, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect()
+    }
+
+    fn setup_game_with_picker(pick_index: usize) -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(OptionPicker(pick_index))),
+                (p2, Box::new(OptionPicker(0))),
+            ],
+        );
+        (game, p1, p2)
+    }
+
+    #[test]
+    fn choose_creature_type_stores_on_permanent() {
+        let (mut game, p1, _p2) = setup_game_with_picker(0); // picks first = "Elemental"
+
+        let src_id = ObjectId::new();
+        let mut card = CardData::new(src_id, p1, "Chronicle of Victory");
+        card.card_types = vec![CardType::Artifact];
+        game.state.battlefield.add(Permanent::new(card, p1));
+
+        let effects = vec![Effect::choose_creature_type_restricted(
+            vec!["Elemental", "Elf", "Faerie"]
+        )];
+        game.execute_effects(&effects, p1, &[], Some(src_id));
+
+        let perm = game.state.battlefield.get(src_id).unwrap();
+        assert!(perm.chosen_type.is_some());
+        match &perm.chosen_type {
+            Some(SubType::Custom(s)) => assert_eq!(s.as_str(), "Elemental"),
+            other => panic!("Expected SubType::Custom(\"Elemental\"), got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn choose_creature_type_picks_second_option() {
+        let (mut game, p1, _p2) = setup_game_with_picker(1); // picks second = "Elf"
+
+        let src_id = ObjectId::new();
+        let mut card = CardData::new(src_id, p1, "Test Permanent");
+        card.card_types = vec![CardType::Artifact];
+        game.state.battlefield.add(Permanent::new(card, p1));
+
+        let effects = vec![Effect::choose_creature_type_restricted(
+            vec!["Goblin", "Elf", "Merfolk"]
+        )];
+        game.execute_effects(&effects, p1, &[], Some(src_id));
+
+        let perm = game.state.battlefield.get(src_id).unwrap();
+        match &perm.chosen_type {
+            Some(SubType::Custom(s)) => assert_eq!(s.as_str(), "Elf"),
+            other => panic!("Expected SubType::Custom(\"Elf\"), got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn choose_type_and_draw_per_permanent() {
+        // Pick index 4 = "Goblin" from the default list
+        let (mut game, p1, _p2) = setup_game_with_picker(4);
+
+        // Place 3 Goblins and 1 Elf on battlefield
+        for i in 0..3 {
+            let cid = ObjectId::new();
+            let mut card = CardData::new(cid, p1, &format!("Goblin #{}", i));
+            card.card_types = vec![CardType::Creature];
+            card.subtypes = vec![SubType::Custom("Goblin".into())];
+            game.state.battlefield.add(Permanent::new(card, p1));
+        }
+        {
+            let cid = ObjectId::new();
+            let mut card = CardData::new(cid, p1, "Some Elf");
+            card.card_types = vec![CardType::Creature];
+            card.subtypes = vec![SubType::Elf];
+            game.state.battlefield.add(Permanent::new(card, p1));
+        }
+
+        let hand_before = game.state.players[&p1].hand.len();
+        let effects = vec![Effect::choose_type_and_draw_per_permanent()];
+        game.execute_effects(&effects, p1, &[], None);
+
+        // Should have drawn 3 cards (3 Goblins)
+        let hand_after = game.state.players[&p1].hand.len();
+        assert_eq!(hand_after - hand_before, 3);
     }
 }

@@ -42,6 +42,8 @@ pub struct Permanent {
     /// Original controller before a temporary control change (GainControlUntilEndOfTurn).
     /// Set when control is temporarily changed; reverted at cleanup step.
     pub original_controller: Option<PlayerId>,
+    /// Creature type chosen via "As ~ enters, choose a creature type" effects.
+    pub chosen_type: Option<SubType>,
 }
 
 impl Permanent {
@@ -62,6 +64,7 @@ impl Permanent {
             granted_keywords: KeywordAbilities::empty(),
             removed_keywords: KeywordAbilities::empty(),
             original_controller: None,
+            chosen_type: None,
             card,
         }
     }
