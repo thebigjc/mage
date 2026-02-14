@@ -2853,16 +2853,27 @@ fn harmonized_crescendo(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [COND] Can't be countered, Ward-pay 2 life, spells can't be countered static, grant ward to others
 fn hexing_squelcher(id: ObjectId, owner: PlayerId) -> CardData {
+    // {1}{R} 2/2 Goblin Sorcerer. Can't be countered. Ward-pay 2 life. Spells can't be countered. Others have ward.
     CardData { id, owner, name: "Hexing Squelcher".into(),
         mana_cost: ManaCost::parse("{1}{R}"),
         card_types: vec![CardType::Creature],
         subtypes: vec![SubType::Goblin, SubType::Sorcerer],
         power: Some(2), toughness: Some(2),
         rarity: Rarity::Rare,
+        keywords: KeywordAbilities::WARD,
         abilities: vec![
             Ability::static_ability(id,
-                    "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                "This spell can't be countered.",
+                vec![StaticEffect::Custom("This spell can't be countered.".into())]),
+            Ability::static_ability(id,
+                "Ward--Pay 2 life.",
+                vec![StaticEffect::Ward { cost: "Pay 2 life".into() }]),
+            Ability::static_ability(id,
+                "Spells you control can't be countered.",
+                vec![StaticEffect::Custom("Spells you control can't be countered.".into())]),
+            Ability::static_ability(id,
+                "Other creatures you control have ward--pay 2 life.",
+                vec![StaticEffect::GrantKeyword { filter: "other creature you control".into(), keyword: "ward".into() }]),
         ],
         ..Default::default() }
 }
@@ -2881,6 +2892,7 @@ fn high_perfect_morcant(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [COND] Conditional flash (if you control Faerie), hexproof while untapped
 fn illusion_spinners(id: ObjectId, owner: PlayerId) -> CardData {
+    // {4}{U} 4/3 Faerie Wizard. Flash if you control Faerie. Flying. Hexproof while untapped.
     CardData { id, owner, name: "Illusion Spinners".into(),
         mana_cost: ManaCost::parse("{4}{U}"),
         card_types: vec![CardType::Creature],
@@ -2890,8 +2902,11 @@ fn illusion_spinners(id: ObjectId, owner: PlayerId) -> CardData {
         keywords: KeywordAbilities::FLYING | KeywordAbilities::HEXPROOF,
         abilities: vec![
             Ability::static_ability(id,
-                    "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                "You may cast this spell as though it had flash if you control a Faerie.",
+                vec![StaticEffect::Custom("Flash if you control a Faerie.".into())]),
+            Ability::static_ability(id,
+                "This creature has hexproof as long as it's untapped.",
+                vec![StaticEffect::Custom("Hexproof as long as untapped.".into())]),
         ],
         ..Default::default() }
 }
@@ -3020,22 +3035,23 @@ fn loch_mare(id: ObjectId, owner: PlayerId) -> CardData {
         ],
         ..Default::default() }
 }
-
+// ENGINE DEPS: [AURA] Convoke, enchant creature, ETB draw, +2/+2 and flying
 fn lofty_dreams(id: ObjectId, owner: PlayerId) -> CardData {
+    // Aura {3}{U}{U}. Convoke. ETB: draw a card. Enchanted creature gets +2/+2 and has flying.
     CardData { id, owner, name: "Lofty Dreams".into(),
         mana_cost: ManaCost::parse("{3}{U}{U}"),
         card_types: vec![CardType::Enchantment],
         subtypes: vec![SubType::Aura],
         rarity: Rarity::Uncommon,
-        keywords: KeywordAbilities::FLYING,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
-                    "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
-                    TargetSpec::Creature),
+                "When this Aura enters, draw a card.",
+                vec![Effect::draw_cards(1)],
+                TargetSpec::None),
             Ability::static_ability(id,
-                    "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                "Enchanted creature gets +2/+2 and has flying.",
+                vec![StaticEffect::Boost { filter: "enchanted creature".into(), power: 2, toughness: 2 },
+                     StaticEffect::GrantKeyword { filter: "enchanted creature".into(), keyword: "flying".into() }]),
         ],
         ..Default::default() }
 }
@@ -3141,16 +3157,21 @@ fn noggle_the_mind(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [COPY] Changeling, Convoke, enter as copy of creature with changeling (clone effect)
 fn omni_changeling(id: ObjectId, owner: PlayerId) -> CardData {
+    // {3}{U}{U} 0/0 Shapeshifter. Changeling. Convoke. Enter as copy of creature with changeling.
     CardData { id, owner, name: "Omni-Changeling".into(),
         mana_cost: ManaCost::parse("{3}{U}{U}"),
         card_types: vec![CardType::Creature],
         subtypes: vec![SubType::Shapeshifter],
         power: Some(0), toughness: Some(0),
         rarity: Rarity::Uncommon,
+        keywords: KeywordAbilities::CHANGELING,
         abilities: vec![
             Ability::static_ability(id,
-                    "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                "Convoke",
+                vec![StaticEffect::Custom("Convoke".into())]),
+            Ability::static_ability(id,
+                "You may have this creature enter as a copy of any creature on the battlefield, except it has changeling.",
+                vec![StaticEffect::Custom("Enter as copy of creature with changeling.".into())]),
         ],
         ..Default::default() }
 }
@@ -3486,8 +3507,9 @@ fn spry_and_mighty(id: ObjectId, owner: PlayerId) -> CardData {
         ],
         ..Default::default() }
 }
-
+// ENGINE DEPS: [EQUIP] ETB: Shapeshifter token with changeling. Equip {2}, equipped gets +1/+1 + all types.
 fn stalactite_dagger(id: ObjectId, owner: PlayerId) -> CardData {
+    // Artifact Equipment {2}. ETB: create 1/1 Shapeshifter with changeling. Equip: +1/+1 + all types.
     CardData { id, owner, name: "Stalactite Dagger".into(),
         mana_cost: ManaCost::parse("{2}"),
         card_types: vec![CardType::Artifact],
@@ -3495,12 +3517,17 @@ fn stalactite_dagger(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
-                    "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
-                    TargetSpec::None),
+                "When this Equipment enters, create a 1/1 colorless Shapeshifter creature token with changeling.",
+                vec![Effect::create_token("1/1 Shapeshifter with changeling", 1)],
+                TargetSpec::None),
             Ability::static_ability(id,
-                    "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                "Equipped creature gets +1/+1 and is all creature types.",
+                vec![StaticEffect::Boost { filter: "equipped creature".into(), power: 1, toughness: 1 }]),
+            Ability::activated(id,
+                "Equip {2}",
+                vec![Cost::pay_mana("{2}")],
+                vec![Effect::Custom("Equip".into())],
+                TargetSpec::CreatureYouControl),
         ],
         ..Default::default() }
 }
@@ -3646,7 +3673,9 @@ fn trystans_command(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 // ENGINE DEPS: [COND+COPY] ETB surveil 2, creatures from GY entering then create token copy (once per turn)
+// ENGINE DEPS: [COND+COPY] ETB surveil 2 (approx scry), GY creature trigger creates token copy (once/turn)
 fn twilight_diviner(id: ObjectId, owner: PlayerId) -> CardData {
+    // {2}{B} 3/3 Elf Cleric. ETB: surveil 2. Creatures from GY entering create token copy (once/turn).
     CardData { id, owner, name: "Twilight Diviner".into(),
         mana_cost: ManaCost::parse("{2}{B}"),
         card_types: vec![CardType::Creature],
@@ -3655,15 +3684,21 @@ fn twilight_diviner(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Rare,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
-                    "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
-                    TargetSpec::Permanent),
+                "When this creature enters, surveil 2.",
+                vec![Effect::scry(2)],
+                TargetSpec::None),
+            Ability::triggered(id,
+                "Whenever one or more other creatures you control enter from a graveyard, create a token copy of one of them. This triggers only once each turn.",
+                vec![EventType::EnteredTheBattlefield],
+                vec![Effect::Custom("Create token copy of creature entering from graveyard (once per turn).".into())],
+                TargetSpec::None),
         ],
         ..Default::default() }
 }
 
 // ENGINE DEPS: [COND] Other Elemental triggered abilities trigger additional time (replacement effect)
 fn twinflame_travelers(id: ObjectId, owner: PlayerId) -> CardData {
+    // {2}{U}{R} 3/3 Elemental Sorcerer. Flying. Other Elementals' triggered abilities trigger additional time.
     CardData { id, owner, name: "Twinflame Travelers".into(),
         mana_cost: ManaCost::parse("{2}{U}{R}"),
         card_types: vec![CardType::Creature],
@@ -3673,8 +3708,8 @@ fn twinflame_travelers(id: ObjectId, owner: PlayerId) -> CardData {
         keywords: KeywordAbilities::FLYING,
         abilities: vec![
             Ability::static_ability(id,
-                    "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                "Whenever a triggered ability of another Elemental you control triggers, it triggers an additional time.",
+                vec![StaticEffect::Custom("Other Elementals' triggered abilities trigger an additional time.".into())]),
         ],
         ..Default::default() }
 }
@@ -3708,16 +3743,25 @@ fn unforgiving_aim(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [EVOKE+COND] Evoke, conditional ETB (if RR then 3 damage, if GG then search land + gain 2 life)
 fn vibrance(id: ObjectId, owner: PlayerId) -> CardData {
+    // {3}{R/G}{R/G} 4/4 Elemental Incarnation. Conditional ETBs + Evoke {R/G}{R/G}
     CardData { id, owner, name: "Vibrance".into(),
         mana_cost: ManaCost::parse("{3}{R/G}{R/G}"),
         card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Elemental, SubType::Custom("Incarnation".into())],
         power: Some(4), toughness: Some(4),
         rarity: Rarity::Mythic,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
-                    "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
-                    TargetSpec::None),
+                "When this enters, if {R}{R} was spent to cast it, deal 3 damage to any target.",
+                vec![Effect::deal_damage(3)],
+                TargetSpec::CreatureOrPlayer),
+            Ability::enters_battlefield_triggered(id,
+                "When this enters, if {G}{G} was spent, search your library for a land card, put it in hand. You gain 2 life.",
+                vec![Effect::search_library("land"), Effect::gain_life(2)],
+                TargetSpec::None),
+            Ability::spell(id,
+                vec![Effect::Custom("Evoke {R/G}{R/G}".into())],
+                TargetSpec::None),
         ],
         ..Default::default() }
 }
@@ -3757,6 +3801,7 @@ fn wary_farmer(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [VIVID] Vivid cost reduction, Reach, Trample
 fn wildvine_pummeler(id: ObjectId, owner: PlayerId) -> CardData {
+    // {6}{G} 6/5 Giant Berserker. Vivid cost reduction. Reach. Trample.
     CardData { id, owner, name: "Wildvine Pummeler".into(),
         mana_cost: ManaCost::parse("{6}{G}"),
         card_types: vec![CardType::Creature],
@@ -3766,8 +3811,8 @@ fn wildvine_pummeler(id: ObjectId, owner: PlayerId) -> CardData {
         keywords: KeywordAbilities::REACH | KeywordAbilities::TRAMPLE,
         abilities: vec![
             Ability::static_ability(id,
-                    "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                "Vivid -- This spell costs {1} less for each color among permanents you control.",
+                vec![StaticEffect::CostReduction { filter: "self".into(), amount: 1 }]),
         ],
         ..Default::default() }
 }
@@ -3788,6 +3833,7 @@ fn winnowing(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [EVOKE+COND] Evoke, conditional ETB (if GG exile artifact/enchantment, if UU draw 2 discard 1)
 fn wistfulness(id: ObjectId, owner: PlayerId) -> CardData {
+    // {3}{G/U}{G/U} 6/5 Elemental Incarnation. Conditional ETBs + Evoke {G/U}{G/U}
     CardData { id, owner, name: "Wistfulness".into(),
         mana_cost: ManaCost::parse("{3}{G/U}{G/U}"),
         card_types: vec![CardType::Creature],
@@ -3796,9 +3842,16 @@ fn wistfulness(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Mythic,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
-                    "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
-                    TargetSpec::Permanent),
+                "When this enters, if {G}{G} was spent, exile target artifact or enchantment an opponent controls.",
+                vec![Effect::exile()],
+                TargetSpec::Permanent),
+            Ability::enters_battlefield_triggered(id,
+                "When this enters, if {U}{U} was spent, draw two cards, then discard a card.",
+                vec![Effect::draw_cards(2), Effect::Custom("Discard a card.".into())],
+                TargetSpec::None),
+            Ability::spell(id,
+                vec![Effect::Custom("Evoke {G/U}{G/U}".into())],
+                TargetSpec::None),
         ],
         ..Default::default() }
 }
