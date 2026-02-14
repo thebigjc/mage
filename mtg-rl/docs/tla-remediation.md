@@ -1,11 +1,10 @@
 # TLA (Avatar: The Last Airbender) Card Remediation
 
 ## Overview
-- Total cards in Rust: 236 (231 unique non-basic-land cards + 5 basic lands)
-- Total unique non-basic cards in Java set: 231
-- Complete: 33
-- Partial: 34
-- Stub: 164
+- Total cards in Rust: 280 unique non-basic-land cards
+- Complete: 39
+- Partial: 22
+- Stub: 219
 - Missing: 0
 
 ## How to Fix Cards
@@ -134,6 +133,12 @@ These cards use ONLY typed Effect variants (or have no abilities beyond keywords
 - [x] **The Spirit Oasis** — ETB: `Effect::draw_cards(1)`
 - [x] **Tolls of War** — ETB: `Effect::create_token("Clue Artifact", 1)`
 - [x] **Treetop Freedom Fighters** — Haste, ETB: `Effect::create_token("Ally", 1)`
+- [x] **Airbender's Reversal** — Instant, Lesson. Spell `Effect::destroy()` targeting creature
+- [x] **Bumi Bash** — Sorcery. Spell `Effect::destroy()` targeting creature
+- [x] **Cat-Gator** — Lifelink keyword, ETB `Effect::deal_damage(1)`. Fully typed
+- [x] **Heartless Act** — Instant. Spell `Effect::destroy()` targeting creature
+- [x] **Iroh's Demonstration** — Sorcery, Lesson. Spell `Effect::deal_damage(4)`
+- [x] **Sandbenders' Storm** — Instant. Spell `Effect::destroy()` targeting creature
 
 ## Partial Cards
 
@@ -158,9 +163,6 @@ These cards have SOME typed effects but also use `Effect::Custom(...)`, `StaticE
   - **Java source**: `Mage.Sets/src/mage/cards/b/BadgermoleCub.java`
   - **What it should do**: ETB Earthbend 1.
   - **Fix needed**: Implement Earthbend effect variant
-
-- [ ] **Cat-Gator** — What works: lifelink keyword, ETB `Effect::deal_damage(1)`. What's broken: nothing — WAIT, this actually looks complete. Reclassifying...
-  - Actually COMPLETE. ETB deals 1 damage, has lifelink.
 
 - [ ] **Cat-Owl** — What works: flying keyword. What's broken: attack trigger `Effect::Custom("Attack trigger.")`
   - **Java source**: `Mage.Sets/src/mage/cards/c/CatOwl.java`
@@ -201,6 +203,11 @@ These cards have SOME typed effects but also use `Effect::Custom(...)`, `StaticE
   - **Java source**: `Mage.Sets/src/mage/cards/i/InvasionSubmersible.java`
   - **What it should do**: ETB put a +1/+1 counter on itself. Return target nonland permanent opponent controls to hand. Crew 2.
   - **Fix needed**: Separate self-targeting counter from opponent-targeting bounce; implement Crew
+
+- [ ] **Jeong Jeong, the Deserter** — Creature 2/3. Rust has no abilities beyond stats. Java has Firebending 1 + Exhaust ability (add +1/+1 counter, copy next Lesson spell).
+  - **Java source**: `Mage.Sets/src/mage/cards/j/JeongJeongTheDeserter.java`
+  - **What it should do**: Firebending 1. Exhaust -- {3}: Put a +1/+1 counter on Jeong Jeong. When you next cast a Lesson spell this turn, copy it and you may choose new targets for the copy.
+  - **Fix needed**: Add Firebending keyword; implement Exhaust ability; implement spell copy effect
 
 - [ ] **Jet, Freedom Fighter** — What works: ETB `Effect::add_p1p1_counters(1)` + `Effect::deal_damage(1)`. What's broken: dies `Effect::Custom("Dies effect.")`
   - **Java source**: `Mage.Sets/src/mage/cards/j/JetFreedomFighter.java`
@@ -777,9 +784,6 @@ These cards are either stat-only (vanilla with keywords at most) or have ALL abi
   - **What it should do**: Ascension mechanic — gains counters, unlocks abilities at threshold.
   - **Fix needed**: Implement Ascension counter system
 
-- [ ] **Airbender's Reversal** — Instant, Lesson. Spell `Effect::destroy()` works (destroys target creature).
-  - Actually this IS functional — the spell destroys a target creature. Reclassifying as COMPLETE.
-
 - [ ] **Airship Engine Room** — Land. Activated `Effect::Custom`.
   - **Java source**: `Mage.Sets/src/mage/cards/a/AirshipEngineRoom.java`
   - **What it should do**: Enters tapped. {T}: Add {R}. Activated for bonus.
@@ -844,9 +848,6 @@ These cards are either stat-only (vanilla with keywords at most) or have ALL abi
   - **Java source**: `Mage.Sets/src/mage/cards/b/BoilingRockRioter.java`
   - **What it should do**: Attack trigger + activated ability for card advantage.
   - **Fix needed**: Read Java source; implement typed effects
-
-- [ ] **Bumi Bash** — Sorcery. Spell `Effect::destroy()` targeting creature. COMPLETE.
-  - Reclassifying as COMPLETE.
 
 - [ ] **Bumi, King of Three Trials** — Creature 4/4. ETB `Effect::Custom`.
   - **Java source**: `Mage.Sets/src/mage/cards/b/BumiKingOfThreeTrials.java`
@@ -973,9 +974,6 @@ These cards are either stat-only (vanilla with keywords at most) or have ALL abi
   - **What it should do**: ETB gain control of target creature until end of turn, untap it, it gains haste.
   - **Fix needed**: Implement gain-control-until-EOT
 
-- [ ] **Heartless Act** — Instant. Spell `Effect::destroy()` targeting creature. COMPLETE.
-  - Reclassifying as COMPLETE.
-
 - [ ] **Honest Work** — Enchantment Aura. ETB + Static both Custom.
   - **Java source**: `Mage.Sets/src/mage/cards/h/HonestWork.java`
   - **What it should do**: Aura that taps enchanted creature and gives controller a benefit.
@@ -1000,9 +998,6 @@ These cards are either stat-only (vanilla with keywords at most) or have ALL abi
   - **Java source**: `Mage.Sets/src/mage/cards/i/IrohTeaMaster.java`
   - **What it should do**: ETB create Food token. Other abilities.
   - **Fix needed**: Replace Custom with `Effect::CreateToken` + add other abilities
-
-- [ ] **Iroh's Demonstration** — Sorcery, Lesson. Spell `Effect::deal_damage(4)`. COMPLETE.
-  - Reclassifying as COMPLETE.
 
 - [ ] **Jasmine Dragon Tea Shop** — Land. Activated `Effect::Custom`.
   - **Java source**: `Mage.Sets/src/mage/cards/j/JasmineDragonTeaShop.java`
@@ -1144,9 +1139,6 @@ These cards are either stat-only (vanilla with keywords at most) or have ALL abi
   - **What it should do**: When dies, exile target permanent.
   - **Fix needed**: Replace Custom with `Effect::Exile`
 
-- [ ] **Sandbenders' Storm** — Instant. Spell `Effect::destroy()` targeting creature. COMPLETE.
-  - Reclassifying as COMPLETE.
-
 - [ ] **Secret Tunnel** — Land Cave. Activated `Effect::Custom`.
   - **Java source**: `Mage.Sets/src/mage/cards/s/SecretTunnel.java`
   - **What it should do**: {T}: Add one mana of any color. Channel ability.
@@ -1216,6 +1208,11 @@ These cards are either stat-only (vanilla with keywords at most) or have ALL abi
   - **Java source**: `Mage.Sets/src/mage/cards/t/TheLionTurtle.java`
   - **What it should do**: Keywords work. ETB and static abilities for energy/mana.
   - **Fix needed**: Read Java source for full abilities
+
+- [ ] **The Mechanist, Aerial Artisan** — Creature 1/3 with Flying. Spell-cast trigger + Activated both `Effect::Custom`.
+  - **Java source**: `Mage.Sets/src/mage/cards/t/TheMechanistAerialArtisan.java`
+  - **What it should do**: Flying works. Whenever you cast a noncreature spell, create a Clue token. {T}: Until end of turn, target artifact token you control becomes a 3/1 Construct artifact creature with flying.
+  - **Fix needed**: Replace spell-cast trigger Custom with `Effect::CreateToken("Clue Artifact", 1)`; implement animate-artifact effect for activated ability
 
 - [ ] **The Unagi of Kyoshi Island** — Creature 5/5. Flash. No special abilities.
   - **Java source**: `Mage.Sets/src/mage/cards/t/TheUnagiOfKyoshiIsland.java`

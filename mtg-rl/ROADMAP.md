@@ -1,0 +1,172 @@
+# Roadmap
+
+This document describes implementation gaps in the mtg-rl engine and cards, organized by priority. Each engine feature lists how many cards it would unblock when implemented.
+
+## Engine Gaps
+
+### Effect Variants (game.rs `execute_effects()`)
+
+These `Effect` enum variants exist in `abilities.rs` but have no implementation in `execute_effects()` -- they fall through to `_ => {}` and silently do nothing at runtime.
+
+| Effect Variant | Description | Cards Blocked |
+|---------------|-------------|---------------|
+| `GainControl` | Gain control of target permanent | ~5 |
+| `GainControlUntilEndOfTurn` | Threaten/Act of Treason effects | ~5 |
+| `GainProtection` | Target gains protection from quality | ~5 |
+| `PreventCombatDamage` | Fog / damage prevention | ~5 |
+| `MustBlock` | Target creature must block | ~3 |
+| `SetLife` | Set a player's life total | ~2 |
+| `Custom(String)` | Catch-all for untyped effects | ~400+ |
+
+Note: `Custom(String)` is used when no typed variant exists. Each Custom needs to be individually replaced with a typed variant or a new variant added.
+
+### Missing Engine Systems
+
+These are features that require new engine architecture, not just new match arms:
+
+#### Equipment System
+- No attach/detach mechanics
+- Equipment stat bonuses not applied
+- Equip cost not evaluated
+- **Blocked cards:** Basilisk Collar, Swiftfoot Boots, Goldvein Pick, Fishing Pole, all Equipment (~15+ cards)
+
+#### Planeswalker System
+- Loyalty counters not tracked as a resource
+- Planeswalker abilities not resolved (loyalty cost/gain)
+- Planeswalker damage redirection not enforced
+- **Blocked cards:** Ajani, Chandra, Kaito, Liliana, Vivien, all planeswalkers (~10+ cards)
+
+#### Modal Spells
+- No mode selection framework
+- `choose_mode()` decision interface exists but is unused
+- **Blocked cards:** Abrade, Boros Charm, Slagstorm, Valorous Stance, Coordinated Maneuver, Frontline Rush, Sarkhan's Resolve, Seize Opportunity (~20+ cards)
+
+#### X-Cost Spells
+- No variable cost determination
+- X is not tracked or passed to effects
+- **Blocked cards:** Day of Black Sun, Spectral Denial (partially works), Genesis Wave, Finale of Revelation (~10+ cards)
+
+#### Fight/Bite Mechanic
+- No creature-vs-creature damage assignment outside combat
+- **Blocked cards:** Bite Down, Earth Rumble, Knockout Maneuver, Piercing Exhale, Dragonclaw Strike, Assert Perfection (~10+ cards)
+
+#### Token Stat Parsing
+- `CreateToken` always creates 1/1 tokens regardless of token_name
+- Tokens don't inherit keywords from their name (e.g. "4/4 Dragon with flying" creates a 1/1)
+- **Blocked cards:** Dragon Trainer, Mammoth Bellow, Teeming Dragonstorm, Zurgo's Vanguard, many token-creating cards (~30+ cards)
+
+#### Aura/Enchant System
+- Auras exist as permanents but don't attach to creatures
+- Static P/T boosts from Auras not applied
+- Keyword grants from Auras not applied
+- **Blocked cards:** Pacifism (partially works via CantAttack/CantBlock), Obsessive Pursuit, Eaten by Piranhas, Angelic Destiny (~10+ cards)
+
+#### Impulse Draw (Exile-and-Play)
+- "Exile top card, you may play it until end of [next] turn" has no implementation
+- **Blocked cards:** Equilibrium Adept, Kulrath Zealot, Sizzling Changeling, Burning Curiosity, Etali (~10+ cards)
+
+#### Spell Copy
+- No mechanism to copy spells on the stack
+- **Blocked cards:** Electroduplicate, Rite of Replication, Self-Reflection, Flamehold Grappler, Sage of the Skies (~8+ cards)
+
+#### Replacement Effects
+- `ReplacementEffect` struct exists in `effects.rs` but is not integrated into the event pipeline
+- Events are not interceptable before they resolve
+- **Blocked features:** "If a creature would die, exile it instead", "If you would gain life, gain that much +1", Doubling Season, damage prevention, Dryad Militant graveyard replacement
+
+#### Additional Combat Phases
+- No support for extra combat steps
+- **Blocked cards:** Aurelia the Warleader, All-Out Assault (~3 cards)
+
+#### "Behold" Mechanic (ECL-specific)
+- Reveal-and-exile-from-hand mechanic not implemented
+- Many ECL cards reference it as an alternative cost or condition
+- **Blocked cards:** Champion of the Weird, Champions of the Perfect, Molten Exhale, Osseous Exhale (~15+ cards)
+
+#### "Earthbend" Mechanic (TLA-specific)
+- "Look at top N, put a land to hand, rest on bottom" not implemented
+- **Blocked cards:** Badgermole, Badgermole Cub, Ostrich-Horse, Dai Li Agents, Earth Kingdom General, Earth Village Ruffians, many TLA cards (~20+ cards)
+
+#### "Vivid" Mechanic (ECL-specific)
+- "X = number of colors among permanents you control" calculation not implemented
+- **Blocked cards:** Explosive Prodigy, Glister Bairn, Luminollusk, Prismabasher, Shimmercreep, Shinestriker, Squawkroaster (~10+ cards)
+
+#### Delayed Triggers
+- "When this creature dies this turn, draw a card" style effects
+- No framework for registering one-shot triggered abilities
+- **Blocked cards:** Undying Malice, Fake Your Own Death, Desperate Measures, Scarblades Malice (~5+ cards)
+
+#### Conditional Cost Modifications
+- `CostReduction` static effect exists but may not apply correctly
+- No support for "second spell costs {1} less" or Affinity
+- **Blocked cards:** Highspire Bell-Ringer, Allies at Last, Ghalta Primal Hunger (~5+ cards)
+
+---
+
+## Phased Implementation Plan
+
+### Phase 1: High-Impact Engine Effects
+
+These unblock the most cards per effort invested.
+
+1. **Token stat parsing** -- Parse power/toughness/keywords from `token_name` string in `CreateToken`. Unblocks ~30 cards that already create tokens but with wrong stats.
+
+2. **Fix easy card-level bugs** -- Many cards use `Effect::Custom(...)` when a typed variant already exists. Examples:
+   - Phyrexian Arena: `Custom("You lose 1 life.")` -> `LoseLife { amount: 1 }`
+   - Pulse Tracker/Marauding Blight-Priest/Vampire Spawn: `Custom("Each opponent loses N life")` -> `DealDamageOpponents { amount: N }`
+   - Diregraf Ghoul: `StaticEffect::Custom("Enters tapped.")` -> `StaticEffect::EntersTapped`
+   - Incomplete dual lands: copy the Azorius Guildgate / Bloodfell Caves pattern
+   - Sourbread Auntie/Sting-Slinger/Blighted Blackthorn: self-counter Custom -> `AddCounters` targeting self
+
+3. **Fight mechanic** -- New `Effect::Fight` variant. Two creatures deal damage equal to their power to each other. Unblocks ~10 cards.
+
+### Phase 2: Key Missing Mechanics
+
+4. **Equipment system** -- Attach/detach, equip cost, stat/keyword application. Unblocks ~15 cards.
+
+5. **Modal spells** -- Mode selection in `PlayerDecisionMaker` trait, mode-conditional effect resolution. Unblocks ~20 cards.
+
+6. **Impulse draw** -- "Exile top N, may play until end of [next] turn." Track exiled-playable cards in game state. Unblocks ~10 cards.
+
+7. **Earthbend** (TLA-specific) -- "Look at top N, put a land to hand, rest on bottom." Unblocks ~20 TLA cards.
+
+### Phase 3: Advanced Systems
+
+8. **Replacement effects** -- Event interception pipeline. Required for damage prevention, death replacement, Doubling Season, "exile instead of dying."
+
+9. **X-cost spells** -- Variable cost determination + passing X to effects.
+
+10. **Aura attachment** -- Auras attach to targets, apply continuous effects while attached.
+
+11. **Spell copy** -- Clone spells on the stack with new targets.
+
+12. **Planeswalker system** -- Loyalty as a resource, planeswalker abilities, damage redirection.
+
+13. **Additional combat phases** -- Extra attack steps.
+
+### Phase 4: Set-Specific Mechanics
+
+14. **Behold** (ECL) -- Reveal-from-hand alternative cost/condition.
+15. **Vivid** (ECL) -- Color-count calculation for dynamic X values.
+16. **Learn** (TLA) -- May discard to draw keyword action.
+17. **Renew** (TDM) -- Counter-based death replacement.
+18. **Mobilize** (TDM) -- Create N 1/1 Soldier tokens. (Partially works via `CreateToken` already.)
+
+---
+
+## Per-Set Status
+
+Detailed per-card breakdowns with fix instructions are in `docs/`:
+
+| File | Set | Complete | Partial | Stub |
+|------|-----|----------|---------|------|
+| `docs/fdn-remediation.md` | Foundations | 95 | 126 | 267 |
+| `docs/tla-remediation.md` | Avatar: TLA | 39 | 22 | 219 |
+| `docs/tdm-remediation.md` | Tarkir: Dragonstorm | 97 | 115 | 59 |
+| `docs/ecl-remediation.md` | Lorwyn Eclipsed | 56 | 69 | 105 |
+
+Each remediation doc includes:
+- Full card-by-card audit with working vs broken effects
+- Java source file references for each card
+- Specific fix instructions per card
+- Priority remediation roadmap for that set

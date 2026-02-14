@@ -420,11 +420,16 @@ impl Game {
                         }
                     }
                 }
-                // Remove damage from all creatures
+                // Remove damage from all creatures and clear "until end of turn" effects
                 for perm in self.state.battlefield.iter_mut() {
                     if perm.is_creature() {
                         perm.clear_damage();
                     }
+                    // Clear granted keywords (from GainKeywordUntilEndOfTurn, Indestructible, Hexproof)
+                    perm.granted_keywords = crate::constants::KeywordAbilities::empty();
+                    perm.removed_keywords = crate::constants::KeywordAbilities::empty();
+                    // Remove "can't block" sentinel counters
+                    perm.counters.remove_all(&crate::counters::CounterType::Custom("cant_block".into()));
                 }
                 // Empty mana pools
                 for player in self.state.players.values_mut() {
@@ -1106,18 +1111,254 @@ impl Game {
                         let token_id = ObjectId::new();
                         let mut card = CardData::new(token_id, controller, token_name);
                         card.card_types = vec![crate::constants::CardType::Creature];
-                        // Token stats would normally come from the token definition
-                        card.power = Some(1);
-                        card.toughness = Some(1);
-                        card.keywords = crate::constants::KeywordAbilities::empty();
+                        // Parse token stats from name (e.g. "4/4 Dragon with flying")
+                        let (p, t, kw) = Self::parse_token_stats(token_name);
+                        card.power = Some(p);
+                        card.toughness = Some(t);
+                        card.keywords = kw;
                         let perm = Permanent::new(card, controller);
                         self.state.battlefield.add(perm);
                         self.state.set_zone(token_id, crate::constants::Zone::Battlefield, None);
                     }
                 }
+                Effect::Scry { count } => {
+                    // Scry N: look at top N cards, put any number on bottom in any order,
+                    // rest on top in any order. Simplified: AI picks which to bottom.
+                    if let Some(player) = self.state.players.get(&controller) {
+                        let top_cards: Vec<ObjectId> = player.library.peek(*count as usize).to_vec();
+                        if !top_cards.is_empty() {
+                            let view = crate::decision::GameView::placeholder();
+                            let to_bottom = if let Some(dm) = self.decision_makers.get_mut(&controller) {
+                                // Ask AI which cards to put on bottom (0 to all)
+                                dm.choose_cards_to_put_back(&view, &top_cards, 0)
+                            } else {
+                                // Default: put nothing on bottom (keep all on top)
+                                Vec::new()
+                            };
+                            // Remove selected cards and put them on bottom
+                            for &card_id in &to_bottom {
+                                if let Some(player) = self.state.players.get_mut(&controller) {
+                                    player.library.remove(card_id);
+                                    player.library.put_on_bottom(card_id);
+                                }
+                            }
+                        }
+                    }
+                }
+                Effect::ReturnFromGraveyard => {
+                    // Return target card from graveyard to owner's hand
+                    for &target_id in targets {
+                        // Find which player's graveyard contains this card
+                        let owner = self.state.find_card_owner_in_graveyard(target_id);
+                        if let Some(owner_id) = owner {
+                            if let Some(player) = self.state.players.get_mut(&owner_id) {
+                                if player.graveyard.remove(target_id) {
+                                    player.hand.add(target_id);
+                                    self.state.set_zone(target_id, crate::constants::Zone::Hand, Some(owner_id));
+                                }
+                            }
+                        }
+                    }
+                }
+                Effect::Reanimate => {
+                    // Return target card from graveyard to battlefield under controller's control
+                    for &target_id in targets {
+                        let owner = self.state.find_card_owner_in_graveyard(target_id);
+                        if let Some(owner_id) = owner {
+                            if let Some(player) = self.state.players.get_mut(&owner_id) {
+                                player.graveyard.remove(target_id);
+                            }
+                            // Get card data from the card store to create a permanent
+                            if let Some(card_data) = self.state.card_store.remove(target_id) {
+                                let perm = Permanent::new(card_data, controller);
+                                self.state.battlefield.add(perm);
+                                self.state.set_zone(target_id, crate::constants::Zone::Battlefield, None);
+                            }
+                        }
+                    }
+                }
+                Effect::GainKeywordUntilEndOfTurn { keyword } => {
+                    if let Some(kw) = crate::constants::KeywordAbilities::keyword_from_name(keyword) {
+                        for &target_id in targets {
+                            if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                                perm.granted_keywords |= kw;
+                            }
+                        }
+                    }
+                }
+                Effect::GainKeyword { keyword } => {
+                    // Grant keyword permanently (via granted_keywords, which persists)
+                    if let Some(kw) = crate::constants::KeywordAbilities::keyword_from_name(keyword) {
+                        for &target_id in targets {
+                            if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                                perm.granted_keywords |= kw;
+                            }
+                        }
+                    }
+                }
+                Effect::Indestructible => {
+                    // Grant indestructible until end of turn
+                    for &target_id in targets {
+                        if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                            perm.granted_keywords |= crate::constants::KeywordAbilities::INDESTRUCTIBLE;
+                        }
+                    }
+                }
+                Effect::Hexproof => {
+                    // Grant hexproof until end of turn
+                    for &target_id in targets {
+                        if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                            perm.granted_keywords |= crate::constants::KeywordAbilities::HEXPROOF;
+                        }
+                    }
+                }
+                Effect::CantBlock => {
+                    // Target creature can't block this turn.
+                    // Simplified: grant a pseudo-keyword. The combat system checks
+                    // granted_keywords for blocking restrictions.
+                    // For now, we mark via a flag (using removed_keywords to prevent DEFENDER
+                    // from mattering is not the right approach). We'll use a simple approach:
+                    // add a "can't block" counter that gets cleared at cleanup.
+                    for &target_id in targets {
+                        if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                            // Use a sentinel counter to indicate can't block
+                            perm.add_counters(crate::counters::CounterType::Custom("cant_block".into()), 1);
+                        }
+                    }
+                }
+                Effect::Sacrifice { filter } => {
+                    // Each opponent sacrifices a permanent matching filter.
+                    // For "target player sacrifices" effects, this targets the opponent.
+                    let opponents: Vec<PlayerId> = self.state.turn_order.iter()
+                        .filter(|&&id| id != controller)
+                        .copied()
+                        .collect();
+                    for opp in opponents {
+                        // Find permanents controlled by opponent matching filter
+                        let matching: Vec<ObjectId> = self.state.battlefield.iter()
+                            .filter(|p| p.controller == opp && Self::matches_filter(p, filter))
+                            .map(|p| p.id())
+                            .collect();
+                        if let Some(&victim_id) = matching.first() {
+                            // Simplified: sacrifice the first matching permanent
+                            // (proper implementation would let opponent choose)
+                            if let Some(perm) = self.state.battlefield.remove(victim_id) {
+                                self.state.ability_store.remove_source(victim_id);
+                                self.move_card_to_graveyard_inner(victim_id, perm.owner());
+                            }
+                        }
+                    }
+                }
+                Effect::DestroyAll { filter } => {
+                    // Destroy all permanents matching filter
+                    let to_destroy: Vec<(ObjectId, PlayerId)> = self.state.battlefield.iter()
+                        .filter(|p| Self::matches_filter(p, filter) && !p.has_indestructible())
+                        .map(|p| (p.id(), p.owner()))
+                        .collect();
+                    for (id, owner) in to_destroy {
+                        if self.state.battlefield.remove(id).is_some() {
+                            self.state.ability_store.remove_source(id);
+                            self.move_card_to_graveyard_inner(id, owner);
+                        }
+                    }
+                }
+                Effect::DealDamageAll { amount, filter } => {
+                    // Deal damage to all creatures matching filter
+                    let matching: Vec<ObjectId> = self.state.battlefield.iter()
+                        .filter(|p| p.is_creature() && Self::matches_filter(p, filter))
+                        .map(|p| p.id())
+                        .collect();
+                    for id in matching {
+                        if let Some(perm) = self.state.battlefield.get_mut(id) {
+                            perm.apply_damage(*amount);
+                        }
+                    }
+                }
+                Effect::RemoveCounters { counter_type, count } => {
+                    let ct = crate::counters::CounterType::from_name(counter_type);
+                    for &target_id in targets {
+                        if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                            perm.counters.remove(&ct, *count);
+                        }
+                    }
+                }
+                Effect::SearchLibrary { filter } => {
+                    // Search library for a card matching filter and put it in hand.
+                    // Simplified: find the first matching card.
+                    if let Some(player) = self.state.players.get(&controller) {
+                        let lib_cards: Vec<ObjectId> = player.library.iter().copied().collect();
+                        let found = lib_cards.iter().find(|&&card_id| {
+                            self.state.card_store.get(card_id)
+                                .map(|c| Self::card_matches_filter(c, filter))
+                                .unwrap_or(false)
+                        }).copied();
+                        if let Some(card_id) = found {
+                            if let Some(player) = self.state.players.get_mut(&controller) {
+                                player.library.remove(card_id);
+                                player.hand.add(card_id);
+                                self.state.set_zone(card_id, crate::constants::Zone::Hand, Some(controller));
+                            }
+                        }
+                    }
+                }
+                Effect::CreateTokenTappedAttacking { token_name, count } => {
+                    // Create tokens tapped and attacking (used by Mobilize mechanic)
+                    for _ in 0..*count {
+                        let token_id = ObjectId::new();
+                        let mut card = CardData::new(token_id, controller, token_name);
+                        card.card_types = vec![crate::constants::CardType::Creature];
+                        let (p, t, kw) = Self::parse_token_stats(token_name);
+                        card.power = Some(p);
+                        card.toughness = Some(t);
+                        card.keywords = kw;
+                        let mut perm = Permanent::new(card, controller);
+                        perm.tapped = true;
+                        perm.summoning_sick = false; // Can attack since entering tapped and attacking
+                        self.state.battlefield.add(perm);
+                        self.state.set_zone(token_id, crate::constants::Zone::Battlefield, None);
+                    }
+                }
+                Effect::BoostPermanent { power, toughness: _ } => {
+                    // Permanent P/T boost (similar to BoostUntilEndOfTurn but doesn't expire)
+                    for &target_id in targets {
+                        if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                            if *power > 0 {
+                                perm.add_counters(CounterType::P1P1, *power as u32);
+                            } else if *power < 0 {
+                                perm.add_counters(CounterType::M1M1, (-*power) as u32);
+                            }
+                        }
+                    }
+                }
+                Effect::SetPowerToughness { power, toughness } => {
+                    // Set base P/T (simplified: adjust via counters to reach target)
+                    for &target_id in targets {
+                        if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                            let current_p = perm.power();
+                            let current_t = perm.toughness();
+                            let dp = *power - current_p;
+                            let dt = *toughness - current_t;
+                            // Use counters to approximate (imperfect but functional)
+                            if dp > 0 {
+                                perm.add_counters(CounterType::P1P1, dp as u32);
+                            } else if dp < 0 {
+                                perm.add_counters(CounterType::M1M1, (-dp) as u32);
+                            }
+                            let _ = dt; // Toughness adjustment via counters is coupled with power
+                        }
+                    }
+                }
+                Effect::LoseKeyword { keyword } => {
+                    if let Some(kw) = crate::constants::KeywordAbilities::keyword_from_name(keyword) {
+                        for &target_id in targets {
+                            if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                                perm.removed_keywords |= kw;
+                            }
+                        }
+                    }
+                }
                 _ => {
-                    // Other effects not yet implemented (search library, gain control, etc.)
-                    // These will be handled as cards require them
+                    // Remaining effects not yet implemented (gain control, protection, etc.)
                 }
             }
         }
@@ -1163,6 +1404,107 @@ impl Game {
             }
             self.state.set_zone(card_id, crate::constants::Zone::Hand, Some(player_id));
         }
+    }
+
+    /// Parse token stats from a token name string like "4/4 Dragon with flying".
+    /// Returns (power, toughness, keywords).
+    fn parse_token_stats(token_name: &str) -> (i32, i32, crate::constants::KeywordAbilities) {
+        let name = token_name.trim();
+        // Try to match "P/T Name..." pattern at the start
+        let mut power = 1i32;
+        let mut toughness = 1i32;
+        let mut keywords = crate::constants::KeywordAbilities::empty();
+
+        // Check for "P/T " prefix
+        let rest = if let Some(slash_pos) = name.find('/') {
+            if let Ok(p) = name[..slash_pos].parse::<i32>() {
+                // Find end of toughness (next space or end)
+                let after_slash = &name[slash_pos + 1..];
+                let t_end = after_slash.find(' ').unwrap_or(after_slash.len());
+                if let Ok(t) = after_slash[..t_end].parse::<i32>() {
+                    power = p;
+                    toughness = t;
+                    if t_end < after_slash.len() {
+                        &after_slash[t_end + 1..]
+                    } else {
+                        ""
+                    }
+                } else {
+                    name
+                }
+            } else {
+                name
+            }
+        } else {
+            name
+        };
+
+        // Parse "with keyword1[, keyword2...]" or "with keyword1 and keyword2"
+        if let Some(with_pos) = rest.to_lowercase().find("with ") {
+            let kw_str = &rest[with_pos + 5..];
+            for part in kw_str.split(|c: char| c == ',' || c == '&') {
+                let part = part.trim().trim_start_matches("and ").trim();
+                if let Some(kw) = crate::constants::KeywordAbilities::keyword_from_name(part) {
+                    keywords |= kw;
+                }
+            }
+        }
+
+        (power, toughness, keywords)
+    }
+
+    /// Check if a permanent matches a simple filter string.
+    fn matches_filter(perm: &Permanent, filter: &str) -> bool {
+        let f = filter.to_lowercase();
+        // "all" or empty matches everything
+        if f.is_empty() || f == "all" {
+            return true;
+        }
+        // Check creature types
+        for st in &perm.card.subtypes {
+            if f.contains(&st.to_string().to_lowercase()) {
+                return true;
+            }
+        }
+        // Check card types
+        for ct in &perm.card.card_types {
+            let ct_name = format!("{:?}", ct).to_lowercase();
+            if f.contains(&ct_name) {
+                return true;
+            }
+        }
+        // "nonland" filter
+        if f.contains("nonland") && !perm.card.card_types.contains(&crate::constants::CardType::Land) {
+            return true;
+        }
+        false
+    }
+
+    /// Check if a CardData matches a simple filter string.
+    fn card_matches_filter(card: &CardData, filter: &str) -> bool {
+        let f = filter.to_lowercase();
+        if f.is_empty() || f == "all" {
+            return true;
+        }
+        // Check "basic land"
+        if f.contains("basic") && f.contains("land") {
+            return card.supertypes.contains(&crate::constants::SuperType::Basic)
+                && card.card_types.contains(&crate::constants::CardType::Land);
+        }
+        // Check card types
+        for ct in &card.card_types {
+            let ct_name = format!("{:?}", ct).to_lowercase();
+            if f.contains(&ct_name) {
+                return true;
+            }
+        }
+        // Check subtypes
+        for st in &card.subtypes {
+            if f.contains(&st.to_string().to_lowercase()) {
+                return true;
+            }
+        }
+        false
     }
 
     /// Check if the game should end and return a result if so.

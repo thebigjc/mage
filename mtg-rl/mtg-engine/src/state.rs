@@ -228,6 +228,18 @@ impl GameState {
         self.object_zones.get(&object_id).map(|loc| loc.zone)
     }
 
+    // ── Graveyard helpers ──────────────────────────────────────────────
+
+    /// Find which player's graveyard contains the given card.
+    pub fn find_card_owner_in_graveyard(&self, card_id: ObjectId) -> Option<PlayerId> {
+        for (&player_id, player) in &self.players {
+            if player.graveyard.contains(card_id) {
+                return Some(player_id);
+            }
+        }
+        None
+    }
+
     // ── Phase/step queries ───────────────────────────────────────────────
 
     /// Whether we are in a main phase (can play sorcery-speed spells/abilities).

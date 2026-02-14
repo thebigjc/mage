@@ -589,6 +589,38 @@ impl Default for KeywordAbilities {
     }
 }
 
+impl KeywordAbilities {
+    /// Parse a keyword name string into the corresponding flag.
+    /// Returns `None` if the string doesn't match any known keyword.
+    pub fn keyword_from_name(name: &str) -> Option<KeywordAbilities> {
+        match name.to_lowercase().as_str() {
+            "flying" => Some(KeywordAbilities::FLYING),
+            "first strike" | "first_strike" => Some(KeywordAbilities::FIRST_STRIKE),
+            "double strike" | "double_strike" => Some(KeywordAbilities::DOUBLE_STRIKE),
+            "trample" => Some(KeywordAbilities::TRAMPLE),
+            "haste" => Some(KeywordAbilities::HASTE),
+            "vigilance" => Some(KeywordAbilities::VIGILANCE),
+            "lifelink" => Some(KeywordAbilities::LIFELINK),
+            "deathtouch" => Some(KeywordAbilities::DEATHTOUCH),
+            "reach" => Some(KeywordAbilities::REACH),
+            "defender" => Some(KeywordAbilities::DEFENDER),
+            "menace" => Some(KeywordAbilities::MENACE),
+            "flash" => Some(KeywordAbilities::FLASH),
+            "indestructible" => Some(KeywordAbilities::INDESTRUCTIBLE),
+            "hexproof" => Some(KeywordAbilities::HEXPROOF),
+            "shroud" => Some(KeywordAbilities::SHROUD),
+            "fear" => Some(KeywordAbilities::FEAR),
+            "intimidate" => Some(KeywordAbilities::INTIMIDATE),
+            "protection" => Some(KeywordAbilities::PROTECTION),
+            "ward" => Some(KeywordAbilities::WARD),
+            "prowess" => Some(KeywordAbilities::PROWESS),
+            "undying" => Some(KeywordAbilities::UNDYING),
+            "persist" => Some(KeywordAbilities::PERSIST),
+            _ => None,
+        }
+    }
+}
+
 impl Serialize for KeywordAbilities {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         self.bits().serialize(serializer)
