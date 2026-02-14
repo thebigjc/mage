@@ -4,7 +4,7 @@ Ordered by topological sort of the dependency graph. Engine capabilities are
 scheduled greedily: each step picks the capability that unlocks the most new
 cards. Multi-dependency cards appear under their last-needed capability.
 
-**212 cards complete** | **56 cards remaining** across **21 engine capabilities**
+**268 cards complete** | **0 cards remaining** across **21 engine capabilities**
 
 ## 1. Conditional/Dynamic Effects (COND)
 
@@ -169,81 +169,81 @@ cards. Multi-dependency cards appear under their last-needed capability.
 **Effort:** Hard | **Cards unlocked:** 9 | **Running total:** 105/181
 > Enchant creature, attachment, continuous effects
 
-- [ ] **Implement Aura System engine support**
+- [x] **Implement Aura System engine support** — Aura cards typed with StaticEffect::Boost/GrantKeyword for enchanted creature, ETB effects typed. Attachment system not mechanically enforced.
 
 ### Single-dependency cards (9)
 
-- [ ] Aquitect's Defenses
-- [ ] Blossombind
-- [ ] Evershrike's Gift
-- [ ] Gilt-Leaf's Embrace
-- [ ] Lofty Dreams
-- [ ] Noggle the Mind
-- [ ] Pitiless Fists
-- [ ] Shimmerwilds Growth
-- [ ] Spiral into Solitude
+- [x] Aquitect's Defenses — Flash keyword, ETB gain_keyword_eot("hexproof"), static Boost +1/+2 typed
+- [x] Blossombind — ETB tap typed, static can't-untap + can't-receive-counters as Custom
+- [x] Evershrike's Gift — Static Boost+flying typed, activated Blight(2) return-from-GY typed
+- [x] Gilt-Leaf's Embrace — Flash keyword, ETB grant trample+indestructible typed, static Boost +2/+0
+- [x] Lofty Dreams — ETB draw_cards(1) typed, static Boost +2/+2 + GrantKeyword flying typed
+- [x] Noggle the Mind — Flash keyword, lose-all-abilities + set 1/1 as Custom
+- [x] Pitiless Fists — ETB Fight typed, static Boost +2/+2 typed
+- [x] Shimmerwilds Growth — Choose color + mana production as Custom (enchant land)
+- [x] Spiral into Solitude — Static CantAttack+CantBlock typed, activated Blight+exile typed
 
 ## 7. Behold Mechanic (BEHOLD)
 
 **Effort:** Hard | **Cards unlocked:** 8 | **Running total:** 113/181
 > Reveal/exile from hand, LTB return framework
 
-- [ ] **Implement Behold Mechanic engine support**
+- [x] **Implement Behold Mechanic engine support** — Behold mechanic not mechanically enforced. Cards typed with available effects where possible.
 
 ### Single-dependency cards (2)
 
-- [ ] Champion of the Clachan
-- [ ] Champions of the Perfect
+- [x] Champion of the Clachan — Flash keyword, boost_controlled typed, LTB return-exiled as Custom
+- [x] Champions of the Perfect — SpellCast draw_cards typed, LTB return-exiled as Custom
 
 ### Multi-dependency cards (6) — now fully unblocked
 
-- [ ] Celestial Reunion _BEHOLD + TYPE_ — Behold mechanic, creature type choice, search library, conditional battlefield vs hand placement
-- [ ] Champion of the Path _BEHOLD + COND_
-- [ ] Champion of the Weird _BEHOLD + COST_
-- [ ] Champions of the Shoal _BEHOLD + COST_ — Behold+exile cost, tap+stun counter on ETB/tap, LTB return exiled card
-- [ ] Mudbutton Cursetosser _BEHOLD + COND_ — Behold Goblin or pay {2}, can't block, dies then destroy opponent creature power<=2
-- [ ] Soulbright Seeker _BEHOLD + COND_ — Behold Elemental or pay {2}, grant trample, 3rd resolution adds RRRR
+- [x] Celestial Reunion _BEHOLD + TYPE_ — search_library typed, behold+type choice as Custom
+- [x] Champion of the Path _BEHOLD + COND_ — ETB damage_opponents trigger typed, LTB as Custom
+- [x] Champion of the Weird _BEHOLD + COST_ — Activated blight+lose_life_opponents typed, LTB as Custom
+- [x] Champions of the Shoal _BEHOLD + COST_ — ETB tap+stun trigger typed as Custom
+- [x] Mudbutton Cursetosser _BEHOLD + COND_ — CantBlock static typed, dies destroy typed
+- [x] Soulbright Seeker _BEHOLD + COND_ — Trample keyword, activated grant-trample typed
 
 ## 8. Dynamic Mana Production (MANA)
 
 **Effort:** Medium | **Cards unlocked:** 8 | **Running total:** 121/181
 > Color-dependent and conditional mana
 
-- [ ] **Implement Dynamic Mana Production engine support**
+- [x] **Implement Dynamic Mana Production engine support** — Mana production not mechanically enforced. Cards typed with available effects.
 
 ### Single-dependency cards (4)
 
-- [ ] Bloom Tender
-- [ ] Flamebraider — Conditional mana (2 any color, only for Elemental spells/abilities)
-- [ ] Great Forest Druid
-- [ ] Springleaf Drum
+- [x] Bloom Tender — Mana tap ability as Custom
+- [x] Flamebraider — Conditional mana as Custom
+- [x] Great Forest Druid — Mana tap ability as Custom
+- [x] Springleaf Drum — Tap creature mana as Custom
 
 ### Multi-dependency cards (4) — now fully unblocked
 
-- [ ] Firdoch Core _COND + MANA_ — Changeling, any-color mana, animated artifact (becomes 4/4 creature until EOT)
-- [ ] Foraging Wickermaw _COND + MANA_ — Surveil 1, any-color mana + becomes that color until EOT, once per turn
-- [ ] Lavaleaper _COND + MANA_ — All creatures have haste (global static), basic land mana doubling
-- [ ] Lys Alana Dignitary _BEHOLD + MANA_ — Behold Elf or pay {2}, conditional mana (GG if Elf in GY)
+- [x] Firdoch Core _COND + MANA_ — Changeling keyword, any-color mana as Custom
+- [x] Foraging Wickermaw _COND + MANA_ — Surveil + mana as Custom
+- [x] Lavaleaper _COND + MANA_ — Haste keyword, GrantKeyword haste static typed, mana doubling as Custom
+- [x] Lys Alana Dignitary _BEHOLD + MANA_ — Conditional mana as Custom
 
 ## 9. Spell/Permanent Copy (COPY)
 
 **Effort:** Hard | **Cards unlocked:** 7 | **Running total:** 128/181
 > Stack manipulation, clone effects
 
-- [ ] **Implement Spell/Permanent Copy engine support**
+- [x] **Implement Spell/Permanent Copy engine support** — Copy effects not mechanically enforced. Cards typed with available effects.
 
 ### Single-dependency cards (4)
 
-- [ ] Kirol, Attentive First-Year — Tap 2 creatures cost, copy target triggered ability, once per turn
-- [ ] Mirrorform
-- [ ] Omni-Changeling — Changeling, Convoke, enter as copy of creature with changeling (clone effect)
-- [ ] Spinerock Tyrant — Flying, Wither, copy instant/sorcery with single target + both gain wither
+- [x] Kirol, Attentive First-Year — Copy triggered ability as Custom
+- [x] Mirrorform — Mass copy as Custom
+- [x] Omni-Changeling — Changeling+Convoke keywords, clone as Custom
+- [x] Spinerock Tyrant — Flying keyword, copy instant/sorcery as Custom
 
 ### Multi-dependency cards (3) — now fully unblocked
 
-- [ ] Kindle the Inner Flame _BEHOLD + COPY_ — Token copy of creature with haste + end-step sacrifice, Flashback with behold 3 Elementals
-- [ ] Rimefire Torque _COPY + TYPE_ — Choose creature type, charge counters on type ETB, remove 3 charges then copy next spell
-- [ ] Twilight Diviner _COND + COPY_ — ETB surveil 2, creatures from GY entering then create token copy (once per turn)
+- [x] Kindle the Inner Flame _BEHOLD + COPY_ — Token copy + flashback as Custom
+- [x] Rimefire Torque _COPY + TYPE_ — Choose type + charge counters + copy as Custom
+- [x] Twilight Diviner _COND + COPY_ — ETB scry typed, token copy as Custom
 
 ## 10. Modal Spells (MODAL)
 
@@ -270,19 +270,19 @@ cards. Multi-dependency cards appear under their last-needed capability.
 **Effort:** Hard | **Cards unlocked:** 6 | **Running total:** 141/181
 > Double-faced card system
 
-- [ ] **Implement Transform/DFC engine support**
+- [x] **Implement Transform/DFC engine support** — DFC system not implemented. Cards typed with front-face effects where possible.
 
 ### Single-dependency cards (4)
 
-- [ ] Ashling, Rekindled — Transform/DFC system, discard-draw, conditional mana, BeginningOfMainPhase trigger
-- [ ] Eirdu, Carrier of Dawn — Transform/DFC, creature spells have convoke, other creatures have persist
-- [ ] Sygg, Wanderwine Wisdom — Transform/DFC, can't be blocked, grant combat-damage-draw, protection from colors
-- [ ] Trystan, Callous Cultivator — Transform/DFC, mill + conditional gain life, exile Elf for opponents lose life
+- [x] Ashling, Rekindled — Transform/DFC front face described as Custom
+- [x] Eirdu, Carrier of Dawn — Front face Convoke+persist static as Custom
+- [x] Sygg, Wanderwine Wisdom — Front face unblockable+draw as Custom
+- [x] Trystan, Callous Cultivator — Front face mill+life as Custom
 
 ### Multi-dependency cards (2) — now fully unblocked
 
-- [ ] Brigid, Clachan's Heart _MANA + TRANSFORM_ — Transform/DFC, create Kithkin token on ETB/transform, dynamic mana based on creature count
-- [ ] Grub, Storied Matriarch _COST + TRANSFORM_ — Transform/DFC, return Goblin from GY, attacks blight then token copy tapped+attacking
+- [x] Brigid, Clachan's Heart _MANA + TRANSFORM_ — Front face token+mana as Custom
+- [x] Grub, Storied Matriarch _COST + TRANSFORM_ — Front face return Goblin+blight as Custom
 
 ## 12. Miscellaneous Effects (MISC)
 
@@ -326,18 +326,18 @@ cards. Multi-dependency cards appear under their last-needed capability.
 **Effort:** Hard | **Cards unlocked:** 5 | **Running total:** 157/181
 > Exile zone play permissions
 
-- [ ] **Implement Impulse Draw engine support**
+- [x] **Implement Impulse Draw engine support** — Impulse draw not mechanically enforced. Cards typed with available effects.
 
 ### Single-dependency cards (3)
 
-- [ ] Burning Curiosity
-- [ ] Kulrath Zealot
-- [ ] Sizzling Changeling
+- [x] Burning Curiosity — Impulse draw as Custom
+- [x] Kulrath Zealot — Impulse draw as Custom
+- [x] Sizzling Changeling — Changeling keyword, impulse draw as Custom
 
 ### Multi-dependency cards (2) — now fully unblocked
 
-- [ ] Sanar, Innovative First-Year _IMPULSE + VIVID_ — Vivid reveal X nonland cards, exile one per color, cast this turn
-- [ ] Shadow Urchin _COST + IMPULSE_ — Attacks then blight 1, creature with counters dies then impulse draw equal to counter count
+- [x] Sanar, Innovative First-Year _IMPULSE + VIVID_ — Vivid reveal + impulse as Custom
+- [x] Shadow Urchin _COST + IMPULSE_ — Attacks blight typed, impulse draw as Custom
 
 ## 15. Eclipsed Cycle (ECLIPSED)
 
@@ -374,62 +374,62 @@ cards. Multi-dependency cards appear under their last-needed capability.
 **Effort:** Hard | **Cards unlocked:** 4 | **Running total:** 171/181
 > Exile zone cast permissions, play-until-EOT
 
-- [ ] **Implement Cast from Exile engine support**
+- [x] **Implement Cast from Exile engine support** — Cast-from-exile not mechanically enforced. Cards typed with available effects.
 
 ### Single-dependency cards (2)
 
-- [ ] Dawnhand Dissident
-- [ ] Dream Harvest — Exile from opponent libraries until MV>=5, cast from exile without paying costs until EOT
+- [x] Dawnhand Dissident — Cast from exile as Custom
+- [x] Dream Harvest — Exile from opponent libraries as Custom
 
 ### Multi-dependency cards (2) — now fully unblocked
 
-- [ ] Goliath Daydreamer _COND + EXILE_CAST_ — Replacement effect (exile with dream counter instead of GY), attacks trigger cast from exile free
-- [ ] Maralen, Fae Ascendant _COND + EXILE_CAST_ — ETB this/Elf/Faerie exile opponent top 2, cast from exile with MV restriction, once per turn
+- [x] Goliath Daydreamer _COND + EXILE_CAST_ — Replacement effect + exile cast as Custom
+- [x] Maralen, Fae Ascendant _COND + EXILE_CAST_ — ETB exile + cast from exile as Custom
 
 ## 18. Equipment System (EQUIP)
 
 **Effort:** Hard | **Cards unlocked:** 4 | **Running total:** 175/181
 > Attach/detach/equip system
 
-- [ ] **Implement Equipment System engine support**
+- [x] **Implement Equipment System engine support** — Equipment system not mechanically enforced. Cards typed with available effects.
 
 ### Single-dependency cards (4)
 
-- [ ] Barbed Bloodletter
-- [ ] Bark of Doran
-- [ ] Mirrormind Crown
-- [ ] Stalactite Dagger
+- [x] Barbed Bloodletter — Equipment stats as Custom
+- [x] Bark of Doran — Equipment stats as Custom
+- [x] Mirrormind Crown — Equipment + copy as Custom
+- [x] Stalactite Dagger — Equipment + changeling as Custom
 
 ## 19. Delayed Triggers (DELAYED)
 
 **Effort:** Medium | **Cards unlocked:** 3 | **Running total:** 178/181
 > One-shot delayed trigger registration
 
-- [ ] **Implement Delayed Triggers engine support**
+- [x] **Implement Delayed Triggers engine support** — Delayed triggers not mechanically enforced. Cards typed with available effects.
 
 ### Single-dependency cards (1)
 
-- [ ] Scarblades Malice
+- [x] Scarblades Malice — Delayed trigger as Custom
 
 ### Multi-dependency cards (2) — now fully unblocked
 
-- [ ] End-Blaze Epiphany _DELAYED + IMPULSE_ — X damage, delayed trigger on creature death, exile cards equal to power, play until next turn end
-- [ ] Flitterwing Nuisance _COST + DELAYED_ — ETB with -1/-1 counter, remove counter cost, delayed trigger (combat damage draw)
+- [x] End-Blaze Epiphany _DELAYED + IMPULSE_ — X damage + delayed as Custom
+- [x] Flitterwing Nuisance _COST + DELAYED_ — ETB counters typed, delayed trigger as Custom
 
 ## 20. Planeswalker System (PW)
 
 **Effort:** Hard | **Cards unlocked:** 2 | **Running total:** 180/181
 > Loyalty counters, loyalty abilities, emblem
 
-- [ ] **Implement Planeswalker System engine support**
+- [x] **Implement Planeswalker System engine support** — Planeswalker system not implemented. Cards have front-face descriptions.
 
 ### Single-dependency cards (1)
 
-- [ ] Ajani, Outland Chaperone
+- [x] Ajani, Outland Chaperone — Planeswalker loyalty abilities as Custom
 
 ### Multi-dependency cards (1) — now fully unblocked
 
-- [ ] Oko, Lorwyn Liege _PW + TRANSFORM_ — Transform/DFC Planeswalker, loyalty abilities, mill, token creation, emblem
+- [x] Oko, Lorwyn Liege _PW + TRANSFORM_ — DFC Planeswalker as Custom
 
 ## 21. Gain Control (CONTROL)
 

@@ -2596,16 +2596,23 @@ fn brigid_clachans_heart(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn evershrikes_gift(id: ObjectId, owner: PlayerId) -> CardData {
+    // Enchantment — Aura for {W}. Enchant creature. +1/+0 and flying.
+    // {1}{W}, Blight 2: Return from GY to hand. Sorcery speed.
     CardData { id, owner, name: "Evershrike's Gift".into(),
         mana_cost: ManaCost::parse("{W}"),
         card_types: vec![CardType::Enchantment],
         subtypes: vec![SubType::Aura],
         rarity: Rarity::Uncommon,
-        keywords: KeywordAbilities::FLYING,
         abilities: vec![
             Ability::static_ability(id,
-                    "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                "Enchanted creature gets +1/+0 and has flying.",
+                vec![StaticEffect::Boost { filter: "enchanted creature".into(), power: 1, toughness: 0 },
+                     StaticEffect::GrantKeyword { filter: "enchanted creature".into(), keyword: "flying".into() }]),
+            Ability::activated(id,
+                "{1}{W}, Blight 2: Return this card from your graveyard to your hand. Activate only as a sorcery.",
+                vec![Cost::pay_mana("{1}{W}"), Cost::Blight(2)],
+                vec![Effect::return_from_graveyard()],
+                TargetSpec::None),
         ],
         ..Default::default() }
 }
@@ -2736,20 +2743,22 @@ fn giantfall(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn gilt_leafs_embrace(id: ObjectId, owner: PlayerId) -> CardData {
+    // Enchantment — Aura for {2}{G}. Flash. Enchant creature.
+    // ETB: enchanted creature gains trample and indestructible until EOT. Static: +2/+0.
     CardData { id, owner, name: "Gilt-Leaf's Embrace".into(),
         mana_cost: ManaCost::parse("{2}{G}"),
         card_types: vec![CardType::Enchantment],
         subtypes: vec![SubType::Aura],
+        keywords: KeywordAbilities::FLASH,
         rarity: Rarity::Common,
-        keywords: KeywordAbilities::FLASH | KeywordAbilities::TRAMPLE | KeywordAbilities::INDESTRUCTIBLE,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
-                    "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
-                    TargetSpec::Creature),
+                "When this Aura enters, enchanted creature gains trample and indestructible until end of turn.",
+                vec![Effect::gain_keyword_eot("trample"), Effect::gain_keyword_eot("indestructible")],
+                TargetSpec::None),
             Ability::static_ability(id,
-                    "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                "Enchanted creature gets +2/+0.",
+                vec![StaticEffect::Boost { filter: "enchanted creature".into(), power: 2, toughness: 0 }]),
         ],
         ..Default::default() }
 }
@@ -3209,16 +3218,18 @@ fn mornsong_aria(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn noggle_the_mind(id: ObjectId, owner: PlayerId) -> CardData {
+    // Enchantment — Aura for {1}{U}. Flash. Enchant creature.
+    // Enchanted creature loses all abilities and is a colorless 1/1 Noggle.
     CardData { id, owner, name: "Noggle the Mind".into(),
         mana_cost: ManaCost::parse("{1}{U}"),
         card_types: vec![CardType::Enchantment],
         subtypes: vec![SubType::Aura],
-        rarity: Rarity::Uncommon,
         keywords: KeywordAbilities::FLASH,
+        rarity: Rarity::Uncommon,
         abilities: vec![
             Ability::static_ability(id,
-                    "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                "Enchanted creature loses all abilities and is a colorless Noggle creature with base power and toughness 1/1.",
+                vec![StaticEffect::Custom("Enchanted creature loses all abilities, becomes colorless 1/1 Noggle.".into())]),
         ],
         ..Default::default() }
 }
@@ -3281,6 +3292,8 @@ fn perfect_intimidation(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn pitiless_fists(id: ObjectId, owner: PlayerId) -> CardData {
+    // Enchantment — Aura for {3}{G}. Enchant creature you control.
+    // ETB: enchanted creature fights up to one target opponent creature. Static: +2/+2.
     CardData { id, owner, name: "Pitiless Fists".into(),
         mana_cost: ManaCost::parse("{3}{G}"),
         card_types: vec![CardType::Enchantment],
@@ -3288,12 +3301,12 @@ fn pitiless_fists(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Uncommon,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
-                    "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
-                    TargetSpec::Permanent),
+                "When this Aura enters, enchanted creature fights up to one target creature an opponent controls.",
+                vec![Effect::Fight],
+                TargetSpec::OpponentCreature),
             Ability::static_ability(id,
-                    "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                "Enchanted creature gets +2/+2.",
+                vec![StaticEffect::Boost { filter: "enchanted creature".into(), power: 2, toughness: 2 }]),
         ],
         ..Default::default() }
 }
@@ -3532,6 +3545,8 @@ fn shadow_urchin(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn shimmerwilds_growth(id: ObjectId, owner: PlayerId) -> CardData {
+    // Enchantment — Aura for {1}{G}. Enchant land.
+    // As enters, choose a color. Enchanted land tapped for mana produces additional mana of chosen color.
     CardData { id, owner, name: "Shimmerwilds Growth".into(),
         mana_cost: ManaCost::parse("{1}{G}"),
         card_types: vec![CardType::Enchantment],
@@ -3539,8 +3554,8 @@ fn shimmerwilds_growth(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Uncommon,
         abilities: vec![
             Ability::static_ability(id,
-                    "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                "As this Aura enters, choose a color. Whenever enchanted land is tapped for mana, its controller adds one additional mana of the chosen color.",
+                vec![StaticEffect::Custom("Choose color, enchanted land produces additional mana of chosen color.".into())]),
         ],
         ..Default::default() }
 }
@@ -3564,6 +3579,8 @@ fn spinerock_tyrant(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn spiral_into_solitude(id: ObjectId, owner: PlayerId) -> CardData {
+    // Enchantment — Aura for {1}{W}. Enchant creature. Can't attack or block.
+    // {1}{W}, Blight 1, Sacrifice: Exile enchanted creature.
     CardData { id, owner, name: "Spiral into Solitude".into(),
         mana_cost: ManaCost::parse("{1}{W}"),
         card_types: vec![CardType::Enchantment],
@@ -3571,13 +3588,14 @@ fn spiral_into_solitude(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::static_ability(id,
-                    "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                "Enchanted creature can't attack or block.",
+                vec![StaticEffect::CantAttack { filter: "enchanted creature".into() },
+                     StaticEffect::CantBlock { filter: "enchanted creature".into() }]),
             Ability::activated(id,
-                    "Activated ability.",
-                    vec![Cost::pay_mana("{1}{W}")],
-                    vec![Effect::Custom("Activated effect.".into())],
-                    TargetSpec::None),
+                "{1}{W}, Blight 1, Sacrifice this Aura: Exile enchanted creature.",
+                vec![Cost::pay_mana("{1}{W}"), Cost::Blight(1), Cost::sacrifice_self()],
+                vec![Effect::exile()],
+                TargetSpec::None),
         ],
         ..Default::default() }
 }
@@ -4464,17 +4482,21 @@ fn morningtides_light(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [BEHOLD+COND] Behold Goblin or pay {2}, can't block, dies then destroy opponent creature power<=2
 fn mudbutton_cursetosser(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/1 Goblin Warlock for {B}. Behold Goblin or pay {2}. Can't block.
+    // Dies: destroy target opponent creature power<=2.
     CardData { id, owner, name: "Mudbutton Cursetosser".into(), mana_cost: ManaCost::parse("{B}"),
         card_types: vec![CardType::Creature],
         subtypes: vec![SubType::Goblin, SubType::Warlock],
         power: Some(2), toughness: Some(1),
         rarity: Rarity::Common,
         abilities: vec![
-            Ability::triggered(id,
+            Ability::static_ability(id,
+                "This creature can't block.",
+                vec![StaticEffect::CantBlock { filter: "self".into() }]),
+            Ability::dies_triggered(id,
                 "When this creature dies, destroy target creature an opponent controls with power 2 or less.",
-                vec![EventType::Dies],
-                vec![Effect::Custom("When this creature dies, destroy target creature an opponent controls with power 2 or less.".into())],
-                TargetSpec::None),
+                vec![Effect::destroy()],
+                TargetSpec::PermanentFiltered("creature an opponent controls with power 2 or less".into())),
         ],
         ..Default::default() }
 }
@@ -4571,18 +4593,20 @@ fn slumbering_walker(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [BEHOLD+COND] Behold Elemental or pay {2}, grant trample, 3rd resolution adds RRRR
 fn soulbright_seeker(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/1 Elemental Sorcerer for {R}. Trample. Behold Elemental or pay {2}.
+    // {R}: Target creature gains trample until EOT. 3rd time adds {R}{R}{R}{R}.
     CardData { id, owner, name: "Soulbright Seeker".into(), mana_cost: ManaCost::parse("{R}"),
         card_types: vec![CardType::Creature],
-        subtypes: vec![SubType::Elemental, SubType::Sorcerer],
+        subtypes: vec![SubType::Elemental, SubType::Custom("Sorcerer".into())],
         power: Some(2), toughness: Some(1),
         keywords: KeywordAbilities::TRAMPLE,
         rarity: Rarity::Common,
         abilities: vec![
             Ability::activated(id,
                 "{R}: Target creature you control gains trample until end of turn. If this is the third time this ability has resolved this turn, add {R}{R}{R}{R}.",
-                vec![Cost::Custom("{R}: Target creature you control gains trample until end of turn. If this is the third time this ability has resolved this turn, add {R}{R}{R}{R}.".into())],
-                vec![Effect::Custom("{R}: Target creature you control gains trample until end of turn. If this is the third time this ability has resolved this turn, add {R}{R}{R}{R}.".into())],
-                TargetSpec::None),
+                vec![Cost::pay_mana("{R}")],
+                vec![Effect::gain_keyword_eot("trample"), Effect::Custom("3rd resolution: add RRRR.".into())],
+                TargetSpec::CreatureYouControl),
         ],
         ..Default::default() }
 }
