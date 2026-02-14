@@ -26,14 +26,14 @@ cards. Multi-dependency cards appear under their last-needed capability.
 - [ ] Feisty Spikeling
 - [ ] Figure of Fable — Multi-level activated abilities changing type/base P/T, conditional on current subtype
 - [ ] Formidable Speaker — ETB may discard to search for creature, activated untap another permanent
-- [ ] Gallant Fowlknight
+- [x] Gallant Fowlknight
 - [ ] Glamer Gifter — Set base P/T 4/4 + gain all creature types on target until EOT
 - [ ] Glen Elendra's Answer — Can't be countered, counter ALL opponent spells+abilities, create tokens equal to count
 - [ ] Gloom Ripper — Dynamic X = Elves you control + Elf cards in GY, +X/+0 to your creature, -0/-X to opponent's
 - [ ] Gravelgill Scoundrel — Attacks trigger may tap another creature for unblockable this turn
 - [ ] Hexing Squelcher — Can't be countered, Ward-pay 2 life, spells can't be countered static, grant ward to others
 - [ ] Illusion Spinners — Conditional flash (if you control Faerie), hexproof while untapped
-- [ ] Impolite Entrance — Target creature gains trample+haste until EOT, draw a card
+- [x] Impolite Entrance — Target creature gains trample+haste until EOT, draw a card
 - [ ] Kinbinding — Dynamic +X/+X where X=creatures entered this turn (watcher), begin-of-combat token creation
 - [ ] Kinscaer Sentry — Attacks then put creature from hand onto battlefield tapped+attacking if MV <= attacking count
 - [ ] Lasting Tarfire
@@ -42,7 +42,7 @@ cards. Multi-dependency cards appear under their last-needed capability.
 - [ ] Meek Attack — Activated ability put creature from hand (P+T<=5), haste, end-step sacrifice
 - [ ] Moon-Vigil Adherents
 - [ ] Morcant's Eyes — Upkeep surveil 1, sac + mana cost then create X Elf tokens (X=Elf cards in GY), sorcery speed
-- [ ] Morcant's Loyalist — Other Elves +1/+1 lord, dies then return another Elf card from GY to hand
+- [x] Morcant's Loyalist — Other Elves +1/+1 lord, dies then return another Elf card from GY to hand
 - [ ] Morningtide's Light — Mass flicker, prevent damage until next turn, exile self
 - [ ] Mornsong Aria — Players can't draw or gain life (static), each draw step: lose 3 life + search library
 - [ ] Personify — Flicker (exile+return own creature), create 1/1 changeling token
@@ -50,7 +50,7 @@ cards. Multi-dependency cards appear under their last-needed capability.
 - [ ] Raiding Schemes — Noncreature spells you cast have conspire (very complex stack manipulation)
 - [ ] Retched Wretch — Conditional dies trigger (if had -1/-1 counter), return to battlefield + lose all abilities
 - [ ] Rhys, the Evermore — Flash, grant persist until EOT, activated remove any number of counters (sorcery speed)
-- [ ] Riverguard's Reflexes — +2/+2 + first strike until EOT + untap target creature
+- [x] Riverguard's Reflexes — +2/+2 + first strike until EOT + untap target creature
 - [ ] Safewright Cavalry
 - [ ] Sapling Nursery — Affinity for Forests, landfall then Treefolk token, exile self then indestructible until EOT
 - [ ] Spry and Mighty — Choose 2 creatures, draw X + +X/+X + trample where X=power difference
@@ -60,10 +60,10 @@ cards. Multi-dependency cards appear under their last-needed capability.
 - [ ] Taster of Wares — ETB opponent reveals X cards (X=Goblins), choose one to exile, may cast instant/sorcery
 - [ ] Tend the Sprigs — Search basic land to battlefield tapped, conditional create Treefolk token if 7+ lands/Treefolk
 - [ ] Thoughtweft Imbuer
-- [ ] Tributary Vaulter — Becomes tapped trigger then another Merfolk gets +2/+0 until EOT
+- [x] Tributary Vaulter — Becomes tapped trigger then another Merfolk gets +2/+0 until EOT
 - [ ] Twinflame Travelers — Other Elemental triggered abilities trigger additional time (replacement effect)
-- [ ] Vinebred Brawler — Must be blocked if able, attacks then another Elf gets +2/+1
-- [ ] Wanderbrine Trapper — Activated: {1}, T, tap another creature then tap opponent creature
+- [x] Vinebred Brawler — Must be blocked if able, attacks then another Elf gets +2/+1
+- [x] Wanderbrine Trapper — Activated: {1}, T, tap another creature then tap opponent creature
 - [ ] Wanderwine Farewell — Convoke, bounce 1-2 nonland permanents, conditional Merfolk tokens
 - [ ] Wary Farmer — End step trigger if another creature entered this turn then surveil 1
 

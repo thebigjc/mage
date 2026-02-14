@@ -285,6 +285,52 @@ mod tests {
     }
 
     #[test]
+    fn ecl_cond_card_abilities() {
+        let registry = CardRegistry::with_all_sets();
+        let id = ObjectId::new();
+        let owner = PlayerId::new();
+        use mtg_engine::abilities::{Effect, StaticEffect, TargetSpec};
+
+        // Impolite Entrance — Sorcery, spell: trample+haste EOT + draw, targets creature
+        let ie = registry.create("Impolite Entrance", id, owner).unwrap();
+        assert!(ie.card_types.contains(&CardType::Sorcery));
+        assert_eq!(ie.abilities.len(), 1);
+        let spell = &ie.abilities[0];
+        assert_eq!(spell.effects.len(), 3);
+        assert!(matches!(spell.effects[0], Effect::GainKeywordUntilEndOfTurn { ref keyword } if keyword == "trample"));
+        assert!(matches!(spell.effects[1], Effect::GainKeywordUntilEndOfTurn { ref keyword } if keyword == "haste"));
+        assert!(matches!(spell.effects[2], Effect::DrawCards { count: 1 }));
+        assert!(matches!(spell.targets, TargetSpec::Creature));
+
+        // Riverguard's Reflexes — Instant, +2/+2 + first strike EOT + untap, targets creature
+        let rr = registry.create("Riverguard's Reflexes", id, owner).unwrap();
+        assert!(rr.card_types.contains(&CardType::Instant));
+        assert_eq!(rr.abilities[0].effects.len(), 3);
+        assert!(matches!(rr.abilities[0].effects[0], Effect::BoostUntilEndOfTurn { power: 2, toughness: 2 }));
+        assert!(matches!(rr.abilities[0].effects[1], Effect::GainKeywordUntilEndOfTurn { ref keyword } if keyword == "first_strike"));
+        assert!(matches!(rr.abilities[0].effects[2], Effect::UntapTarget));
+        assert!(matches!(rr.abilities[0].targets, TargetSpec::Creature));
+
+        // Morcant's Loyalist — lord + dies trigger
+        let ml = registry.create("Morcant's Loyalist", id, owner).unwrap();
+        assert_eq!(ml.power, Some(3));
+        assert_eq!(ml.toughness, Some(2));
+        assert!(ml.abilities.len() >= 2);
+        // First ability: static boost to other Elves
+        assert!(matches!(&ml.abilities[0].static_effects[..],
+            [StaticEffect::Boost { ref filter, power: 1, toughness: 1 }] if filter.contains("Elf")));
+        // Second ability: dies trigger returns from GY
+        assert!(matches!(ml.abilities[1].effects[..], [Effect::ReturnFromGraveyard]));
+
+        // Gallant Fowlknight — ETB with boost_all + grant_keyword_all
+        let gf = registry.create("Gallant Fowlknight", id, owner).unwrap();
+        assert_eq!(gf.power, Some(3));
+        assert_eq!(gf.abilities[0].effects.len(), 2);
+        assert!(matches!(gf.abilities[0].effects[0], Effect::BoostAllUntilEndOfTurn { ref filter, power: 1, toughness: 0 } if filter.contains("creature")));
+        assert!(matches!(gf.abilities[0].effects[1], Effect::GrantKeywordAllUntilEndOfTurn { ref filter, ref keyword } if filter.contains("Kithkin") && keyword == "first_strike"));
+    }
+
+    #[test]
     fn tdm_tier2_spells() {
         let registry = CardRegistry::with_all_sets();
         let id = ObjectId::new();

@@ -832,7 +832,7 @@ fn flock_impostor(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn gallant_fowlknight(id: ObjectId, owner: PlayerId) -> CardData {
-    // 3/4 Kithkin Knight for {3}{W}. (ETB: creatures +1/+0, Kithkin gain first strike)
+    // DONE - 3/4 Kithkin Knight for {3}{W}. (ETB: creatures +1/+0, Kithkin gain first strike)
     CardData { id, owner, name: "Gallant Fowlknight".into(), mana_cost: ManaCost::parse("{3}{W}"),
         card_types: vec![CardType::Creature],
         subtypes: vec![SubType::Custom("Kithkin".into()), SubType::Knight],
@@ -840,7 +840,7 @@ fn gallant_fowlknight(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Gallant Fowlknight enters, creatures you control get +1/+0 until end of turn. Kithkin you control also gain first strike until end of turn.",
-                vec![Effect::Custom("Creatures you control get +1/+0 until end of turn. Kithkin you control also gain first strike until end of turn.".into())],
+                vec![Effect::boost_all_eot("creature you control", 1, 0), Effect::grant_keyword_all_eot("Kithkin you control", "first_strike")],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -3028,7 +3028,7 @@ fn moonshadow(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [COND] Other Elves +1/+1 lord, dies then return another Elf card from GY to hand
+// ENGINE DEPS: [COND] DONE - Other Elves +1/+1 lord, dies then return another Elf card from GY to hand
 fn morcants_loyalist(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Morcant's Loyalist".into(),
         mana_cost: ManaCost::parse("{1}{B}{G}"),
@@ -3037,13 +3037,13 @@ fn morcants_loyalist(id: ObjectId, owner: PlayerId) -> CardData {
         power: Some(3), toughness: Some(2),
         rarity: Rarity::Uncommon,
         abilities: vec![
-            Ability::dies_triggered(id,
-                    "When this dies, trigger effect.",
-                    vec![Effect::Custom("Dies effect.".into())],
-                    TargetSpec::None),
             Ability::static_ability(id,
-                    "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    "Other Elves you control get +1/+1.",
+                    vec![StaticEffect::Boost { filter: "other Elf you control".into(), power: 1, toughness: 1 }]),
+            Ability::dies_triggered(id,
+                    "When Morcant's Loyalist dies, return target Elf card from your graveyard to your hand.",
+                    vec![Effect::return_from_graveyard()],
+                    TargetSpec::CardInYourGraveyard),
         ],
         ..Default::default() }
 }
@@ -3952,19 +3952,31 @@ fn hovel_hurler(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [COND] Target creature gains trample+haste until EOT, draw a card
+// ENGINE DEPS: [COND] DONE - Target creature gains trample+haste until EOT, draw a card
 fn impolite_entrance(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Impolite Entrance".into(), mana_cost: ManaCost::parse("{R}"),
         card_types: vec![CardType::Sorcery],
-        keywords: KeywordAbilities::TRAMPLE | KeywordAbilities::HASTE,
         rarity: Rarity::Common,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::Custom("Target creature gains trample and haste until end of turn.".into())],
-                TargetSpec::None),
+                vec![Effect::gain_keyword_eot("trample"), Effect::gain_keyword_eot("haste"), Effect::draw_cards(1)],
+                TargetSpec::Creature),
         ],
         ..Default::default() }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // ENGINE DEPS: [COPY+BEHOLD] Token copy of creature with haste + end-step sacrifice, Flashback with behold 3 Elementals
 fn kindle_the_inner_flame(id: ObjectId, owner: PlayerId) -> CardData {
@@ -4188,16 +4200,15 @@ fn requiting_hex(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [COND] +2/+2 + first strike until EOT + untap target creature
+// ENGINE DEPS: [COND] DONE - +2/+2 + first strike until EOT + untap target creature
 fn riverguards_reflexes(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Riverguard's Reflexes".into(), mana_cost: ManaCost::parse("{1}{W}"),
         card_types: vec![CardType::Instant],
-        keywords: KeywordAbilities::FIRST_STRIKE,
         rarity: Rarity::Common,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::Custom("Target creature gets +2/+2 and gains first strike until end of turn. Untap it.".into())],
-                TargetSpec::None),
+                vec![Effect::boost_until_eot(2, 2), Effect::gain_keyword_eot("first_strike"), Effect::untap_target()],
+                TargetSpec::Creature),
         ],
         ..Default::default() }
 }
@@ -4275,7 +4286,7 @@ fn thirst_for_identity(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [COND] Becomes tapped trigger then another Merfolk gets +2/+0 until EOT
+// ENGINE DEPS: [COND] DONE - Becomes tapped trigger then another Merfolk gets +2/+0 until EOT
 fn tributary_vaulter(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Tributary Vaulter".into(), mana_cost: ManaCost::parse("{2}{W}"),
         card_types: vec![CardType::Creature],
@@ -4285,15 +4296,15 @@ fn tributary_vaulter(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::triggered(id,
-                "Whenever this creature becomes tapped, another target Merfolk you control gets +2/+0 until end of turn.",
+                "Whenever Tributary Vaulter becomes tapped, another target Merfolk you control gets +2/+0 until end of turn.",
                 vec![EventType::Tapped],
-                vec![Effect::Custom("Whenever this creature becomes tapped, another target Merfolk you control gets +2/+0 until end of turn.".into())],
-                TargetSpec::None),
+                vec![Effect::boost_until_eot(2, 0)],
+                TargetSpec::CreatureYouControl),
         ],
         ..Default::default() }
 }
 
-// ENGINE DEPS: [COND] Must be blocked if able, attacks then another Elf gets +2/+1
+// ENGINE DEPS: [COND] DONE - Must be blocked if able, attacks then another Elf gets +2/+1
 fn vinebred_brawler(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Vinebred Brawler".into(), mana_cost: ManaCost::parse("{2}{G}"),
         card_types: vec![CardType::Creature],
@@ -4301,16 +4312,18 @@ fn vinebred_brawler(id: ObjectId, owner: PlayerId) -> CardData {
         power: Some(4), toughness: Some(2),
         rarity: Rarity::Common,
         abilities: vec![
-            Ability::triggered(id,
-                "Whenever this creature attacks, another target Elf you control gets +2/+1 until end of turn.",
-                vec![EventType::AttackerDeclared],
-                vec![Effect::Custom("Whenever this creature attacks, another target Elf you control gets +2/+1 until end of turn.".into())],
-                TargetSpec::None),
+            Ability::static_ability(id,
+                "Vinebred Brawler must be blocked if able.",
+                vec![StaticEffect::Custom("must be blocked".into())]),
+            Ability::attacks_triggered(id,
+                "Whenever Vinebred Brawler attacks, another target Elf you control gets +2/+1 until end of turn.",
+                vec![Effect::boost_until_eot(2, 1)],
+                TargetSpec::CreatureYouControl),
         ],
         ..Default::default() }
 }
 
-// ENGINE DEPS: [COND] Activated: {1}, T, tap another creature then tap opponent creature
+// ENGINE DEPS: [COND] DONE - Activated: {1}, T, tap another creature then tap opponent creature
 fn wanderbrine_trapper(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Wanderbrine Trapper".into(), mana_cost: ManaCost::parse("{W}"),
         card_types: vec![CardType::Creature],
@@ -4320,9 +4333,9 @@ fn wanderbrine_trapper(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::activated(id,
                 "{1}, {T}, Tap another untapped creature you control: Tap target creature an opponent controls.",
-                vec![Cost::Custom("{1}, {T}, Tap another untapped creature you control: Tap target creature an opponent controls.".into())],
-                vec![Effect::Custom("{1}, {T}, Tap another untapped creature you control: Tap target creature an opponent controls.".into())],
-                TargetSpec::None),
+                vec![Cost::pay_mana("{1}"), Cost::tap_self(), Cost::Custom("Tap another untapped creature you control".into())],
+                vec![Effect::tap_target()],
+                TargetSpec::OpponentCreature),
         ],
         ..Default::default() }
 }
