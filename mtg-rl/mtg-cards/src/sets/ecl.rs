@@ -3129,12 +3129,26 @@ fn mirrormind_crown(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [COST+COND] ETB with 6 -1/-1 counters, trigger on permanent cards to GY then remove -1/-1 counter
 fn moonshadow(id: ObjectId, owner: PlayerId) -> CardData {
+    // 7/7 Elemental for {B}. Menace. ETB with 6 -1/-1 counters.
+    // Whenever permanents go to your GY while this has -1/-1 counter, remove a counter.
     CardData { id, owner, name: "Moonshadow".into(),
         mana_cost: ManaCost::parse("{B}"),
         card_types: vec![CardType::Creature],
         subtypes: vec![SubType::Elemental],
         power: Some(7), toughness: Some(7),
+        keywords: KeywordAbilities::MENACE,
         rarity: Rarity::Mythic,
+        abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "Moonshadow enters with six -1/-1 counters on it.",
+                vec![Effect::add_counters("-1/-1", 6)],
+                TargetSpec::None),
+            Ability::triggered(id,
+                "Whenever one or more permanent cards are put into your graveyard from anywhere while this creature has a -1/-1 counter on it, remove a -1/-1 counter from this creature.",
+                vec![EventType::Dies],
+                vec![Effect::RemoveCounters { counter_type: "-1/-1".into(), count: 1 }],
+                TargetSpec::None),
+        ],
         ..Default::default() }
 }
 
@@ -4488,17 +4502,23 @@ fn riverguards_reflexes(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn slumbering_walker(id: ObjectId, owner: PlayerId) -> CardData {
+    // 4/7 Giant Warrior for {3}{W}{W}. ETB with 2 -1/-1 counters.
+    // End step: remove counter, then reanimate creature with power<=2.
     CardData { id, owner, name: "Slumbering Walker".into(), mana_cost: ManaCost::parse("{3}{W}{W}"),
         card_types: vec![CardType::Creature],
         subtypes: vec![SubType::Giant, SubType::Warrior],
         power: Some(4), toughness: Some(7),
         rarity: Rarity::Common,
         abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "Slumbering Walker enters with two -1/-1 counters on it.",
+                vec![Effect::add_counters("-1/-1", 2)],
+                TargetSpec::None),
             Ability::triggered(id,
                 "At the beginning of your end step, you may remove a counter from this creature. When you do, return target creature card with power 2 or less from your graveyard to the battlefield.",
                 vec![EventType::EndStep],
-                vec![Effect::Custom("At the beginning of your end step, you may remove a counter from this creature. When you do, return target creature card with power 2 or less from your graveyard to the battlefield.".into())],
-                TargetSpec::None),
+                vec![Effect::do_if_cost_paid(Cost::RemoveCounters("-1/-1".into(), 1), vec![Effect::reanimate()], vec![])],
+                TargetSpec::CardInYourGraveyard),
         ],
         ..Default::default() }
 }

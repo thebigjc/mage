@@ -4,7 +4,7 @@ Ordered by topological sort of the dependency graph. Engine capabilities are
 scheduled greedily: each step picks the capability that unlocks the most new
 cards. Multi-dependency cards appear under their last-needed capability.
 
-**165 cards complete** | **102 cards remaining** across **21 engine capabilities**
+**169 cards complete** | **98 cards remaining** across **21 engine capabilities**
 
 ## 1. Conditional/Dynamic Effects (COND)
 
@@ -51,14 +51,14 @@ cards. Multi-dependency cards appear under their last-needed capability.
 - [ ] Retched Wretch — Conditional dies trigger (if had -1/-1 counter), return to battlefield + lose all abilities
 - [ ] Rhys, the Evermore — Flash, grant persist until EOT, activated remove any number of counters (sorcery speed)
 - [x] Riverguard's Reflexes — +2/+2 + first strike until EOT + untap target creature
-- [ ] Safewright Cavalry
+- [x] Safewright Cavalry — CantBlock annotation, activated boost_until_eot(2,2) typed with Elf targeting
 - [ ] Sapling Nursery — Affinity for Forests, landfall then Treefolk token, exile self then indestructible until EOT
 - [ ] Spry and Mighty — Choose 2 creatures, draw X + +X/+X + trample where X=power difference
 - [ ] Sunderflock — Cost reduction by greatest MV among Elementals, if cast then bounce all non-Elemental creatures
 - [ ] Swat Away — Cost reduction if creature attacking you, put spell/creature on top/bottom of library
 - [ ] Tam, Mindful First-Year — Other creatures hexproof from each of their colors, make creature all colors
 - [ ] Taster of Wares — ETB opponent reveals X cards (X=Goblins), choose one to exile, may cast instant/sorcery
-- [ ] Tend the Sprigs — Search basic land to battlefield tapped, conditional create Treefolk token if 7+ lands/Treefolk
+- [x] Tend the Sprigs — search_library("basic land") typed, conditional Treefolk token as Custom
 - [ ] Thoughtweft Imbuer
 - [x] Tributary Vaulter — Becomes tapped trigger then another Merfolk gets +2/+0 until EOT
 - [ ] Twinflame Travelers — Other Elemental triggered abilities trigger additional time (replacement effect)
@@ -92,8 +92,8 @@ cards. Multi-dependency cards appear under their last-needed capability.
 ### Multi-dependency cards (3) — now fully unblocked
 
 - [ ] High Perfect Morcant _COND + COST_ — ETB this/another Elf then opponents blight 1, tap 3 Elves then proliferate (sorcery speed)
-- [ ] Moonshadow _COND + COST_ — ETB with 6 -1/-1 counters, trigger on permanent cards to GY then remove -1/-1 counter
-- [ ] Slumbering Walker _COND + COST_
+- [x] Moonshadow _COND + COST_ — Menace keyword, ETB add_counters 6 -1/-1, Dies trigger RemoveCounters typed
+- [x] Slumbering Walker _COND + COST_ — ETB 2 -1/-1 counters, end step DoIfCostPaid(RemoveCounters, reanimate)
 
 ## 3. Vivid Mechanic (VIVID)
 
