@@ -4,7 +4,7 @@ Ordered by topological sort of the dependency graph. Engine capabilities are
 scheduled greedily: each step picks the capability that unlocks the most new
 cards. Multi-dependency cards appear under their last-needed capability.
 
-**181 cards complete** | **86 cards remaining** across **21 engine capabilities**
+**190 cards complete** | **77 cards remaining** across **21 engine capabilities**
 
 ## 1. Conditional/Dynamic Effects (COND)
 
@@ -16,15 +16,15 @@ cards. Multi-dependency cards appear under their last-needed capability.
 ### Single-dependency cards (51)
 
 - [x] Abigale, Eloquent First-Year — Keywords typed, ETB add_counters for keyword counters typed, LoseAllAbilities as Custom
-- [ ] Boneclub Berserker
+- [x] Boneclub Berserker — StaticEffect Custom for dynamic +2/+0 per Goblin (no dynamic P/T system yet)
 - [ ] Boulder Dash — Multi-target damage split (2 to one target, 1 to another)
 - [x] Bre of Clan Stoutarm — activated flying+lifelink EOT typed, triggered reanimate typed (life-gain condition not enforced)
-- [ ] Bristlebane Outrider
+- [x] Bristlebane Outrider — Daunt + conditional +2/+0 as Custom statics (watcher not implemented)
 - [ ] Curious Colossus — LoseAllAbilities, AddCardSubType (Coward), SetBasePowerToughness 1/1 on all opponent creatures
 - [x] Dawnhand Eulogist — mill(3) + lose_life_opponents(2) + gain_life(2) (conditional Elf check not enforced)
-- [ ] Doran, Besieged by Time
-- [ ] Feisty Spikeling
-- [ ] Figure of Fable — Multi-level activated abilities changing type/base P/T, conditional on current subtype
+- [x] Doran, Besieged by Time — EventType triggers typed, cost reduction + dynamic boost as Custom
+- [x] Feisty Spikeling — Changeling keyword typed, conditional first strike as Custom (turn check not enforced)
+- [x] Figure of Fable — Level 1 SetPowerToughness typed, levels 2-3 conditional as Custom
 - [x] Formidable Speaker — activated untap typed with Permanent targeting, ETB discard-to-search is Custom
 - [x] Gallant Fowlknight
 - [x] Glamer Gifter — SetPowerToughness typed, Flash+Flying keywords, all-creature-types is Custom
@@ -40,7 +40,7 @@ cards. Multi-dependency cards appear under their last-needed capability.
 - [ ] Lluwen, Imperfect Naturalist — Mill 4 + top-of-library manipulation, discard land cost, tokens = lands in GY
 - [ ] Meanders Guide — Attacks then may tap Merfolk then return creature MV<=3 from GY to battlefield
 - [ ] Meek Attack — Activated ability put creature from hand (P+T<=5), haste, end-step sacrifice
-- [ ] Moon-Vigil Adherents
+- [x] Moon-Vigil Adherents — Trample keyword typed, dynamic +1/+1 per creature as Custom
 - [x] Morcant's Eyes — upkeep scry(1) typed, activated sac+mana with X tokens is Custom
 - [x] Morcant's Loyalist — Other Elves +1/+1 lord, dies then return another Elf card from GY to hand
 - [ ] Morningtide's Light — Mass flicker, prevent damage until next turn, exile self
@@ -48,7 +48,7 @@ cards. Multi-dependency cards appear under their last-needed capability.
 - [x] Personify — flicker Custom + create_token typed, targets CreatureYouControl
 - [x] Pummeler for Hire — Ward {2} typed, ETB gain life dynamic is Custom
 - [ ] Raiding Schemes — Noncreature spells you cast have conspire (very complex stack manipulation)
-- [ ] Retched Wretch — Conditional dies trigger (if had -1/-1 counter), return to battlefield + lose all abilities
+- [x] Retched Wretch — Dies trigger with reanimate() typed, lose-abilities + counter condition as Custom
 - [ ] Rhys, the Evermore — Flash, grant persist until EOT, activated remove any number of counters (sorcery speed)
 - [x] Riverguard's Reflexes — +2/+2 + first strike until EOT + untap target creature
 - [x] Safewright Cavalry — CantBlock annotation, activated boost_until_eot(2,2) typed with Elf targeting
@@ -59,7 +59,7 @@ cards. Multi-dependency cards appear under their last-needed capability.
 - [ ] Tam, Mindful First-Year — Other creatures hexproof from each of their colors, make creature all colors
 - [ ] Taster of Wares — ETB opponent reveals X cards (X=Goblins), choose one to exile, may cast instant/sorcery
 - [x] Tend the Sprigs — search_library("basic land") typed, conditional Treefolk token as Custom
-- [ ] Thoughtweft Imbuer
+- [x] Thoughtweft Imbuer — AttackerDeclared trigger typed, dynamic +X/+X as Custom
 - [x] Tributary Vaulter — Becomes tapped trigger then another Merfolk gets +2/+0 until EOT
 - [ ] Twinflame Travelers — Other Elemental triggered abilities trigger additional time (replacement effect)
 - [x] Vinebred Brawler — Must be blocked if able, attacks then another Elf gets +2/+1
@@ -91,7 +91,7 @@ cards. Multi-dependency cards appear under their last-needed capability.
 
 ### Multi-dependency cards (3) — now fully unblocked
 
-- [ ] High Perfect Morcant _COND + COST_ — ETB this/another Elf then opponents blight 1, tap 3 Elves then proliferate (sorcery speed)
+- [x] High Perfect Morcant _COND + COST_ — ETB trigger + tap-3 activated typed, blight opponents + proliferate as Custom
 - [x] Moonshadow _COND + COST_ — Menace keyword, ETB add_counters 6 -1/-1, Dies trigger RemoveCounters typed
 - [x] Slumbering Walker _COND + COST_ — ETB 2 -1/-1 counters, end step DoIfCostPaid(RemoveCounters, reanimate)
 

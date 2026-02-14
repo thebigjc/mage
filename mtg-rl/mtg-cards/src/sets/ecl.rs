@@ -2919,6 +2919,9 @@ fn hexing_squelcher(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [COST+COND] ETB this/another Elf then opponents blight 1, tap 3 Elves then proliferate (sorcery speed)
 fn high_perfect_morcant(id: ObjectId, owner: PlayerId) -> CardData {
+    // Legendary 4/4 Elf Noble for {2}{B}{G}.
+    // Whenever this or another Elf ETBs, each opponent blights 1.
+    // Tap 3 untapped Elves: proliferate. Activate only as sorcery.
     CardData { id, owner, name: "High Perfect Morcant".into(),
         mana_cost: ManaCost::parse("{2}{B}{G}"),
         card_types: vec![CardType::Creature],
@@ -2926,6 +2929,18 @@ fn high_perfect_morcant(id: ObjectId, owner: PlayerId) -> CardData {
         supertypes: vec![SuperType::Legendary],
         power: Some(4), toughness: Some(4),
         rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::triggered(id,
+                "Whenever High Perfect Morcant or another Elf enters the battlefield under your control, each opponent blights 1.",
+                vec![EventType::EnteredTheBattlefield],
+                vec![Effect::Custom("Each opponent blights 1 (puts a -1/-1 counter on a creature they control).".into())],
+                TargetSpec::None),
+            Ability::activated(id,
+                "Tap three untapped Elves you control: Proliferate. Activate only as a sorcery.",
+                vec![Cost::Custom("Tap three untapped Elves you control".into())],
+                vec![Effect::Custom("Proliferate.".into())],
+                TargetSpec::None),
+        ],
         ..Default::default() }
 }
 
