@@ -991,6 +991,11 @@ impl StaticEffect {
             condition: condition.to_string(),
         }
     }
+    pub fn evoke(cost: &str) -> Self {
+        StaticEffect::Evoke {
+            cost: cost.to_string(),
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1124,6 +1129,10 @@ pub enum StaticEffect {
     /// Enters tapped unless a condition is met (e.g. "you control a Plains or an Island").
     EntersTappedUnless {
         condition: String,
+    },
+    /// Evoke — alternative casting cost. When evoked creature enters, sacrifice it.
+    Evoke {
+        cost: String,
     },
     /// Custom continuous effect.
 

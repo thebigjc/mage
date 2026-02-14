@@ -2263,7 +2263,7 @@ fn catharsis(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![Effect::boost_all_eot("creatures you control", 1, 1), Effect::grant_keyword_all_eot("creatures you control", "haste")],
                 TargetSpec::None),
             Ability::static_ability(id, "Evoke {R/W}{R/W}",
-                vec![StaticEffect::Custom("Evoke {R/W}{R/W}".into())]),
+                vec![StaticEffect::evoke("{R/W}{R/W}")]),
         ],
         ..Default::default() }
 }
@@ -2453,7 +2453,7 @@ fn deceit(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![Effect::discard_cards(1)],
                 TargetSpec::Player),
             Ability::static_ability(id, "Evoke {U/B}{U/B}",
-                vec![StaticEffect::Custom("Evoke {U/B}{U/B}".into())]),
+                vec![StaticEffect::evoke("{U/B}{U/B}")]),
         ],
         ..Default::default() }
 }
@@ -2573,7 +2573,7 @@ fn emptiness(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![Effect::add_counters("-1/-1", 3)],
                 TargetSpec::Creature),
             Ability::static_ability(id, "Evoke {W/B}{W/B}",
-                vec![StaticEffect::Custom("Evoke {W/B}{W/B}".into())]),
+                vec![StaticEffect::evoke("{W/B}{W/B}")]),
         ],
         ..Default::default() }
 }
@@ -3838,9 +3838,8 @@ fn vibrance(id: ObjectId, owner: PlayerId) -> CardData {
                 "When this enters, if {G}{G} was spent, search your library for a land card, put it in hand. You gain 2 life.",
                 vec![Effect::search_library("land"), Effect::gain_life(2)],
                 TargetSpec::None),
-            Ability::spell(id,
-                vec![Effect::Custom("Evoke {R/G}{R/G}".into())],
-                TargetSpec::None),
+            Ability::static_ability(id, "Evoke {R/G}{R/G}",
+                vec![StaticEffect::evoke("{R/G}{R/G}")]),
         ],
         ..Default::default() }
 }
@@ -3926,11 +3925,10 @@ fn wistfulness(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::Permanent),
             Ability::enters_battlefield_triggered(id,
                 "When this enters, if {U}{U} was spent, draw two cards, then discard a card.",
-                vec![Effect::draw_cards(2), Effect::Custom("Discard a card.".into())],
+                vec![Effect::draw_cards(2), Effect::discard_cards(1)],
                 TargetSpec::None),
-            Ability::spell(id,
-                vec![Effect::Custom("Evoke {G/U}{G/U}".into())],
-                TargetSpec::None),
+            Ability::static_ability(id, "Evoke {G/U}{G/U}",
+                vec![StaticEffect::evoke("{G/U}{G/U}")]),
         ],
         ..Default::default() }
 }

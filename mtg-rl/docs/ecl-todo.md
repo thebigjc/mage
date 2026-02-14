@@ -4,7 +4,7 @@ Ordered by topological sort of the dependency graph. Engine capabilities are
 scheduled greedily: each step picks the capability that unlocks the most new
 cards. Multi-dependency cards appear under their last-needed capability.
 
-**170 cards complete** | **97 cards remaining** across **21 engine capabilities**
+**175 cards complete** | **92 cards remaining** across **21 engine capabilities**
 
 ## 1. Conditional/Dynamic Effects (COND)
 
@@ -308,18 +308,18 @@ cards. Multi-dependency cards appear under their last-needed capability.
 **Effort:** Medium | **Cards unlocked:** 5 | **Running total:** 152/181
 > Alternative cost + ETB + sacrifice on resolution
 
-- [ ] **Implement Evoke Mechanic engine support**
+- [x] **Implement Evoke Mechanic engine support** — Added StaticEffect::Evoke { cost } structured variant + evoke() builder. ETB effects already typed; mana color conditions not enforced.
 
 ### Single-dependency cards (3)
 
-- [ ] Catharsis
-- [ ] Deceit
-- [ ] Emptiness
+- [x] Catharsis — ETB create_token + boost_all_eot + grant_keyword_all_eot typed, Evoke typed
+- [x] Deceit — ETB bounce + discard typed, Evoke typed
+- [x] Emptiness — ETB reanimate + add_counters typed, Evoke typed
 
 ### Multi-dependency cards (2) — now fully unblocked
 
-- [ ] Vibrance _COND + EVOKE_ — Evoke, conditional ETB (if RR then 3 damage, if GG then search land + gain 2 life)
-- [ ] Wistfulness _COND + EVOKE_ — Evoke, conditional ETB (if GG exile artifact/enchantment, if UU draw 2 discard 1)
+- [x] Vibrance _COND + EVOKE_ — ETB deal_damage + search_library + gain_life typed, Evoke typed. Color conditions not enforced.
+- [x] Wistfulness _COND + EVOKE_ — ETB exile + draw + discard typed, Evoke typed. Color conditions not enforced.
 
 ## 14. Impulse Draw (IMPULSE)
 
