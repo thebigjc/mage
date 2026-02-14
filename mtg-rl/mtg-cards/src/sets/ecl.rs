@@ -744,7 +744,7 @@ fn explosive_prodigy(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "Vivid — When this creature enters, it deals X damage to target creature, where X is the number of colors among permanents you control.",
-                vec![Effect::Custom("Deals X damage where X = colors among your permanents.".into())],
+                vec![Effect::deal_damage_vivid()],
                 TargetSpec::Creature),
         ],
         ..Default::default() }
@@ -880,7 +880,7 @@ fn glister_bairn(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "Vivid — At the beginning of combat on your turn, target creature you control gets +X/+X until end of turn, where X is the number of colors among permanents you control.",
                 vec![EventType::BeginCombat],
-                vec![Effect::Custom("Target creature gets +X/+X where X = colors among your permanents.".into())],
+                vec![Effect::boost_until_eot_vivid()],
                 TargetSpec::Creature),
         ],
         ..Default::default() }
@@ -1068,7 +1068,7 @@ fn luminollusk(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "Vivid — When Luminollusk enters, you gain X life, where X is the number of colors among permanents you control.",
-                vec![Effect::Custom("Gain X life where X = colors among your permanents.".into())],
+                vec![Effect::gain_life_vivid()],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -1234,7 +1234,7 @@ fn prismabasher(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "Vivid — When Prismabasher enters, other creatures you control get +X/+X until end of turn, where X is the number of colors among permanents you control.",
-                vec![Effect::Custom("Other creatures get +X/+X where X = colors among your permanents.".into())],
+                vec![Effect::boost_all_until_eot_vivid()],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -1346,7 +1346,7 @@ fn shimmercreep(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "Vivid — When Shimmercreep enters, each opponent loses X life and you gain X life, where X is the number of colors among permanents you control.",
-                vec![Effect::Custom("Opponents lose X life, you gain X life where X = colors among your permanents.".into())],
+                vec![Effect::lose_life_opponents_vivid(), Effect::gain_life_vivid()],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -1361,7 +1361,7 @@ fn shinestriker(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "Vivid — When Shinestriker enters, draw X cards, where X is the number of colors among permanents you control.",
-                vec![Effect::Custom("Draw X cards where X = colors among your permanents.".into())],
+                vec![Effect::draw_cards_vivid()],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -3271,12 +3271,12 @@ fn prismatic_undercurrents(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Uncommon,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
-                    "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    "Vivid — When this enters, search your library for up to X basic land cards, where X is the number of colors among permanents you control. Reveal them, put them into your hand, then shuffle.",
+                    vec![Effect::Custom("Vivid search: up to X basic lands where X = colors among permanents.".into())],
                     TargetSpec::None),
             Ability::static_ability(id,
-                    "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    "You may play an additional land on each of your turns.",
+                    vec![StaticEffect::Custom("Play an additional land each turn.".into())]),
         ],
         ..Default::default() }
 }

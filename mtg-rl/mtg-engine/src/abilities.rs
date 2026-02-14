@@ -203,6 +203,20 @@ pub enum Effect {
     /// from the player decision maker.
     Modal { modes: Vec<ModalMode>, min_modes: usize, max_modes: usize },
 
+    // -- Vivid (ECL mechanic) --
+    /// Vivid -- Deal damage equal to the number of colors among permanents you control.
+    DealDamageVivid,
+    /// Vivid -- Gain life equal to the number of colors among permanents you control.
+    GainLifeVivid,
+    /// Vivid -- Target creature gets +X/+X until end of turn where X = colors among permanents you control.
+    BoostUntilEotVivid,
+    /// Vivid -- Each opponent loses X life where X = colors among permanents you control.
+    LoseLifeOpponentsVivid,
+    /// Vivid -- Draw X cards where X = colors among permanents you control.
+    DrawCardsVivid,
+    /// Vivid -- Other creatures you control get +X/+X until EOT where X = colors.
+    BoostAllUntilEotVivid,
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -853,6 +867,19 @@ impl Effect {
     pub fn modal(modes: Vec<ModalMode>, min_modes: usize, max_modes: usize) -> Self {
         Effect::Modal { modes, min_modes, max_modes }
     }
+
+    /// Vivid -- Deal damage equal to colors among permanents you control.
+    pub fn deal_damage_vivid() -> Self { Effect::DealDamageVivid }
+    /// Vivid -- Gain life equal to colors among permanents you control.
+    pub fn gain_life_vivid() -> Self { Effect::GainLifeVivid }
+    /// Vivid -- Target gets +X/+X until EOT where X = colors among permanents.
+    pub fn boost_until_eot_vivid() -> Self { Effect::BoostUntilEotVivid }
+    /// Vivid -- Each opponent loses X life.
+    pub fn lose_life_opponents_vivid() -> Self { Effect::LoseLifeOpponentsVivid }
+    /// Vivid -- Draw X cards.
+    pub fn draw_cards_vivid() -> Self { Effect::DrawCardsVivid }
+    /// Vivid -- Other creatures get +X/+X until EOT.
+    pub fn boost_all_until_eot_vivid() -> Self { Effect::BoostAllUntilEotVivid }
 }
 
 impl ModalMode {

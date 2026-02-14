@@ -881,6 +881,20 @@ impl Game {
         }
     }
 
+
+    /// Count the number of distinct colors among permanents a player controls.
+    /// Used by the Vivid mechanic (ECL set). Returns 0-5.
+    fn count_colors_among_permanents(&self, player_id: PlayerId) -> usize {
+        use std::collections::HashSet;
+        use crate::constants::Color;
+        let mut colors: HashSet<Color> = HashSet::new();
+        for perm in self.state.battlefield.controlled_by(player_id) {
+            for c in perm.card.colors() {
+                colors.insert(c);
+            }
+        }
+        colors.len()
+    }
     /// Pay the costs for an ability or spell. Returns false if costs can't be paid.
     fn pay_costs(&mut self, player_id: PlayerId, source_id: ObjectId, costs: &[Cost]) -> bool {
         for cost in costs {
@@ -1757,6 +1771,78 @@ impl Game {
                     for &mode_idx in &chosen_indices {
                         if let Some(mode) = modes.get(mode_idx) {
                             self.execute_effects(&mode.effects, controller, targets, source);
+                        }
+                    }
+                }
+                Effect::DealDamageVivid => {
+                    let x = self.count_colors_among_permanents(controller) as u32;
+                    if x > 0 {
+                        for &target_id in targets {
+                            if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                                perm.apply_damage(x);
+                            }
+                        }
+                        // If no permanent targets, deal to opponent (same pattern as DealDamage)
+                        if targets.is_empty() {
+                            if let Some(opp_id) = self.state.opponent_of(controller) {
+                                if let Some(opp) = self.state.players.get_mut(&opp_id) {
+                                    opp.life -= x as i32;
+                                }
+                            }
+                        }
+                    }
+                }
+                Effect::GainLifeVivid => {
+                    let x = self.count_colors_among_permanents(controller) as u32;
+                    if let Some(player) = self.state.players.get_mut(&controller) {
+                        player.gain_life(x);
+                    }
+                }
+                Effect::BoostUntilEotVivid => {
+                    let x = self.count_colors_among_permanents(controller) as i32;
+                    for &target_id in targets {
+                        if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                            perm.card.power = perm.card.power.map(|p| p + x);
+                            perm.card.toughness = perm.card.toughness.map(|t| t + x);
+                        }
+                    }
+                }
+                Effect::LoseLifeOpponentsVivid => {
+                    let x = self.count_colors_among_permanents(controller) as u32;
+                    for (&pid, player) in self.state.players.iter_mut() {
+                        if pid != controller {
+                            player.lose_life(x);
+                        }
+                    }
+                }
+                Effect::DrawCardsVivid => {
+                    let x = self.count_colors_among_permanents(controller) as u32;
+                    // Draw X cards (same pattern as DrawCards)
+                    let mut drawn: Vec<ObjectId> = Vec::new();
+                    if let Some(player) = self.state.players.get_mut(&controller) {
+                        for _ in 0..x {
+                            if let Some(card_id) = player.library.draw() {
+                                player.hand.add(card_id);
+                                drawn.push(card_id);
+                            }
+                        }
+                    }
+                    for card_id in drawn {
+                        self.state.set_zone(card_id, crate::constants::Zone::Hand, Some(controller));
+                    }
+                }
+                Effect::BoostAllUntilEotVivid => {
+                    let x = self.count_colors_among_permanents(controller) as i32;
+                    let ids: Vec<ObjectId> = self.state.battlefield.controlled_by(controller)
+                        .filter(|p| p.is_creature())
+                        .map(|p| p.id())
+                        .collect();
+                    for id in ids {
+                        if Some(id) != source {
+                            if let Some(perm) = self.state.battlefield.get_mut(id) {
+                                perm.card.power = perm.card.power.map(|p| p + x);
+                                perm.card.toughness = perm.card.toughness.map(|t| t + x);
+                            }
                         }
                     }
                 }
@@ -3820,5 +3906,140 @@ mod cost_tests {
         // Now untap cost works
         assert!(game.pay_costs(p1, source_id, &[Cost::UntapSelf]));
         assert!(!game.state.battlefield.get(source_id).unwrap().tapped);
+    }
+}
+
+#[cfg(test)]
+mod vivid_tests {
+    use super::*;
+    use crate::abilities::Effect;
+    use crate::card::CardData;
+    use crate::constants::{CardType, Color, KeywordAbilities, Outcome};
+    use crate::decision::*;
+    use crate::game::{GameConfig, PlayerConfig};
+    use crate::mana::{Mana, ManaCost};
+    use crate::permanent::Permanent;
+    use crate::types::{ObjectId, PlayerId};
+
+    struct AlwaysPassPlayer;
+    impl PlayerDecisionMaker for AlwaysPassPlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_deck(owner: PlayerId) -> Vec<CardData> {
+        (0..20).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), owner, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect()
+    }
+
+    fn setup() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "B".into(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(config, vec![
+            (p1, Box::new(AlwaysPassPlayer)),
+            (p2, Box::new(AlwaysPassPlayer)),
+        ]);
+        (game, p1, p2)
+    }
+
+    fn add_colored_creature(game: &mut Game, owner: PlayerId, name: &str, mana: &str) -> ObjectId {
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.mana_cost = ManaCost::parse(mana);
+        card.power = Some(2);
+        card.toughness = Some(2);
+        card.keywords = KeywordAbilities::empty();
+        game.state.battlefield.add(Permanent::new(card, owner));
+        id
+    }
+
+    #[test]
+    fn count_colors_zero_for_colorless() {
+        let (game, p1, _) = setup();
+        // Only lands (colorless) on battlefield
+        assert_eq!(game.count_colors_among_permanents(p1), 0);
+    }
+
+    #[test]
+    fn count_colors_counts_distinct() {
+        let (mut game, p1, _) = setup();
+        // Add a red creature
+        add_colored_creature(&mut game, p1, "Goblin", "{R}");
+        assert_eq!(game.count_colors_among_permanents(p1), 1);
+
+        // Add another red creature (still 1 color)
+        add_colored_creature(&mut game, p1, "Goblin 2", "{1}{R}");
+        assert_eq!(game.count_colors_among_permanents(p1), 1);
+
+        // Add a green creature (now 2 colors)
+        add_colored_creature(&mut game, p1, "Elf", "{G}");
+        assert_eq!(game.count_colors_among_permanents(p1), 2);
+
+        // Add a multicolor creature (adds blue and white)
+        add_colored_creature(&mut game, p1, "Angel", "{W}{U}");
+        assert_eq!(game.count_colors_among_permanents(p1), 4);
+    }
+
+    #[test]
+    fn vivid_gain_life() {
+        let (mut game, p1, _) = setup();
+        // 3 colors
+        add_colored_creature(&mut game, p1, "R", "{R}");
+        add_colored_creature(&mut game, p1, "G", "{G}");
+        add_colored_creature(&mut game, p1, "B", "{B}");
+
+        game.execute_effects(&[Effect::GainLifeVivid], p1, &[], None);
+        assert_eq!(game.state.players[&p1].life, 23); // 20 + 3
+    }
+
+    #[test]
+    fn vivid_deal_damage_to_creature() {
+        let (mut game, p1, p2) = setup();
+        // p1 has 2 colors
+        add_colored_creature(&mut game, p1, "R", "{R}");
+        add_colored_creature(&mut game, p1, "G", "{G}");
+        // p2 has a creature to target
+        let target = add_colored_creature(&mut game, p2, "Bear", "{1}{W}");
+
+        game.execute_effects(&[Effect::DealDamageVivid], p1, &[target], None);
+        assert_eq!(game.state.battlefield.get(target).unwrap().damage, 2);
+    }
+
+    #[test]
+    fn vivid_boost_until_eot() {
+        let (mut game, p1, _) = setup();
+        // p1 has 3 colors
+        add_colored_creature(&mut game, p1, "R", "{R}");
+        add_colored_creature(&mut game, p1, "G", "{G}");
+        let target = add_colored_creature(&mut game, p1, "B", "{B}");
+
+        game.execute_effects(&[Effect::BoostUntilEotVivid], p1, &[target], None);
+        let perm = game.state.battlefield.get(target).unwrap();
+        assert_eq!(perm.power(), 5); // 2 base + 3 vivid
+        assert_eq!(perm.toughness(), 5);
     }
 }

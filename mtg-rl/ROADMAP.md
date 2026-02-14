@@ -24,6 +24,8 @@ These `Effect` enum variants exist in `abilities.rs` but have no implementation 
 
 **Cost System (2026-02-14):** Implemented `pay_costs()` match arms for `RemoveCounters` (remove typed counters from source), `Blight` (add -1/-1 counters to source), `ExileFromGraveyard` (exile N cards from graveyard), `ExileFromHand` (exile N cards from hand), `SacrificeOther` (sacrifice another permanent matching filter), `UntapSelf` (untap cost), and `Custom` (no-op annotation). Previously these costs silently passed through the catch-all. 6 tests added.
 
+**Vivid Mechanic (2026-02-14):** Added `count_colors_among_permanents()` helper that counts distinct colors (0-5) among permanents a player controls. Added 6 Vivid effect variants: `DealDamageVivid`, `GainLifeVivid`, `BoostUntilEotVivid`, `LoseLifeOpponentsVivid`, `DrawCardsVivid`, `BoostAllUntilEotVivid`. Updated 6 ECL cards (Explosive Prodigy, Glister Bairn, Luminollusk, Shimmercreep, Shinestriker, Prismabasher) with typed Vivid effects. 5 tests added.
+
 | Effect Variant | Description | Cards Blocked |
 |---------------|-------------|---------------|
 | `GainProtection` | Target gains protection from quality | ~5 |

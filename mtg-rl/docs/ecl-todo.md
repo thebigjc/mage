@@ -4,7 +4,7 @@ Ordered by topological sort of the dependency graph. Engine capabilities are
 scheduled greedily: each step picks the capability that unlocks the most new
 cards. Multi-dependency cards appear under their last-needed capability.
 
-**139 cards complete** | **128 cards remaining** across **21 engine capabilities**
+**150 cards complete** | **117 cards remaining** across **21 engine capabilities**
 
 ## 1. Conditional/Dynamic Effects (COND)
 
@@ -100,20 +100,20 @@ cards. Multi-dependency cards appear under their last-needed capability.
 **Effort:** Medium | **Cards unlocked:** 11 | **Running total:** 77/181
 > Color-counting helper → X, effect variants
 
-- [ ] **Implement Vivid Mechanic engine support**
+- [x] **Implement Vivid Mechanic engine support** — count_colors_among_permanents() helper + DealDamageVivid, GainLifeVivid, BoostUntilEotVivid, LoseLifeOpponentsVivid, DrawCardsVivid, BoostAllUntilEotVivid effect variants
 
 ### Single-dependency cards (10)
 
-- [ ] Aurora Awakener
-- [ ] Explosive Prodigy
-- [ ] Glister Bairn
-- [ ] Luminollusk
-- [ ] Prismabasher
-- [ ] Prismatic Undercurrents — Vivid (search X basic lands, X=colors), play additional land each turn
-- [ ] Shimmercreep
-- [ ] Shinestriker
-- [ ] Squawkroaster
-- [ ] Wildvine Pummeler — Vivid cost reduction, Reach, Trample
+- [x] Aurora Awakener — Vivid ETB described (complex reveal-and-put effect is Custom)
+- [x] Explosive Prodigy — deal_damage_vivid() typed ETB
+- [x] Glister Bairn — boost_until_eot_vivid() typed begin-combat trigger
+- [x] Luminollusk — gain_life_vivid() typed ETB
+- [x] Prismabasher — boost_all_until_eot_vivid() typed ETB
+- [x] Prismatic Undercurrents — Vivid ETB search described, additional land static described
+- [x] Shimmercreep — lose_life_opponents_vivid() + gain_life_vivid() typed ETB
+- [x] Shinestriker — draw_cards_vivid() typed ETB
+- [x] Squawkroaster — Vivid power described as static (dynamic set not enforced)
+- [x] Wildvine Pummeler — Vivid CostReduction static, Reach + Trample keywords
 
 ### Multi-dependency cards (1) — now fully unblocked
 
