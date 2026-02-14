@@ -4,7 +4,7 @@ Ordered by topological sort of the dependency graph. Engine capabilities are
 scheduled greedily: each step picks the capability that unlocks the most new
 cards. Multi-dependency cards appear under their last-needed capability.
 
-**150 cards complete** | **117 cards remaining** across **21 engine capabilities**
+**159 cards complete** | **108 cards remaining** across **21 engine capabilities**
 
 ## 1. Conditional/Dynamic Effects (COND)
 
@@ -124,23 +124,23 @@ cards. Multi-dependency cards appear under their last-needed capability.
 **Effort:** Medium | **Cards unlocked:** 10 | **Running total:** 87/181
 > Runtime choice/decision framework
 
-- [ ] **Implement Player Choice engine support**
+- [x] **Implement Player Choice engine support** — Added `Effect::DoIfCostPaid { cost, if_paid, if_not_paid }` variant + match arm. Uses `choose_use()` for yes/no decision, then `pay_costs()` if accepted. 2 tests added.
 
 ### Single-dependency cards (7)
 
-- [ ] Boggart Mischief
-- [ ] Chaos Spewer
-- [ ] Glamermite
-- [ ] Gutsplitter Gang
-- [ ] Scuzzback Scrounger
-- [ ] Thirst for Identity — Draw 3, then discard 2 unless you discard a creature card
-- [ ] Voracious Tome-Skimmer
+- [x] Boggart Mischief — ETB DoIfCostPaid(Blight 1, create 2 Goblin tokens). Dies trigger already typed.
+- [x] Chaos Spewer — ETB DoIfCostPaid(pay {2}, else blight 2 self)
+- [x] Glamermite — Modal (tap/untap target creature), Flash+Flying keywords
+- [x] Gutsplitter Gang — Precombat main DoIfCostPaid(Blight 2, else lose 3 life)
+- [x] Scuzzback Scrounger — Precombat main DoIfCostPaid(Blight 1, create Treasure)
+- [x] Thirst for Identity — draw_cards(3) + DoIfCostPaid(Discard 1, else discard 2). Note: creature-type filter not enforced.
+- [x] Voracious Tome-Skimmer — SpellCast trigger DoIfCostPaid(PayLife 1, draw 1). Note: opponent-turn condition not enforced.
 
 ### Multi-dependency cards (3) — now fully unblocked
 
-- [ ] Puca's Eye _CHOICE + VIVID_ — ETB draw + choose color + become that color, activated draw if 5 colors
-- [ ] Rime Chill _CHOICE + VIVID_
-- [ ] Soul Immolation _CHOICE + COST_
+- [x] Puca's Eye _CHOICE + VIVID_ — ETB draw + color choice Custom, activated {3},{T}: draw (5-color condition not enforced)
+- [x] Rime Chill _CHOICE + VIVID_ — TapTarget + AddCounters(stun) + draw. Vivid cost reduction not enforced.
+- [ ] Soul Immolation _CHOICE + COST_ — Variable X blight cost needs X-cost engine support
 
 ## 5. Creature Type Choice (TYPE)
 

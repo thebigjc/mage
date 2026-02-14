@@ -48,6 +48,7 @@ pub enum Cost {
     /// Reveal a card of a specific type from hand (used by Behold).
     RevealFromHand(String),
     /// A custom/complex cost (described by text).
+
     Custom(String),
 }
 
@@ -217,9 +218,18 @@ pub enum Effect {
     /// Vivid -- Other creatures you control get +X/+X until EOT where X = colors.
     BoostAllUntilEotVivid,
 
+    // -- Conditional cost --
+    /// "You may pay [cost]. If you do, [if_paid]. If you don't, [if_not_paid]."
+    /// Uses choose_use() for the yes/no decision, then pay_costs() if accepted.
+    DoIfCostPaid {
+        cost: Cost,
+        if_paid: Vec<Effect>,
+        if_not_paid: Vec<Effect>,
+    },
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
+
     Custom(String),
 }
 
@@ -268,6 +278,7 @@ pub enum TargetSpec {
     /// Multiple targets of the same type.
     Multiple { spec: Box<TargetSpec>, count: usize },
     /// Custom targeting (described by text).
+
     Custom(String),
 }
 
@@ -880,6 +891,11 @@ impl Effect {
     pub fn draw_cards_vivid() -> Self { Effect::DrawCardsVivid }
     /// Vivid -- Other creatures get +X/+X until EOT.
     pub fn boost_all_until_eot_vivid() -> Self { Effect::BoostAllUntilEotVivid }
+
+    /// "You may pay [cost]. If you do, [effects]. Otherwise, [else_effects]."
+    pub fn do_if_cost_paid(cost: Cost, if_paid: Vec<Effect>, if_not_paid: Vec<Effect>) -> Self {
+        Effect::DoIfCostPaid { cost, if_paid, if_not_paid }
+    }
 }
 
 impl ModalMode {
@@ -1084,6 +1100,7 @@ pub enum StaticEffect {
         condition: String,
     },
     /// Custom continuous effect.
+
     Custom(String),
 }
 

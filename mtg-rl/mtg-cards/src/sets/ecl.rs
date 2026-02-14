@@ -516,7 +516,7 @@ fn chaos_spewer(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Chaos Spewer enters, you may pay {2}. If you don't, put two -1/-1 counters on it.",
-                vec![Effect::Custom("Pay {2} or put two -1/-1 counters on Chaos Spewer.".into())],
+                vec![Effect::do_if_cost_paid(Cost::pay_mana("{2}"), vec![], vec![Effect::add_counters_self("-1/-1", 2)])],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -864,9 +864,9 @@ fn glamermite(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Uncommon,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
-                "When Glamermite enters, you may tap or untap target creature.",
-                vec![Effect::Custom("Tap or untap target creature.".into())],
-                TargetSpec::Creature).set_optional(),
+                "When Glamermite enters, choose one — • Tap target creature. • Untap target creature.",
+                vec![Effect::modal(vec![ModalMode::new("Tap target creature", vec![Effect::TapTarget]), ModalMode::new("Untap target creature", vec![Effect::UntapTarget])], 1, 1)],
+                TargetSpec::Creature),
         ],
         ..Default::default() }
 }
@@ -971,7 +971,7 @@ fn gutsplitter_gang(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "At the beginning of your precombat main phase, put two -1/-1 counters on Gutsplitter Gang unless you pay 3 life.",
                 vec![EventType::PrecombatMainPre],
-                vec![Effect::Custom("Blight 2 or lose 3 life.".into())],
+                vec![Effect::do_if_cost_paid(Cost::Blight(2), vec![], vec![Effect::LoseLife { amount: 3 }])],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -1331,7 +1331,7 @@ fn scuzzback_scrounger(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "At the beginning of your precombat main phase, you may put a -1/-1 counter on Scuzzback Scrounger. If you do, create a Treasure token.",
                 vec![EventType::PrecombatMainPre],
-                vec![Effect::Custom("Blight 1, create a Treasure token.".into())],
+                vec![Effect::do_if_cost_paid(Cost::Blight(1), vec![Effect::create_token("Treasure token", 1)], vec![])],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -1643,7 +1643,7 @@ fn voracious_tome_skimmer(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "Whenever an opponent casts a spell during your turn, you may pay 1 life. If you do, draw a card.",
                 vec![EventType::SpellCast],
-                vec![Effect::Custom("Pay 1 life to draw a card.".into())],
+                vec![Effect::do_if_cost_paid(Cost::PayLife(1), vec![Effect::draw_cards(1)], vec![])],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -1826,7 +1826,7 @@ fn boggart_mischief(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Boggart Mischief enters, you may put a -1/-1 counter on a creature you control. If you do, create two 1/1 black Goblin Rogue creature tokens.",
-                vec![Effect::Custom("Blight 1 to create two 1/1 Goblin Rogue tokens.".into())],
+                vec![Effect::do_if_cost_paid(Cost::Blight(1), vec![Effect::create_token("1/1 black Goblin Rogue creature token", 2)], vec![])],
                 TargetSpec::None),
             Ability::any_creature_dies_triggered(id,
                 "Whenever a Goblin you control dies, each opponent loses 1 life and you gain 1 life.",
@@ -1907,7 +1907,7 @@ fn rime_chill(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Rime Chill".into(), mana_cost: ManaCost::parse("{6}{U}"),
         card_types: vec![CardType::Instant], rarity: Rarity::Common,
         abilities: vec![Ability::spell(id,
-            vec![Effect::Custom("Vivid — This spell costs {1} less to cast for each color among permanents you control. Tap up to two target creatures. Put a stun counter on each of them. Draw a card.".into())],
+            vec![Effect::TapTarget, Effect::add_counters("stun", 1), Effect::draw_cards(1)],
             TargetSpec::Multiple { spec: Box::new(TargetSpec::Creature), count: 2 })],
         ..Default::default() }
 }
@@ -3289,9 +3289,14 @@ fn pucas_eye(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Uncommon,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
-                    "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
-                    TargetSpec::None),
+                "When Puca's Eye enters, draw a card, then choose a color. This artifact becomes the chosen color.",
+                vec![Effect::draw_cards(1), Effect::Custom("Choose a color. This artifact becomes the chosen color.".into())],
+                TargetSpec::None),
+            Ability::activated(id,
+                "{3}, {T}: Draw a card. Activate only if there are five colors among permanents you control.",
+                vec![Cost::pay_mana("{3}"), Cost::TapSelf],
+                vec![Effect::draw_cards(1)],
+                TargetSpec::None),
         ],
         ..Default::default() }
 }
@@ -4545,7 +4550,7 @@ fn thirst_for_identity(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::Custom("Draw three cards. Then discard two cards unless you discard a creature card.".into())],
+                vec![Effect::draw_cards(3), Effect::do_if_cost_paid(Cost::Discard(1), vec![], vec![Effect::discard_cards(2)])],
                 TargetSpec::None),
         ],
         ..Default::default() }

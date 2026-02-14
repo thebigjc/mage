@@ -1846,6 +1846,21 @@ impl Game {
                         }
                     }
                 }
+                Effect::DoIfCostPaid { cost, if_paid, if_not_paid } => {
+                    // Ask player if they want to pay the cost
+                    let view = crate::decision::GameView::placeholder();
+                    let wants_to_pay = if let Some(dm) = self.decision_makers.get_mut(&controller) {
+                        dm.choose_use(&view, crate::constants::Outcome::Benefit, "Pay the cost?")
+                    } else {
+                        false
+                    };
+                    let source_id = source.unwrap_or(ObjectId::new());
+                    if wants_to_pay && self.pay_costs(controller, source_id, &[cost.clone()]) {
+                        self.execute_effects(if_paid, controller, targets, source);
+                    } else {
+                        self.execute_effects(if_not_paid, controller, targets, source);
+                    }
+                }
                 _ => {
                     // Remaining effects not yet implemented (protection, etc.)
                 }
@@ -3638,7 +3653,7 @@ mod modal_test {
         let p1 = PlayerId::new();
         let p2 = PlayerId::new();
 
-        let config = GameConfig {
+        let _config = GameConfig {
             players: vec![
                 PlayerConfig { name: "Alice".into(), deck: vec![] },
                 PlayerConfig { name: "Bob".into(), deck: vec![] },
@@ -3914,10 +3929,10 @@ mod vivid_tests {
     use super::*;
     use crate::abilities::Effect;
     use crate::card::CardData;
-    use crate::constants::{CardType, Color, KeywordAbilities, Outcome};
+    use crate::constants::{CardType, KeywordAbilities, Outcome};
     use crate::decision::*;
     use crate::game::{GameConfig, PlayerConfig};
-    use crate::mana::{Mana, ManaCost};
+    use crate::mana::{ManaCost};
     use crate::permanent::Permanent;
     use crate::types::{ObjectId, PlayerId};
 
@@ -4041,5 +4056,144 @@ mod vivid_tests {
         let perm = game.state.battlefield.get(target).unwrap();
         assert_eq!(perm.power(), 5); // 2 base + 3 vivid
         assert_eq!(perm.toughness(), 5);
+    }
+}
+
+#[cfg(test)]
+mod choice_tests {
+    use super::*;
+    use crate::abilities::{Cost, Effect};
+    use crate::card::CardData;
+    use crate::constants::{CardType, KeywordAbilities, Outcome};
+    use crate::counters::CounterType;
+    use crate::decision::*;
+    use crate::game::{GameConfig, PlayerConfig};
+    use crate::permanent::Permanent;
+    use crate::types::{ObjectId, PlayerId};
+
+    /// Decision maker that always says "yes" to choose_use.
+    struct AlwaysPayPlayer;
+    impl PlayerDecisionMaker for AlwaysPayPlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { true }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    /// Decision maker that always says "no" to choose_use.
+    struct NeverPayPlayer;
+    impl PlayerDecisionMaker for NeverPayPlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_deck(owner: PlayerId) -> Vec<CardData> {
+        (0..20).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), owner, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect()
+    }
+
+    #[test]
+    fn do_if_cost_paid_pays_and_executes() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "B".into(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let mut game = Game::new_two_player(config, vec![
+            (p1, Box::new(AlwaysPayPlayer)),
+            (p2, Box::new(NeverPayPlayer)),
+        ]);
+
+        // Add a creature for source
+        let src_id = ObjectId::new();
+        let mut card = CardData::new(src_id, p1, "Source");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(2);
+        card.toughness = Some(2);
+        card.keywords = KeywordAbilities::empty();
+        game.state.battlefield.add(Permanent::new(card, p1));
+
+        // "You may blight 1. If you do, gain 3 life."
+        let effect = Effect::do_if_cost_paid(
+            Cost::Blight(1),
+            vec![Effect::GainLife { amount: 3 }],
+            vec![],
+        );
+
+        game.execute_effects(&[effect], p1, &[], Some(src_id));
+
+        // AlwaysPayPlayer says yes, blight adds -1/-1, gain 3 life
+        assert_eq!(game.state.battlefield.get(src_id).unwrap().counters.get(&CounterType::M1M1), 1);
+        assert_eq!(game.state.players[&p1].life, 23); // 20 + 3
+    }
+
+    #[test]
+    fn do_if_cost_paid_declines_runs_else() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "B".into(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let mut game = Game::new_two_player(config, vec![
+            (p1, Box::new(NeverPayPlayer)),
+            (p2, Box::new(NeverPayPlayer)),
+        ]);
+
+        // Add a creature for source
+        let src_id = ObjectId::new();
+        let mut card = CardData::new(src_id, p1, "Source");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(5);
+        card.toughness = Some(4);
+        card.keywords = KeywordAbilities::empty();
+        game.state.battlefield.add(Permanent::new(card, p1));
+
+        // "You may pay 3 life. If you don't, blight 2."
+        let effect = Effect::do_if_cost_paid(
+            Cost::PayLife(3),
+            vec![],
+            vec![Effect::add_counters_self("-1/-1", 2)],
+        );
+
+        game.execute_effects(&[effect], p1, &[], Some(src_id));
+
+        // NeverPayPlayer says no, so blight 2 happens
+        assert_eq!(game.state.players[&p1].life, 20); // no life paid
+        assert_eq!(game.state.battlefield.get(src_id).unwrap().counters.get(&CounterType::M1M1), 2);
     }
 }
