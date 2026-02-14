@@ -8,7 +8,7 @@ This document describes implementation gaps in the mtg-rl engine and cards, orga
 
 These `Effect` enum variants exist in `abilities.rs` but have no implementation in `execute_effects()` -- they fall through to `_ => {}` and silently do nothing at runtime.
 
-**Recently implemented:** The following Effect variants were previously no-ops but now have working implementations in `execute_effects()`: `Scry`, `SearchLibrary`, `ReturnFromGraveyard`, `Reanimate`, `GainKeywordUntilEndOfTurn`, `GainKeyword`, `LoseKeyword`, `Indestructible`, `Hexproof`, `CantBlock`, `Sacrifice`, `DestroyAll`, `DealDamageAll`, `RemoveCounters`, `CreateTokenTappedAttacking`, `BoostPermanent`, `SetPowerToughness`, `LoseLifeOpponents`, `LookTopAndPick`. Token stat parsing is also implemented (`CreateToken` now parses P/T and keywords from `token_name`).
+**Recently implemented:** The following Effect variants were previously no-ops but now have working implementations in `execute_effects()`: `Scry`, `SearchLibrary`, `ReturnFromGraveyard`, `Reanimate`, `GainKeywordUntilEndOfTurn`, `GainKeyword`, `LoseKeyword`, `Indestructible`, `Hexproof`, `CantBlock`, `Sacrifice`, `DestroyAll`, `DealDamageAll`, `RemoveCounters`, `CreateTokenTappedAttacking`, `BoostPermanent`, `SetPowerToughness`, `LoseLifeOpponents`, `LookTopAndPick`, `PutOnLibrary`, `GainControl`, `GainControlUntilEndOfTurn`. Token stat parsing is also implemented (`CreateToken` now parses P/T and keywords from `token_name`).
 
 **Batch 2 engine change (2026-02-13):** Modified `execute_effects` to accept an optional `source: Option<ObjectId>` parameter. When `AddCounters` or `RemoveCounters` effects have no selected targets, they now fall back to the source permanent. This enables self-targeting counter effects (e.g., blight creatures putting -1/-1 counters on themselves) without requiring explicit target selection. Test: `add_counters_self_when_no_targets`.
 
@@ -24,8 +24,6 @@ These `Effect` enum variants exist in `abilities.rs` but have no implementation 
 
 | Effect Variant | Description | Cards Blocked |
 |---------------|-------------|---------------|
-| `GainControl` | Gain control of target permanent | ~5 |
-| `GainControlUntilEndOfTurn` | Threaten/Act of Treason effects | ~5 |
 | `GainProtection` | Target gains protection from quality | ~5 |
 | `PreventCombatDamage` | Fog / damage prevention | ~5 |
 | `MustBlock` | Target creature must block | ~3 |

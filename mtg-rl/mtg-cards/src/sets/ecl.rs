@@ -3984,14 +3984,15 @@ fn gloom_ripper(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn goatnap(id: ObjectId, owner: PlayerId) -> CardData {
+    // Sorcery: Gain control of target creature until end of turn. Untap it. It gains haste.
+    // If that creature is a Goat, it also gets +3/+0 until end of turn.
     CardData { id, owner, name: "Goatnap".into(), mana_cost: ManaCost::parse("{2}{R}"),
         card_types: vec![CardType::Sorcery],
-        keywords: KeywordAbilities::HASTE,
         rarity: Rarity::Common,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::Custom("Gain control of target creature until end of turn. Untap that creature. It gains haste until end of turn. If that creature is a Goat, it also gets +3/+0 until end of turn.".into())],
-                TargetSpec::None),
+                vec![Effect::gain_control_eot(), Effect::Custom("If Goat, +3/+0 until end of turn.".into())],
+                TargetSpec::Creature),
         ],
         ..Default::default() }
 }

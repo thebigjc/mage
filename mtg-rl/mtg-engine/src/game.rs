@@ -430,6 +430,10 @@ impl Game {
                     perm.removed_keywords = crate::constants::KeywordAbilities::empty();
                     // Remove "can't block" sentinel counters
                     perm.counters.remove_all(&crate::counters::CounterType::Custom("cant_block".into()));
+                    // Revert temporary control changes (GainControlUntilEndOfTurn)
+                    if let Some(orig) = perm.original_controller.take() {
+                        perm.controller = orig;
+                    }
                 }
                 // Empty mana pools
                 for player in self.state.players.values_mut() {
@@ -1576,8 +1580,30 @@ impl Game {
                         }
                     }
                 }
+                Effect::GainControl => {
+                    // Permanently gain control of target permanent.
+                    for &target_id in targets {
+                        if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                            perm.controller = controller;
+                        }
+                    }
+                }
+                Effect::GainControlUntilEndOfTurn => {
+                    // Gain control of target until end of turn.
+                    // Track original controller for cleanup revert.
+                    for &target_id in targets {
+                        if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                            if perm.original_controller.is_none() {
+                                perm.original_controller = Some(perm.controller);
+                            }
+                            perm.controller = controller;
+                            perm.untap();
+                            perm.granted_keywords |= crate::constants::KeywordAbilities::HASTE;
+                        }
+                    }
+                }
                 _ => {
-                    // Remaining effects not yet implemented (gain control, protection, etc.)
+                    // Remaining effects not yet implemented (protection, etc.)
                 }
             }
         }
@@ -3206,5 +3232,53 @@ mod tests {
         // Library should have 3 cards remaining (Goblin, Mountain, Forest on bottom)
         assert_eq!(player.library.len(), 3);
         assert!(!player.library.contains(elf_id), "Elf should not be in library");
+    }
+
+    #[test]
+    fn gain_control_until_end_of_turn() {
+        // Test that GainControlUntilEndOfTurn changes controller, untaps, grants haste.
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Alice".into(), deck: vec![] },
+                PlayerConfig { name: "Bob".into(), deck: vec![] },
+            ],
+            starting_life: 20,
+        };
+
+        let mut game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(AlwaysPassPlayer)),
+                (p2, Box::new(AlwaysPassPlayer)),
+            ],
+        );
+
+        // Create a creature owned+controlled by p2
+        let bear_id = ObjectId::new();
+        let mut bear = CardData::new(bear_id, p2, "Grizzly Bears");
+        bear.card_types = vec![CardType::Creature];
+        bear.power = Some(2);
+        bear.toughness = Some(2);
+        bear.keywords = KeywordAbilities::empty();
+        game.state.card_store.insert(bear.clone());
+
+        let mut perm = crate::permanent::Permanent::new(bear, p2);
+        perm.tapped = true; // Start tapped
+        game.state.battlefield.add(perm);
+
+        // p1 casts gain_control_eot on the bear
+        let effects = vec![Effect::GainControlUntilEndOfTurn];
+        let targets = vec![bear_id];
+        game.execute_effects(&effects, p1, &targets, None);
+
+        // Bear should now be controlled by p1, untapped, with haste
+        let perm = game.state.battlefield.get(bear_id).unwrap();
+        assert_eq!(perm.controller, p1, "Controller should be p1");
+        assert!(!perm.tapped, "Should be untapped");
+        assert!(perm.has_haste(), "Should have haste");
+        assert_eq!(perm.original_controller, Some(p2), "Original controller tracked");
     }
 }

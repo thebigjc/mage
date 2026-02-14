@@ -4,7 +4,7 @@ Ordered by topological sort of the dependency graph. Engine capabilities are
 scheduled greedily: each step picks the capability that unlocks the most new
 cards. Multi-dependency cards appear under their last-needed capability.
 
-**125 cards complete** | **142 cards remaining** across **21 engine capabilities**
+**126 cards complete** | **141 cards remaining** across **21 engine capabilities**
 
 ## 1. Conditional/Dynamic Effects (COND)
 
@@ -436,11 +436,11 @@ cards. Multi-dependency cards appear under their last-needed capability.
 **Effort:** Medium | **Cards unlocked:** 1 | **Running total:** 181/181
 > Control-change effect
 
-- [ ] **Implement Gain Control engine support**
+- [x] **Implement Gain Control engine support** — GainControl + GainControlUntilEndOfTurn match arms + cleanup revert
 
 ### Single-dependency cards (1)
 
-- [ ] Goatnap
+- [x] Goatnap — gain_control_eot() typed with Creature targeting
 
 ---
 

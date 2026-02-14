@@ -39,6 +39,9 @@ pub struct Permanent {
     pub granted_keywords: KeywordAbilities,
     /// Keywords removed by effects.
     pub removed_keywords: KeywordAbilities,
+    /// Original controller before a temporary control change (GainControlUntilEndOfTurn).
+    /// Set when control is temporarily changed; reverted at cleanup step.
+    pub original_controller: Option<PlayerId>,
 }
 
 impl Permanent {
@@ -58,6 +61,7 @@ impl Permanent {
             zone_change_count: 0,
             granted_keywords: KeywordAbilities::empty(),
             removed_keywords: KeywordAbilities::empty(),
+            original_controller: None,
             card,
         }
     }
