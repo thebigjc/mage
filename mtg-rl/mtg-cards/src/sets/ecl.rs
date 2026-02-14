@@ -2606,17 +2606,20 @@ fn figure_of_fable(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [COND+MANA] Changeling, any-color mana, animated artifact (becomes 4/4 creature until EOT)
 fn firdoch_core(id: ObjectId, owner: PlayerId) -> CardData {
+    // Kindred Artifact Shapeshifter {3}. Changeling. T: any color mana. {4}: becomes 4/4 creature until EOT.
     CardData { id, owner, name: "Firdoch Core".into(),
         mana_cost: ManaCost::parse("{3}"),
         card_types: vec![CardType::Kindred, CardType::Artifact],
         subtypes: vec![SubType::Shapeshifter],
+        keywords: KeywordAbilities::CHANGELING,
         rarity: Rarity::Common,
         abilities: vec![
+            Ability::mana_ability(id, "{T}: Add one mana of any color.", Mana::green(1)),
             Ability::activated(id,
-                    "Activated ability.",
-                    vec![Cost::pay_mana("{4}")],
-                    vec![Effect::Custom("Activated effect.".into())],
-                    TargetSpec::None),
+                "{4}: This artifact becomes a 4/4 artifact creature until end of turn.",
+                vec![Cost::pay_mana("{4}")],
+                vec![Effect::Custom("Becomes a 4/4 artifact creature until end of turn.".into())],
+                TargetSpec::None),
         ],
         ..Default::default() }
 }
@@ -2640,8 +2643,9 @@ fn flitterwing_nuisance(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [MANA+COND] Surveil 1, any-color mana + becomes that color until EOT, once per turn
+// ENGINE DEPS: [COND+MANA] Surveil 1 ETB, any-color mana + color change once per turn
 fn foraging_wickermaw(id: ObjectId, owner: PlayerId) -> CardData {
+    // 1/3 Artifact Creature Scarecrow {2}. ETB: surveil 1. {1}: any color mana (once per turn).
     CardData { id, owner, name: "Foraging Wickermaw".into(),
         mana_cost: ManaCost::parse("{2}"),
         card_types: vec![CardType::Artifact, CardType::Creature],
@@ -2650,9 +2654,12 @@ fn foraging_wickermaw(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
-                    "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
-                    TargetSpec::None),
+                "When this creature enters, surveil 1.",
+                vec![Effect::scry(1)],
+                TargetSpec::None),
+            Ability::mana_ability(id,
+                "{1}: Add one mana of any color. This creature becomes that color until end of turn. Activate only once each turn.",
+                Mana::green(1)),
         ],
         ..Default::default() }
 }
@@ -2709,6 +2716,7 @@ fn gilt_leafs_embrace(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [COND] Set base P/T 4/4 + gain all creature types on target until EOT
 fn glamer_gifter(id: ObjectId, owner: PlayerId) -> CardData {
+    // 1/2 Faerie Wizard {1}{U}. Flash, Flying. ETB: target creature becomes 4/4 + gains all types until EOT.
     CardData { id, owner, name: "Glamer Gifter".into(),
         mana_cost: ManaCost::parse("{1}{U}"),
         card_types: vec![CardType::Creature],
@@ -2718,9 +2726,9 @@ fn glamer_gifter(id: ObjectId, owner: PlayerId) -> CardData {
         keywords: KeywordAbilities::FLASH | KeywordAbilities::FLYING,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
-                    "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
-                    TargetSpec::Permanent),
+                "When this enters, up to one other target creature has base power and toughness 4/4 and gains all creature types until end of turn.",
+                vec![Effect::SetPowerToughness { power: 4, toughness: 4 }, Effect::Custom("Gains all creature types until end of turn.".into())],
+                TargetSpec::Creature),
         ],
         ..Default::default() }
 }
@@ -3266,6 +3274,7 @@ fn reaping_willow(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [COND] Conditional dies trigger (if had -1/-1 counter), return to battlefield + lose all abilities
 fn retched_wretch(id: ObjectId, owner: PlayerId) -> CardData {
+    // 4/2 Goblin {2}{B}. Dies: if had -1/-1 counter, return to BF losing all abilities.
     CardData { id, owner, name: "Retched Wretch".into(),
         mana_cost: ManaCost::parse("{2}{B}"),
         card_types: vec![CardType::Creature],
@@ -3274,9 +3283,9 @@ fn retched_wretch(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Uncommon,
         abilities: vec![
             Ability::dies_triggered(id,
-                    "When this dies, trigger effect.",
-                    vec![Effect::Custom("Dies effect.".into())],
-                    TargetSpec::None),
+                "When this dies, if it had a -1/-1 counter on it, return it to the battlefield under its owner's control and it loses all abilities.",
+                vec![Effect::reanimate(), Effect::Custom("Loses all abilities (conditional: if had -1/-1 counter).".into())],
+                TargetSpec::None),
         ],
         ..Default::default() }
 }
@@ -3923,32 +3932,38 @@ fn end_blaze_epiphany(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [MANA] Conditional mana (2 any color, only for Elemental spells/abilities)
 fn flamebraider(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/2 Elemental Bard {1}{R}. T: Add two mana in any combination of colors (only for Elementals).
     CardData { id, owner, name: "Flamebraider".into(), mana_cost: ManaCost::parse("{1}{R}"),
         card_types: vec![CardType::Creature],
         subtypes: vec![SubType::Elemental, SubType::Custom("Bard".into())],
         power: Some(2), toughness: Some(2),
         rarity: Rarity::Common,
+        abilities: vec![
+            Ability::mana_ability(id,
+                "{T}: Add two mana in any combination of colors. Spend this mana only to cast Elemental spells or activate abilities of Elementals.",
+                Mana::red(2)),
+        ],
         ..Default::default() }
 }
 
 // ENGINE DEPS: [COND] ETB may discard to search for creature, activated untap another permanent
 fn formidable_speaker(id: ObjectId, owner: PlayerId) -> CardData {
+    // 2/4 Elf Druid for {2}{G}. ETB: may discard to search creature. {1}, T: untap another permanent.
     CardData { id, owner, name: "Formidable Speaker".into(), mana_cost: ManaCost::parse("{2}{G}"),
         card_types: vec![CardType::Creature],
         subtypes: vec![SubType::Elf, SubType::Druid],
         power: Some(2), toughness: Some(4),
         rarity: Rarity::Common,
         abilities: vec![
-            Ability::triggered(id,
-                "When this creature enters, you may discard a card. If you do, search your library for a creature card, reveal it, put it into your hand, then shuffle.",
-                vec![EventType::EnteredTheBattlefield],
-                vec![Effect::Custom("When this creature enters, you may discard a card. If you do, search your library for a creature card, reveal it, put it into your hand, then shuffle.".into())],
+            Ability::enters_battlefield_triggered(id,
+                "When this enters, you may discard a card. If you do, search your library for a creature card, reveal it, put it into your hand, then shuffle.",
+                vec![Effect::Custom("May discard to search for creature card.".into())],
                 TargetSpec::None),
             Ability::activated(id,
                 "{1}, {T}: Untap another target permanent.",
-                vec![Cost::Custom("{1}, {T}: Untap another target permanent.".into())],
-                vec![Effect::Custom("{1}, {T}: Untap another target permanent.".into())],
-                TargetSpec::None),
+                vec![Cost::pay_mana("{1}"), Cost::tap_self()],
+                vec![Effect::untap_target()],
+                TargetSpec::Permanent),
         ],
         ..Default::default() }
 }
@@ -4118,12 +4133,21 @@ fn kithkeeper(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [COND+MANA] All creatures have haste (global static), basic land mana doubling
 fn lavaleaper(id: ObjectId, owner: PlayerId) -> CardData {
+    // 4/4 Elemental {3}{R}. Haste. All creatures have haste. Basic lands you control tap for extra mana.
     CardData { id, owner, name: "Lavaleaper".into(), mana_cost: ManaCost::parse("{3}{R}"),
         card_types: vec![CardType::Creature],
         subtypes: vec![SubType::Elemental],
         power: Some(4), toughness: Some(4),
         keywords: KeywordAbilities::HASTE,
         rarity: Rarity::Common,
+        abilities: vec![
+            Ability::static_ability(id,
+                "All creatures have haste.",
+                vec![StaticEffect::GrantKeyword { filter: "creature".into(), keyword: "haste".into() }]),
+            Ability::static_ability(id,
+                "Whenever a basic land you control is tapped for mana, it produces one additional mana of the same type.",
+                vec![StaticEffect::Custom("Basic land mana doubling.".into())]),
+        ],
         ..Default::default() }
 }
 

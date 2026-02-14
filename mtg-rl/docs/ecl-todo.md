@@ -359,7 +359,7 @@ cards. Multi-dependency cards appear under their last-needed capability.
 **Effort:** Medium | **Cards unlocked:** 5 | **Running total:** 167/181
 > ETB replacement effect: pay 2 life or enters tapped
 
-- [ ] **Implement Shock Lands engine support**
+- [x] **Implement Shock Lands engine support** — EntersTappedUnless + life payment implemented
 
 ### Single-dependency cards (5)
 
