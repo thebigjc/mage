@@ -2100,14 +2100,14 @@ fn bark_of_doran(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn blood_crypt(id: ObjectId, owner: PlayerId) -> CardData {
-    // Land — Swamp Mountain. Pay 2 life or enters tapped. Taps for {B} or {R}.
+    // DONE - Land — Swamp Mountain. Pay 2 life or enters tapped. Taps for {B} or {R}.
     CardData { id, owner, name: "Blood Crypt".into(),
         card_types: vec![CardType::Land], subtypes: vec![SubType::Swamp, SubType::Mountain],
         rarity: Rarity::Rare,
         abilities: vec![
             Ability::static_ability(id,
                 "As Blood Crypt enters, you may pay 2 life. If you don't, it enters tapped.",
-                vec![StaticEffect::Custom("Pay 2 life or enters tapped.".into())]),
+                vec![StaticEffect::enters_tapped_unless("pay 2 life")]),
             Ability::mana_ability(id, "{T}: Add {B}.", Mana::black(1)),
             Ability::mana_ability(id, "{T}: Add {R}.", Mana::red(1)),
         ],
@@ -2798,10 +2798,18 @@ fn grubs_command(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn hallowed_fountain(id: ObjectId, owner: PlayerId) -> CardData {
+    // DONE - Land — Plains Island. Pay 2 life or enters tapped.
     CardData { id, owner, name: "Hallowed Fountain".into(),
         card_types: vec![CardType::Land],
         subtypes: vec![SubType::Plains, SubType::Island],
         rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::static_ability(id,
+                "As Hallowed Fountain enters, you may pay 2 life. If you don't, it enters tapped.",
+                vec![StaticEffect::enters_tapped_unless("pay 2 life")]),
+            Ability::mana_ability(id, "{T}: Add {W}.", Mana::white(1)),
+            Ability::mana_ability(id, "{T}: Add {U}.", Mana::blue(1)),
+        ],
         ..Default::default() }
 }
 
@@ -3095,10 +3103,18 @@ fn omni_changeling(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn overgrown_tomb(id: ObjectId, owner: PlayerId) -> CardData {
+    // DONE - Land — Swamp Forest. Pay 2 life or enters tapped.
     CardData { id, owner, name: "Overgrown Tomb".into(),
         card_types: vec![CardType::Land],
         subtypes: vec![SubType::Swamp, SubType::Forest],
         rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::static_ability(id,
+                "As Overgrown Tomb enters, you may pay 2 life. If you don't, it enters tapped.",
+                vec![StaticEffect::enters_tapped_unless("pay 2 life")]),
+            Ability::mana_ability(id, "{T}: Add {B}.", Mana::black(1)),
+            Ability::mana_ability(id, "{T}: Add {G}.", Mana::green(1)),
+        ],
         ..Default::default() }
 }
 
@@ -3412,10 +3428,18 @@ fn stalactite_dagger(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn steam_vents(id: ObjectId, owner: PlayerId) -> CardData {
+    // DONE - Land — Island Mountain. Pay 2 life or enters tapped.
     CardData { id, owner, name: "Steam Vents".into(),
         card_types: vec![CardType::Land],
         subtypes: vec![SubType::Island, SubType::Mountain],
         rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::static_ability(id,
+                "As Steam Vents enters, you may pay 2 life. If you don't, it enters tapped.",
+                vec![StaticEffect::enters_tapped_unless("pay 2 life")]),
+            Ability::mana_ability(id, "{T}: Add {U}.", Mana::blue(1)),
+            Ability::mana_ability(id, "{T}: Add {R}.", Mana::red(1)),
+        ],
         ..Default::default() }
 }
 
@@ -3504,10 +3528,18 @@ fn taster_of_wares(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn temple_garden(id: ObjectId, owner: PlayerId) -> CardData {
+    // DONE - Land — Forest Plains. Pay 2 life or enters tapped.
     CardData { id, owner, name: "Temple Garden".into(),
         card_types: vec![CardType::Land],
         subtypes: vec![SubType::Forest, SubType::Plains],
         rarity: Rarity::Rare,
+        abilities: vec![
+            Ability::static_ability(id,
+                "As Temple Garden enters, you may pay 2 life. If you don't, it enters tapped.",
+                vec![StaticEffect::enters_tapped_unless("pay 2 life")]),
+            Ability::mana_ability(id, "{T}: Add {G}.", Mana::green(1)),
+            Ability::mana_ability(id, "{T}: Add {W}.", Mana::white(1)),
+        ],
         ..Default::default() }
 }
 

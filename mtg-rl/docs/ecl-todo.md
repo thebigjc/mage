@@ -363,11 +363,11 @@ cards. Multi-dependency cards appear under their last-needed capability.
 
 ### Single-dependency cards (5)
 
-- [ ] Blood Crypt
-- [ ] Hallowed Fountain
-- [ ] Overgrown Tomb
-- [ ] Steam Vents
-- [ ] Temple Garden
+- [x] Blood Crypt
+- [x] Hallowed Fountain
+- [x] Overgrown Tomb
+- [x] Steam Vents
+- [x] Temple Garden
 
 ## 17. Cast from Exile (EXILE_CAST)
 
