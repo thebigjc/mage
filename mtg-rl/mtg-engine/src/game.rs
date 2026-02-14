@@ -1023,6 +1023,18 @@ impl Game {
                         }
                     }
                 }
+                Effect::PutOnLibrary => {
+                    for &target_id in targets {
+                        if let Some(perm) = self.state.battlefield.remove(target_id) {
+                            self.state.ability_store.remove_source(target_id);
+                            let owner = perm.owner();
+                            if let Some(player) = self.state.players.get_mut(&owner) {
+                                player.library.put_on_top(target_id);
+                            }
+                            self.state.set_zone(target_id, crate::constants::Zone::Library, Some(owner));
+                        }
+                    }
+                }
                 Effect::DrawCards { count } => {
                     self.draw_cards(controller, *count);
                 }

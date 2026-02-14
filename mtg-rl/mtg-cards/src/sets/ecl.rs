@@ -1773,11 +1773,11 @@ fn springleaf_drum(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn temporal_cleansing(id: ObjectId, owner: PlayerId) -> CardData {
-    // Sorcery {3}{U}. Convoke. Put nonland permanent 2nd from top or bottom of library.
+    // Sorcery {3}{U}. Convoke. Put nonland permanent on top of library (simplified from 2nd-from-top or bottom choice).
     CardData { id, owner, name: "Temporal Cleansing".into(), mana_cost: ManaCost::parse("{3}{U}"),
         card_types: vec![CardType::Sorcery], keywords: KeywordAbilities::CONVOKE,
         rarity: Rarity::Common,
-        abilities: vec![Ability::spell(id, vec![Effect::Custom("Put target nonland permanent second from the top or on the bottom of its owner's library.".into())], TargetSpec::PermanentFiltered("nonland permanent".into()))],
+        abilities: vec![Ability::spell(id, vec![Effect::put_on_library()], TargetSpec::PermanentFiltered("nonland permanent".into()))],
         ..Default::default() }
 }
 

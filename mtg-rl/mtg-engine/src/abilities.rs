@@ -91,6 +91,8 @@ pub enum Effect {
     Sacrifice { filter: String },
     /// Return target permanent to hand.
     Bounce,
+    /// Put target permanent on top of its owner's library.
+    PutOnLibrary,
     /// Return target card from graveyard to hand.
     ReturnFromGraveyard,
     /// Return target card from graveyard to battlefield.
@@ -681,6 +683,11 @@ impl Effect {
     /// "Return target to owner's hand."
     pub fn bounce() -> Self {
         Effect::Bounce
+    }
+
+    /// "Put target permanent on top of its owner's library."
+    pub fn put_on_library() -> Self {
+        Effect::PutOnLibrary
     }
 
     /// "Return target card from graveyard to hand."

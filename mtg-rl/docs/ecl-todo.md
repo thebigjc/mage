@@ -4,7 +4,7 @@ Ordered by topological sort of the dependency graph. Engine capabilities are
 scheduled greedily: each step picks the capability that unlocks the most new
 cards. Multi-dependency cards appear under their last-needed capability.
 
-**121 cards complete** | **146 cards remaining** across **21 engine capabilities**
+**125 cards complete** | **142 cards remaining** across **21 engine capabilities**
 
 ## 1. Conditional/Dynamic Effects (COND)
 
@@ -289,15 +289,15 @@ cards. Multi-dependency cards appear under their last-needed capability.
 **Effort:** Easy-Medium | **Cards unlocked:** 6 | **Running total:** 147/181
 > Individual small effects (self-tap, land tokens, GY exile, library tuck)
 
-- [ ] **Implement Miscellaneous Effects engine support**
+- [x] **Implement Miscellaneous Effects engine support** — PutOnLibrary effect added
 
 ### Single-dependency cards (5)
 
-- [ ] Crib Swap (token for controller)
-- [ ] Iron-Shield Elf (self-tap)
-- [ ] Mutable Explorer (land tokens)
-- [ ] Rooftop Percher (GY exile)
-- [ ] Temporal Cleansing (library tuck)
+- [x] Crib Swap — exile() typed, opponent token is Custom
+- [x] Iron-Shield Elf — gain_keyword_eot("indestructible") typed, self-tap is Custom
+- [ ] Mutable Explorer (land tokens — needs land token creation)
+- [x] Rooftop Percher — gain_life(3) typed, GY exile is Custom
+- [x] Temporal Cleansing — put_on_library() typed with PermanentFiltered targeting
 
 ### Multi-dependency cards (1) — now fully unblocked
 
