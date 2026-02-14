@@ -4,7 +4,7 @@ Ordered by topological sort of the dependency graph. Engine capabilities are
 scheduled greedily: each step picks the capability that unlocks the most new
 cards. Multi-dependency cards appear under their last-needed capability.
 
-**110 cards complete** | **157 cards remaining** across **21 engine capabilities**
+**116 cards complete** | **151 cards remaining** across **21 engine capabilities**
 
 ## 1. Conditional/Dynamic Effects (COND)
 
@@ -21,7 +21,7 @@ cards. Multi-dependency cards appear under their last-needed capability.
 - [ ] Bre of Clan Stoutarm
 - [ ] Bristlebane Outrider
 - [ ] Curious Colossus — LoseAllAbilities, AddCardSubType (Coward), SetBasePowerToughness 1/1 on all opponent creatures
-- [ ] Dawnhand Eulogist — Mill 3, conditional (Elf in GY) opponents lose 2 life + gain 2 life
+- [x] Dawnhand Eulogist — mill(3) + lose_life_opponents(2) + gain_life(2) (conditional Elf check not enforced)
 - [ ] Doran, Besieged by Time
 - [ ] Feisty Spikeling
 - [ ] Figure of Fable — Multi-level activated abilities changing type/base P/T, conditional on current subtype
@@ -36,17 +36,17 @@ cards. Multi-dependency cards appear under their last-needed capability.
 - [x] Impolite Entrance — Target creature gains trample+haste until EOT, draw a card
 - [ ] Kinbinding — Dynamic +X/+X where X=creatures entered this turn (watcher), begin-of-combat token creation
 - [ ] Kinscaer Sentry — Attacks then put creature from hand onto battlefield tapped+attacking if MV <= attacking count
-- [ ] Lasting Tarfire
+- [x] Lasting Tarfire — end step damage_opponents(2) (conditional counter check not enforced)
 - [ ] Lluwen, Imperfect Naturalist — Mill 4 + top-of-library manipulation, discard land cost, tokens = lands in GY
 - [ ] Meanders Guide — Attacks then may tap Merfolk then return creature MV<=3 from GY to battlefield
 - [ ] Meek Attack — Activated ability put creature from hand (P+T<=5), haste, end-step sacrifice
 - [ ] Moon-Vigil Adherents
-- [ ] Morcant's Eyes — Upkeep surveil 1, sac + mana cost then create X Elf tokens (X=Elf cards in GY), sorcery speed
+- [x] Morcant's Eyes — upkeep scry(1) typed, activated sac+mana with X tokens is Custom
 - [x] Morcant's Loyalist — Other Elves +1/+1 lord, dies then return another Elf card from GY to hand
 - [ ] Morningtide's Light — Mass flicker, prevent damage until next turn, exile self
 - [ ] Mornsong Aria — Players can't draw or gain life (static), each draw step: lose 3 life + search library
-- [ ] Personify — Flicker (exile+return own creature), create 1/1 changeling token
-- [ ] Pummeler for Hire — Ward {2}, ETB gain X life where X=greatest power among Giants you control
+- [x] Personify — flicker Custom + create_token typed, targets CreatureYouControl
+- [x] Pummeler for Hire — Ward {2} typed, ETB gain life dynamic is Custom
 - [ ] Raiding Schemes — Noncreature spells you cast have conspire (very complex stack manipulation)
 - [ ] Retched Wretch — Conditional dies trigger (if had -1/-1 counter), return to battlefield + lose all abilities
 - [ ] Rhys, the Evermore — Flash, grant persist until EOT, activated remove any number of counters (sorcery speed)
@@ -65,7 +65,7 @@ cards. Multi-dependency cards appear under their last-needed capability.
 - [x] Vinebred Brawler — Must be blocked if able, attacks then another Elf gets +2/+1
 - [x] Wanderbrine Trapper — Activated: {1}, T, tap another creature then tap opponent creature
 - [ ] Wanderwine Farewell — Convoke, bounce 1-2 nonland permanents, conditional Merfolk tokens
-- [ ] Wary Farmer — End step trigger if another creature entered this turn then surveil 1
+- [x] Wary Farmer — end step scry(1) (conditional creature-entry check not enforced)
 
 ## 2. Cost System (COST)
 

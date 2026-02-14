@@ -2930,11 +2930,18 @@ fn kinscaer_sentry(id: ObjectId, owner: PlayerId) -> CardData {
 // Engine has: beginning_of_end_step_triggered, DealDamageOpponents, CountersAdded event type,
 // CustomWatcher infra. Missing: conditional trigger check (intervening-if clause on watcher state).
 // Category: COND (Conditional/Dynamic Effects)
+// ENGINE DEPS: [COND] PARTIAL — damage typed, conditional counter-placement check not enforced
 fn lasting_tarfire(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Lasting Tarfire".into(),
         mana_cost: ManaCost::parse("{1}{R}"),
         card_types: vec![CardType::Enchantment],
         rarity: Rarity::Uncommon,
+        abilities: vec![
+            Ability::beginning_of_end_step_triggered(id,
+                "At the beginning of each end step, if you put a counter on a creature this turn, Lasting Tarfire deals 2 damage to each opponent.",
+                vec![Effect::damage_opponents(2)],
+                TargetSpec::None),
+        ],
         ..Default::default() }
 }
 
@@ -3199,6 +3206,7 @@ fn pucas_eye(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 // ENGINE DEPS: [COND] Ward {2}, ETB gain X life where X=greatest power among Giants you control
+// ENGINE DEPS: [COND] PARTIAL — Ward+keywords typed, ETB gain life dynamic (greatest Giant power) is Custom
 fn pummeler_for_hire(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Pummeler for Hire".into(),
         mana_cost: ManaCost::parse("{4}{G}"),
@@ -3206,12 +3214,15 @@ fn pummeler_for_hire(id: ObjectId, owner: PlayerId) -> CardData {
         subtypes: vec![SubType::Giant, SubType::Mercenary],
         power: Some(4), toughness: Some(4),
         rarity: Rarity::Uncommon,
-        keywords: KeywordAbilities::VIGILANCE | KeywordAbilities::REACH,
+        keywords: KeywordAbilities::VIGILANCE | KeywordAbilities::REACH | KeywordAbilities::WARD,
         abilities: vec![
+            Ability::static_ability(id,
+                "Ward {2}",
+                vec![StaticEffect::ward("{2}")]),
             Ability::enters_battlefield_triggered(id,
-                    "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
-                    TargetSpec::None),
+                "When Pummeler for Hire enters, you gain X life, where X is the greatest power among Giants you control.",
+                vec![Effect::Custom("Gain life equal to greatest power among Giants you control.".into())],
+                TargetSpec::None),
         ],
         ..Default::default() }
 }
@@ -3687,6 +3698,7 @@ fn wanderwine_farewell(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 // ENGINE DEPS: [COND] End step trigger if another creature entered this turn then surveil 1
+// ENGINE DEPS: [COND] PARTIAL — surveil as scry, conditional creature-entry check not enforced
 fn wary_farmer(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Wary Farmer".into(),
         mana_cost: ManaCost::parse("{1}{G/W}{G/W}"),
@@ -3694,6 +3706,12 @@ fn wary_farmer(id: ObjectId, owner: PlayerId) -> CardData {
         subtypes: vec![SubType::Custom("Kithkin".into()), SubType::Custom("Citizen".into())],
         power: Some(3), toughness: Some(3),
         rarity: Rarity::Common,
+        abilities: vec![
+            Ability::beginning_of_end_step_triggered(id,
+                "At the beginning of your end step, if another creature entered the battlefield under your control this turn, surveil 1.",
+                vec![Effect::scry(1)],
+                TargetSpec::None),
+        ],
         ..Default::default() }
 }
 
@@ -3860,7 +3878,7 @@ fn creakwood_safewright(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [COND] Mill 3, conditional (Elf in GY) opponents lose 2 life + gain 2 life
+// ENGINE DEPS: [COND] PARTIAL — mill+drain typed, conditional Elf check not enforced
 fn dawnhand_eulogist(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Dawnhand Eulogist".into(), mana_cost: ManaCost::parse("{3}{B}"),
         card_types: vec![CardType::Creature],
@@ -3869,10 +3887,9 @@ fn dawnhand_eulogist(id: ObjectId, owner: PlayerId) -> CardData {
         keywords: KeywordAbilities::MENACE,
         rarity: Rarity::Common,
         abilities: vec![
-            Ability::triggered(id,
-                "When this creature enters, mill three cards. Then if there is an Elf card in your graveyard, each opponent loses 2 life and you gain 2 life.",
-                vec![EventType::EnteredTheBattlefield],
-                vec![Effect::Custom("When this creature enters, mill three cards. Then if there is an Elf card in your graveyard, each opponent loses 2 life and you gain 2 life.".into())],
+            Ability::enters_battlefield_triggered(id,
+                "When Dawnhand Eulogist enters, mill three cards. Then if there is an Elf card in your graveyard, each opponent loses 2 life and you gain 2 life.",
+                vec![Effect::mill(3), Effect::lose_life_opponents(2), Effect::gain_life(2)],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -4178,17 +4195,21 @@ fn moon_vigil_adherents(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [COND] Upkeep surveil 1, sac + mana cost then create X Elf tokens (X=Elf cards in GY), sorcery speed
+// ENGINE DEPS: [COND] PARTIAL — surveil as scry, activated X=Elves-in-GY is Custom
 fn morcants_eyes(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Morcant's Eyes".into(), mana_cost: ManaCost::parse("{1}{G}"),
         card_types: vec![CardType::Kindred, CardType::Enchantment],
         subtypes: vec![SubType::Elf],
         rarity: Rarity::Common,
         abilities: vec![
-            Ability::triggered(id,
+            Ability::beginning_of_upkeep_triggered(id,
                 "At the beginning of your upkeep, surveil 1.",
-                vec![EventType::UpkeepStep],
-                vec![Effect::Custom("At the beginning of your upkeep, surveil 1.".into())],
+                vec![Effect::scry(1)],
+                TargetSpec::None),
+            Ability::activated(id,
+                "{4}{G}{G}, Sacrifice Morcant's Eyes: Create X 2/2 black and green Elf creature tokens, where X is the number of Elf cards in your graveyard. Activate only as a sorcery.",
+                vec![Cost::pay_mana("{4}{G}{G}"), Cost::SacrificeSelf],
+                vec![Effect::Custom("Create X 2/2 Elf tokens where X = Elf cards in your graveyard.".into())],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -4239,14 +4260,16 @@ fn oko_lorwyn_liege(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 // ENGINE DEPS: [COND] Flicker (exile+return own creature), create 1/1 changeling token
+// ENGINE DEPS: [COND] PARTIAL — token typed, flicker is Custom
 fn personify(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Personify".into(), mana_cost: ManaCost::parse("{1}{W}"),
         card_types: vec![CardType::Instant],
         rarity: Rarity::Common,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::Custom("Exile target creature you control, then return that card to the battlefield under its owner's control. Create a 1/1 colorless Shapeshifter creature token with changeling.".into())],
-                TargetSpec::None),
+                vec![Effect::Custom("Exile target creature you control, then return it to the battlefield under its owner's control.".into()),
+                     Effect::create_token("1/1 Shapeshifter with changeling", 1)],
+                TargetSpec::CreatureYouControl),
         ],
         ..Default::default() }
 }
