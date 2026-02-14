@@ -34,6 +34,19 @@ These `Effect` enum variants exist in `abilities.rs` but have no implementation 
 
 Note: `Custom(String)` is used when no typed variant exists. Each Custom needs to be individually replaced with a typed variant or a new variant added.
 
+### Static Effect Enforcement
+
+`StaticEffect` variants (`Boost`, `GrantKeyword`, `CantBlock`, `CantAttack`, `CostReduction`, `Ward`, `EntersTappedUnless`, `EntersTapped`, `CantGainLife`, `CantDrawExtraCards`) are currently **structured annotations only** — `game.rs` never reads or applies them. In Java XMage, these are active participants in the game loop via the continuous effects layer system (7 layers: Copy → Control → Text → Type → Color → Ability → P/T).
+
+To make them functional, we need:
+1. **Continuous effect application loop** in `game.rs` that iterates battlefield permanents' `static_effects` each time state-based actions are checked
+2. **ETB replacement hooks** for `EntersTappedUnless` (ask player to pay, conditionally tap)
+3. **Combat restriction enforcement** for `CantAttack` / `CantBlock` during declare attackers/blockers
+4. **P/T modification layer** for `Boost` (lord effects) applied as a layer on top of base stats
+5. **Keyword granting** for `GrantKeyword` applied during ability checks
+
+This is a significant but high-ROI engine change — it would make ~50+ lord effects, combat restrictions, and ETB conditions functional across all sets.
+
 ### Missing Engine Systems
 
 These are features that require new engine architecture, not just new match arms:
