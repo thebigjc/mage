@@ -622,7 +622,7 @@ fn eclipsed_boggart(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Eclipsed Boggart enters, look at the top four cards of your library. You may reveal a Goblin, Swamp, or Mountain card from among them and put it into your hand. Put the rest on the bottom in any order.",
-                vec![Effect::Custom("Look at top 4, may reveal Goblin/Swamp/Mountain to hand, rest on bottom.".into())],
+                vec![Effect::look_top_and_pick(4, "Goblin or Swamp or Mountain")],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -636,7 +636,7 @@ fn eclipsed_elf(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Eclipsed Elf enters, look at the top four cards of your library. You may reveal an Elf, Swamp, or Forest card from among them and put it into your hand. Put the rest on the bottom in any order.",
-                vec![Effect::Custom("Look at top 4, may reveal Elf/Swamp/Forest to hand, rest on bottom.".into())],
+                vec![Effect::look_top_and_pick(4, "Elf or Swamp or Forest")],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -650,7 +650,7 @@ fn eclipsed_flamekin(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Eclipsed Flamekin enters, look at the top four cards of your library. You may reveal an Elemental, Island, or Mountain card from among them and put it into your hand. Put the rest on the bottom in any order.",
-                vec![Effect::Custom("Look at top 4, may reveal Elemental/Island/Mountain to hand, rest on bottom.".into())],
+                vec![Effect::look_top_and_pick(4, "Elemental or Island or Mountain")],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -665,7 +665,7 @@ fn eclipsed_kithkin(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Eclipsed Kithkin enters, look at the top four cards of your library. You may reveal a Kithkin, Forest, or Plains card from among them and put it into your hand. Put the rest on the bottom in any order.",
-                vec![Effect::Custom("Look at top 4, may reveal Kithkin/Forest/Plains to hand, rest on bottom.".into())],
+                vec![Effect::look_top_and_pick(4, "Kithkin or Forest or Plains")],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -679,7 +679,7 @@ fn eclipsed_merrow(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Eclipsed Merrow enters, look at the top four cards of your library. You may reveal a Merfolk, Plains, or Island card from among them and put it into your hand. Put the rest on the bottom in any order.",
-                vec![Effect::Custom("Look at top 4, may reveal Merfolk/Plains/Island to hand, rest on bottom.".into())],
+                vec![Effect::look_top_and_pick(4, "Merfolk or Plains or Island")],
                 TargetSpec::None),
         ],
         ..Default::default() }

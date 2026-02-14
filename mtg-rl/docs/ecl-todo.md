@@ -4,7 +4,7 @@ Ordered by topological sort of the dependency graph. Engine capabilities are
 scheduled greedily: each step picks the capability that unlocks the most new
 cards. Multi-dependency cards appear under their last-needed capability.
 
-**116 cards complete** | **151 cards remaining** across **21 engine capabilities**
+**121 cards complete** | **146 cards remaining** across **21 engine capabilities**
 
 ## 1. Conditional/Dynamic Effects (COND)
 
@@ -344,15 +344,15 @@ cards. Multi-dependency cards appear under their last-needed capability.
 **Effort:** Medium | **Cards unlocked:** 5 | **Running total:** 162/181
 > Look at top 4, reveal matching to hand
 
-- [ ] **Implement Eclipsed Cycle engine support**
+- [x] **Implement Eclipsed Cycle engine support** — `Effect::LookTopAndPick { count, filter }` + game.rs match arm
 
 ### Single-dependency cards (5)
 
-- [ ] Eclipsed Boggart
-- [ ] Eclipsed Elf
-- [ ] Eclipsed Flamekin
-- [ ] Eclipsed Kithkin
-- [ ] Eclipsed Merrow
+- [x] Eclipsed Boggart — look_top_and_pick(4, "Goblin or Swamp or Mountain")
+- [x] Eclipsed Elf — look_top_and_pick(4, "Elf or Swamp or Forest")
+- [x] Eclipsed Flamekin — look_top_and_pick(4, "Elemental or Island or Mountain")
+- [x] Eclipsed Kithkin — look_top_and_pick(4, "Kithkin or Forest or Plains")
+- [x] Eclipsed Merrow — look_top_and_pick(4, "Merfolk or Plains or Island")
 
 ## 16. Shock Lands (SHOCK)
 

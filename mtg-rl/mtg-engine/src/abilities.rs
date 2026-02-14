@@ -109,6 +109,11 @@ pub enum Effect {
     Scry { count: u32 },
     /// Search library for a card.
     SearchLibrary { filter: String },
+    /// Look at the top N cards of your library. You may reveal a card matching
+    /// the filter from among them and put it into your hand. Put the rest on
+    /// the bottom of your library in a random order.
+    /// (Used by Eclipsed cycle, Earthbend, and similar "impulse look" effects.)
+    LookTopAndPick { count: u32, filter: String },
 
     // -- Counters --
     /// Put counters on target.
@@ -782,6 +787,14 @@ impl Effect {
     /// "Search library for a card."
     pub fn search_library(filter: &str) -> Self {
         Effect::SearchLibrary {
+            filter: filter.to_string(),
+        }
+    }
+
+    /// "Look at top N, may pick one matching filter to hand, rest to bottom."
+    pub fn look_top_and_pick(count: u32, filter: &str) -> Self {
+        Effect::LookTopAndPick {
+            count,
             filter: filter.to_string(),
         }
     }

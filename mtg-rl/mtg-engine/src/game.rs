@@ -1381,6 +1381,38 @@ impl Game {
                         }
                     }
                 }
+                Effect::LookTopAndPick { count, filter } => {
+                    // Look at top N cards, pick one matching filter to hand,
+                    // rest go to bottom of library in random order.
+                    let (top_cards, picked) = if let Some(player) = self.state.players.get(&controller) {
+                        let look_count = (*count as usize).min(player.library.len());
+                        let top_cards: Vec<ObjectId> = player.library.peek(look_count).to_vec();
+                        let picked = top_cards.iter().find(|&&card_id| {
+                            self.state.card_store.get(card_id)
+                                .map(|c| Self::card_matches_filter(c, filter))
+                                .unwrap_or(false)
+                        }).copied();
+                        (top_cards, picked)
+                    } else {
+                        (vec![], None)
+                    };
+                    if let Some(player) = self.state.players.get_mut(&controller) {
+                        for &card_id in &top_cards {
+                            player.library.remove(card_id);
+                        }
+                        if let Some(card_id) = picked {
+                            player.hand.add(card_id);
+                        }
+                        for &card_id in &top_cards {
+                            if Some(card_id) != picked {
+                                player.library.put_on_bottom(card_id);
+                            }
+                        }
+                    }
+                    if let Some(card_id) = picked {
+                        self.state.set_zone(card_id, crate::constants::Zone::Hand, Some(controller));
+                    }
+                }
                 Effect::CreateTokenTappedAttacking { token_name, count } => {
                     // Create tokens tapped and attacking (used by Mobilize mechanic)
                     for _ in 0..*count {
@@ -1905,7 +1937,7 @@ mod tests {
     use super::*;
     use crate::abilities::{Ability, Cost, Effect, TargetSpec};
     use crate::card::CardData;
-    use crate::constants::{CardType, KeywordAbilities, Outcome};
+    use crate::constants::{CardType, KeywordAbilities, Outcome, SubType};
     use crate::decision::{
         AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
         ReplacementEffectChoice, TargetRequirement, UnpaidMana,
@@ -3088,5 +3120,79 @@ mod tests {
 
         let p2c = game.state.battlefield.get(c2).unwrap();
         assert_eq!(p2c.counters.get(&CounterType::P1P1), 0); // unchanged
+    }
+
+    #[test]
+    fn look_top_and_pick() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+                PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let mut game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(AlwaysPassPlayer)),
+                (p2, Box::new(AlwaysPassPlayer)),
+            ],
+        );
+
+        // Clear library and set up specific cards on top
+        let elf_id = ObjectId::new();
+        let gob_id = ObjectId::new();
+        let forest_id = ObjectId::new();
+        let mtn_id = ObjectId::new();
+
+        // Create cards with subtypes
+        let mut elf = CardData::new(elf_id, p1, "Test Elf");
+        elf.card_types = vec![CardType::Creature];
+        elf.subtypes = vec![SubType::Elf];
+        game.state.card_store.insert(elf);
+
+        let mut gob = CardData::new(gob_id, p1, "Test Goblin");
+        gob.card_types = vec![CardType::Creature];
+        gob.subtypes = vec![SubType::Goblin];
+        game.state.card_store.insert(gob);
+
+        let mut forest = CardData::new(forest_id, p1, "Forest");
+        forest.card_types = vec![CardType::Land];
+        forest.subtypes = vec![SubType::Forest];
+        game.state.card_store.insert(forest);
+
+        let mut mtn = CardData::new(mtn_id, p1, "Mountain");
+        mtn.card_types = vec![CardType::Land];
+        mtn.subtypes = vec![SubType::Mountain];
+        game.state.card_store.insert(mtn);
+
+        if let Some(player) = game.state.players.get_mut(&p1) {
+            while player.library.draw().is_some() {}
+            // Top to bottom: Elf, Goblin, Mountain, Forest
+            player.library.put_on_bottom(elf_id);
+            player.library.put_on_bottom(gob_id);
+            player.library.put_on_bottom(mtn_id);
+            player.library.put_on_bottom(forest_id);
+        }
+
+        let hand_before = game.state.players.get(&p1).unwrap().hand.len();
+
+        // Look at top 4, pick "Elf or Swamp or Forest"
+        game.execute_effects(
+            &[Effect::look_top_and_pick(4, "Elf or Swamp or Forest")],
+            p1,
+            &[],
+            None,
+        );
+
+        let player = game.state.players.get(&p1).unwrap();
+        // Should have picked the Elf (first match) to hand
+        assert_eq!(player.hand.len(), hand_before + 1);
+        assert!(player.hand.contains(elf_id), "Elf should be in hand");
+        // Library should have 3 cards remaining (Goblin, Mountain, Forest on bottom)
+        assert_eq!(player.library.len(), 3);
+        assert!(!player.library.contains(elf_id), "Elf should not be in library");
     }
 }
