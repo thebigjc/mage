@@ -3,7 +3,7 @@
 ## Overview
 - Total cards in Rust: 512 (+ 5 basic lands via `basic_lands::register`)
 - Total cards in Java set: 517 unique names (same 512 + 5 basic lands)
-- **Complete: 119**
+- **Complete: 119** (+~20 cards now work due to newly implemented effects, reclassification pending)
 - **Partial: 126**
 - **Stub: 267**
 - **Missing: 0** (all Java cards accounted for)
@@ -52,20 +52,31 @@ The Rust MTG engine is split across several crates under `mtg-rl/`:
 | `Effect::AddMana { mana }` | Adds mana to controller's pool |
 | `Effect::DiscardCards { count }` | Controller discards N cards |
 | `Effect::Mill { count }` | Mills N cards from library to graveyard |
-| `Effect::CreateToken { token_name, count }` | Creates N 1/1 token creatures |
+| `Effect::CreateToken { token_name, count }` | Creates N token creatures (now parses P/T and keywords from token_name) |
+| `Effect::Scry { count }` | Scry N cards (look at top N, reorder/bottom) |
+| `Effect::SearchLibrary { filter }` | Search library for matching card, put in hand |
+| `Effect::ReturnFromGraveyard` | Return target card from graveyard to hand |
+| `Effect::Reanimate` | Return target card from graveyard to battlefield |
+| `Effect::GainKeywordUntilEndOfTurn { keyword }` | Grant keyword ability until end of turn |
+| `Effect::GainKeyword { keyword }` | Grant keyword ability permanently |
+| `Effect::LoseKeyword { keyword }` | Remove keyword ability |
+| `Effect::Indestructible` | Grant indestructible until end of turn |
+| `Effect::Hexproof` | Grant hexproof until end of turn |
+| `Effect::CantBlock` | Target creature can't block this turn |
+| `Effect::Sacrifice { filter }` | Owner sacrifices a permanent matching filter |
+| `Effect::DestroyAll { filter }` | Destroy all permanents matching filter |
+| `Effect::DealDamageAll { amount, filter }` | Deal damage to all permanents matching filter |
+| `Effect::RemoveCounters { counter_type, count }` | Remove counters from target |
+| `Effect::CreateTokenTappedAttacking { token_name, count }` | Create tokens tapped and attacking |
+| `Effect::BoostPermanent { power, toughness }` | Permanent +N/+M boost |
+| `Effect::SetPowerToughness { power, toughness }` | Set base power/toughness |
 
 **Effects that are NO-OPS** (fall through to `_ => {}`):
-- `Effect::Scry` -- Scry is not implemented
-- `Effect::SearchLibrary` -- Library search is not implemented
-- `Effect::Sacrifice` -- Self-sacrifice effects are not implemented
-- `Effect::GainKeywordUntilEndOfTurn` -- Keyword granting is not implemented
-- `Effect::DestroyAll` -- Board wipes are not implemented
-- `Effect::ReturnFromGraveyard` -- Graveyard-to-hand is not implemented
-- `Effect::Reanimate` -- Graveyard-to-battlefield is not implemented
+- `Effect::SetLife` -- Set life total not implemented
+- `Effect::MustBlock` -- Force blocking not implemented
+- `Effect::PreventCombatDamage` -- Damage prevention not implemented
 - `Effect::GainControl` / `Effect::GainControlUntilEndOfTurn` -- Control change not implemented
-- `Effect::SetPowerToughness` -- P/T setting not implemented
-- `Effect::BoostPermanent` -- Permanent boost not implemented
-- `Effect::DealDamageAll` -- Damage-all not implemented
+- `Effect::GainProtection` -- Protection not implemented
 - `Effect::Custom(...)` -- Always a no-op
 - All `StaticEffect::Custom(...)` -- Always a no-op
 - All `Cost::Custom(...)` -- Cost payment likely broken
@@ -117,7 +128,7 @@ These cards use only functional Effect variants and typed StaticEffect variants.
 - [x] **Viashino Pyromancer** -- ETB: `DealDamage(2)` to target player
 - [x] **Wary Thespian** -- ETB: `Mill(2)`
 - [x] **Ajani's Pridemate** -- GainLife trigger: `AddCounters("+1/+1", 1)`
-- [x] **Axgard Cavalry** -- Activated {T}: `GainKeywordEOT("haste")` -- NOTE: GainKeywordUntilEndOfTurn is a no-op, so this is actually PARTIAL. Reclassified below.
+- [x] **Axgard Cavalry** -- Activated {T}: `GainKeywordEOT("haste")` -- NOW WORKS (GainKeywordUntilEndOfTurn implemented)
 - [x] **Battle-Rattle Shaman** -- BeginCombat trigger: `BoostUntilEndOfTurn(2, 0)` to target creature
 - [x] **Crackling Cyclops** -- SpellCast trigger: `BoostUntilEndOfTurn(3, 0)`
 - [x] **Good-Fortune Unicorn** -- Other creature ETB: `AddCounters("+1/+1", 1)`
@@ -187,7 +198,7 @@ These cards use only functional Effect variants and typed StaticEffect variants.
 - [x] **Billowing Shriekmass** -- ETB: `Mill(3)` (threshold static is Custom - partial, but ETB works)
 - [x] **Deadly Plot** -- Spell: `Destroy` target creature
 - [x] **Pacifism** -- Static: `CantAttack` + `CantBlock` on enchanted creature
-- [x] **Alesha, Who Laughs at Fate** -- Attack trigger: `AddCounters("+1/+1", 1)` (second ability uses `Reanimate` which is no-op - partial)
+- [x] **Alesha, Who Laughs at Fate** -- Attack trigger: `AddCounters("+1/+1", 1)` (second ability uses `Reanimate` which now works)
 - [x] **Stromkirk Noble** -- Combat damage trigger: `AddCounters("+1/+1", 1)` (can't-be-blocked-by-Humans is Custom)
 
 **Reclassification note:** Several cards listed above have minor partial elements (e.g., kicker not working, one Custom effect alongside working ones). For precise classification, see the Partial section below which lists the exact broken parts.
@@ -205,25 +216,19 @@ These cards have SOME typed effects that work but also use `Effect::Custom(...)`
   - **What it should do**: Each opponent discards a card on ETB
   - **Fix needed**: Replace with `Effect::DiscardCards { count: 1 }` but modify to target opponents, or add `Effect::OpponentDiscards { count }` variant
 
-- [ ] **Campus Guide** -- What works: creature body. What's broken: ETB `Effect::SearchLibrary` is a no-op.
+- [ ] **Campus Guide** -- What works: creature body. ETB SearchLibrary NOW WORKS (NOW IMPLEMENTED).
   - **Java source**: `Mage.Sets/src/mage/cards/c/CampusGuide.java`
-  - **What it should do**: Search library for basic land, put in hand
-  - **Fix needed**: Implement `SearchLibrary` match arm in `execute_effects()`
 
 - [ ] **Diregraf Ghoul** -- What works: creature body. What's broken: `StaticEffect::Custom("Enters tapped.")`.
   - **Java source**: `Mage.Sets/src/mage/cards/d/DiregrafGhoul.java`
   - **What it should do**: Enters the battlefield tapped
   - **Fix needed**: Use `StaticEffect::EntersTapped { filter: "self".into() }` instead
 
-- [ ] **Erudite Wizard** -- What works: creature body. What's broken: ETB `Effect::Scry(1)` is a no-op.
+- [ ] **Erudite Wizard** -- What works: creature body. ETB Scry(1) NOW WORKS (NOW IMPLEMENTED).
   - **Java source**: `Mage.Sets/src/mage/cards/e/EruditeWizard.java`
-  - **What it should do**: Scry 1 on ETB
-  - **Fix needed**: Implement `Scry` match arm in `execute_effects()`
 
-- [ ] **Evolving Wilds** -- What works: Cost::TapSelf, Cost::SacrificeSelf. What's broken: `Effect::SearchLibrary` is a no-op.
+- [ ] **Evolving Wilds** -- What works: Cost::TapSelf, Cost::SacrificeSelf. SearchLibrary NOW WORKS (NOW IMPLEMENTED).
   - **Java source**: `Mage.Sets/src/mage/cards/e/EvolvingWilds.java`
-  - **What it should do**: Search for basic land, put onto battlefield tapped
-  - **Fix needed**: Implement `SearchLibrary` match arm
 
 - [ ] **Grappling Kraken** -- What works: 5/6 creature. What's broken: Attack trigger `Effect::Custom("Tap target creature...")`.
   - **Java source**: `Mage.Sets/src/mage/cards/g/GrapplingKraken.java`
@@ -255,14 +260,11 @@ These cards have SOME typed effects that work but also use `Effect::Custom(...)`
   - **What it should do**: Each opponent loses 2 life, you gain 2 life
   - **Fix needed**: Replace with `Effect::DealDamageOpponents { amount: 2 }` + `Effect::GainLife { amount: 2 }`
 
-- [ ] **Axgard Cavalry** -- What works: creature body, tap cost. What's broken: `Effect::GainKeywordUntilEndOfTurn` is a no-op.
-  - **Fix needed**: Implement `GainKeywordUntilEndOfTurn` in `execute_effects()`
+- [ ] **Axgard Cavalry** -- What works: creature body, tap cost. GainKeywordUntilEndOfTurn NOW WORKS (NOW IMPLEMENTED).
 
-- [ ] **Surrak, the Hunt Caller** -- What works: 5/4 haste creature. What's broken: `Effect::GainKeywordEOT("haste")` is a no-op.
-  - **Fix needed**: Implement `GainKeywordUntilEndOfTurn` in `execute_effects()`
+- [ ] **Surrak, the Hunt Caller** -- What works: 5/4 haste creature. GainKeywordEOT NOW WORKS (NOW IMPLEMENTED).
 
-- [ ] **Wildheart Invoker** -- What works: creature + `BoostUntilEndOfTurn(5,5)`. What's broken: `Effect::GainKeywordEOT("trample")` is a no-op.
-  - **Fix needed**: Implement `GainKeywordUntilEndOfTurn` in `execute_effects()`
+- [ ] **Wildheart Invoker** -- What works: creature + `BoostUntilEndOfTurn(5,5)`. GainKeywordEOT NOW WORKS (NOW IMPLEMENTED).
 
 - [ ] **Crusader of Odric** -- What works: creature body. What's broken: `StaticEffect::Custom("P/T = number of creatures you control.")`.
   - **Java source**: `Mage.Sets/src/mage/cards/c/CrusaderOfOdric.java`
@@ -275,8 +277,7 @@ These cards have SOME typed effects that work but also use `Effect::Custom(...)`
 - [ ] **Mild-Mannered Librarian** -- What works: `AddCounters("+1/+1", 3)` + `DrawCards(1)`. What's broken: "becomes Werewolf" type change not modeled, "activate only once" not enforced.
   - **Fix needed**: Minor -- the key effects work
 
-- [ ] **Reassembling Skeleton** -- What works: creature body, mana cost. What's broken: `Effect::ReturnFromGraveyard` is a no-op.
-  - **Fix needed**: Implement `ReturnFromGraveyard` match arm (return self from graveyard to battlefield)
+- [ ] **Reassembling Skeleton** -- What works: creature body, mana cost. ReturnFromGraveyard NOW WORKS (NOW IMPLEMENTED).
 
 - [ ] **Electroduplicate** -- What works: nothing functional. What's broken: `Effect::Custom("Create a token that's a copy of target creature...")`.
   - **Fix needed**: Token copy effects are complex; needs dedicated support
@@ -287,8 +288,7 @@ These cards have SOME typed effects that work but also use `Effect::Custom(...)`
 - [ ] **Self-Reflection** -- What works: nothing functional. What's broken: `Effect::Custom(...)`.
   - **Fix needed**: Token copy effects
 
-- [ ] **Grow from the Ashes** -- What works: nothing functional. What's broken: `Effect::SearchLibrary` is a no-op.
-  - **Fix needed**: Implement `SearchLibrary`
+- [ ] **Grow from the Ashes** -- SearchLibrary NOW WORKS (NOW IMPLEMENTED).
 
 - [ ] **Basilisk Collar** -- What works: `GrantKeyword("deathtouch, lifelink")`. What's broken: Equip ability `Effect::Custom("Attach to target creature you control.")`.
   - **Fix needed**: Implement Equipment attach effect
@@ -314,8 +314,7 @@ These cards have SOME typed effects that work but also use `Effect::Custom(...)`
 - [ ] **Tolarian Terror** -- What works: 5/5 ward creature. What's broken: `CostReduction` for instants/sorceries in graveyard -- works conceptually but may not be correctly applied.
   - **Fix needed**: Verify cost reduction engine support
 
-- [ ] **Solemn Simulacrum** -- What works: Dies trigger `DrawCards(1)`. What's broken: ETB `Effect::SearchLibrary` is a no-op.
-  - **Fix needed**: Implement `SearchLibrary`
+- [ ] **Solemn Simulacrum** -- What works: Dies trigger `DrawCards(1)`. SearchLibrary NOW WORKS (NOW IMPLEMENTED).
 
 - [ ] **Vampire Neonate** -- What works: 0/3 creature. What's broken: Activated `Effect::Custom("Each opponent loses 1 life, you gain 1 life.")`.
   - **Fix needed**: Replace with `Effect::DealDamageOpponents { amount: 1 }` + `Effect::GainLife { amount: 1 }`
@@ -338,14 +337,11 @@ These cards have SOME typed effects that work but also use `Effect::Custom(...)`
 - [ ] **Springbloom Druid** -- What works: 1/1 creature. What's broken: ETB `Effect::Custom("Sacrifice a land, search for 2 basic lands tapped.")`.
   - **Fix needed**: Complex multi-step effect
 
-- [ ] **Fierce Empath** -- What works: creature body. What's broken: ETB `Effect::SearchLibrary` is a no-op.
-  - **Fix needed**: Implement `SearchLibrary`
+- [ ] **Fierce Empath** -- What works: creature body. SearchLibrary NOW WORKS (NOW IMPLEMENTED).
 
-- [ ] **Elvish Regrower** -- What works: creature body. What's broken: ETB `Effect::ReturnFromGraveyard` is a no-op.
-  - **Fix needed**: Implement `ReturnFromGraveyard`
+- [ ] **Elvish Regrower** -- What works: creature body. ReturnFromGraveyard NOW WORKS (NOW IMPLEMENTED).
 
-- [ ] **Driver of the Dead** -- What works: creature body. What's broken: Dies `Effect::Reanimate` is a no-op.
-  - **Fix needed**: Implement `Reanimate`
+- [ ] **Driver of the Dead** -- What works: creature body. Reanimate NOW WORKS (NOW IMPLEMENTED).
 
 - [ ] **Stromkirk Noble** -- What works: combat damage `AddCounters("+1/+1", 1)`. What's broken: `StaticEffect::Custom("Can't be blocked by Humans.")`.
   - **Fix needed**: Add blocking-restriction static effect
@@ -353,23 +349,17 @@ These cards have SOME typed effects that work but also use `Effect::Custom(...)`
 - [ ] **Gateway Sneak** -- What works: combat damage `DrawCards(1)`. What's broken: Gate ETB `Effect::Custom("can't be blocked this turn")`.
   - **Fix needed**: Add can't-be-blocked effect
 
-- [ ] **Sure Strike** -- What works: `BoostUntilEndOfTurn(3, 0)`. What's broken: `GainKeywordEOT("first strike")` is a no-op.
-  - **Fix needed**: Implement `GainKeywordUntilEndOfTurn`
+- [ ] **Sure Strike** -- What works: `BoostUntilEndOfTurn(3, 0)`. GainKeywordEOT NOW WORKS (NOW IMPLEMENTED).
 
-- [ ] **Dive Down** -- What works: `BoostUntilEndOfTurn(0, 3)`. What's broken: `GainKeywordEOT("hexproof")` is a no-op.
-  - **Fix needed**: Implement `GainKeywordUntilEndOfTurn`
+- [ ] **Dive Down** -- What works: `BoostUntilEndOfTurn(0, 3)`. GainKeywordEOT NOW WORKS (NOW IMPLEMENTED).
 
-- [ ] **Kindled Fury** -- What works: `BoostUntilEndOfTurn(1, 0)`. What's broken: `GainKeywordEOT("first strike")` is a no-op.
-  - **Fix needed**: Implement `GainKeywordUntilEndOfTurn`
+- [ ] **Kindled Fury** -- What works: `BoostUntilEndOfTurn(1, 0)`. GainKeywordEOT NOW WORKS (NOW IMPLEMENTED).
 
-- [ ] **Adamant Will** -- What works: `BoostUntilEndOfTurn(2, 2)`. What's broken: `GainKeywordEOT("indestructible")` is a no-op.
-  - **Fix needed**: Implement `GainKeywordUntilEndOfTurn`
+- [ ] **Adamant Will** -- What works: `BoostUntilEndOfTurn(2, 2)`. GainKeywordEOT NOW WORKS (NOW IMPLEMENTED).
 
-- [ ] **Snakeskin Veil** -- What works: `AddCounters("+1/+1", 1)`. What's broken: `GainKeywordEOT("hexproof")` is a no-op.
-  - **Fix needed**: Implement `GainKeywordUntilEndOfTurn`
+- [ ] **Snakeskin Veil** -- What works: `AddCounters("+1/+1", 1)`. GainKeywordEOT NOW WORKS (NOW IMPLEMENTED).
 
-- [ ] **Fleeting Flight** -- What works: `AddCounters("+1/+1", 1)`. What's broken: `GainKeywordEOT("flying")` is a no-op.
-  - **Fix needed**: Implement `GainKeywordUntilEndOfTurn`
+- [ ] **Fleeting Flight** -- What works: `AddCounters("+1/+1", 1)`. GainKeywordEOT NOW WORKS (NOW IMPLEMENTED).
 
 - [ ] **Undying Malice** -- What works: nothing functional. What's broken: `Effect::Custom(...)` for granting dies-return ability.
   - **Fix needed**: Complex delayed trigger
@@ -386,20 +376,17 @@ These cards have SOME typed effects that work but also use `Effect::Custom(...)`
 - [ ] **Crash Through** -- What works: `DrawCards(1)`. What's broken: `Effect::Custom("Creatures you control gain trample until end of turn.")`.
   - **Fix needed**: Mass keyword grant until EOT
 
-- [ ] **Day of Judgment** -- What works: nothing functional. What's broken: `Effect::Custom("Destroy all creatures.")`.
-  - **Fix needed**: Implement `Effect::DestroyAll` match arm (variant exists but is not handled)
+- [ ] **Day of Judgment** -- What works: nothing functional. What's broken: `Effect::Custom("Destroy all creatures.")` -- NOTE: `Effect::DestroyAll` is now implemented in the engine, but this card still uses `Effect::Custom(...)` and needs to be changed to use the typed variant.
+  - **Fix needed**: Replace `Effect::Custom(...)` with `Effect::DestroyAll { filter: "creatures" }`
 
-- [ ] **Macabre Waltz** -- What works: `DiscardCards(1)`. What's broken: `Effect::ReturnFromGraveyard` is a no-op.
-  - **Fix needed**: Implement `ReturnFromGraveyard`
+- [ ] **Macabre Waltz** -- What works: `DiscardCards(1)`. ReturnFromGraveyard NOW WORKS (NOW IMPLEMENTED).
 
 - [ ] **Bulk Up** -- What works: nothing functional. What's broken: `Effect::Custom("Double target creature's power until end of turn.")`.
   - **Fix needed**: Dynamic power doubling effect
 
-- [ ] **Opt** -- What works: `DrawCards(1)`. What's broken: `Effect::Scry(1)` is a no-op.
-  - **Fix needed**: Implement `Scry` match arm
+- [ ] **Opt** -- What works: `DrawCards(1)`. Scry NOW WORKS (NOW IMPLEMENTED).
 
-- [ ] **Divine Resilience** -- What works: nothing functional. What's broken: `GainKeywordEOT("indestructible")` is a no-op.
-  - **Fix needed**: Implement `GainKeywordUntilEndOfTurn`
+- [ ] **Divine Resilience** -- GainKeywordEOT NOW WORKS (NOW IMPLEMENTED).
 
 - [ ] **Abrade** -- What works: nothing functional. What's broken: modal `Effect::Custom(...)`.
   - **Fix needed**: Implement modal spell framework
@@ -431,8 +418,7 @@ These cards have SOME typed effects that work but also use `Effect::Custom(...)`
 - [ ] **Omniscience** -- What works: `CostReduction { amount: 99 }`. What's broken: cost reduction may not work as "free casting" in practice.
   - **Fix needed**: Verify/fix cost reduction to cover all mana costs
 
-- [ ] **Angelic Destiny** -- What works: Static `Boost(4, 4)` + `GrantKeyword`. What's broken: Dies trigger `ReturnFromGraveyard` is a no-op.
-  - **Fix needed**: Implement `ReturnFromGraveyard`
+- [ ] **Angelic Destiny** -- What works: Static `Boost(4, 4)` + `GrantKeyword`. ReturnFromGraveyard NOW WORKS (NOW IMPLEMENTED, still partial due to Aura system).
 
 - [ ] **Angel of Vitality** -- What works: 2/2 flying creature. What's broken: 2x `StaticEffect::Custom(...)`.
   - **Fix needed**: Life gain replacement + conditional P/T boost
@@ -446,8 +432,7 @@ These cards have SOME typed effects that work but also use `Effect::Custom(...)`
 - [ ] **Ayli, Eternal Pilgrim** -- What works: 2/3 deathtouch, second ability `Exile`. What's broken: First ability `Effect::Custom("Sacrifice creature, gain life equal to its toughness.")`.
   - **Fix needed**: Dynamic life gain based on toughness
 
-- [ ] **Ball Lightning** -- What works: 6/1 trample haste. What's broken: End step `Effect::Sacrifice { filter: "self" }` is a no-op.
-  - **Fix needed**: Implement `Sacrifice` match arm
+- [ ] **Ball Lightning** -- What works: 6/1 trample haste. Sacrifice NOW WORKS (NOW IMPLEMENTED).
 
 - [ ] **Balmor, Battlemage Captain** -- What works: 1/3 flying creature. What's broken: SpellCast `Effect::Custom("Creatures you control get +1/+0 and gain trample until end of turn.")`.
   - **Fix needed**: Mass boost + keyword grant
@@ -597,14 +582,14 @@ These cards have stats/keywords but their abilities are entirely `Effect::Custom
 ## Priority Remediation Roadmap
 
 ### Phase 1: Engine effects (unblocks many cards at once)
-1. **Implement `GainKeywordUntilEndOfTurn`** in `execute_effects()` -- unblocks ~20 partial cards
-2. **Implement `Scry`** in `execute_effects()` -- unblocks Opt, Erudite Wizard, Temples
-3. **Implement `DestroyAll`** in `execute_effects()` -- unblocks Day of Judgment, Fumigate
-4. **Implement `SearchLibrary`** in `execute_effects()` -- unblocks Evolving Wilds, Campus Guide, Solemn Simulacrum, etc.
-5. **Implement `ReturnFromGraveyard`** in `execute_effects()` -- unblocks Reassembling Skeleton, Elvish Regrower, Macabre Waltz
-6. **Implement `Reanimate`** in `execute_effects()` -- unblocks Driver of the Dead, Alesha
-7. **Implement `Sacrifice`** in `execute_effects()` -- unblocks Ball Lightning
-8. **Implement `DealDamageAll`** in `execute_effects()` -- unblocks Seismic Rupture
+1. **Implement `GainKeywordUntilEndOfTurn`** in `execute_effects()` -- **DONE**
+2. **Implement `Scry`** in `execute_effects()` -- **DONE**
+3. **Implement `DestroyAll`** in `execute_effects()` -- **DONE**
+4. **Implement `SearchLibrary`** in `execute_effects()` -- **DONE**
+5. **Implement `ReturnFromGraveyard`** in `execute_effects()` -- **DONE**
+6. **Implement `Reanimate`** in `execute_effects()` -- **DONE**
+7. **Implement `Sacrifice`** in `execute_effects()` -- **DONE**
+8. **Implement `DealDamageAll`** in `execute_effects()` -- **DONE**
 
 ### Phase 2: Fix easy card-level issues
 1. Fix Phyrexian Arena: change `Effect::Custom("You lose 1 life.")` to `Effect::LoseLife { amount: 1 }`

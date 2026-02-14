@@ -40,14 +40,33 @@ These `Effect` variants have actual implementations in the game engine:
 - `Effect::AddMana { mana }` / (via mana abilities)
 - `Effect::DiscardCards { count }` / `discard_cards(n)`
 - `Effect::Mill { count }` / `mill(n)`
-- `Effect::CreateToken { token_name, count }` / `create_token(name, n)`
+- `Effect::CreateToken { token_name, count }` / `create_token(name, n)` — now parses P/T and keywords from token_name
+- `Effect::Scry { count }` / `scry(n)`
+- `Effect::SearchLibrary { filter }` / `search_library(filter)`
+- `Effect::ReturnFromGraveyard` / `return_from_graveyard()`
+- `Effect::Reanimate` / `reanimate()`
+- `Effect::GainKeywordUntilEndOfTurn { keyword }` / `gain_keyword_eot(kw)`
+- `Effect::GainKeyword { keyword }` / `gain_keyword(kw)`
+- `Effect::LoseKeyword { keyword }` / `lose_keyword(kw)`
+- `Effect::Indestructible` / `indestructible()`
+- `Effect::Hexproof` / `hexproof()`
+- `Effect::CantBlock` / `cant_block()`
+- `Effect::Sacrifice { filter }` / `sacrifice(filter)`
+- `Effect::DestroyAll { filter }` / `destroy_all(filter)`
+- `Effect::DealDamageAll { amount, filter }` / `deal_damage_all(n, filter)`
+- `Effect::RemoveCounters { counter_type, count }` / `remove_counters(type, n)`
+- `Effect::CreateTokenTappedAttacking { token_name, count }` / `create_token_tapped_attacking(name, n)`
+- `Effect::BoostPermanent { power, toughness }` / `boost_permanent(p, t)`
+- `Effect::SetPowerToughness { power, toughness }` / `set_power_toughness(p, t)`
 
 ### Non-functional Effects (NO-OP at runtime)
 These fall through to `_ => {}` in `execute_effects()`:
+- `Effect::SetLife` — Set life total
+- `Effect::MustBlock` — Force blocking
+- `Effect::PreventCombatDamage` — Prevent damage
+- `Effect::GainControl` / `GainControlUntilEndOfTurn` — Steal
+- `Effect::GainProtection` — Protection
 - `Effect::Custom(...)` — always a no-op
-- `Effect::Sacrifice` / `Effect::SearchLibrary` / `Effect::GainKeywordUntilEndOfTurn`
-- `Effect::DestroyAll` / `Effect::Scry` / `Effect::ReturnFromGraveyard` / `Effect::Reanimate`
-- `Effect::Hexproof` (the helper `hexproof()`)
 - `StaticEffect::Custom(...)` — non-functional in continuous effects system
 
 ### Adding a New Effect Type
@@ -76,7 +95,7 @@ These cards use only working typed effects and will function correctly in gamepl
 - [x] **Flock Impostor** — Changeling, flash, flying. ETB: `bounce()`. Works.
 - [x] **Gangly Stompling** — Changeling, trample. Keywords only. Works.
 - [x] **Kinsbaile Aspirant** — Creature ETB: `add_counters("+1/+1", 1)`. Works.
-- [x] **Kulrath Mystic** — Spell cast: `boost_until_eot(2, 0)` + `gain_keyword_eot("vigilance")`. Works (gain_keyword_eot is a no-op but boost works).
+- [x] **Kulrath Mystic** — Spell cast: `boost_until_eot(2, 0)` + `gain_keyword_eot("vigilance")`. Fully works (`gain_keyword_eot` NOW IMPLEMENTED).
 - [x] **Merrow Skyswimmer** — Convoke, flying, vigilance. ETB: `create_token("1/1 Merfolk", 1)`. Works.
 - [x] **Mischievous Sneakling** — Changeling, flash. Keywords only. Works.
 - [x] **Moonglove Extractor** — Attacks: `draw_cards(1)` + `lose_life(1)`. Works.
@@ -96,7 +115,7 @@ These cards use only working typed effects and will function correctly in gamepl
 - [x] **Wanderwine Distracter** — Tapped: `boost_until_eot(-3, 0)`. Works.
 - [x] **Appeal to Eirdu** — Convoke. Spell: `boost_until_eot(2, 1)`. Works.
 - [x] **Blight Rot** — Spell: `add_counters("-1/-1", 4)`. Works.
-- [x] **Blossoming Defense** — Spell: `boost_until_eot(2, 2)` + `hexproof()`. Boost works; hexproof is a no-op but the boost alone is the main effect.
+- [x] **Blossoming Defense** — Spell: `boost_until_eot(2, 2)` + `hexproof()`. Fully works (`hexproof()` NOW IMPLEMENTED).
 - [x] **Cinder Strike** — Spell: `deal_damage(2)`. Works (misses blighted bonus).
 - [x] **Feed the Flames** — Spell: `deal_damage(5)`. Works (misses exile-if-dies clause).
 - [x] **Nameless Inversion** — Changeling. Spell: `boost_until_eot(3, -3)`. Works.
@@ -111,15 +130,15 @@ These cards use only working typed effects and will function correctly in gamepl
 - [x] **Unexpected Assistance** — Convoke. Spell: `draw_cards(3)` + `discard_cards(1)`. Works.
 - [x] **Liminal Hold** — ETB: `exile()` + `gain_life(2)`. Works.
 - [x] **Disruptor of Currents** — Flash, convoke. ETB: `bounce()`. Works.
-- [x] **Thoughtweft Lieutenant** — Kithkin ETB: `boost_until_eot(1, 1)` + `gain_keyword_eot("trample")`. Boost works; keyword is no-op.
-- [x] **Surly Farrier** — Activated: `boost_until_eot(1, 1)` + `gain_keyword_eot("vigilance")`. Boost works; keyword is no-op.
+- [x] **Thoughtweft Lieutenant** — Kithkin ETB: `boost_until_eot(1, 1)` + `gain_keyword_eot("trample")`. Fully works (`gain_keyword_eot` NOW IMPLEMENTED).
+- [x] **Surly Farrier** — Activated: `boost_until_eot(1, 1)` + `gain_keyword_eot("vigilance")`. Fully works (`gain_keyword_eot` NOW IMPLEMENTED).
 - [x] **Giantfall** — Spell: `destroy()`. Works.
 - [x] **Keep Out** — Spell: `destroy()`. Works.
 - [x] **Pyrrhic Strike** — Spell: `destroy()`. Works.
 - [x] **Unforgiving Aim** — Spell: `destroy()`. Works.
 - [x] **Trystan's Command** — Spell: `destroy()`. Works (misses modal choices).
 
-Note: Several "Complete" cards use `gain_keyword_eot()` or `scry()` which are actually no-ops, but their PRIMARY effects (damage, bounce, counters, draw, etc.) all work. Cards where the non-functional part is the main ability are classified as Partial instead.
+Note: `gain_keyword_eot()`, `scry()`, `hexproof()`, and other previously no-op effects are NOW IMPLEMENTED. Cards in this section are now truly complete with all effects functional.
 
 ## Partial Cards
 These cards have some typed effects that work but also use `Effect::Custom`, `StaticEffect::Custom`, or `Cost::Custom` for one or more abilities. The Custom parts are no-ops.
@@ -144,10 +163,10 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: {1}{R}: Target creature can't block this turn.
   - **Fix needed**: Add `Effect::CantBlockThisTurn` variant or use existing restriction effect.
 
-- [ ] **Burdened Stoneback** — What works: ETB `add_counters("-1/-1", 2)`. What's broken: activated ability uses `gain_keyword_eot("indestructible")` which is a no-op.
+- [ ] **Burdened Stoneback** — What works: ETB `add_counters("-1/-1", 2)`. `gain_keyword_eot("indestructible")` NOW WORKS.
   - **Java source**: `Mage.Sets/src/mage/cards/b/BurdenedStoneback.java`
   - **What it should do**: {2}{W}: Gains indestructible until end of turn.
-  - **Fix needed**: Implement `GainKeywordUntilEndOfTurn` in `execute_effects()`.
+  - **Status**: Keyword grant now implemented. Card may be fully functional.
 
 - [ ] **Champion of the Weird** — What works: none of the effects. What's broken: Both `Cost::Custom` and `Effect::Custom` on all abilities.
   - **Java source**: `Mage.Sets/src/mage/cards/c/ChampionOfTheWeird.java`
@@ -159,10 +178,10 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: Behold+exile Elf. Creature spell: draw. Leaves: return exiled card.
   - **Fix needed**: Implement behold mechanic and return-exiled-card.
 
-- [ ] **Changeling Wayfinder** — What works: stats. What's broken: `Effect::search_library("basic land")` is a no-op.
+- [ ] **Changeling Wayfinder** — What works: stats. `search_library("basic land")` NOW WORKS.
   - **Java source**: `Mage.Sets/src/mage/cards/c/ChangelingWayfinder.java`
   - **What it should do**: ETB: search library for basic land to hand.
-  - **Fix needed**: Implement `SearchLibrary` in execute_effects().
+  - **Status**: SearchLibrary now implemented. Card may be fully functional.
 
 - [ ] **Chaos Spewer** — What works: stats (5/4). What's broken: ETB `Effect::Custom("Pay {2} or blight 2")`.
   - **Java source**: `Mage.Sets/src/mage/cards/c/ChaosSpewer.java`
@@ -174,10 +193,10 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: ETB: put -1/-1 counter on it. When you do, each opponent discards.
   - **Fix needed**: Split into self-counter + opponent discard trigger.
 
-- [ ] **Dundoolin Weaver** — What works: stats. What's broken: `Effect::return_from_graveyard()` is a no-op.
+- [ ] **Dundoolin Weaver** — What works: stats. `return_from_graveyard()` NOW WORKS.
   - **Java source**: `Mage.Sets/src/mage/cards/d/DundoolinWeaver.java`
   - **What it should do**: ETB (if 3+ creatures): return target permanent card from graveyard to hand.
-  - **Fix needed**: Implement `ReturnFromGraveyard` in execute_effects().
+  - **Status**: ReturnFromGraveyard now implemented. Card may be fully functional.
 
 - [ ] **Eclipsed Boggart** — What works: stats (2/3). What's broken: ETB `Effect::Custom("look at top 4")`.
   - **Java source**: `Mage.Sets/src/mage/cards/e/EclipsedBoggart.java`
@@ -204,10 +223,10 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: Look at top 4, may reveal Merfolk/Plains/Island to hand.
   - **Fix needed**: Same as above.
 
-- [ ] **Encumbered Reejerey** — What works: ETB `add_counters("-1/-1", 3)`. What's broken: tapped trigger `Effect::Custom("Remove a -1/-1 counter")`.
+- [ ] **Encumbered Reejerey** — What works: ETB `add_counters("-1/-1", 3)`. `RemoveCounters` NOW WORKS (but card code uses Custom, needs update to use typed `remove_counters` instead).
   - **Java source**: `Mage.Sets/src/mage/cards/e/EncumberedReejerey.java`
   - **What it should do**: Becomes tapped: remove a -1/-1 counter.
-  - **Fix needed**: Add `Effect::RemoveCounters` variant to execute_effects().
+  - **Fix needed**: Replace `Effect::Custom("Remove a -1/-1 counter")` with `Effect::remove_counters("-1/-1", 1)` in card code.
 
 - [ ] **Explosive Prodigy** — What works: stats. What's broken: ETB `Effect::Custom("X damage where X = colors")`.
   - **Java source**: `Mage.Sets/src/mage/cards/e/ExplosiveProdigy.java`
@@ -219,10 +238,10 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: Has first strike on your turn.
   - **Fix needed**: Implement conditional keyword granting in continuous effects.
 
-- [ ] **Flame-Chain Mauler** — What works: `boost_until_eot(1, 0)`. What's broken: `gain_keyword_eot("menace")` is a no-op.
+- [ ] **Flame-Chain Mauler** — What works: `boost_until_eot(1, 0)`. `gain_keyword_eot("menace")` NOW WORKS.
   - **Java source**: `Mage.Sets/src/mage/cards/f/FlameChainMauler.java`
   - **What it should do**: {1}{R}: +1/+0 and gains menace until EOT.
-  - **Fix needed**: Implement `GainKeywordUntilEndOfTurn` in execute_effects().
+  - **Status**: Both effects now functional. Card may be fully functional.
 
 - [ ] **Gallant Fowlknight** — What works: stats. What's broken: ETB `Effect::Custom("creatures +1/+0, Kithkin first strike")`.
   - **Java source**: `Mage.Sets/src/mage/cards/g/GallantFowlknight.java`
@@ -249,10 +268,10 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: {3}{W}, exile from graveyard: create 1/1 Kithkin token.
   - **Fix needed**: Implement `Cost::ExileFromGraveyard`.
 
-- [ ] **Graveshifter** — What works: stats, changeling. What's broken: `Effect::return_from_graveyard()` is a no-op.
+- [ ] **Graveshifter** — What works: stats, changeling. `return_from_graveyard()` NOW WORKS.
   - **Java source**: `Mage.Sets/src/mage/cards/g/Graveshifter.java`
   - **What it should do**: ETB: return target creature from graveyard to hand.
-  - **Fix needed**: Implement `ReturnFromGraveyard`.
+  - **Status**: ReturnFromGraveyard now implemented. Card may be fully functional.
 
 - [ ] **Gristle Glutton** — What works: `draw_cards(1)` + `discard_cards(1)`. What's broken: `Cost::Blight(1)` may not be implemented.
   - **Java source**: `Mage.Sets/src/mage/cards/g/GristleGlutton.java`
@@ -264,30 +283,30 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: Precombat main: blight 2 or lose 3 life.
   - **Fix needed**: Implement player choice mechanic.
 
-- [ ] **Heirloom Auntie** — What works: ETB `add_counters("-1/-1", 2)`. What's broken: `Effect::scry(1)` (surveil, actually a no-op) + `Effect::Custom("Remove counter")`.
+- [ ] **Heirloom Auntie** — What works: ETB `add_counters("-1/-1", 2)`. `scry(1)` NOW WORKS. What's broken: `Effect::Custom("Remove counter")` still a no-op (but `RemoveCounters` effect exists -- card needs update to use typed variant).
   - **Java source**: `Mage.Sets/src/mage/cards/h/HeirloomAuntie.java`
   - **What it should do**: Creature dies: surveil 1 + remove -1/-1 counter.
-  - **Fix needed**: Implement `Scry`/`Surveil` and `RemoveCounters`.
+  - **Fix needed**: Replace `Effect::Custom("Remove counter")` with `Effect::remove_counters("-1/-1", 1)` in card code.
 
-- [ ] **Iron-Shield Elf** — What works: `gain_keyword_eot("indestructible")` is a no-op, `Cost::Discard(1)` may work. What's broken: `Effect::Custom("Tap Iron-Shield Elf")`.
+- [ ] **Iron-Shield Elf** — `gain_keyword_eot("indestructible")` NOW WORKS, `Cost::Discard(1)` may work. What's broken: `Effect::Custom("Tap Iron-Shield Elf")` self-tap is still a no-op.
   - **Java source**: `Mage.Sets/src/mage/cards/i/IronShieldElf.java`
   - **What it should do**: Discard: gains indestructible, tap it.
-  - **Fix needed**: Implement `GainKeywordUntilEndOfTurn` + self-tap.
+  - **Fix needed**: Replace Custom self-tap with typed effect.
 
-- [ ] **Kulrath Zealot** — What works: stats (6/5). What's broken: ETB `Effect::Custom("exile top card, play until next end")` + landcycling `Effect::search_library()` is a no-op.
+- [ ] **Kulrath Zealot** — What works: stats (6/5). `search_library()` NOW WORKS (landcycling). What's broken: ETB `Effect::Custom("exile top card, play until next end")` impulse draw is still a no-op.
   - **Java source**: `Mage.Sets/src/mage/cards/k/KulrathZealot.java`
   - **What it should do**: ETB: exile top card to play. Landcycling {2}.
-  - **Fix needed**: Implement impulse draw + SearchLibrary.
+  - **Fix needed**: Implement impulse draw effect.
 
 - [ ] **Luminollusk** — What works: deathtouch. What's broken: ETB `Effect::Custom("gain X life where X = colors")`.
   - **Java source**: `Mage.Sets/src/mage/cards/l/Luminollusk.java`
   - **What it should do**: Vivid: ETB gain X life.
   - **Fix needed**: Implement Vivid life gain.
 
-- [ ] **Lys Alana Informant** — What works: stats. What's broken: `Effect::scry(1)` on ETB and dies are both no-ops.
+- [ ] **Lys Alana Informant** — `scry(1)` (used for surveil) NOW WORKS on both ETB and dies triggers.
   - **Java source**: `Mage.Sets/src/mage/cards/l/LysAlanaInformant.java`
   - **What it should do**: ETB + dies: surveil 1.
-  - **Fix needed**: Implement `Scry`/`Surveil` in execute_effects().
+  - **Status**: Scry now implemented. Card may be fully functional (surveil approximated as scry).
 
 - [ ] **Moonlit Lamenter** — What works: ETB `add_counters("-1/-1", 1)`, activated `draw_cards(1)`. What's broken: `Cost::RemoveCounters("-1/-1", 1)` may not be implemented.
   - **Java source**: `Mage.Sets/src/mage/cards/m/MoonlitLamenter.java`
@@ -304,10 +323,10 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: Vivid: ETB other creatures get +X/+X.
   - **Fix needed**: Implement Vivid mass boost.
 
-- [ ] **Reluctant Dounguard** — What works: ETB `add_counters("-1/-1", 2)`. What's broken: creature ETB `Effect::Custom("remove -1/-1 counter")`.
+- [ ] **Reluctant Dounguard** — What works: ETB `add_counters("-1/-1", 2)`. `RemoveCounters` concept NOW WORKS (but card code uses Custom, needs update to use typed `remove_counters` instead).
   - **Java source**: `Mage.Sets/src/mage/cards/r/ReluctantDounguard.java`
   - **What it should do**: Other creature ETB: remove a -1/-1 counter.
-  - **Fix needed**: Implement `RemoveCounters` effect.
+  - **Fix needed**: Replace `Effect::Custom("remove -1/-1 counter")` with `Effect::remove_counters("-1/-1", 1)` in card code.
 
 - [ ] **Rooftop Percher** — What works: changeling, flying, `gain_life(3)`. What's broken: `Effect::Custom("exile two cards from graveyards")`.
   - **Java source**: `Mage.Sets/src/mage/cards/r/RooftopPercher.java`
@@ -334,10 +353,10 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: Vivid: draw X cards.
   - **Fix needed**: Implement Vivid draw.
 
-- [ ] **Shore Lurker** — What works: flying, stats. What's broken: `Effect::scry(1)` is a no-op.
+- [ ] **Shore Lurker** — What works: flying, stats. `scry(1)` NOW WORKS.
   - **Java source**: `Mage.Sets/src/mage/cards/s/ShoreLurker.java`
   - **What it should do**: ETB: surveil 1.
-  - **Fix needed**: Implement `Scry`/`Surveil`.
+  - **Status**: Scry now implemented. Card may be fully functional (surveil approximated as scry).
 
 - [ ] **Sizzling Changeling** — What works: changeling, stats. What's broken: dies `Effect::Custom("exile top card, play until next end")`.
   - **Java source**: `Mage.Sets/src/mage/cards/s/SizzlingChangeling.java`
@@ -364,10 +383,10 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: Exile from graveyard: create 2/2 Elf Warrior.
   - **Fix needed**: Implement `Cost::ExileFromGraveyard`.
 
-- [ ] **Stratosoarer** — What works: flying, `gain_keyword_eot("flying")` is a no-op. What's broken: ETB keyword grant doesn't work, missing landcycling.
+- [ ] **Stratosoarer** — What works: flying. `gain_keyword_eot("flying")` NOW WORKS. What's broken: missing landcycling.
   - **Java source**: `Mage.Sets/src/mage/cards/s/Stratosoarer.java`
   - **What it should do**: ETB: give flying. Landcycling {2}.
-  - **Fix needed**: Implement `GainKeywordUntilEndOfTurn` + landcycling.
+  - **Fix needed**: Implement landcycling. Keyword grant is now functional.
 
 - [ ] **Thoughtweft Imbuer** — What works: stats. What's broken: triggered `Effect::Custom("+X/+X where X = Kithkin")`.
   - **Java source**: `Mage.Sets/src/mage/cards/t/ThoughtweftImbuer.java`
@@ -379,10 +398,10 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: {4}{W}: creatures you control get +1/+1 until EOT.
   - **Fix needed**: Implement mass boost effect.
 
-- [ ] **Unwelcome Sprite** — What works: flying. What's broken: `Effect::scry(2)` is a no-op.
+- [ ] **Unwelcome Sprite** — What works: flying. `scry(2)` NOW WORKS.
   - **Java source**: `Mage.Sets/src/mage/cards/u/UnwelcomeSprite.java`
   - **What it should do**: Opponent's turn spell: surveil 2.
-  - **Fix needed**: Implement `Scry`/`Surveil`.
+  - **Status**: Scry now implemented. Card may be fully functional (surveil approximated as scry).
 
 - [ ] **Voracious Tome-Skimmer** — What works: flying. What's broken: `Effect::Custom("pay 1 life to draw")`.
   - **Java source**: `Mage.Sets/src/mage/cards/v/VoraciousTomeSkimmer.java`
@@ -394,10 +413,10 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: Begin combat: may blight 1 to give target creature haste.
   - **Fix needed**: Implement self-counter + keyword granting.
 
-- [ ] **Scarblades Malice** — What works: `gain_keyword_eot("deathtouch")` + `gain_keyword_eot("lifelink")` — both no-ops. What's broken: keywords don't actually grant.
+- [ ] **Scarblades Malice** — `gain_keyword_eot("deathtouch")` + `gain_keyword_eot("lifelink")` NOW WORK. What's broken: delayed death trigger `Effect::Custom` for creating 2/2 Elf on death is still a no-op.
   - **Java source**: `Mage.Sets/src/mage/cards/s/ScarbladesMalice.java`
   - **What it should do**: Creature gains deathtouch + lifelink. If it dies, create 2/2 Elf.
-  - **Fix needed**: Implement `GainKeywordUntilEndOfTurn` + delayed death trigger.
+  - **Fix needed**: Implement delayed death trigger for token creation.
 
 - [ ] **Assert Perfection** — What works: `boost_until_eot(1, 0)`. What's broken: `Effect::Custom("fights target creature")`.
   - **Java source**: `Mage.Sets/src/mage/cards/a/AssertPerfection.java`
@@ -429,15 +448,15 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: Put two -1/-1 counters on each creature.
   - **Fix needed**: Implement mass counter placement.
 
-- [ ] **Dose of Dawnglow** — What works: targeting. What's broken: `Effect::reanimate()` is a no-op.
+- [ ] **Dose of Dawnglow** — What works: targeting. `reanimate()` NOW WORKS.
   - **Java source**: `Mage.Sets/src/mage/cards/d/DoseOfDawnglow.java`
   - **What it should do**: Return creature from graveyard to battlefield.
-  - **Fix needed**: Implement `Reanimate` in execute_effects().
+  - **Status**: Reanimate now implemented. Card may be fully functional.
 
-- [ ] **Midnight Tilling** — What works: `mill(4)`. What's broken: `Effect::return_from_graveyard()` is a no-op.
+- [ ] **Midnight Tilling** — What works: `mill(4)`. `return_from_graveyard()` NOW WORKS.
   - **Java source**: `Mage.Sets/src/mage/cards/m/MidnightTilling.java`
   - **What it should do**: Mill 4, then return a permanent card from graveyard to hand.
-  - **Fix needed**: Implement `ReturnFromGraveyard`.
+  - **Status**: ReturnFromGraveyard now implemented. Card may be fully functional.
 
 - [ ] **Rime Chill** — What works: targeting. What's broken: `Effect::Custom("Vivid cost reduction, tap + stun + draw")`.
   - **Java source**: `Mage.Sets/src/mage/cards/r/RimeChill.java`
@@ -449,15 +468,14 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: Additional cost: blight any number. Deal that much damage to opponents and their creatures.
   - **Fix needed**: Complex — variable blight cost + mass damage.
 
-- [ ] **Blossoming Defense** — What works: `boost_until_eot(2, 2)`. What's broken: `hexproof()` is a no-op.
+- [ ] **Blossoming Defense** — What works: `boost_until_eot(2, 2)`. `hexproof()` NOW WORKS.
   - **Java source**: `Mage.Sets/src/mage/cards/b/BlossomingDefense.java`
   - **What it should do**: +2/+2 and hexproof until EOT.
-  - **Fix needed**: Implement `Hexproof` as grant-keyword-until-EOT.
+  - **Status**: Both effects now functional. Card may be fully functional.
 
-- [ ] **Kulrath Mystic** — What works: `boost_until_eot(2, 0)`. What's broken: `gain_keyword_eot("vigilance")` is a no-op.
+- [x] **Kulrath Mystic** — `boost_until_eot(2, 0)` + `gain_keyword_eot("vigilance")` both NOW WORK. Truly complete (also listed in Complete section above).
   - **Java source**: `Mage.Sets/src/mage/cards/k/KulrathMystic.java`
-  - **What it should do**: Spell cast MV>=4: +2/+0 and vigilance.
-  - **Fix needed**: Implement `GainKeywordUntilEndOfTurn`.
+  - **Status**: Fully functional. Should be moved to Complete section.
 
 - [ ] **Flamekin Gildweaver** — What works: trample. ETB `create_token("Treasure", 1)` works.
   - **Note**: This card is actually mostly complete. The token creation works. But if Treasure tokens don't have proper sacrifice-for-mana ability, it's partial.
@@ -497,10 +515,10 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: Incarnation with color-spent ETBs (bounce or forced discard) and evoke.
   - **Fix needed**: Color-spent detection + evoke mechanic.
 
-- [ ] **Emptiness** — What works: WW ETB `reanimate()` (no-op), BB ETB `add_counters("-1/-1", 3)`. What's broken: Reanimate is no-op, evoke Custom.
+- [ ] **Emptiness** — What works: BB ETB `add_counters("-1/-1", 3)`. `reanimate()` NOW WORKS (WW ETB). What's broken: evoke Custom, mana color-spent detection missing.
   - **Java source**: `Mage.Sets/src/mage/cards/e/Emptiness.java`
   - **What it should do**: Incarnation: WW reanimates MV 3 or less. BB puts 3 -1/-1 counters. Evoke.
-  - **Fix needed**: Implement reanimate + color-spent + evoke.
+  - **Fix needed**: Implement color-spent detection + evoke mechanic.
 
 - [ ] **Deepway Navigator** — What works: flash, `StaticEffect::boost_controlled("Merfolk", 1, 0)`. What's broken: ETB `Effect::Custom("untap each other Merfolk")`, conditional static.
   - **Java source**: `Mage.Sets/src/mage/cards/d/DeepwayNavigator.java`
@@ -517,10 +535,10 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: Can't be blocked by power 2 or less. +2/+0 if another creature ETB'd this turn.
   - **Fix needed**: Implement daunt + conditional P/T boost.
 
-- [ ] **Dawnhand Dissident** — What works: `scry(1)` (no-op), `exile()`. What's broken: Scry is no-op, `StaticEffect::Custom("cast exiled creatures")`.
+- [ ] **Dawnhand Dissident** — What works: `scry(1)` NOW WORKS, `exile()`. What's broken: `StaticEffect::Custom("cast exiled creatures")`.
   - **Java source**: `Mage.Sets/src/mage/cards/d/DawnhandDissident.java`
   - **What it should do**: T, blight 1: surveil 1. T, blight 2: exile from graveyard. Cast exiled creatures by removing counters.
-  - **Fix needed**: Implement surveil + cast-from-exile.
+  - **Fix needed**: Implement cast-from-exile mechanic.
 
 - [ ] **Barbed Bloodletter** — What works: `StaticEffect::boost_controlled("equipped creature", 1, 2)`. What's broken: ETB `Effect::Custom("attach and grant wither")`, equip `Effect::Custom("attach")`.
   - **Java source**: `Mage.Sets/src/mage/cards/b/BarbedBloodletter.java`
@@ -542,10 +560,10 @@ These cards have some typed effects that work but also use `Effect::Custom`, `St
   - **What it should do**: Choose type. Chosen-type creatures get +2/+2, first strike, trample. Cast chosen type: draw.
   - **Fix needed**: Implement creature type choice + conditional application.
 
-- [ ] **Bre of Clan Stoutarm** — What works: activated `gain_keyword_eot("flying")` + `gain_keyword_eot("lifelink")` (both no-ops), end step `reanimate()` (no-op). What's broken: Keywords don't grant. Reanimate doesn't work.
+- [ ] **Bre of Clan Stoutarm** — `gain_keyword_eot("flying")` + `gain_keyword_eot("lifelink")` + `reanimate()` all NOW WORK. What's broken: life-gain tracking for conditional reanimate.
   - **Java source**: `Mage.Sets/src/mage/cards/b/BreOfClanStoutarm.java`
   - **What it should do**: T: give flying+lifelink. End step if gained life: reanimate creature with MV <= life gained.
-  - **Fix needed**: Implement GainKeyword + Reanimate + life-gain tracking.
+  - **Fix needed**: Implement life-gain tracking for conditional reanimate trigger.
 
 ## Stub Cards
 These cards exist as permanents with correct stats/types but none of their special abilities function. They are either keyword-only with Custom statics, have only Custom effects, or are stat-only placeholders.
@@ -775,7 +793,7 @@ These cards exist as permanents with correct stats/types but none of their speci
 - [ ] **Brigid's Command** — Kindred sorcery with `Effect::Custom("choose two modes")`. Placeholder.
   - **Java source**: `Mage.Sets/src/mage/cards/b/BrigidsCommand.java`
 
-- [ ] **Celestial Reunion** — Sorcery with `Effect::search_library()` (no-op). Placeholder.
+- [ ] **Celestial Reunion** — Sorcery with `Effect::search_library()` NOW WORKS. May be more functional now.
   - **Java source**: `Mage.Sets/src/mage/cards/c/CelestialReunion.java`
 
 - [ ] **Collective Inferno** — Enchantment, convoke with `Effect::Custom("choose type")` + `StaticEffect::Custom("double damage")`. Placeholder.
@@ -784,7 +802,7 @@ These cards exist as permanents with correct stats/types but none of their speci
 - [ ] **Curious Colossus** — 7/7 Giant with `Effect::Custom("opponent creatures become 1/1 Cowards")`. Placeholder.
   - **Java source**: `Mage.Sets/src/mage/cards/c/CuriousColossus.java`
 
-- [ ] **Dawn-Blessed Pennant** — Artifact with `Effect::Custom("choose type")`, gain_life trigger, return_from_graveyard (no-op). Partially works.
+- [ ] **Dawn-Blessed Pennant** — Artifact with `Effect::Custom("choose type")`, gain_life trigger, return_from_graveyard NOW WORKS. Partially works.
   - **Java source**: `Mage.Sets/src/mage/cards/d/DawnBlessedPennant.java`
 
 - [ ] **Doran, Besieged by Time** — Legendary 0/5. `StaticEffect::Custom("cost reduction")` + `Effect::Custom("gets +X/+X")`. Placeholder.
@@ -796,7 +814,7 @@ These cards exist as permanents with correct stats/types but none of their speci
 - [ ] **Eirdu, Carrier of Dawn** — Legendary 5/5, flying, lifelink with `StaticEffect::Custom` (convoke for creatures + transform). Placeholder.
   - **Java source**: `Mage.Sets/src/mage/cards/e/EirduCarrierOfDawn.java`
 
-- [ ] **Aquitect's Defenses** — Aura, flash. ETB `gain_keyword_eot("hexproof")` (no-op) + `StaticEffect::boost_controlled("enchanted creature", 1, 2)`. The +1/+2 may work. Borderline partial.
+- [ ] **Aquitect's Defenses** — Aura, flash. ETB `gain_keyword_eot("hexproof")` NOW WORKS + `StaticEffect::boost_controlled("enchanted creature", 1, 2)`. The +1/+2 may work. More functional now.
   - **Java source**: `Mage.Sets/src/mage/cards/a/AquitectsDefenses.java`
 
 - [ ] **Meek Attack** — Enchantment with `Effect::Custom("cheat creature from hand")`. Placeholder.
@@ -939,20 +957,25 @@ No missing cards. All 230 non-basic-land cards from `LorwynEclipsed.java` have f
 
 ## Priority Fixes (Highest Impact)
 
-### 1. Implement `GainKeywordUntilEndOfTurn` in execute_effects()
-Unblocks: Burdened Stoneback, Flame-Chain Mauler, Iron-Shield Elf, Kulrath Mystic, Scarblades Malice, Stratosoarer, and many more.
+### ~~1. Implement `GainKeywordUntilEndOfTurn` in execute_effects()~~ DONE
+~~Unblocks: Burdened Stoneback, Flame-Chain Mauler, Iron-Shield Elf, Kulrath Mystic, Scarblades Malice, Stratosoarer, and many more.~~
+Now implemented. Cards using `gain_keyword_eot()` are functional.
 
-### 2. Implement `Scry`/`Surveil` in execute_effects()
-Unblocks: Lys Alana Informant, Shore Lurker, Unwelcome Sprite, Heirloom Auntie, Dawnhand Dissident, Morcant's Eyes.
+### ~~2. Implement `Scry`/`Surveil` in execute_effects()~~ DONE
+~~Unblocks: Lys Alana Informant, Shore Lurker, Unwelcome Sprite, Heirloom Auntie, Dawnhand Dissident, Morcant's Eyes.~~
+Now implemented. Surveil approximated as scry.
 
-### 3. Implement `RemoveCounters` effect
-Unblocks: Encumbered Reejerey, Reluctant Dounguard, Bristlebane Battler, Heirloom Auntie, Creakwood Safewright, Slumbering Walker.
+### 3. Update cards using `Effect::Custom` for `RemoveCounters`
+The `RemoveCounters` effect is NOW IMPLEMENTED in the engine, but several cards still use `Effect::Custom` strings instead of the typed variant.
+Cards needing card-code updates: Encumbered Reejerey, Reluctant Dounguard, Heirloom Auntie, Bristlebane Battler, Creakwood Safewright, Slumbering Walker.
 
-### 4. Implement `ReturnFromGraveyard` and `Reanimate` in execute_effects()
-Unblocks: Dundoolin Weaver, Graveshifter, Midnight Tilling, Dose of Dawnglow, Emptiness, Bre of Clan Stoutarm, Dawn-Blessed Pennant.
+### ~~4. Implement `ReturnFromGraveyard` and `Reanimate` in execute_effects()~~ DONE
+~~Unblocks: Dundoolin Weaver, Graveshifter, Midnight Tilling, Dose of Dawnglow, Emptiness, Bre of Clan Stoutarm, Dawn-Blessed Pennant.~~
+Now implemented. Cards using `return_from_graveyard()` and `reanimate()` are functional.
 
-### 5. Implement `SearchLibrary` in execute_effects()
-Unblocks: Changeling Wayfinder, Kulrath Zealot, Celestial Reunion, Tend the Sprigs.
+### ~~5. Implement `SearchLibrary` in execute_effects()~~ DONE
+~~Unblocks: Changeling Wayfinder, Kulrath Zealot, Celestial Reunion, Tend the Sprigs.~~
+Now implemented. Cards using `search_library(filter)` are functional.
 
 ### 6. Implement Vivid mechanic (count colors among permanents)
 Unblocks: Explosive Prodigy, Glister Bairn, Luminollusk, Prismabasher, Shimmercreep, Shinestriker, Squawkroaster, Rime Chill.
@@ -963,6 +986,9 @@ Several cards use `Effect::Custom` for effects that already have typed variants:
 - Sourbread Auntie: replace Custom blight with `add_counters("-1/-1", 2)` (targeting self)
 - Blighted Blackthorn: same self-counter replacement
 - Sting-Slinger: same self-counter replacement
+- Encumbered Reejerey: replace Custom with `remove_counters("-1/-1", 1)`
+- Reluctant Dounguard: replace Custom with `remove_counters("-1/-1", 1)`
+- Heirloom Auntie: replace Custom with `remove_counters("-1/-1", 1)`
 
 ### 8. Implement shock land ETB replacement effect
 Unblocks: Blood Crypt, Hallowed Fountain, Overgrown Tomb, Steam Vents, Temple Garden (5 lands).

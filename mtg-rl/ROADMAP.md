@@ -8,6 +8,8 @@ This document describes implementation gaps in the mtg-rl engine and cards, orga
 
 These `Effect` enum variants exist in `abilities.rs` but have no implementation in `execute_effects()` -- they fall through to `_ => {}` and silently do nothing at runtime.
 
+**Recently implemented:** The following Effect variants were previously no-ops but now have working implementations in `execute_effects()`: `Scry`, `SearchLibrary`, `ReturnFromGraveyard`, `Reanimate`, `GainKeywordUntilEndOfTurn`, `GainKeyword`, `LoseKeyword`, `Indestructible`, `Hexproof`, `CantBlock`, `Sacrifice`, `DestroyAll`, `DealDamageAll`, `RemoveCounters`, `CreateTokenTappedAttacking`, `BoostPermanent`, `SetPowerToughness`. Token stat parsing is also implemented (`CreateToken` now parses P/T and keywords from `token_name`).
+
 | Effect Variant | Description | Cards Blocked |
 |---------------|-------------|---------------|
 | `GainControl` | Gain control of target permanent | ~5 |
@@ -50,10 +52,8 @@ These are features that require new engine architecture, not just new match arms
 - No creature-vs-creature damage assignment outside combat
 - **Blocked cards:** Bite Down, Earth Rumble, Knockout Maneuver, Piercing Exhale, Dragonclaw Strike, Assert Perfection (~10+ cards)
 
-#### Token Stat Parsing
-- `CreateToken` always creates 1/1 tokens regardless of token_name
-- Tokens don't inherit keywords from their name (e.g. "4/4 Dragon with flying" creates a 1/1)
-- **Blocked cards:** Dragon Trainer, Mammoth Bellow, Teeming Dragonstorm, Zurgo's Vanguard, many token-creating cards (~30+ cards)
+#### ~~Token Stat Parsing~~ (DONE)
+`CreateToken` now parses P/T and keywords from `token_name` strings (e.g., '4/4 Dragon with flying' creates a 4/4 with flying). Cards using correctly-formatted token names now work.
 
 #### Aura/Enchant System
 - Auras exist as permanents but don't attach to creatures
@@ -109,7 +109,7 @@ These are features that require new engine architecture, not just new match arms
 
 These unblock the most cards per effort invested.
 
-1. **Token stat parsing** -- Parse power/toughness/keywords from `token_name` string in `CreateToken`. Unblocks ~30 cards that already create tokens but with wrong stats.
+1. **Token stat parsing** -- **DONE** -- Parse power/toughness/keywords from `token_name` string in `CreateToken`. Unblocks ~30 cards that already create tokens but with wrong stats.
 
 2. **Fix easy card-level bugs** -- Many cards use `Effect::Custom(...)` when a typed variant already exists. Examples:
    - Phyrexian Arena: `Custom("You lose 1 life.")` -> `LoseLife { amount: 1 }`
@@ -164,6 +164,8 @@ Detailed per-card breakdowns with fix instructions are in `docs/`:
 | `docs/tla-remediation.md` | Avatar: TLA | 39 | 22 | 219 |
 | `docs/tdm-remediation.md` | Tarkir: Dragonstorm | 97 | 115 | 59 |
 | `docs/ecl-remediation.md` | Lorwyn Eclipsed | 56 | 69 | 105 |
+
+*Note: These counts are outdated -- see the individual remediation docs for current status.*
 
 Each remediation doc includes:
 - Full card-by-card audit with working vs broken effects

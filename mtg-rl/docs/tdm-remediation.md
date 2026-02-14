@@ -41,32 +41,34 @@ The `execute_effects()` function in `game.rs:943` is the central dispatcher. It 
 - `Effect::AddMana { mana }` — Add mana to controller's pool
 - `Effect::DiscardCards { count }` — Discard N cards
 - `Effect::Mill { count }` — Mill N cards
-- `Effect::CreateToken { token_name, count }` — Create token creatures (always 1/1)
-
-**Effect variants that are NO-OPs** (defined in enum but fall through to `_ => {}`):
-- `Effect::DealDamageAll` — Board damage
-- `Effect::SetLife` — Set life total
-- `Effect::DestroyAll` — Board wipe
-- `Effect::Sacrifice` — Forced sacrifice
+- `Effect::CreateToken { token_name, count }` — Create token creatures (now parses P/T and keywords from token_name)
+- `Effect::Scry { count }` — Scry N cards
+- `Effect::SearchLibrary { filter }` — Search library for matching card
 - `Effect::ReturnFromGraveyard` — Return card from graveyard to hand
 - `Effect::Reanimate` — Return card from graveyard to battlefield
-- `Effect::Scry` — Scry N
-- `Effect::SearchLibrary` — Tutor
-- `Effect::RemoveCounters` — Remove counters
-- `Effect::CreateTokenTappedAttacking` — Create tokens tapped and attacking
-- `Effect::CantBlock` — Restrict blocking
+- `Effect::GainKeywordUntilEndOfTurn { keyword }` — Grant keyword until EOT
+- `Effect::GainKeyword { keyword }` — Grant keyword permanently
+- `Effect::LoseKeyword { keyword }` — Remove keyword
+- `Effect::Indestructible` — Grant indestructible until EOT
+- `Effect::Hexproof` — Grant hexproof until EOT
+- `Effect::CantBlock` — Prevent blocking this turn
+- `Effect::Sacrifice { filter }` — Force sacrifice
+- `Effect::DestroyAll { filter }` — Board wipe
+- `Effect::DealDamageAll { amount, filter }` — Damage all matching
+- `Effect::RemoveCounters { counter_type, count }` — Remove counters
+- `Effect::CreateTokenTappedAttacking { token_name, count }` — Tokens tapped and attacking
+- `Effect::BoostPermanent { power, toughness }` — Permanent boost
+- `Effect::SetPowerToughness { power, toughness }` — Set base P/T
+
+**Effect variants that are NO-OPs** (defined in enum but fall through to `_ => {}`):
+- `Effect::SetLife` — Set life total
 - `Effect::MustBlock` — Force blocking
 - `Effect::PreventCombatDamage` — Prevent damage
-- `Effect::BoostPermanent` — Permanent P/T boost
-- `Effect::SetPowerToughness` — Set base P/T
-- `Effect::GainKeywordUntilEndOfTurn` — Grant keyword (no-op)
-- `Effect::GainKeyword` — Grant keyword permanently (no-op)
-- `Effect::LoseKeyword` — Remove keyword (no-op)
 - `Effect::GainControl` / `Effect::GainControlUntilEndOfTurn` — Steal
 - `Effect::GainProtection` — Protection
-- `Effect::Indestructible` — Grant indestructible
-- `Effect::Hexproof` — Grant hexproof
 - `Effect::Custom(...)` — Custom text (always no-op)
+
+Note: `StaticEffect::Custom(...)` also remains non-functional.
 
 **StaticEffect** — Defined in `effects.rs`. `StaticEffect::Custom(...)` is non-functional. Typed variants like `StaticEffect::Boost`, `StaticEffect::GrantKeyword`, `StaticEffect::EntersTapped`, `StaticEffect::CostReduction` may or may not be applied by the continuous effects system.
 
@@ -77,7 +79,7 @@ The `execute_effects()` function in `game.rs:943` is the central dispatcher. It 
 
 ### Classification Criteria
 - **COMPLETE**: All effects use implemented `Effect` variants. No `Custom(...)` anywhere. Card works in gameplay.
-- **PARTIAL**: Has SOME typed effects but also uses `Effect::Custom(...)`, `StaticEffect::Custom(...)`, `Cost::Custom(...)`, or no-op Effect variants (`Scry`, `SearchLibrary`, `Sacrifice`, `DestroyAll`, `GainKeywordUntilEndOfTurn`, `ReturnFromGraveyard`, `Reanimate`, `CantBlock`, `RemoveCounters`, `CreateTokenTappedAttacking`, `DealDamageAll`, `Hexproof`). The Custom/no-op parts will be silent failures during gameplay.
+- **PARTIAL**: Has SOME typed effects but also uses `Effect::Custom(...)`, `StaticEffect::Custom(...)`, `Cost::Custom(...)`, or remaining no-op Effect variants (`SetLife`, `MustBlock`, `PreventCombatDamage`, `GainControl`, `GainControlUntilEndOfTurn`, `GainProtection`). The Custom/no-op parts will be silent failures during gameplay.
 - **STUB**: Card is stats/keywords only with no abilities, or all abilities are Custom. Card exists as a permanent but none of its special abilities will function.
 
 ---
@@ -125,13 +127,13 @@ These cards use only implemented Effect variants and will work correctly during 
 - [x] **Meticulous Artisan** — 3/3 prowess for {3}{R}. ETB: create Treasure. Uses CreateToken.
 - [x] **Mox Jasper** — Artifact {0}. Tap: add any color mana. Uses AddMana.
 - [x] **Mystic Monastery** — Tri-land.
-- [x] **Nightblade Brigade** — 1/3 deathtouch for {2}{B}. Mobilize 1 + surveil 1. CreateToken works, Scry is no-op but surveil is close enough.
+- [x] **Nightblade Brigade** — 1/3 deathtouch for {2}{B}. Mobilize 1 + surveil 1. CreateToken works, Scry now works.
 - [x] **Nomad Outpost** — Tri-land.
 - [x] **Opulent Palace** — Tri-land.
 - [x] **Qarsi Revenant** — 3/3 flying/deathtouch/lifelink. Renew: flying + deathtouch + lifelink counters. Uses AddCounters.
 - [x] **Rainveil Rejuvenator** — 3/3 for {2}{G}{U}. ETB: draw + gain 3 life. Uses DrawCards + GainLife.
 - [x] **Rebellious Strike** — Instant {1}{W}. +3/+0 + draw. Uses BoostUntilEndOfTurn + DrawCards.
-- [x] **Reigning Victor** — 3/3 for {2/R}{2/W}{2/B}. Mobilize 1 + boost + GainKeywordEOT. CreateToken works; BoostUntilEndOfTurn works; GainKeywordUntilEndOfTurn is no-op.
+- [x] **Reigning Victor** — 3/3 for {2/R}{2/W}{2/B}. Mobilize 1 + boost + GainKeywordEOT. CreateToken works; BoostUntilEndOfTurn works; GainKeywordUntilEndOfTurn now works.
 - [x] **Rugged Highlands** — Gain land.
 - [x] **Sage of the Fang** — 2/2 for {2}{G}. ETB: +1/+1 counter on creature. Uses AddCounters.
 - [x] **Sagu Pummeler** — 4/4 reach. Renew: two +1/+1 + reach counter. Uses AddCounters.
@@ -163,7 +165,7 @@ These cards use only implemented Effect variants and will work correctly during 
 - [x] **Hundred-Battle Veteran** — 3/3 first strike for {1}{R}{W}. Attacks: +1/+1 counter on another attacker. Uses AddCounters.
 - [x] **Kishla Village** — Land. Tap for {C}. Activated: create 4/4 Beast token. Uses CreateToken.
 - [x] **Mardu Siegebreaker** — 4/4 deathtouch/haste for {1}{R}{W}{B}. ETB: destroy target perm MV<=2. Uses Destroy. Attacks: Custom copy token (partial, but ETB works).
-- [x] **Mistrise Village** — Land. Tap for {C}. Activated: Scry 1. Uses Scry (no-op, but land + mana work).
+- [x] **Mistrise Village** — Land. Tap for {C}. Activated: Scry 1. Uses Scry (now works).
 - [x] **Riverwheel Sweep** — Sorcery. 4 damage to creature. Uses DealDamage.
 - [x] **Riling Dawnbreaker** — 3/4 flying/vigilance for {4}{W}. Begin combat: +1/+0 to another creature. Uses BoostUntilEndOfTurn.
 - [x] **Sunset Strikemaster** — 3/1 for {1}{R}. Mana ability. Activated: 6 damage to creature with flying. Uses DealDamage + mana.
@@ -213,10 +215,9 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
   - **What it should do**: Draw 3 + all opponent creatures get -3/-0 until EOT.
   - **Fix needed**: Add an "all opponents' creatures get -X/-0" board effect.
 
-- [ ] **Boulderborn Dragon** — 3/3 flying/vigilance artifact creature. What works: nothing (Scry is no-op). What's broken: `Effect::Scry { count: 1 }` (surveil 1 on attack, but Scry is no-op).
+- [ ] **Boulderborn Dragon** — 3/3 flying/vigilance artifact creature. What works: Scry (surveil 1 on attack). **(NOW IMPLEMENTED — Scry NOW WORKS)**
   - **Java source**: `Mage.Sets/src/mage/cards/b/BoulderbornDragon.java`
   - **What it should do**: Attacks: surveil 1.
-  - **Fix needed**: Implement Scry/Surveil in execute_effects.
 
 - [ ] **Coordinated Maneuver** — Instant {1}{W}. What's broken: All `Effect::Custom(...)` — modal spell.
   - **Java source**: `Mage.Sets/src/mage/cards/c/CoordinatedManeuver.java`
@@ -228,8 +229,7 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
   - **What it should do**: ETB: all your creatures get +X/+X and trample (X = creature count).
   - **Fix needed**: Dynamic board-wide boost effect.
 
-- [ ] **Cruel Truths** — Instant {3}{B}. What works: DrawCards 2 + LoseLife 2. What's broken: `Effect::Scry { count: 2 }` (surveil 2 is no-op).
-  - **Fix needed**: Implement Scry in execute_effects.
+- [ ] **Cruel Truths** — Instant {3}{B}. What works: DrawCards 2 + LoseLife 2 + Scry 2. **(NOW IMPLEMENTED — Scry NOW WORKS)**
 
 - [ ] **Descendant of Storms** — 2/1 for {W}. What's broken: `Effect::Custom("Endure 1...")` on attacks. Endure is no-op.
   - **Java source**: `Mage.Sets/src/mage/cards/d/DescendantOfStorms.java`
@@ -246,7 +246,7 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
   - **What it should do**: Double P/T of your creature, then fight opponent's creature.
   - **Fix needed**: Double-P/T effect + fight mechanic.
 
-- [ ] **Equilibrium Adept** — 2/4 for {3}{R}. What's broken: ETB `Effect::Custom("Exile top card, play until end of next turn")` (impulse draw is no-op). Flurry: `Effect::GainKeywordUntilEndOfTurn("double strike")` (no-op).
+- [ ] **Equilibrium Adept** — 2/4 for {3}{R}. What's broken: ETB `Effect::Custom("Exile top card, play until end of next turn")` (impulse draw is no-op). Flurry: `Effect::GainKeywordUntilEndOfTurn("double strike")` **(NOW IMPLEMENTED)**.
   - **Java source**: `Mage.Sets/src/mage/cards/e/EquilibriumAdept.java`
   - **What it should do**: ETB: exile top card, play until end of next turn. Flurry: gain double strike until EOT.
   - **Fix needed**: Impulse draw effect + implement GainKeywordUntilEndOfTurn.
@@ -264,10 +264,9 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
   - **What it should do**: Choose one: create 2 Goblin tokens; or creature gets +X/+X (X = creatures you control).
   - **Fix needed**: Modal spell + dynamic boost.
 
-- [ ] **Furious Forebear** — 3/1 for {1}{W}. What's broken: `Effect::ReturnFromGraveyard` (return self from graveyard to hand — no-op in execute_effects).
+- [ ] **Furious Forebear** — 3/1 for {1}{W}. ReturnFromGraveyard (return self from graveyard to hand). **(NOW IMPLEMENTED — ReturnFromGraveyard NOW WORKS)**
   - **Java source**: `Mage.Sets/src/mage/cards/f/FuriousForebear.java`
   - **What it should do**: From graveyard: when creature you control dies, pay {1}{W} to return this to hand.
-  - **Fix needed**: Implement ReturnFromGraveyard in execute_effects.
 
 - [ ] **Gurmag Nightwatch** — 3/3 for {2/B}{2/G}{2/U}. All Custom: look at top 3, put 1 on top, rest to graveyard.
   - **Java source**: `Mage.Sets/src/mage/cards/g/GurmagNightwatch.java`
@@ -298,11 +297,9 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
   - **Java source**: `Mage.Sets/src/mage/cards/k/KrotiqNestguard.java`
   - **Fix needed**: Implement "ignore defender" temporary effect.
 
-- [ ] **Lightfoot Technique** — Instant {1}{W}. What works: AddCounters +1/+1. What's broken: `GainKeywordUntilEndOfTurn("flying")` + `GainKeywordUntilEndOfTurn("indestructible")` (both no-op).
-  - **Fix needed**: Implement GainKeywordUntilEndOfTurn.
+- [ ] **Lightfoot Technique** — Instant {1}{W}. What works: AddCounters +1/+1 + GainKeywordUntilEndOfTurn (flying + indestructible). **(NOW IMPLEMENTED — GainKeywordUntilEndOfTurn NOW WORKS)**
 
-- [ ] **Mammoth Bellow** — Sorcery. What works: CreateToken (5/5 Elephant). Token will be 1/1 due to token creation bug (all tokens default to 1/1).
-  - **Fix needed**: Token creation needs to parse token stats from token_name.
+- [ ] **Mammoth Bellow** — Sorcery. What works: CreateToken (5/5 Elephant). **(NOW IMPLEMENTED — Token stats NOW PARSED, 5/5 token should work)**
 
 - [ ] **Marshal of the Lost** — 3/3 deathtouch for {2}{W}{B}. What's broken: `Effect::Custom("Target creature gets +X/+X...")` (dynamic boost based on attacker count).
   - **Java source**: `Mage.Sets/src/mage/cards/m/MarshalOfTheLost.java`
@@ -314,7 +311,7 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
 - [ ] **Narset's Rebuke** — Instant {4}{R}. What works: DealDamage 5. Missing: add {U}{R}{W} mana and exile-if-dies (no-op).
   - **Fix needed**: Add mana generation + delayed exile on death.
 
-- [ ] **Nightblade Brigade** — (classified as Complete above, but Scry is no-op)
+- [ ] **Nightblade Brigade** — (classified as Complete above). **(NOW IMPLEMENTED — Scry NOW WORKS)**
 
 - [ ] **Osseous Exhale** — Instant {1}{W}. What works: DealDamage 5. What's broken: `Effect::Custom("If a Dragon was beheld, you gain 2 life.")`.
   - **Fix needed**: Behold condition + conditional life gain.
@@ -327,8 +324,7 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
   - **Java source**: `Mage.Sets/src/mage/cards/p/PiercingExhale.java`
   - **Fix needed**: Fight mechanic.
 
-- [ ] **Poised Practitioner** — 2/3 for {2}{W}. What works: AddCounters +1/+1. What's broken: `Effect::Scry { count: 1 }` (no-op).
-  - **Fix needed**: Implement Scry.
+- [ ] **Poised Practitioner** — 2/3 for {2}{W}. What works: AddCounters +1/+1 + Scry 1. **(NOW IMPLEMENTED — Scry NOW WORKS)**
 
 - [ ] **Rakshasa's Bargain** — Instant. All Custom: look at top 4, put 2 in hand.
   - **Java source**: `Mage.Sets/src/mage/cards/r/RakshasasBargain.java`
@@ -361,14 +357,11 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
 - [ ] **Skirmish Rhino** — 3/4 trample for {W}{B}{G}. What works: GainLife 2. What's broken: `Effect::Custom("Each opponent loses 2 life.")` (should use DealDamageOpponents).
   - **Fix needed**: Replace `Custom("Each opponent loses 2 life.")` with `Effect::DealDamageOpponents { amount: 2 }`.
 
-- [ ] **Snakeskin Veil** — Instant {G}. What works: AddCounters +1/+1. What's broken: `Effect::Hexproof` (hexproof until EOT — no-op).
-  - **Fix needed**: Implement Hexproof/GainKeywordUntilEndOfTurn in execute_effects.
+- [ ] **Snakeskin Veil** — Instant {G}. What works: AddCounters +1/+1 + Hexproof until EOT. **(NOW IMPLEMENTED — Hexproof NOW WORKS)**
 
-- [ ] **Summit Intimidator** — 4/3 reach for {3}{R}. What's broken: `Effect::CantBlock` (target creature can't block — no-op).
-  - **Fix needed**: Implement CantBlock in execute_effects.
+- [ ] **Summit Intimidator** — 4/3 reach for {3}{R}. CantBlock (target creature can't block). **(NOW IMPLEMENTED — CantBlock NOW WORKS)**
 
-- [ ] **Unrooted Ancestor** — 3/2 flash for {2}{B}. What's broken: `Effect::GainKeywordUntilEndOfTurn("indestructible")` (no-op), `Effect::TapTarget` (works). `Cost::SacrificeOther` (may not be implemented).
-  - **Fix needed**: Implement GainKeywordUntilEndOfTurn + verify SacrificeOther cost.
+- [ ] **Unrooted Ancestor** — 3/2 flash for {2}{B}. What works: GainKeywordUntilEndOfTurn (indestructible) + TapTarget. **(NOW IMPLEMENTED — GainKeywordUntilEndOfTurn NOW WORKS)** `Cost::SacrificeOther` may not be fully implemented.
 
 - [ ] **Undergrowth Leopard** — 2/2 vigilance for {1}{G}. What works: Destroy (target artifact/enchantment). What's broken: `Cost::SacrificeSelf` may not be properly handled.
   - **Fix needed**: Verify SacrificeSelf cost implementation.
@@ -381,59 +374,44 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
 - [ ] **Watcher of the Wayside** — 3/2 artifact creature. What works: GainLife 2. What's broken: `Effect::Mill { count: 2 }` targets opponent (Mill currently mills controller, not target).
   - **Fix needed**: Mill should target the specified player, not always controller.
 
-- [ ] **Wild Ride** — Sorcery {R}. What works: BoostUntilEndOfTurn +3/+0. What's broken: `GainKeywordUntilEndOfTurn("haste")` (no-op).
-  - **Fix needed**: Implement GainKeywordUntilEndOfTurn.
+- [ ] **Wild Ride** — Sorcery {R}. What works: BoostUntilEndOfTurn +3/+0 + GainKeywordUntilEndOfTurn (haste). **(NOW IMPLEMENTED — GainKeywordUntilEndOfTurn NOW WORKS)**
 
 - [ ] **Worthy Cost** — Sorcery {B}. What works: Exile. What's broken: Additional cost "sacrifice a creature" is rules text only.
   - **Fix needed**: Enforce additional sacrifice cost.
 
-- [ ] **Aggressive Negotiations** — Sorcery {1}{B}. What's broken: `Effect::Sacrifice { filter: "creature" }` (Sacrifice is no-op).
-  - **Java source**: `Mage.Sets/src/mage/cards/a/AggressiveNegotiations.java`
-  - **Fix needed**: Implement Sacrifice in execute_effects.
+- [ ] **Aggressive Negotiations** — Sorcery {1}{B}. Sacrifice (creature). **(NOW IMPLEMENTED — Sacrifice NOW WORKS)**
 
-- [ ] **Alesha's Legacy** — Instant {1}{B}. What's broken: `GainKeywordUntilEndOfTurn("deathtouch")` + `GainKeywordUntilEndOfTurn("indestructible")` (both no-op).
-  - **Fix needed**: Implement GainKeywordUntilEndOfTurn.
+- [ ] **Alesha's Legacy** — Instant {1}{B}. GainKeywordUntilEndOfTurn (deathtouch + indestructible). **(NOW IMPLEMENTED — GainKeywordUntilEndOfTurn NOW WORKS)**
 
-- [ ] **Auroral Procession** — Instant {G}{U}. What's broken: `Effect::ReturnFromGraveyard` (no-op).
-  - **Fix needed**: Implement ReturnFromGraveyard in execute_effects.
+- [ ] **Auroral Procession** — Instant {G}{U}. ReturnFromGraveyard. **(NOW IMPLEMENTED — ReturnFromGraveyard NOW WORKS)**
 
-- [ ] **Bone-Cairn Butcher** — 4/4 menace/haste. What's broken: `Effect::Sacrifice { filter: "opponent creature" }` (Sacrifice no-op).
-  - **Fix needed**: Implement Sacrifice.
+- [ ] **Bone-Cairn Butcher** — 4/4 menace/haste. Sacrifice (opponent creature). **(NOW IMPLEMENTED — Sacrifice NOW WORKS)**
 
-- [ ] **Duty Beyond Death** — Sorcery {1}{W}. What's broken: `Effect::ReturnFromGraveyard` (no-op) + CreateToken (Spirit 1/1 will be created, works).
-  - **Fix needed**: Implement ReturnFromGraveyard.
+- [ ] **Duty Beyond Death** — Sorcery {1}{W}. ReturnFromGraveyard + CreateToken (Spirit 1/1). **(NOW IMPLEMENTED — ReturnFromGraveyard NOW WORKS)**
 
-- [ ] **Formation Breaker** — 4/3 haste for {2}{R}. What works: BoostUntilEndOfTurn +2/+0. What's broken: `GainKeywordUntilEndOfTurn("menace")` (no-op). Trigger condition "attacks alone" is not filtered.
-  - **Fix needed**: Implement GainKeywordUntilEndOfTurn + "attacks alone" trigger filter.
+- [ ] **Formation Breaker** — 4/3 haste for {2}{R}. What works: BoostUntilEndOfTurn +2/+0 + GainKeywordUntilEndOfTurn (menace). **(NOW IMPLEMENTED — GainKeywordUntilEndOfTurn NOW WORKS)** Trigger condition "attacks alone" filter still broken.
 
-- [ ] **Heritage Reclamation** — Instant {3}{G}. What's broken: `Effect::ReturnFromGraveyard` (no-op). Also missing "if creature, may put on battlefield instead".
-  - **Fix needed**: Implement ReturnFromGraveyard + conditional reanimate.
+- [ ] **Heritage Reclamation** — Instant {3}{G}. ReturnFromGraveyard works. **(NOW IMPLEMENTED — ReturnFromGraveyard NOW WORKS)** Still missing "if creature, may put on battlefield instead".
 
-- [ ] **Perennation** — Sorcery {3}{W}{B}{G}. What's broken: `Effect::Reanimate` (no-op).
-  - **Java source**: `Mage.Sets/src/mage/cards/p/Perennation.java`
-  - **Fix needed**: Implement Reanimate in execute_effects.
+- [ ] **Perennation** — Sorcery {3}{W}{B}{G}. Reanimate. **(NOW IMPLEMENTED — Reanimate NOW WORKS)**
 
 - [ ] **Reputable Merchant** — 2/2 for {2/W}{2/B}{2/G}. What works: AddCounters +1/+1 (on both ETB and dies triggers). Working correctly.
   - Note: Actually complete — both triggers use AddCounters which is implemented.
 
-- [ ] **Roamer's Routine** — Sorcery {2}{G}. What's broken: `Effect::SearchLibrary { filter: "basic land" }` (SearchLibrary is no-op).
-  - **Fix needed**: Implement SearchLibrary in execute_effects.
+- [ ] **Roamer's Routine** — Sorcery {2}{G}. SearchLibrary (basic land). **(NOW IMPLEMENTED — SearchLibrary NOW WORKS)**
 
-- [ ] **Salt Road Packbeast** — 3/3 vigilance for {3}{W}{B}{G}. What's broken: `Effect::ReturnFromGraveyard` (no-op).
-  - **Fix needed**: Implement ReturnFromGraveyard.
+- [ ] **Salt Road Packbeast** — 3/3 vigilance for {3}{W}{B}{G}. ReturnFromGraveyard. **(NOW IMPLEMENTED — ReturnFromGraveyard NOW WORKS)**
 
-- [ ] **Sultai Devotee** — 3/3 for {1}{B}{G}{U}. What works: Mill 3. What's broken: `Effect::ReturnFromGraveyard` (no-op).
-  - **Fix needed**: Implement ReturnFromGraveyard.
+- [ ] **Sultai Devotee** — 3/3 for {1}{B}{G}{U}. What works: Mill 3 + ReturnFromGraveyard. **(NOW IMPLEMENTED — ReturnFromGraveyard NOW WORKS)**
 
 - [ ] **Zurgo's Vanguard** — 2/3 haste for {R}{W}. What works: CreateToken (1/1 Warrior with haste). Token is 1/1 but won't have haste keyword.
   - **Fix needed**: Token creation needs to parse keywords from token_name.
 
-- [ ] **Dragonback Assault** — Enchantment {3}{G}{U}{R}. What's broken: `Effect::DealDamageAll { amount: 3, ... }` (DealDamageAll is no-op). Missing landfall ability.
+- [ ] **Dragonback Assault** — Enchantment {3}{G}{U}{R}. DealDamageAll works. **(NOW IMPLEMENTED — DealDamageAll NOW WORKS)** Missing landfall ability.
   - **Java source**: `Mage.Sets/src/mage/cards/d/DragonbackAssault.java`
-  - **Fix needed**: Implement DealDamageAll + add landfall Dragon token trigger.
+  - **Fix needed**: Add landfall Dragon token trigger.
 
-- [ ] **Encroaching Dragonstorm** — Enchantment {3}{G}. What works: Bounce (return self on Dragon ETB). What's broken: `Effect::SearchLibrary` (search for lands — no-op).
-  - **Fix needed**: Implement SearchLibrary.
+- [ ] **Encroaching Dragonstorm** — Enchantment {3}{G}. What works: Bounce (return self on Dragon ETB) + SearchLibrary (lands). **(NOW IMPLEMENTED — SearchLibrary NOW WORKS)**
 
 - [ ] **Roiling Dragonstorm** — Enchantment {1}{U}. What works: DrawCards 2 + DiscardCards 1 + Bounce (self on Dragon ETB).
   - Note: Actually mostly complete. All key effects are typed and implemented.
@@ -441,8 +419,7 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
 - [ ] **Stormplain Detainment** — Enchantment {2}{W}. What works: Exile. What's broken: "until this leaves the battlefield" return-from-exile mechanic is not implemented.
   - **Fix needed**: Implement "exile until this leaves" return mechanism.
 
-- [ ] **Teeming Dragonstorm** — Enchantment {3}{W}. What works: CreateToken (2/2 Soldiers) + Bounce (self on Dragon ETB). Tokens will be 1/1 instead of 2/2.
-  - **Fix needed**: Token creation needs to parse stats from token_name.
+- [ ] **Teeming Dragonstorm** — Enchantment {3}{W}. What works: CreateToken (2/2 Soldiers) + Bounce (self on Dragon ETB). **(NOW IMPLEMENTED — Token stats NOW PARSED, 2/2 should work)**
 
 - [ ] **All-Out Assault** — Enchantment {2}{R}{W}{B}. What works: Static boost +1/+1 + grant deathtouch (if continuous effects system works). What's broken: `Effect::Custom("Additional combat phase + untap all on attack.")`.
   - **Java source**: `Mage.Sets/src/mage/cards/a/AllOutAssault.java`
@@ -476,18 +453,16 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
 - [ ] **Cori Steel-Cutter** — Equipment {1}{R}. What works: Static boost +2/+0 + grant trample/haste (if continuous effects work) + CreateToken (Monk). What's broken: Equip activated ability `Effect::Custom("Attach...")`.
   - **Fix needed**: Implement Equip as an effect.
 
-- [ ] **Corroding Dragonstorm** — Enchantment {1}{B}. What works: DealDamageOpponents 2 + GainLife 2 + Scry 2 (Scry no-op) + Bounce (self). Mostly works.
-  - **Fix needed**: Implement Scry.
+- [ ] **Corroding Dragonstorm** — Enchantment {1}{B}. What works: DealDamageOpponents 2 + GainLife 2 + Scry 2 + Bounce (self). **(NOW IMPLEMENTED — Scry NOW WORKS)**
 
-- [ ] **Death Begets Life** — Sorcery {2}{W}{B}. What's broken: `Effect::DestroyAll` (no-op) + `Effect::Custom("Create X Spirits")`.
+- [ ] **Death Begets Life** — Sorcery {2}{W}{B}. DestroyAll works. **(NOW IMPLEMENTED — DestroyAll NOW WORKS)** Still broken: `Effect::Custom("Create X Spirits")` (dynamic token creation).
   - **Java source**: `Mage.Sets/src/mage/cards/d/DeathBegetsLife.java`
-  - **Fix needed**: Implement DestroyAll + dynamic token creation.
+  - **Fix needed**: Dynamic token creation based on destroyed creature count.
 
 - [ ] **Dragonfire Blade** — Equipment {2}. What works: Static +1/+0. What's broken: combat damage trigger Custom + Equip Custom.
   - **Fix needed**: Implement equip + "deal damage equal to combat damage" effect.
 
-- [ ] **Dragonologist** — 1/3 for {U}. What's broken: Both triggers use `Effect::Scry { count: 1 }` (no-op).
-  - **Fix needed**: Implement Scry.
+- [ ] **Dragonologist** — 1/3 for {U}. Both triggers use Scry 1. **(NOW IMPLEMENTED — Scry NOW WORKS)**
 
 - [ ] **Effortless Master** — 3/4 flash for {3}{U}. What works: BoostUntilEndOfTurn -4/+0. Note: boost says "until your next turn" not "until EOT" — timing is wrong.
   - **Fix needed**: "Until your next turn" duration vs EOT.
@@ -496,11 +471,9 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
   - **Java source**: `Mage.Sets/src/mage/cards/e/EshkiDragonclaw.java`
   - **Fix needed**: Conditional board-wide boost based on power check.
 
-- [ ] **Fangkeeper's Familiar** — 2/1 deathtouch for {1}{G}. What's broken: `Effect::SearchLibrary` (no-op).
-  - **Fix needed**: Implement SearchLibrary.
+- [ ] **Fangkeeper's Familiar** — 2/1 deathtouch for {1}{G}. SearchLibrary. **(NOW IMPLEMENTED — SearchLibrary NOW WORKS)**
 
-- [ ] **Fire-Rim Form** — Aura {U}{R}. What works: Static +2/+2 + grant flying (if continuous effects work). What's broken: `Effect::ReturnFromGraveyard` (no-op) on dies trigger.
-  - **Fix needed**: Implement ReturnFromGraveyard.
+- [ ] **Fire-Rim Form** — Aura {U}{R}. What works: Static +2/+2 + grant flying (if continuous effects work) + ReturnFromGraveyard on dies trigger. **(NOW IMPLEMENTED — ReturnFromGraveyard NOW WORKS)**
 
 - [ ] **Focus the Mind** — Instant {4}{U}. What works: DrawCards 3 + DiscardCards 1. What's broken: `StaticEffect::CostReduction` (may or may not work).
   - **Fix needed**: Verify CostReduction implementation.
@@ -531,28 +504,22 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
 - [ ] **Dragonstorm Globe** — Artifact {3}. What works: mana ability. What's broken: `StaticEffect::Custom("Dragons enter with extra +1/+1 counter")`.
   - **Fix needed**: Implement "enters with additional counter" replacement effect.
 
-- [ ] **Abzan Monument** — Artifact {2}. What's broken: `Effect::SearchLibrary` (no-op) + CreateToken ("X/X Spirit" — won't have correct stats).
-  - **Fix needed**: Implement SearchLibrary + dynamic token P/T.
+- [ ] **Abzan Monument** — Artifact {2}. SearchLibrary works. **(NOW IMPLEMENTED — SearchLibrary NOW WORKS)** Token stats for X/X Spirit still may be wrong for dynamic X.
 
-- [ ] **Mardu Monument** — Artifact {2}. What works: CreateToken (3 Warriors). What's broken: `Effect::SearchLibrary` (no-op) + `GainKeywordUntilEndOfTurn` (no-op).
-  - **Fix needed**: Implement SearchLibrary + GainKeywordUntilEndOfTurn.
+- [ ] **Mardu Monument** — Artifact {2}. What works: CreateToken (3 Warriors) + SearchLibrary + GainKeywordUntilEndOfTurn. **(NOW IMPLEMENTED — SearchLibrary + GainKeywordUntilEndOfTurn NOW WORK)**
 
-- [ ] **Jeskai Monument** — Artifact {2}. What's broken: `Effect::SearchLibrary` (no-op).
-  - **Fix needed**: Implement SearchLibrary.
+- [ ] **Jeskai Monument** — Artifact {2}. SearchLibrary. **(NOW IMPLEMENTED — SearchLibrary NOW WORKS)**
 
-- [ ] **Sultai Monument** — Artifact {2}. What's broken: `Effect::SearchLibrary` (no-op).
-  - **Fix needed**: Implement SearchLibrary.
+- [ ] **Sultai Monument** — Artifact {2}. SearchLibrary. **(NOW IMPLEMENTED — SearchLibrary NOW WORKS)**
 
-- [ ] **Temur Monument** — Artifact {2}. What's broken: `Effect::SearchLibrary` (no-op).
-  - **Fix needed**: Implement SearchLibrary.
+- [ ] **Temur Monument** — Artifact {2}. SearchLibrary. **(NOW IMPLEMENTED — SearchLibrary NOW WORKS)**
 
-- [ ] **Dragonstorm Forecaster** — 0/3 for {U}. What's broken: `Effect::SearchLibrary` (no-op).
-  - **Fix needed**: Implement SearchLibrary.
+- [ ] **Dragonstorm Forecaster** — 0/3 for {U}. SearchLibrary. **(NOW IMPLEMENTED — SearchLibrary NOW WORKS)**
 
 - [ ] **Monastery Messenger** — 2/3 flying/vigilance. What's broken: `Effect::Custom("Put target noncreature, nonland card from your graveyard on top of your library.")`.
   - **Fix needed**: "Card from graveyard to top of library" effect.
 
-- [ ] **Rite of Renewal** — Sorcery {3}{G}. What works: ReturnFromGraveyard (no-op). What's broken: ReturnFromGraveyard + Custom (shuffle cards into library, exile self).
+- [ ] **Rite of Renewal** — Sorcery {3}{G}. What works: ReturnFromGraveyard (NOW WORKS). What's broken: ReturnFromGraveyard + Custom (shuffle cards into library, exile self).
   - **Fix needed**: Implement ReturnFromGraveyard + shuffle-into-library + self-exile.
 
 - [ ] **Snowmelt Stag** — 2/5 vigilance for {3}{U}. What's broken: `StaticEffect::Custom("During your turn, base P/T is 5/2.")` + activated Custom ("can't be blocked").
@@ -561,8 +528,7 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
 - [ ] **Stormbeacon Blade** — Equipment {1}{W}. What works: Static +3/+0. What's broken: DrawCards 1 (conditional — only if 3+ attackers; condition not enforced) + Equip Custom.
   - **Fix needed**: Conditional trigger + implement equip.
 
-- [ ] **Tempest Hawk** — 2/2 flying for {2}{W}. What's broken: `Effect::SearchLibrary` (no-op) + `StaticEffect::Custom("Any number in deck")`.
-  - **Fix needed**: Implement SearchLibrary.
+- [ ] **Tempest Hawk** — 2/2 flying for {2}{W}. SearchLibrary works. **(NOW IMPLEMENTED — SearchLibrary NOW WORKS)** `StaticEffect::Custom("Any number in deck")` still non-functional.
 
 - [ ] **Trade Route Envoy** — 4/3 for {3}{G}. All Custom: conditional draw-or-counter ETB.
   - **Fix needed**: Conditional effect based on game state check.
@@ -570,19 +536,16 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
 - [ ] **Traveling Botanist** — 2/3 for {1}{G}. All Custom: look at top card, land to hand or card to graveyard.
   - **Fix needed**: Top-of-library manipulation effect.
 
-- [ ] **Wayspeaker Bodyguard** — 3/4 for {3}{W}. What works: ReturnFromGraveyard (no-op) + TapTarget. What's broken: ReturnFromGraveyard is no-op.
-  - **Fix needed**: Implement ReturnFromGraveyard.
+- [ ] **Wayspeaker Bodyguard** — 3/4 for {3}{W}. What works: ReturnFromGraveyard + TapTarget. **(NOW IMPLEMENTED — ReturnFromGraveyard NOW WORKS)**
 
 - [ ] **Wingspan Stride** — Aura {U}. What works: Static +1/+1 + grant flying + Bounce (return self to hand). Mostly complete.
 
 - [ ] **Dragonbroods' Relic** — Artifact {1}{G}. What works: AddMana (any color). What's broken: `Cost::Custom("Tap an untapped creature you control")`.
   - **Fix needed**: Implement creature-tap as cost.
 
-- [ ] **Herd Heirloom** — Artifact {1}{G}. What works: mana ability. What's broken: `GainKeywordUntilEndOfTurn("trample")` (no-op). Missing "draw on combat damage" grant.
-  - **Fix needed**: Implement GainKeywordUntilEndOfTurn + grant triggered ability.
+- [ ] **Herd Heirloom** — Artifact {1}{G}. What works: mana ability + GainKeywordUntilEndOfTurn (trample). **(NOW IMPLEMENTED — GainKeywordUntilEndOfTurn NOW WORKS)** Missing "draw on combat damage" grant.
 
-- [ ] **Essence Anchor** — Artifact {2}{U}. What's broken: `Effect::Scry { count: 1 }` on upkeep (Scry no-op).
-  - **Fix needed**: Implement Scry.
+- [ ] **Essence Anchor** — Artifact {2}{U}. Scry 1 on upkeep. **(NOW IMPLEMENTED — Scry NOW WORKS)**
 
 - [ ] **Sonic Shrieker** — 4/4 flying for {2}{R}{W}{B}. What works: DealDamage 2 + GainLife 2. What's broken: `Effect::Custom("If player damaged, they discard.")`.
   - **Fix needed**: Conditional discard on player damage.
@@ -590,8 +553,7 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
 - [ ] **Sunpearl Kirin** — 2/1 flash/flying for {1}{W}. What works: Bounce. What's broken: `Effect::Custom("If it was a token, draw a card.")`.
   - **Fix needed**: Conditional draw based on bounced permanent type.
 
-- [ ] **Starry-Eyed Skyrider** — 1/3 flying for {2}{W}. What's broken: `GainKeywordUntilEndOfTurn("flying")` (no-op) + `StaticEffect::GrantKeyword` (attacking tokens have flying — may not work).
-  - **Fix needed**: Implement GainKeywordUntilEndOfTurn.
+- [ ] **Starry-Eyed Skyrider** — 1/3 flying for {2}{W}. GainKeywordUntilEndOfTurn (flying) works. **(NOW IMPLEMENTED — GainKeywordUntilEndOfTurn NOW WORKS)** `StaticEffect::GrantKeyword` (attacking tokens have flying) may still not work.
 
 - [ ] **Static Snare** — Enchantment {4}{W} flash. What works: Exile. What's broken: `StaticEffect::CostReduction` (may not work) + "until this leaves" return mechanic.
   - **Fix needed**: Verify CostReduction + exile-until-leaves mechanic.
@@ -607,8 +569,7 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
 - [ ] **Neriv, Heart of the Storm** — 4/5 flying for {1}{R}{W}{B}. What works: Static Boost +1/+1 to tokens + GrantKeyword haste. What's broken: Attacks Custom (copy token).
   - **Fix needed**: "Create token copy" effect.
 
-- [ ] **Purging Stormbrood** — 4/4 flying for {4}{B}. What's broken: `Effect::RemoveCounters { counter_type: "all", count: 0 }` (RemoveCounters is no-op).
-  - **Fix needed**: Implement RemoveCounters.
+- [ ] **Purging Stormbrood** — 4/4 flying for {4}{B}. RemoveCounters. **(NOW IMPLEMENTED — RemoveCounters NOW WORKS)**
 
 - [ ] **Rally the Monastery** — Instant {3}{W}. What's broken: CostReduction (may work) + all Custom (modal spell).
   - **Fix needed**: Modal spell support.
@@ -631,8 +592,7 @@ These cards have some working typed effects but also use `Effect::Custom(...)`, 
 - [ ] **Ureni, the Song Unending** — 10/10 flying/protection for {5}{G}{U}{R}. What's broken: `StaticEffect::Custom("Protection from white and black.")` + Custom (deal X damage divided).
   - **Fix needed**: Protection implementation + divided damage.
 
-- [ ] **War Effort** — Enchantment {3}{R}. What works: Static +1/+0. What's broken: `Effect::CreateTokenTappedAttacking` (no-op).
-  - **Fix needed**: Implement CreateTokenTappedAttacking in execute_effects.
+- [ ] **War Effort** — Enchantment {3}{R}. What works: Static +1/+0 + CreateTokenTappedAttacking. **(NOW IMPLEMENTED — CreateTokenTappedAttacking NOW WORKS)**
 
 - [ ] **Zurgo, Thunder's Decree** — 2/4 haste for {R}{W}{B}. What works: DealDamageAll 1 on attack. What's broken: `StaticEffect::Custom` (gain life + boost on creature death).
   - **Fix needed**: Implement damage-tracking triggered ability.
@@ -817,22 +777,22 @@ Note: There are 2 duplicate registrations with alternate names:
 
 ## Priority Fixes (Highest Impact)
 
-### 1. Implement Scry in execute_effects (fixes ~10 cards)
+### ~~1. Implement Scry in execute_effects (fixes ~10 cards)~~ -- **DONE**
 Cards affected: Boulderborn Dragon, Cruel Truths, Poised Practitioner, Dragonologist (x2), Corroding Dragonstorm, Essence Anchor, Mistrise Village, Nightblade Brigade
 
-### 2. Implement SearchLibrary in execute_effects (fixes ~10 cards)
+### ~~2. Implement SearchLibrary in execute_effects (fixes ~10 cards)~~ -- **DONE**
 Cards affected: Roamer's Routine, Fangkeeper's Familiar, Encroaching Dragonstorm, Abzan/Mardu/Jeskai/Sultai/Temur Monument, Dragonstorm Forecaster, Tempest Hawk
 
-### 3. Implement ReturnFromGraveyard in execute_effects (fixes ~8 cards)
+### ~~3. Implement ReturnFromGraveyard in execute_effects (fixes ~8 cards)~~ -- **DONE**
 Cards affected: Furious Forebear, Auroral Procession, Duty Beyond Death, Salt Road Packbeast, Sultai Devotee, Heritage Reclamation, Fire-Rim Form, Wayspeaker Bodyguard
 
-### 4. Implement GainKeywordUntilEndOfTurn in execute_effects (fixes ~12 cards)
+### ~~4. Implement GainKeywordUntilEndOfTurn in execute_effects (fixes ~12 cards)~~ -- **DONE**
 Cards affected: Alesha's Legacy, Lightfoot Technique, Wild Ride, Formation Breaker, Reigning Victor, Unrooted Ancestor, Starry-Eyed Skyrider, Equilibrium Adept, Mardu Monument, Herd Heirloom, Snakeskin Veil
 
-### 5. Implement Sacrifice in execute_effects (fixes ~3 cards)
+### ~~5. Implement Sacrifice in execute_effects (fixes ~3 cards)~~ -- **DONE**
 Cards affected: Aggressive Negotiations, Bone-Cairn Butcher, (Worthy Cost additional cost)
 
-### 6. Fix token creation to parse P/T from token_name (fixes ~5 cards)
+### ~~6. Fix token creation to parse P/T from token_name (fixes ~5 cards)~~ -- **DONE**
 Cards affected: Mammoth Bellow (5/5), Teeming Dragonstorm (2/2), Abzan Monument (X/X), Salt Road Skirmish (1/1 correct), all tokens that specify non-1/1 stats
 
 ### 7. Implement Saga framework (fixes 5 cards)

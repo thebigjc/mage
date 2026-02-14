@@ -45,11 +45,26 @@ The `execute_effects()` function in `game.rs` handles these **Effect** variants 
 | `Effect::AddMana { mana }` | Add mana to controller's pool |
 | `Effect::DiscardCards { count }` | Controller discards N cards |
 | `Effect::Mill { count }` | Controller mills N cards |
-| `Effect::CreateToken { token_name, count }` | Create N token creatures (always 1/1) |
+| `Effect::CreateToken { token_name, count }` | Creates N token creatures (now parses P/T and keywords from token_name) |
+| `Effect::Scry { count }` | Scry N cards |
+| `Effect::SearchLibrary { filter }` | Search library for matching card |
+| `Effect::ReturnFromGraveyard` | Return card from graveyard to hand |
+| `Effect::Reanimate` | Return card from graveyard to battlefield |
+| `Effect::GainKeywordUntilEndOfTurn { keyword }` | Grant keyword until EOT |
+| `Effect::GainKeyword { keyword }` | Grant keyword permanently |
+| `Effect::LoseKeyword { keyword }` | Remove keyword |
+| `Effect::Indestructible` | Grant indestructible until EOT |
+| `Effect::Hexproof` | Grant hexproof until EOT |
+| `Effect::CantBlock` | Prevent blocking this turn |
+| `Effect::Sacrifice { filter }` | Force sacrifice |
+| `Effect::DestroyAll { filter }` | Board wipe |
+| `Effect::DealDamageAll { amount, filter }` | Damage all matching |
+| `Effect::RemoveCounters { counter_type, count }` | Remove counters |
+| `Effect::CreateTokenTappedAttacking { token_name, count }` | Tokens tapped and attacking |
+| `Effect::BoostPermanent { power, toughness }` | Permanent boost |
+| `Effect::SetPowerToughness { power, toughness }` | Set base P/T |
 
-Everything else (`Effect::Custom(...)`, `Effect::Sacrifice`, `Effect::SearchLibrary`, `Effect::GainKeywordUntilEndOfTurn`, `Effect::DestroyAll`, `Effect::Scry`, `Effect::ReturnFromGraveyard`, `Effect::Reanimate`, etc.) falls through to a catch-all `_ => {}` and is a **NO-OP**.
-
-`StaticEffect::Custom(...)` is also non-functional. `Cost::Custom(...)` will prevent activation since the engine cannot determine how to pay it.
+These effects remain **NO-OPS**: `Effect::SetLife`, `Effect::MustBlock`, `Effect::PreventCombatDamage`, `Effect::GainControl`/`GainControlUntilEndOfTurn`, `Effect::GainProtection`, `Effect::Custom(...)`. `StaticEffect::Custom(...)` and `Cost::Custom(...)` also remain non-functional.
 
 Keywords set on the `keywords` field (Flying, Trample, Lifelink, etc.) DO work via the combat system and damage resolution — they are not effects.
 
@@ -169,10 +184,10 @@ These cards have SOME typed effects but also use `Effect::Custom(...)`, `StaticE
   - **What it should do**: Whenever attacks, learn (may discard a card; if you do, draw a card).
   - **Fix needed**: Implement "Learn" keyword action as a new effect variant
 
-- [ ] **Compassionate Healer** — What works: `Effect::gain_life(1)`. What's broken: `Effect::scry(1)` is a no-op.
+- [ ] **Compassionate Healer** — What works: `Effect::gain_life(1)`. What's ~~broken~~ fixed: `Effect::scry(1)` NOW WORKS (engine implements `Effect::Scry`).
   - **Java source**: `Mage.Sets/src/mage/cards/c/CompassionateHealer.java`
   - **What it should do**: Whenever tapped, gain 1 life and scry 1.
-  - **Fix needed**: Implement `Effect::Scry` in execute_effects
+  - **Status**: Both effects now functional. Card may be promotable to Complete.
 
 - [ ] **Dai Li Agents** — What works: `Effect::gain_life(1)`. What's broken: ETB `Effect::Custom("Earthbend 1.")` and attack trigger `Effect::Custom("Attack trigger.")`
   - **Java source**: `Mage.Sets/src/mage/cards/d/DaiLiAgents.java`
@@ -189,10 +204,10 @@ These cards have SOME typed effects but also use `Effect::Custom(...)`, `StaticE
   - **What it should do**: When dies, Earthbend 2.
   - **Fix needed**: Implement Earthbend effect variant
 
-- [ ] **Glider Kids** — What works: flying keyword. What's broken: ETB `Effect::scry(1)` is a no-op.
+- [ ] **Glider Kids** — What works: flying keyword. What's ~~broken~~ fixed: ETB `Effect::scry(1)` NOW WORKS (engine implements `Effect::Scry`).
   - **Java source**: `Mage.Sets/src/mage/cards/g/GliderKids.java`
   - **What it should do**: ETB scry 1.
-  - **Fix needed**: Implement `Effect::Scry` in execute_effects
+  - **Status**: Both effects now functional. Card may be promotable to Complete.
 
 - [ ] **Guru Pathik** — What works: ETB `Effect::add_p1p1_counters(1)`. What's broken: spell cast trigger `Effect::Custom("Spell cast trigger.")`
   - **Java source**: `Mage.Sets/src/mage/cards/g/GuruPathik.java`
@@ -209,10 +224,10 @@ These cards have SOME typed effects but also use `Effect::Custom(...)`, `StaticE
   - **What it should do**: Firebending 1. Exhaust -- {3}: Put a +1/+1 counter on Jeong Jeong. When you next cast a Lesson spell this turn, copy it and you may choose new targets for the copy.
   - **Fix needed**: Add Firebending keyword; implement Exhaust ability; implement spell copy effect
 
-- [ ] **Jet, Freedom Fighter** — What works: ETB `Effect::add_p1p1_counters(1)` + `Effect::deal_damage(1)`. What's broken: dies `Effect::Custom("Dies effect.")`
+- [ ] **Jet, Freedom Fighter** — What works: ETB `Effect::add_p1p1_counters(1)` + `Effect::deal_damage(1)`. What's partially fixed: `Effect::ReturnFromGraveyard` NOW WORKS (partially -- type filter for "Rebel" still needed; dies trigger may still use `Effect::Custom`).
   - **Java source**: `Mage.Sets/src/mage/cards/j/JetFreedomFighter.java`
   - **What it should do**: ETB put a +1/+1 counter and deal 1 damage to any target. When dies, return target Rebel card from graveyard to hand.
-  - **Fix needed**: Implement `Effect::ReturnFromGraveyard` with type filter (or make existing variant functional)
+  - **Fix needed**: Update card code to use typed `Effect::ReturnFromGraveyard` instead of Custom; add Rebel type filter
 
 - [ ] **Obsessive Pursuit** — What works: ETB `Effect::create_token("Clue Artifact", 1)` + `Effect::add_p1p1_counters(1)`. What's broken: lifelink keyword on an enchantment is meaningless (should be an ability that enchanted creature has lifelink).
   - **Java source**: `Mage.Sets/src/mage/cards/o/ObsessivePursuit.java`
@@ -224,10 +239,10 @@ These cards have SOME typed effects but also use `Effect::Custom(...)`, `StaticE
   - **What it should do**: ETB Earthbend 3 (look at top 3, put a land to hand, rest on bottom).
   - **Fix needed**: Implement Earthbend; the mill(3) is incorrect (mills to graveyard instead of bottom of library)
 
-- [ ] **Otter-Penguin** — What works: `Effect::boost_until_eot(1, 2)`. What's broken: `Effect::Custom("Can't be blocked this turn.")`
+- [ ] **Otter-Penguin** — What works: `Effect::boost_until_eot(1, 2)`. What's broken: `Effect::Custom("Can't be blocked this turn.")` -- note that `Effect::CantBlock` style effects now work in the engine, but this card uses `Effect::Custom(...)` so it remains broken.
   - **Java source**: `Mage.Sets/src/mage/cards/o/OtterPenguin.java`
   - **What it should do**: When you draw second card each turn, gets +1/+2 and can't be blocked this turn.
-  - **Fix needed**: Implement "can't be blocked" as `Effect::GainKeywordUntilEndOfTurn` (or evasion variant) and make it functional
+  - **Fix needed**: Update card code to use typed `Effect::CantBlock` or `Effect::GainKeywordUntilEndOfTurn` instead of Custom
 
 - [ ] **Sokka, Bold Boomeranger** — What works: ETB `Effect::add_p1p1_counters(1)`, spell cast trigger `Effect::add_p1p1_counters(1)`. What's broken: these are correct for a simplified version; however the ETB should actually create an Equipment token and attach it, not add counters.
   - **Java source**: `Mage.Sets/src/mage/cards/s/SokkaBoldBoomeranger.java`
@@ -300,10 +315,10 @@ These cards are either stat-only (vanilla with keywords at most) or have ALL abi
   - **What it should do**: Target creature gets +2/+0 and gains first strike until end of turn.
   - **Fix needed**: Add `Effect::BoostUntilEndOfTurn` + grant first strike
 
-- [ ] **Cycle of Renewal** — Instant, Lesson. No spell effect.
+- [ ] **Cycle of Renewal** — Instant, Lesson. No spell effect. **Note**: `Effect::ReturnFromGraveyard` NOW WORKS in the engine (if card code is updated to use the typed variant instead of Custom/missing).
   - **Java source**: `Mage.Sets/src/mage/cards/c/CycleOfRenewal.java`
   - **What it should do**: Return target permanent card from graveyard to hand.
-  - **Fix needed**: Implement `Effect::ReturnFromGraveyard`
+  - **Fix needed**: Update card code to add `Ability::spell` with `Effect::ReturnFromGraveyard`
 
 - [ ] **Day of Black Sun** — Sorcery. No spell effect.
   - **Java source**: `Mage.Sets/src/mage/cards/d/DayOfBlackSun.java`
@@ -440,10 +455,10 @@ These cards are either stat-only (vanilla with keywords at most) or have ALL abi
   - **What it should do**: Destroy target creature or planeswalker.
   - **Fix needed**: Add `Effect::Destroy` targeting creature/planeswalker
 
-- [ ] **Spirit Water Revival** — Sorcery. No spell effect.
+- [ ] **Spirit Water Revival** — Sorcery. No spell effect. **Note**: `Effect::Reanimate` NOW WORKS in the engine (if card code is updated to use the typed variant instead of Custom/missing).
   - **Java source**: `Mage.Sets/src/mage/cards/s/SpiritWaterRevival.java`
   - **What it should do**: Return target creature card from graveyard to battlefield.
-  - **Fix needed**: Implement `Effect::Reanimate` (make existing variant functional)
+  - **Fix needed**: Update card code to add `Ability::spell` with `Effect::Reanimate`
 
 - [ ] **True Ancestry** — Sorcery, Lesson. No spell effect.
   - **Java source**: `Mage.Sets/src/mage/cards/t/TrueAncestry.java`
@@ -637,7 +652,7 @@ These cards are either stat-only (vanilla with keywords at most) or have ALL abi
   - **What it should do**: First strike. When attacks, create an Equipment token and attach to this.
   - **Fix needed**: Implement equipment token creation + auto-attach
 
-- [ ] **Merchant of Many Hats** — Creature 2/2. Activated uses `Effect::return_from_graveyard()` which is a no-op.
+- [ ] **Merchant of Many Hats** — Creature 2/2. Activated uses `Effect::return_from_graveyard()` which NOW WORKS.
   - **Java source**: `Mage.Sets/src/mage/cards/m/MerchantOfManyHats.java`
   - **What it should do**: {2}{B}: Return this from graveyard to hand.
   - **Fix needed**: Make `Effect::ReturnFromGraveyard` functional in execute_effects
