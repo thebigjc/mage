@@ -430,6 +430,7 @@ impl Game {
         let mut cant_blocked_by_power: Vec<(ObjectId, i32)> = Vec::new();
         let mut must_be_blockeds: Vec<ObjectId> = Vec::new();
         let mut boost_per_counts: Vec<(ObjectId, PlayerId, String, i32, i32)> = Vec::new();
+        let mut additional_land_plays: Vec<(PlayerId, u32)> = Vec::new();
 
         for perm in self.state.battlefield.iter() {
             let source_id = perm.id();
@@ -464,6 +465,9 @@ impl Game {
                         }
                         crate::abilities::StaticEffect::BoostPerCount { count_filter, power_per, toughness_per } => {
                             boost_per_counts.push((source_id, controller, count_filter.clone(), *power_per, *toughness_per));
+                        }
+                        crate::abilities::StaticEffect::AdditionalLandPlays { count } => {
+                            additional_land_plays.push((controller, *count));
                         }
                         _ => {}
                     }
@@ -574,6 +578,17 @@ impl Game {
                         perm.continuous_keywords |= combined;
                     }
                 }
+            }
+        }
+
+        // Step 5: Apply additional land plays
+        // Reset all players to base (1), then add additional
+        for player in self.state.players.values_mut() {
+            player.lands_per_turn = 1;
+        }
+        for (player_id, count) in additional_land_plays {
+            if let Some(player) = self.state.players.get_mut(&player_id) {
+                player.lands_per_turn += count;
             }
         }
     }
@@ -3650,6 +3665,99 @@ impl Game {
                                 self.state.exile.exile(target_id);
                                 self.state.set_zone(target_id, crate::constants::Zone::Exile, None);
                                 exiled += 1;
+                            }
+                        }
+                    }
+                }
+                Effect::Flicker => {
+                    // Exile target creature, immediately return to BF under owner's control
+                    for &target_id in targets {
+                        if let Some(perm) = self.state.battlefield.remove(target_id) {
+                            let owner_id = perm.owner();
+                            self.state.ability_store.remove_source(target_id);
+                            // Get card data and create fresh permanent
+                            if let Some(card_data) = self.state.card_store.remove(target_id) {
+                                for ability in &card_data.abilities {
+                                    self.state.ability_store.add(ability.clone());
+                                }
+                                let new_perm = Permanent::new(card_data, owner_id);
+                                self.state.battlefield.add(new_perm);
+                                self.state.set_zone(target_id, crate::constants::Zone::Battlefield, None);
+                                self.check_enters_tapped(target_id);
+                                self.emit_event(GameEvent::enters_battlefield(target_id, owner_id));
+                            }
+                        }
+                    }
+                }
+                Effect::FlickerEndStep => {
+                    // Exile target creatures, return at next end step tapped
+                    let mut exiled_ids = Vec::new();
+                    for &target_id in targets {
+                        if let Some(_perm) = self.state.battlefield.remove(target_id) {
+                            self.state.ability_store.remove_source(target_id);
+                            self.state.exile.exile(target_id);
+                            self.state.set_zone(target_id, crate::constants::Zone::Exile, None);
+                            exiled_ids.push(target_id);
+                        }
+                    }
+                    if !exiled_ids.is_empty() {
+                        // Create delayed trigger to return all at next end step
+                        self.state.delayed_triggers.push(crate::state::DelayedTrigger {
+                            event_type: EventType::EndStep,
+                            watching: None,
+                            effects: vec![Effect::ReturnFromExileTapped],
+                            controller,
+                            source: None,
+                            targets: exiled_ids,
+                            duration: crate::state::DelayedDuration::UntilTriggered,
+                            trigger_only_once: true,
+                            created_turn: self.state.turn_number,
+                        });
+                    }
+                }
+                Effect::ReturnFromExileTapped => {
+                    // Return cards from exile to battlefield tapped under owners' control
+                    for &target_id in targets {
+                        if self.state.exile.remove(target_id) {
+                            if let Some(card_data) = self.state.card_store.remove(target_id) {
+                                let owner_id = card_data.owner;
+                                for ability in &card_data.abilities {
+                                    self.state.ability_store.add(ability.clone());
+                                }
+                                let mut new_perm = Permanent::new(card_data, owner_id);
+                                new_perm.tap();
+                                self.state.battlefield.add(new_perm);
+                                self.state.set_zone(target_id, crate::constants::Zone::Battlefield, None);
+                                self.emit_event(GameEvent::enters_battlefield(target_id, owner_id));
+                            }
+                        }
+                    }
+                }
+                Effect::OpponentExilesFromHand { count } => {
+                    let count = resolve_x(*count) as usize;
+                    // Each opponent exiles cards from hand (like discard but to exile)
+                    let opponents: Vec<PlayerId> = self.state.turn_order.iter()
+                        .filter(|&&id| id != controller)
+                        .copied()
+                        .collect();
+                    for opp in opponents {
+                        let hand: Vec<ObjectId> = self.state.players.get(&opp)
+                            .map(|p| p.hand.iter().copied().collect())
+                            .unwrap_or_default();
+                        let to_exile = count.min(hand.len());
+                        if to_exile > 0 {
+                            let view = crate::decision::GameView::placeholder();
+                            let chosen = if let Some(dm) = self.decision_makers.get_mut(&opp) {
+                                dm.choose_discard(&view, &hand, to_exile)
+                            } else {
+                                hand.iter().rev().take(to_exile).copied().collect()
+                            };
+                            for card_id in chosen {
+                                if let Some(player) = self.state.players.get_mut(&opp) {
+                                    player.hand.remove(card_id);
+                                }
+                                self.state.exile.exile(card_id);
+                                self.state.set_zone(card_id, crate::constants::Zone::Exile, None);
                             }
                         }
                     }
@@ -10641,5 +10749,201 @@ mod boost_per_count_tests {
         // 2 creatures on BF (self + other) + 2 in graveyard = 4 total
         assert_eq!(perm.power(), 4, "0 + 1*(2 BF + 2 GY) = 4");
         assert_eq!(perm.toughness(), 4);
+    }
+}
+
+#[cfg(test)]
+mod flicker_tests {
+    use super::*;
+    use crate::abilities::*;
+    use crate::types::*;
+    use crate::counters::CounterType;
+    use uuid::Uuid;
+
+    struct PassPlayer;
+    impl crate::decision::PlayerDecisionMaker for PassPlayer {
+        fn priority(&mut self, _: &crate::decision::GameView, actions: &[crate::decision::PlayerAction]) -> crate::decision::PlayerAction { actions[0].clone() }
+        fn choose_targets(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &crate::decision::TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &crate::decision::GameView, modes: &[crate::decision::NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &crate::decision::GameView, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &crate::decision::GameView, _: &[crate::decision::AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &crate::decision::GameView, _: &crate::decision::DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &crate::decision::GameView, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &crate::decision::GameView, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &crate::decision::GameView, hand: &[ObjectId], count: usize) -> Vec<ObjectId> { hand.iter().take(count).copied().collect() }
+        fn choose_amount(&mut self, _: &crate::decision::GameView, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &crate::decision::GameView, _: &crate::decision::UnpaidMana, _: &[crate::decision::PlayerAction]) -> Option<crate::decision::PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &crate::decision::GameView, _: &[crate::decision::ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &str, _: &[crate::decision::NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_test_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId(Uuid::new_v4());
+        let p2 = PlayerId(Uuid::new_v4());
+        let config = GameConfig { players: vec![PlayerConfig { name: "P1".to_string(), deck: vec![] }, PlayerConfig { name: "P2".to_string(), deck: vec![] }], starting_life: 20 };
+        let game = Game::new_two_player(config, vec![
+            (p1, Box::new(PassPlayer)),
+            (p2, Box::new(PassPlayer)),
+        ]);
+        (game, p1, p2)
+    }
+
+    fn make_creature(name: &str, power: i32, toughness: i32) -> (ObjectId, CardData) {
+        let id = ObjectId(Uuid::new_v4());
+        let card = CardData {
+            id,
+            owner: PlayerId(Uuid::new_v4()), // will be overridden
+            name: name.into(),
+            card_types: vec![crate::constants::CardType::Creature],
+            power: Some(power), toughness: Some(toughness),
+            ..Default::default()
+        };
+        (id, card)
+    }
+
+    #[test]
+    fn flicker_returns_creature_fresh() {
+        let (mut game, p1, _p2) = make_test_game();
+
+        let (card_id, mut card) = make_creature("Test Creature", 3, 3);
+        card.owner = p1;
+        let perm = crate::permanent::Permanent::new(card.clone(), p1);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(card.clone());
+        for ab in &card.abilities { game.state.ability_store.add(ab.clone()); }
+        game.state.set_zone(card_id, crate::constants::Zone::Battlefield, None);
+
+        // Put +1/+1 counter on it
+        if let Some(perm) = game.state.battlefield.get_mut(card_id) {
+            perm.counters.add(CounterType::P1P1, 2);
+            assert_eq!(perm.power(), 5); // 3 + 2
+        }
+
+        // Flicker it
+        let effects = vec![Effect::Flicker];
+        game.execute_effects(&effects, p1, &[card_id], None, None);
+
+        // Verify it's back on battlefield as fresh permanent (no counters)
+        let perm = game.state.battlefield.get(card_id).expect("should be on BF");
+        assert_eq!(perm.power(), 3, "should have base power after flicker (no counters)");
+        assert_eq!(perm.counters.get(&CounterType::P1P1), 0, "counters should be reset");
+    }
+
+    #[test]
+    fn flicker_triggers_etb() {
+        let (mut game, p1, _p2) = make_test_game();
+
+        let (card_id, mut card) = make_creature("ETB Creature", 2, 2);
+        card.owner = p1;
+        let perm = crate::permanent::Permanent::new(card.clone(), p1);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(card.clone());
+        game.state.set_zone(card_id, crate::constants::Zone::Battlefield, None);
+
+        // Clear event log then flicker
+        game.event_log.clear();
+        let effects = vec![Effect::Flicker];
+        game.execute_effects(&effects, p1, &[card_id], None, None);
+
+        // Check that ETB event was emitted
+        let etb_events: Vec<_> = game.event_log.iter()
+            .filter(|e| e.event_type == crate::events::EventType::EnteredTheBattlefield)
+            .collect();
+        assert_eq!(etb_events.len(), 1, "flicker should emit 1 ETB event");
+        assert_eq!(etb_events[0].target_id, Some(card_id));
+    }
+
+    #[test]
+    fn flicker_end_step_exiles_then_returns_tapped() {
+        let (mut game, p1, _p2) = make_test_game();
+
+        let (card_id, mut card) = make_creature("Flickered Beast", 4, 4);
+        card.owner = p1;
+        let perm = crate::permanent::Permanent::new(card.clone(), p1);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(card.clone());
+        game.state.set_zone(card_id, crate::constants::Zone::Battlefield, None);
+
+        // FlickerEndStep — should exile
+        let effects = vec![Effect::FlickerEndStep];
+        game.execute_effects(&effects, p1, &[card_id], None, None);
+
+        // Verify creature is in exile, not on battlefield
+        assert!(game.state.battlefield.get(card_id).is_none(), "should not be on BF");
+        assert!(game.state.exile.contains(card_id), "should be in exile");
+
+        // Verify delayed trigger was created
+        assert_eq!(game.state.delayed_triggers.len(), 1);
+        assert_eq!(game.state.delayed_triggers[0].effects.len(), 1);
+        assert_eq!(game.state.delayed_triggers[0].targets, vec![card_id]);
+
+        // Now simulate the delayed trigger firing: execute the return effect
+        let dt = game.state.delayed_triggers[0].clone();
+        game.execute_effects(&dt.effects, dt.controller, &dt.targets, dt.source, None);
+
+        // Verify creature is back on battlefield, tapped
+        let perm = game.state.battlefield.get(card_id).expect("should be back on BF");
+        assert!(perm.tapped, "should be tapped after FlickerEndStep return");
+    }
+
+    #[test]
+    fn additional_land_plays() {
+        let (mut game, p1, _p2) = make_test_game();
+
+        // Register a static ability with AdditionalLandPlays
+        let source_id = ObjectId(Uuid::new_v4());
+        let card = CardData {
+            id: source_id,
+            owner: p1,
+            name: "Land Enabler".into(),
+            card_types: vec![crate::constants::CardType::Enchantment],
+            abilities: vec![
+                Ability::static_ability(source_id, "You may play an additional land.", vec![
+                    StaticEffect::AdditionalLandPlays { count: 1 },
+                ]),
+            ],
+            ..Default::default()
+        };
+        let perm = crate::permanent::Permanent::new(card.clone(), p1);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(card.clone());
+        for ab in &card.abilities { game.state.ability_store.add(ab.clone()); }
+
+        // Apply continuous effects
+        game.apply_continuous_effects();
+
+        // Player should be able to play 2 lands per turn
+        let player = game.state.players.get(&p1).unwrap();
+        assert_eq!(player.lands_per_turn, 2, "should have 2 land plays per turn");
+    }
+
+    #[test]
+    fn opponent_exiles_from_hand() {
+        let (mut game, p1, p2) = make_test_game();
+
+        // Give opponent some cards in hand
+        let c1 = ObjectId(Uuid::new_v4());
+        let c2 = ObjectId(Uuid::new_v4());
+        let c3 = ObjectId(Uuid::new_v4());
+        if let Some(player) = game.state.players.get_mut(&p2) {
+            player.hand.add(c1);
+            player.hand.add(c2);
+            player.hand.add(c3);
+        }
+
+        let effects = vec![Effect::OpponentExilesFromHand { count: 2 }];
+        game.execute_effects(&effects, p1, &[], None, None);
+
+        // Opponent should have 1 card left in hand
+        let player = game.state.players.get(&p2).unwrap();
+        assert_eq!(player.hand.len(), 1, "opponent should have 1 card left after exiling 2");
+
+        // 2 cards should be in exile
+        let exile_count = [c1, c2, c3].iter()
+            .filter(|&&id| game.state.exile.contains(id))
+            .count();
+        assert_eq!(exile_count, 2, "2 cards should be in exile");
     }
 }

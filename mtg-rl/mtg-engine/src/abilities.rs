@@ -306,6 +306,20 @@ pub enum Effect {
     /// Exile up to N target cards from graveyards.
     ExileTargetCardsFromGraveyards { count: u32 },
 
+    /// Flicker: exile target creature, then immediately return it to the battlefield
+    /// under its owner's control (as a new object, triggers ETB).
+    Flicker,
+
+    /// Flicker at end step: exile target creatures, then return them at the
+    /// beginning of the next end step tapped under their owners' control.
+    FlickerEndStep,
+
+    /// Return target cards from exile to the battlefield tapped under their owners' control.
+    ReturnFromExileTapped,
+
+    /// Target opponent exiles cards from their hand.
+    OpponentExilesFromHand { count: u32 },
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1063,6 +1077,18 @@ impl Effect {
     pub fn exile_from_graveyards(count: u32) -> Self {
         Effect::ExileTargetCardsFromGraveyards { count }
     }
+
+    pub fn flicker() -> Self {
+        Effect::Flicker
+    }
+
+    pub fn flicker_end_step() -> Self {
+        Effect::FlickerEndStep
+    }
+
+    pub fn opponent_exiles_from_hand(count: u32) -> Self {
+        Effect::OpponentExilesFromHand { count }
+    }
 }
 
 impl ModalMode {
@@ -1317,6 +1343,8 @@ pub enum StaticEffect {
     /// Counts matching permanents on the battlefield, optionally also counts
     /// matching cards in controller's graveyard (when count_filter contains
     /// "and [type] card in your graveyard").
+    /// Grant additional land plays per turn to the controller.
+    AdditionalLandPlays { count: u32 },
     BoostPerCount {
         count_filter: String,
         power_per: i32,

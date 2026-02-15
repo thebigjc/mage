@@ -1715,7 +1715,7 @@ fn burning_curiosity(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Sorcery],
         rarity: Rarity::Common,
         abilities: vec![Ability::spell(id,
-            vec![Effect::Custom("Exile the top three cards of your library. Until the end of your next turn, you may play those cards.".into())],
+            vec![Effect::exile_top_and_play_next_turn(3)],
             TargetSpec::None)],
         ..Default::default() }
 }
@@ -3288,7 +3288,7 @@ fn perfect_intimidation(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::spell(id,
                 vec![Effect::modal(vec![
                     ModalMode::new("Target opponent exiles two cards from their hand.",
-                        vec![Effect::Custom("Target opponent exiles two cards from hand.".into())]),
+                        vec![Effect::opponent_exiles_from_hand(2)]),
                     ModalMode::new("Remove all counters from target creature.",
                         vec![Effect::remove_all_counters()]),
                 ], 1, 2)],
@@ -3330,7 +3330,7 @@ fn prismatic_undercurrents(id: ObjectId, owner: PlayerId) -> CardData {
                     TargetSpec::None),
             Ability::static_ability(id,
                     "You may play an additional land on each of your turns.",
-                    vec![StaticEffect::Custom("Play an additional land each turn.".into())]),
+                    vec![StaticEffect::AdditionalLandPlays { count: 1 }]),
         ],
         ..Default::default() }
 }
@@ -4485,7 +4485,7 @@ fn morningtides_light(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::Custom("Exile any number of target creatures. At the beginning of the next end step, return those cards to the battlefield tapped under their owners' control.".into())],
+                vec![Effect::flicker_end_step()],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -4535,7 +4535,7 @@ fn personify(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::Custom("Exile target creature you control, then return it to the battlefield under its owner's control.".into()),
+                vec![Effect::flicker(),
                      Effect::create_token("1/1 Shapeshifter with changeling", 1)],
                 TargetSpec::CreatureYouControl),
         ],
