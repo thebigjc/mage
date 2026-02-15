@@ -756,8 +756,8 @@ fn look_top_and_pick() {
     assert_eq!(lib_after, lib_before - 3, "Should remove 3 cards from library");
 
     // All 3 cards should be distributed between hand and graveyard
-    let hand_ids = game.state.players.get(&p1).unwrap().hand.to_vec();
-    let grave_ids = game.state.players.get(&p1).unwrap().graveyard.to_vec();
+    let hand_ids = game.state.players.get(&p1).unwrap().hand.as_slice().to_vec();
+    let grave_ids = game.state.players.get(&p1).unwrap().graveyard.as_slice().to_vec();
 
     for card_id in &top_cards {
         let in_hand = hand_ids.contains(card_id);
