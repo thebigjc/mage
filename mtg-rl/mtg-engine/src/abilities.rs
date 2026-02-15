@@ -1445,6 +1445,12 @@ impl StaticEffect {
             condition: Some("toughness_greater_than_power".to_string()),
         }
     }
+
+    pub fn grant_convoke(filter: &str) -> Self {
+        StaticEffect::GrantConvoke {
+            filter: filter.to_string(),
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1665,6 +1671,10 @@ pub enum StaticEffect {
     AssignDamageWithToughness {
         filter: String,
         condition: Option<String>,
+    },
+    /// Grant convoke to matching spells the controller casts.
+    GrantConvoke {
+        filter: String,
     },
     /// Custom continuous effect.
 

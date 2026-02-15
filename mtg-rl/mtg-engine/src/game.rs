@@ -848,6 +848,107 @@ impl Game {
         total_reduction
     }
 
+    pub fn spell_has_convoke(&self, player_id: PlayerId, card: &crate::card::CardData) -> bool {
+        if card.keywords.contains(crate::constants::KeywordAbilities::CONVOKE) {
+            return true;
+        }
+        for perm in self.state.battlefield.iter() {
+            if perm.controller != player_id {
+                continue;
+            }
+            let abilities = self.state.ability_store.for_source(perm.id());
+            for ability in abilities {
+                if ability.ability_type != crate::constants::AbilityType::Static {
+                    continue;
+                }
+                for effect in &ability.static_effects {
+                    if let crate::abilities::StaticEffect::GrantConvoke { filter } = effect {
+                        if self.spell_matches_cost_filter(card, filter) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    pub fn calculate_convoke_mana(&self, player_id: PlayerId) -> crate::mana::Mana {
+        let mut convoke = crate::mana::Mana::new();
+        for perm in self.state.battlefield.iter() {
+            if perm.controller != player_id || perm.tapped || !perm.is_creature() {
+                continue;
+            }
+            let colors = perm.card.colors();
+            if colors.is_empty() {
+                convoke.generic += 1;
+            } else {
+                convoke.any += 1;
+            }
+        }
+        convoke
+    }
+
+    fn pay_convoke_cost(&mut self, player_id: PlayerId, shortfall: &crate::mana::Mana) -> crate::mana::Mana {
+        let mut produced = crate::mana::Mana::new();
+        let mut remaining_colored = crate::mana::Mana::new();
+        remaining_colored.white = shortfall.white;
+        remaining_colored.blue = shortfall.blue;
+        remaining_colored.black = shortfall.black;
+        remaining_colored.red = shortfall.red;
+        remaining_colored.green = shortfall.green;
+        let mut remaining_generic = shortfall.generic;
+
+        let creature_ids: Vec<ObjectId> = self.state.battlefield.iter()
+            .filter(|p| p.controller == player_id && !p.tapped && p.is_creature())
+            .map(|p| p.id())
+            .collect();
+
+        for cid in &creature_ids {
+            if remaining_colored.count() == 0 && remaining_generic == 0 {
+                break;
+            }
+            let colors = self.state.card_store.get(*cid)
+                .map(|c| c.colors())
+                .unwrap_or_default();
+
+            let mut tapped = false;
+            for color in &colors {
+                let field = match color {
+                    crate::constants::Color::White => &mut remaining_colored.white,
+                    crate::constants::Color::Blue => &mut remaining_colored.blue,
+                    crate::constants::Color::Black => &mut remaining_colored.black,
+                    crate::constants::Color::Red => &mut remaining_colored.red,
+                    crate::constants::Color::Green => &mut remaining_colored.green,
+                };
+                if *field > 0 {
+                    *field -= 1;
+                    if let Some(perm) = self.state.battlefield.get_mut(*cid) {
+                        perm.tapped = true;
+                    }
+                    match color {
+                        crate::constants::Color::White => produced.white += 1,
+                        crate::constants::Color::Blue => produced.blue += 1,
+                        crate::constants::Color::Black => produced.black += 1,
+                        crate::constants::Color::Red => produced.red += 1,
+                        crate::constants::Color::Green => produced.green += 1,
+                    }
+                    tapped = true;
+                    break;
+                }
+            }
+
+            if !tapped && remaining_generic > 0 {
+                remaining_generic -= 1;
+                if let Some(perm) = self.state.battlefield.get_mut(*cid) {
+                    perm.tapped = true;
+                }
+                produced.colorless += 1;
+            }
+        }
+        produced
+    }
+
     /// Check if a spell/card matches a cost reduction filter string.
     fn spell_matches_cost_filter(&self, card: &crate::card::CardData, filter: &str) -> bool {
         let lower = filter.to_lowercase();
@@ -1792,7 +1893,14 @@ impl Game {
                 let mana_cost = base_mana_cost.reduce_generic(reduction);
                 let available = player.mana_pool.available();
 
-                if available.can_pay(&mana_cost) {
+                let can_afford = if self.spell_has_convoke(player_id, card) {
+                    let convoke_mana = self.calculate_convoke_mana(player_id);
+                    available.can_pay_with_convoke(&mana_cost, &convoke_mana)
+                } else {
+                    available.can_pay(&mana_cost)
+                };
+
+                if can_afford {
                     // Sorcery-speed cards need sorcery timing
                     let needs_sorcery = !card.is_instant()
                         && !card.keywords.contains(crate::constants::KeywordAbilities::FLASH);
@@ -1852,7 +1960,13 @@ impl Game {
                         let reduction = self.calculate_cost_reduction(player_id, card);
                         let mana_cost = base_cost.reduce_generic(reduction);
                         let available = player.mana_pool.available();
-                        if available.can_pay(&mana_cost) {
+                        let can_afford = if self.spell_has_convoke(player_id, card) {
+                            let convoke_mana = self.calculate_convoke_mana(player_id);
+                            available.can_pay_with_convoke(&mana_cost, &convoke_mana)
+                        } else {
+                            available.can_pay(&mana_cost)
+                        };
+                        if can_afford {
                             actions.push(crate::decision::PlayerAction::CastSpell {
                                 card_id: impulse.card_id,
                                 targets: vec![],
@@ -2031,21 +2145,35 @@ impl Game {
 
         // Pay mana cost (with X substituted if applicable), unless free cast
         if !without_mana {
-            // Calculate cost reduction from static effects
             let reduction = self.calculate_cost_reduction(player_id, &card_data);
-            if let Some(player) = self.state.players.get_mut(&player_id) {
-                let base_cost = if from_graveyard {
-                    // Use flashback cost when casting from graveyard
-                    card_data.flashback_cost.as_ref().unwrap().to_mana()
-                } else {
-                    match x_value {
-                        Some(x) => card_data.mana_cost.to_mana_with_x(x),
-                        None => card_data.mana_cost.to_mana(),
+            let has_convoke = self.spell_has_convoke(player_id, &card_data);
+            let base_cost = if from_graveyard {
+                card_data.flashback_cost.as_ref().unwrap().to_mana()
+            } else {
+                match x_value {
+                    Some(x) => card_data.mana_cost.to_mana_with_x(x),
+                    None => card_data.mana_cost.to_mana(),
+                }
+            };
+            let mana_cost = base_cost.reduce_generic(reduction);
+
+            if has_convoke {
+                let available = self.state.players.get(&player_id)
+                    .map(|p| p.mana_pool.available())
+                    .unwrap_or_default();
+                if !available.can_pay(&mana_cost) {
+                    let shortfall = mana_cost - available;
+                    let produced = self.pay_convoke_cost(player_id, &shortfall);
+                    if !produced.is_empty() {
+                        if let Some(player) = self.state.players.get_mut(&player_id) {
+                            player.mana_pool.add(produced, None, false);
+                        }
                     }
-                };
-                let mana_cost = base_cost.reduce_generic(reduction);
+                }
+            }
+
+            if let Some(player) = self.state.players.get_mut(&player_id) {
                 if !player.mana_pool.try_pay(&mana_cost) {
-                    // Can't pay — put card back where it came from
                     if from_graveyard {
                         player.graveyard.add(card_id);
                     } else {
@@ -14816,5 +14944,326 @@ mod becomes_creature_tests {
 
         assert_eq!(perm.power(), 5, "EOT base should take priority over continuous override");
         assert_eq!(perm.toughness(), 5, "EOT base should take priority over continuous override");
+    }
+}
+
+#[cfg(test)]
+mod convoke_tests {
+    use super::*;
+    use crate::abilities::{Ability, StaticEffect, TargetSpec, Effect};
+    use crate::constants::{CardType, KeywordAbilities, Outcome, Color};
+    use crate::card::CardData;
+    use crate::mana::{ManaCost, Mana};
+    use crate::types::{ObjectId, PlayerId};
+    use crate::decision::*;
+    use crate::permanent::Permanent;
+
+    struct PassivePlayer;
+    impl PlayerDecisionMaker for PassivePlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_deck(owner: PlayerId) -> Vec<CardData> {
+        (0..40).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), owner, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect()
+    }
+
+    fn setup_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(
+            config,
+            vec![(p1, Box::new(PassivePlayer)), (p2, Box::new(PassivePlayer))],
+        );
+        (game, p1, p2)
+    }
+
+    fn make_convoke_spell(owner: PlayerId) -> CardData {
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, owner, "Convoke Spell");
+        card.card_types = vec![CardType::Instant];
+        card.mana_cost = ManaCost::parse("{3}{W}");
+        card.keywords = KeywordAbilities::CONVOKE;
+        card.abilities = vec![Ability::spell(id, vec![Effect::gain_life(5)], TargetSpec::None)];
+        card
+    }
+
+    fn make_creature_with_color(name: &str, owner: PlayerId, colors: Vec<Color>) -> CardData {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(1);
+        card.toughness = Some(1);
+        card.color_identity = colors;
+        card
+    }
+
+    #[test]
+    fn spell_has_convoke_keyword() {
+        let (game, p1, _p2) = setup_game();
+        let card = make_convoke_spell(p1);
+        assert!(game.spell_has_convoke(p1, &card));
+    }
+
+    #[test]
+    fn spell_without_convoke() {
+        let (game, p1, _p2) = setup_game();
+        let mut card = CardData::new(ObjectId::new(), p1, "Normal Spell");
+        card.card_types = vec![CardType::Instant];
+        card.mana_cost = ManaCost::parse("{3}{W}");
+        assert!(!game.spell_has_convoke(p1, &card));
+    }
+
+    #[test]
+    fn calculate_convoke_mana_untapped_creatures() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let c1 = make_creature_with_color("White Soldier", p1, vec![Color::White]);
+        let c2 = make_creature_with_color("Blue Merfolk", p1, vec![Color::Blue]);
+        game.state.battlefield.add(Permanent::new(c1.clone(), p1));
+        game.state.card_store.insert(c1);
+        game.state.battlefield.add(Permanent::new(c2.clone(), p1));
+        game.state.card_store.insert(c2);
+
+        let convoke_mana = game.calculate_convoke_mana(p1);
+        assert_eq!(convoke_mana.any, 2);
+        assert_eq!(convoke_mana.generic, 0);
+    }
+
+    #[test]
+    fn calculate_convoke_mana_excludes_tapped() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let c1 = make_creature_with_color("Tapped Soldier", p1, vec![Color::White]);
+        let c1_id = c1.id;
+        game.state.battlefield.add(Permanent::new(c1.clone(), p1));
+        game.state.card_store.insert(c1);
+        game.state.battlefield.get_mut(c1_id).unwrap().tapped = true;
+
+        let c2 = make_creature_with_color("Untapped Merfolk", p1, vec![Color::Blue]);
+        game.state.battlefield.add(Permanent::new(c2.clone(), p1));
+        game.state.card_store.insert(c2);
+
+        let convoke_mana = game.calculate_convoke_mana(p1);
+        assert_eq!(convoke_mana.any, 1);
+    }
+
+    #[test]
+    fn calculate_convoke_mana_colorless_creature() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let c1 = make_creature_with_color("Colorless Construct", p1, vec![]);
+        game.state.battlefield.add(Permanent::new(c1.clone(), p1));
+        game.state.card_store.insert(c1);
+
+        let convoke_mana = game.calculate_convoke_mana(p1);
+        assert_eq!(convoke_mana.generic, 1);
+        assert_eq!(convoke_mana.any, 0);
+    }
+
+    #[test]
+    fn can_pay_with_convoke_mana_check() {
+        let pool = Mana { white: 1, ..Mana::new() };
+        let cost = Mana { white: 1, generic: 2, ..Mana::new() };
+        let convoke = Mana { any: 2, ..Mana::new() };
+        assert!(pool.can_pay_with_convoke(&cost, &convoke));
+    }
+
+    #[test]
+    fn cannot_afford_without_convoke() {
+        let pool = Mana { white: 1, ..Mana::new() };
+        let cost = Mana { white: 1, generic: 3, ..Mana::new() };
+        assert!(!pool.can_pay(&cost));
+    }
+
+    #[test]
+    fn convoke_enables_casting_in_legal_actions() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let spell = make_convoke_spell(p1);
+        let spell_id = spell.id;
+        game.state.card_store.insert(spell.clone());
+        game.state.players.get_mut(&p1).unwrap().hand.add(spell_id);
+
+        game.state.players.get_mut(&p1).unwrap().mana_pool.add(
+            Mana { white: 1, ..Mana::new() }, None, false
+        );
+
+        let c1 = make_creature_with_color("Helper 1", p1, vec![Color::White]);
+        let c2 = make_creature_with_color("Helper 2", p1, vec![Color::White]);
+        let c3 = make_creature_with_color("Helper 3", p1, vec![Color::White]);
+        for c in [c1, c2, c3] {
+            game.state.battlefield.add(Permanent::new(c.clone(), p1));
+            game.state.card_store.insert(c);
+        }
+
+        let actions = game.compute_legal_actions(p1);
+        let has_cast = actions.iter().any(|a| matches!(a, PlayerAction::CastSpell { card_id, .. } if *card_id == spell_id));
+        assert!(has_cast, "Should be able to cast convoke spell with 1W + 3 creatures");
+    }
+
+    #[test]
+    fn convoke_not_enough_creatures() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let spell = make_convoke_spell(p1);
+        let spell_id = spell.id;
+        game.state.card_store.insert(spell.clone());
+        game.state.players.get_mut(&p1).unwrap().hand.add(spell_id);
+
+        game.state.players.get_mut(&p1).unwrap().mana_pool.add(
+            Mana { white: 1, ..Mana::new() }, None, false
+        );
+
+        let c1 = make_creature_with_color("Helper 1", p1, vec![Color::White]);
+        game.state.battlefield.add(Permanent::new(c1.clone(), p1));
+        game.state.card_store.insert(c1);
+
+        let actions = game.compute_legal_actions(p1);
+        let has_cast = actions.iter().any(|a| matches!(a, PlayerAction::CastSpell { card_id, .. } if *card_id == spell_id));
+        assert!(!has_cast, "Should NOT be able to cast 3W with 1W + only 1 creature (need 2 more)");
+    }
+
+    #[test]
+    fn cast_spell_with_convoke_taps_creatures() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let spell = make_convoke_spell(p1);
+        let spell_id = spell.id;
+        game.state.card_store.insert(spell.clone());
+        game.state.players.get_mut(&p1).unwrap().hand.add(spell_id);
+
+        game.state.players.get_mut(&p1).unwrap().mana_pool.add(
+            Mana { white: 1, ..Mana::new() }, None, false
+        );
+
+        let c1 = make_creature_with_color("Helper 1", p1, vec![Color::White]);
+        let c1_id = c1.id;
+        let c2 = make_creature_with_color("Helper 2", p1, vec![Color::White]);
+        let c2_id = c2.id;
+        let c3 = make_creature_with_color("Helper 3", p1, vec![Color::White]);
+        let c3_id = c3.id;
+        for c in [c1, c2, c3] {
+            game.state.battlefield.add(Permanent::new(c.clone(), p1));
+            game.state.card_store.insert(c);
+        }
+
+        game.cast_spell(p1, spell_id);
+
+        assert!(game.state.stack.get(spell_id).is_some(), "Spell should be on the stack");
+
+        let tapped_count = [c1_id, c2_id, c3_id].iter()
+            .filter(|id| game.state.battlefield.get(**id).map_or(false, |p| p.tapped))
+            .count();
+        assert_eq!(tapped_count, 3, "All 3 creatures should be tapped for convoke");
+    }
+
+    #[test]
+    fn cast_spell_convoke_pays_colored_mana() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let id = ObjectId::new();
+        let mut spell = CardData::new(id, p1, "White Convoke");
+        spell.card_types = vec![CardType::Instant];
+        spell.mana_cost = ManaCost::parse("{W}{W}");
+        spell.keywords = KeywordAbilities::CONVOKE;
+        spell.abilities = vec![Ability::spell(id, vec![Effect::gain_life(3)], TargetSpec::None)];
+        game.state.card_store.insert(spell.clone());
+        game.state.players.get_mut(&p1).unwrap().hand.add(id);
+
+        let c1 = make_creature_with_color("White Creature", p1, vec![Color::White]);
+        let c1_id = c1.id;
+        let c2 = make_creature_with_color("White Creature 2", p1, vec![Color::White]);
+        let c2_id = c2.id;
+        for c in [c1, c2] {
+            game.state.battlefield.add(Permanent::new(c.clone(), p1));
+            game.state.card_store.insert(c);
+        }
+
+        game.cast_spell(p1, id);
+
+        assert!(game.state.stack.get(id).is_some(), "Spell should be on stack (2 white creatures pay WW)");
+        assert!(game.state.battlefield.get(c1_id).unwrap().tapped);
+        assert!(game.state.battlefield.get(c2_id).unwrap().tapped);
+    }
+
+    #[test]
+    fn grant_convoke_via_static_effect() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let granter_id = ObjectId::new();
+        let mut granter = CardData::new(granter_id, p1, "Convoke Granter");
+        granter.card_types = vec![CardType::Creature];
+        granter.power = Some(5);
+        granter.toughness = Some(5);
+        game.state.battlefield.add(Permanent::new(granter.clone(), p1));
+        game.state.card_store.insert(granter);
+
+        let grant_ability = Ability::static_ability(
+            granter_id,
+            "Creature spells you cast have convoke.",
+            vec![StaticEffect::grant_convoke("creature spells")],
+        );
+        game.state.ability_store.add(grant_ability);
+
+        let spell_id = ObjectId::new();
+        let mut spell = CardData::new(spell_id, p1, "Big Creature");
+        spell.card_types = vec![CardType::Creature];
+        spell.mana_cost = ManaCost::parse("{4}{G}");
+        spell.power = Some(4);
+        spell.toughness = Some(4);
+        spell.color_identity = vec![Color::Green];
+
+        assert!(game.spell_has_convoke(p1, &spell));
+
+        let mut non_creature = CardData::new(ObjectId::new(), p1, "Some Instant");
+        non_creature.card_types = vec![CardType::Instant];
+        non_creature.mana_cost = ManaCost::parse("{2}{G}");
+        assert!(!game.spell_has_convoke(p1, &non_creature));
+    }
+
+    #[test]
+    fn convoke_excludes_opponent_creatures() {
+        let (mut game, p1, p2) = setup_game();
+
+        let c1 = make_creature_with_color("Enemy Creature", p2, vec![Color::White]);
+        game.state.battlefield.add(Permanent::new(c1.clone(), p2));
+        game.state.card_store.insert(c1);
+
+        let convoke_mana = game.calculate_convoke_mana(p1);
+        assert_eq!(convoke_mana.count(), 0, "Should not count opponent's creatures for convoke");
+    }
+
+    #[test]
+    fn convoke_helper_constructor() {
+        match StaticEffect::grant_convoke("creature spells") {
+            StaticEffect::GrantConvoke { filter } => {
+                assert_eq!(filter, "creature spells");
+            }
+            _ => panic!("Expected GrantConvoke variant"),
+        }
     }
 }

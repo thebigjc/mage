@@ -143,6 +143,11 @@ impl Mana {
         self.count() == 0
     }
 
+    pub fn can_pay_with_convoke(&self, cost: &Mana, convoke_mana: &Mana) -> bool {
+        let combined = *self + *convoke_mana;
+        combined.can_pay(cost)
+    }
+
     /// Return a copy of this mana cost with the generic portion reduced by `amount`.
     /// Cannot reduce below zero.
     pub fn reduce_generic(&self, amount: u32) -> Mana {

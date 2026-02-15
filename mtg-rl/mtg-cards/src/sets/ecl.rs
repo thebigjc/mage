@@ -2553,7 +2553,7 @@ fn eirdu_carrier_of_dawn(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Creature spells you cast have convoke.",
-                vec![StaticEffect::Custom("Creature spells you cast have convoke.".into())]),
+                vec![StaticEffect::grant_convoke("creature spells")]),
             Ability::static_ability(id,
                 "Transforms with {B} payment at beginning of first main phase.",
                 vec![StaticEffect::Custom("Transforms into Isilu, Carrier of Twilight.".into())]),
@@ -2906,6 +2906,7 @@ fn harmonized_crescendo(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Harmonized Crescendo".into(),
         mana_cost: ManaCost::parse("{4}{U}{U}"),
         card_types: vec![CardType::Instant],
+        keywords: KeywordAbilities::CONVOKE,
         rarity: Rarity::Rare,
         abilities: vec![
             Ability::spell(id,
@@ -3121,6 +3122,7 @@ fn lofty_dreams(id: ObjectId, owner: PlayerId) -> CardData {
         mana_cost: ManaCost::parse("{3}{U}{U}"),
         card_types: vec![CardType::Enchantment],
         subtypes: vec![SubType::Aura],
+        keywords: KeywordAbilities::CONVOKE,
         rarity: Rarity::Uncommon,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
@@ -3269,11 +3271,8 @@ fn omni_changeling(id: ObjectId, owner: PlayerId) -> CardData {
         subtypes: vec![SubType::Shapeshifter],
         power: Some(0), toughness: Some(0),
         rarity: Rarity::Uncommon,
-        keywords: KeywordAbilities::CHANGELING,
+        keywords: KeywordAbilities::CHANGELING | KeywordAbilities::CONVOKE,
         abilities: vec![
-            Ability::static_ability(id,
-                "Convoke",
-                vec![StaticEffect::Custom("Convoke".into())]),
             Ability::static_ability(id,
                 "You may have this creature enter as a copy of any creature on the battlefield, except it has changeling.",
                 vec![StaticEffect::Custom("Enter as copy of creature with changeling.".into())]),
@@ -3983,10 +3982,11 @@ fn winnowing(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Winnowing".into(),
         mana_cost: ManaCost::parse("{4}{W}{W}"),
         card_types: vec![CardType::Sorcery],
+        keywords: KeywordAbilities::CONVOKE,
         rarity: Rarity::Rare,
         abilities: vec![
             Ability::spell(id,
-                    vec![Effect::Custom("Convoke. For each player, choose a creature they control. Each player sacrifices each creature they control that doesn't share a creature type with their chosen creature.".into())],
+                    vec![Effect::Custom("For each player, choose a creature they control. Each player sacrifices each creature they control that doesn't share a creature type with their chosen creature.".into())],
                     TargetSpec::None),
         ],
         ..Default::default() }
