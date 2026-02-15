@@ -411,7 +411,10 @@ use super::*;
 
     #[test]
     fn dies_trigger_fires_on_destroy_effect() {
-        let (mut game, p1, p2) = setup();
+        let (mut game, p1, p2) = setup(
+            Box::new(PassivePlayer),
+            Box::new(PassivePlayer),
+        );
 
         // Create a creature with dies trigger controlled by p2
         let mut card = CardData::new(ObjectId::new(), p2, "Blood Artist");
@@ -448,7 +451,10 @@ use super::*;
 
     #[test]
     fn dies_trigger_only_for_dying_creature() {
-        let (mut game, p1, _p2) = setup();
+        let (mut game, p1, _p2) = setup(
+            Box::new(PassivePlayer),
+            Box::new(PassivePlayer),
+        );
 
         // Creature A has a dies trigger
         let mut card_a = CardData::new(ObjectId::new(), p1, "Creature A");
