@@ -388,6 +388,14 @@ pub enum Effect {
         sacrifice_eot: bool,
     },
 
+    /// Make the source permanent become an artifact creature until end of turn.
+    /// Sets base power/toughness and adds the Creature card type.
+    /// Retains existing types (e.g. artifact stays artifact).
+    BecomesCreature {
+        power: i32,
+        toughness: i32,
+    },
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1303,6 +1311,10 @@ impl Effect {
             haste: false,
             sacrifice_eot: false,
         }
+    }
+
+    pub fn becomes_creature(power: i32, toughness: i32) -> Self {
+        Effect::BecomesCreature { power, toughness }
     }
 
     pub fn put_from_hand_tapped_attacking_dynamic(dynamic_source: &str) -> Self {

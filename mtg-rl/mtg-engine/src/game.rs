@@ -1303,6 +1303,10 @@ impl Game {
                     perm.removed_keywords = crate::constants::KeywordAbilities::empty();
                     // Remove "can't block" sentinel counters
                     perm.counters.remove_all(&crate::counters::CounterType::Custom("cant_block".into()));
+                    // Clear temporary type additions (BecomesCreature)
+                    perm.added_card_types.clear();
+                    perm.base_power_eot = None;
+                    perm.base_toughness_eot = None;
                     // Revert temporary control changes (GainControlUntilEndOfTurn)
                     if let Some(orig) = perm.original_controller.take() {
                         perm.controller = orig;
@@ -4226,6 +4230,17 @@ impl Game {
                     for &target_id in targets {
                         if let Some(perm) = self.state.battlefield.get_mut(target_id) {
                             perm.granted_keywords |= crate::constants::KeywordAbilities::CHANGELING;
+                        }
+                    }
+                }
+                Effect::BecomesCreature { power, toughness } => {
+                    if let Some(source_id) = source {
+                        if let Some(perm) = self.state.battlefield.get_mut(source_id) {
+                            if !perm.has_card_type(crate::constants::CardType::Creature) {
+                                perm.added_card_types.push(crate::constants::CardType::Creature);
+                            }
+                            perm.base_power_eot = Some(*power);
+                            perm.base_toughness_eot = Some(*toughness);
                         }
                     }
                 }
@@ -14539,5 +14554,267 @@ mod assign_damage_with_toughness_tests {
             }
             _ => panic!("wrong variant"),
         }
+    }
+}
+
+#[cfg(test)]
+mod becomes_creature_tests {
+    use super::*;
+    use crate::abilities::Effect;
+    use crate::card::CardData;
+    use crate::constants::{CardType, Outcome};
+    use crate::decision::{
+        AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
+        ReplacementEffectChoice, TargetRequirement, UnpaidMana,
+    };
+    use crate::permanent::Permanent;
+
+    struct AlwaysPassPlayer;
+
+    impl PlayerDecisionMaker for AlwaysPassPlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction {
+            PlayerAction::Pass
+        }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_basic_land(name: &str, owner: PlayerId) -> CardData {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Land];
+        card
+    }
+
+    fn make_creature(name: &str, owner: PlayerId, power: i32, toughness: i32) -> CardData {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        card
+    }
+
+    fn make_artifact(name: &str, owner: PlayerId) -> CardData {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Artifact];
+        card
+    }
+
+    fn make_deck(owner: PlayerId) -> Vec<CardData> {
+        let mut deck = Vec::new();
+        for _ in 0..20 { deck.push(make_basic_land("Forest", owner)); }
+        for _ in 0..20 { deck.push(make_creature("Grizzly Bears", owner, 2, 2)); }
+        deck
+    }
+
+    fn setup_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+                PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(AlwaysPassPlayer)),
+                (p2, Box::new(AlwaysPassPlayer)),
+            ],
+        );
+        (game, p1, p2)
+    }
+
+    #[test]
+    fn becomes_creature_adds_creature_type() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let artifact = make_artifact("Test Artifact", p1);
+        let artifact_id = artifact.id;
+        game.state.battlefield.add(Permanent::new(artifact, p1));
+
+        assert!(!game.state.battlefield.get(artifact_id).unwrap().is_creature());
+        assert!(game.state.battlefield.get(artifact_id).unwrap().is_artifact());
+
+        game.execute_effects(
+            &[Effect::becomes_creature(4, 4)],
+            p1, &[], Some(artifact_id), None,
+        );
+
+        let perm = game.state.battlefield.get(artifact_id).unwrap();
+        assert!(perm.is_creature(), "Artifact should now be a creature");
+        assert!(perm.is_artifact(), "Artifact should still be an artifact");
+    }
+
+    #[test]
+    fn becomes_creature_sets_base_pt() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let artifact = make_artifact("Test Artifact", p1);
+        let artifact_id = artifact.id;
+        game.state.battlefield.add(Permanent::new(artifact, p1));
+
+        assert_eq!(game.state.battlefield.get(artifact_id).unwrap().power(), 0);
+        assert_eq!(game.state.battlefield.get(artifact_id).unwrap().toughness(), 0);
+
+        game.execute_effects(
+            &[Effect::becomes_creature(4, 4)],
+            p1, &[], Some(artifact_id), None,
+        );
+
+        let perm = game.state.battlefield.get(artifact_id).unwrap();
+        assert_eq!(perm.power(), 4);
+        assert_eq!(perm.toughness(), 4);
+    }
+
+    #[test]
+    fn becomes_creature_cleared_at_cleanup() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let artifact = make_artifact("Test Artifact", p1);
+        let artifact_id = artifact.id;
+        game.state.battlefield.add(Permanent::new(artifact, p1));
+
+        game.execute_effects(
+            &[Effect::becomes_creature(4, 4)],
+            p1, &[], Some(artifact_id), None,
+        );
+
+        assert!(game.state.battlefield.get(artifact_id).unwrap().is_creature());
+
+        game.turn_based_actions(PhaseStep::Cleanup, p1);
+
+        let perm = game.state.battlefield.get(artifact_id).unwrap();
+        assert!(!perm.is_creature(), "Creature type should be removed at cleanup");
+        assert!(perm.is_artifact(), "Base artifact type should remain");
+        assert_eq!(perm.power(), 0, "Power should revert");
+        assert_eq!(perm.toughness(), 0, "Toughness should revert");
+    }
+
+    #[test]
+    fn becomes_creature_interacts_with_counters() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let artifact = make_artifact("Test Artifact", p1);
+        let artifact_id = artifact.id;
+        game.state.battlefield.add(Permanent::new(artifact, p1));
+
+        game.execute_effects(
+            &[Effect::becomes_creature(4, 4)],
+            p1, &[], Some(artifact_id), None,
+        );
+
+        if let Some(perm) = game.state.battlefield.get_mut(artifact_id) {
+            perm.add_counters(crate::counters::CounterType::P1P1, 2);
+        }
+
+        let perm = game.state.battlefield.get(artifact_id).unwrap();
+        assert_eq!(perm.power(), 6, "Should be 4 base + 2 from counters");
+        assert_eq!(perm.toughness(), 6, "Should be 4 base + 2 from counters");
+    }
+
+    #[test]
+    fn becomes_creature_no_double_type() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let mut card = CardData::new(ObjectId::new(), p1, "Artifact Creature");
+        card.card_types = vec![CardType::Artifact, CardType::Creature];
+        card.power = Some(2);
+        card.toughness = Some(3);
+        let card_id = card.id;
+        game.state.battlefield.add(Permanent::new(card, p1));
+
+        game.execute_effects(
+            &[Effect::becomes_creature(4, 4)],
+            p1, &[], Some(card_id), None,
+        );
+
+        let perm = game.state.battlefield.get(card_id).unwrap();
+        assert!(perm.is_creature());
+        assert!(perm.added_card_types.is_empty(), "Should not add Creature type if already a creature");
+        assert_eq!(perm.power(), 4, "P/T should still be overridden");
+        assert_eq!(perm.toughness(), 4);
+    }
+
+    #[test]
+    fn becomes_creature_with_continuous_boost() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let artifact = make_artifact("Test Artifact", p1);
+        let artifact_id = artifact.id;
+        game.state.battlefield.add(Permanent::new(artifact, p1));
+
+        game.execute_effects(
+            &[Effect::becomes_creature(3, 3)],
+            p1, &[], Some(artifact_id), None,
+        );
+
+        if let Some(perm) = game.state.battlefield.get_mut(artifact_id) {
+            perm.continuous_boost_power = 2;
+            perm.continuous_boost_toughness = 1;
+        }
+
+        let perm = game.state.battlefield.get(artifact_id).unwrap();
+        assert_eq!(perm.power(), 5, "Should be 3 base + 2 boost");
+        assert_eq!(perm.toughness(), 4, "Should be 3 base + 1 boost");
+    }
+
+    #[test]
+    fn becomes_creature_has_card_type_check() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let artifact = make_artifact("Test Artifact", p1);
+        let artifact_id = artifact.id;
+        game.state.battlefield.add(Permanent::new(artifact, p1));
+
+        game.execute_effects(
+            &[Effect::becomes_creature(4, 4)],
+            p1, &[], Some(artifact_id), None,
+        );
+
+        let perm = game.state.battlefield.get(artifact_id).unwrap();
+        assert!(perm.has_card_type(CardType::Creature));
+        assert!(perm.has_card_type(CardType::Artifact));
+        assert!(!perm.has_card_type(CardType::Enchantment));
+    }
+
+    #[test]
+    fn helper_constructor() {
+        match Effect::becomes_creature(4, 4) {
+            Effect::BecomesCreature { power, toughness } => {
+                assert_eq!(power, 4);
+                assert_eq!(toughness, 4);
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn base_power_eot_takes_priority_over_override() {
+        let owner = PlayerId::new();
+        let mut card = CardData::new(ObjectId::new(), owner, "Test");
+        card.card_types = vec![CardType::Artifact];
+        let mut perm = Permanent::new(card, owner);
+
+        perm.base_power_override = Some(2);
+        perm.base_toughness_override = Some(2);
+        perm.base_power_eot = Some(5);
+        perm.base_toughness_eot = Some(5);
+
+        assert_eq!(perm.power(), 5, "EOT base should take priority over continuous override");
+        assert_eq!(perm.toughness(), 5, "EOT base should take priority over continuous override");
     }
 }

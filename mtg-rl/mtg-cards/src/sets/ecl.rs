@@ -2667,7 +2667,7 @@ fn firdoch_core(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "{4}: This artifact becomes a 4/4 artifact creature until end of turn.",
                 vec![Cost::pay_mana("{4}")],
-                vec![Effect::Custom("Becomes a 4/4 artifact creature until end of turn.".into())],
+                vec![Effect::becomes_creature(4, 4)],
                 TargetSpec::None),
         ],
         ..Default::default() }

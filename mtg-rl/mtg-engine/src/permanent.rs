@@ -76,6 +76,13 @@ pub struct Permanent {
     pub cant_untap: bool,
     /// Whether this creature assigns combat damage equal to its toughness rather than its power.
     pub assign_damage_with_toughness: bool,
+    /// Card types temporarily added until end of turn (e.g. "becomes a creature").
+    pub added_card_types: Vec<CardType>,
+    /// Temporary base power set until end of turn (from BecomesCreature).
+    /// Distinct from base_power_override (continuous effects) — this is a one-shot until-EOT change.
+    pub base_power_eot: Option<i32>,
+    /// Temporary base toughness set until end of turn (from BecomesCreature).
+    pub base_toughness_eot: Option<i32>,
 }
 
 impl Permanent {
@@ -110,6 +117,9 @@ impl Permanent {
             base_toughness_override: None,
             cant_untap: false,
             assign_damage_with_toughness: false,
+            added_card_types: Vec::new(),
+            base_power_eot: None,
+            base_toughness_eot: None,
             card,
         }
     }
@@ -134,7 +144,7 @@ impl Permanent {
     // ── Type checks ────────────────────────────────────────────────────
 
     pub fn is_creature(&self) -> bool {
-        self.card.is_creature()
+        self.card.is_creature() || self.added_card_types.contains(&CardType::Creature)
     }
 
     pub fn is_land(&self) -> bool {
@@ -142,11 +152,11 @@ impl Permanent {
     }
 
     pub fn is_artifact(&self) -> bool {
-        self.card.card_types.contains(&CardType::Artifact)
+        self.card.card_types.contains(&CardType::Artifact) || self.added_card_types.contains(&CardType::Artifact)
     }
 
     pub fn is_enchantment(&self) -> bool {
-        self.card.card_types.contains(&CardType::Enchantment)
+        self.card.card_types.contains(&CardType::Enchantment) || self.added_card_types.contains(&CardType::Enchantment)
     }
 
     pub fn is_planeswalker(&self) -> bool {
@@ -154,7 +164,7 @@ impl Permanent {
     }
 
     pub fn has_card_type(&self, ct: CardType) -> bool {
-        self.card.card_types.contains(&ct)
+        self.card.card_types.contains(&ct) || self.added_card_types.contains(&ct)
     }
 
     pub fn has_subtype(&self, st: &SubType) -> bool {
@@ -244,14 +254,18 @@ impl Permanent {
 
     /// Get the current power, including counter and continuous effect modifications.
     pub fn power(&self) -> i32 {
-        let base = self.base_power_override.unwrap_or(self.card.power.unwrap_or(0));
+        let base = self.base_power_eot
+            .or(self.base_power_override)
+            .unwrap_or(self.card.power.unwrap_or(0));
         let (counter_p, _) = self.counters.pt_modification();
         base + counter_p + self.continuous_boost_power
     }
 
     /// Get the current toughness, including counter and continuous effect modifications.
     pub fn toughness(&self) -> i32 {
-        let base = self.base_toughness_override.unwrap_or(self.card.toughness.unwrap_or(0));
+        let base = self.base_toughness_eot
+            .or(self.base_toughness_override)
+            .unwrap_or(self.card.toughness.unwrap_or(0));
         let (_, counter_t) = self.counters.pt_modification();
         base + counter_t + self.continuous_boost_toughness
     }
