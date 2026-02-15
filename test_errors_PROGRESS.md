@@ -58,7 +58,7 @@ The cleanest approach is to fix file-by-file, starting with game.rs (production 
 - [x] Task 2: Fix 12 warnings in `mtg-engine/src/game/tests.rs` — remove `pub use module::*` re-exports (these are test modules, nothing should import from them)
 
 ### Test file import + dead code cleanup (one task per file)
-- [ ] Task 3: Fix 12 warnings in `tests/abilities.rs` — remove unused imports (`StaticEffect`, `ModalMode`, `CombatState`, `Color`, `KeywordAbilities`, `Outcome`, `PhaseStep`, `SuperType`, `Zone`, `CounterType`, `EventType`, `GameEvent`, `Mana`, `ManaCost`, `Permanent`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), prefix `modes` variable with `_`
+- [x] Task 3: Fix 12 warnings in `tests/abilities.rs` — remove unused imports (`StaticEffect`, `ModalMode`, `CombatState`, `Color`, `KeywordAbilities`, `Outcome`, `PhaseStep`, `SuperType`, `Zone`, `CounterType`, `EventType`, `GameEvent`, `Mana`, `ManaCost`, `Permanent`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), prefix `modes` variable with `_`
 - [ ] Task 4: Fix 12 warnings in `tests/combat.rs` — remove unused imports (`Cost`, `Effect`, `ModalMode`, `TargetSpec`, `CombatState`, `Color`, `PhaseStep`, `SuperType`, `Zone`, `CounterType`, `EventType`, `GameEvent`, `Mana`, `ManaCost`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), remove dead `AttackAllPlayer2` struct + impl (~30 lines), remove dead `add_creature2` function
 - [ ] Task 5: Fix 13 warnings in `tests/continuous_effects.rs` — remove unused imports (`Cost`, `ModalMode`, `CombatState`, `PhaseStep`, `SuperType`, `Zone`, `CounterType`, `EventType`, `GameEvent`, `ManaCost`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), remove dead `AlwaysPassPlayer2` struct + impl, remove dead `PassPlayer2` struct + impl, prefix `land_id` with `_`
 - [ ] Task 6: Fix 8 warnings in `tests/costs.rs` — remove unused imports (`ModalMode`, `CombatState`, `Color`, `PhaseStep`, `SuperType`, `Zone`, `EventType`, `GameEvent`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`)
@@ -76,7 +76,7 @@ The cleanest approach is to fix file-by-file, starting with game.rs (production 
 - [ ] Task 16: Run `cargo test --lib -p mtg-engine` and verify all tests still pass
 
 ## Completed This Iteration
-- Task 2: Removed 12 `pub use module::*` re-exports from tests.rs. Warnings dropped from 137 to 123. All 386 tests pass.
+- Task 3: Removed unused imports and prefixed unused `modes` variable in tests/abilities.rs. Warnings dropped from 123 to 111. All 386 tests pass.
 
 ## Notes
 
