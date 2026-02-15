@@ -116,7 +116,13 @@ Recommendation: **Option A** — add minimal test helpers since these are unit t
 
 ### Phase 5: Fix triggers.rs errors
 
-- [ ] Task 22: Fix `setup()` calls in `triggers.rs:414` and `triggers.rs:451` — pass `(Box::new(PassivePlayer), Box::new(PassivePlayer))` arguments to match the 2-arg setup function signature
+- [x] Task 22: Fix `setup()` calls in `triggers.rs:414` and `triggers.rs:451` — pass `(Box::new(PassivePlayer), Box::new(PassivePlayer))` arguments to match the 2-arg setup function signature
+
+### Phase 5b: Fix remaining compilation errors in other test files
+
+- [ ] Task 22a: Fix `make_creature` in effects.rs:28-29 — `power`/`toughness` params are `u32` but `CardData` fields are `Option<i32>`; change fn signature or cast
+- [ ] Task 22b: Fix `has_subtype(SubType::Elf)` in effects.rs:716 — method expects `&SubType`, pass `&SubType::Elf` instead
+- [ ] Task 22c: Fix `make_creature` calls in equipment_auras.rs:332,365 — missing `name: &str` argument (function takes 5 args, calls pass 4)
 
 ### Phase 6: Verify compilation
 
@@ -156,3 +162,4 @@ Recommendation: **Option A** — add minimal test helpers since these are unit t
 - Task 19: Rewrote `activated_ability_goes_on_stack` test: changed `make_creature` params from `u32` to `i32`, replaced `vec![p2.as_target()]` with `&[]` (DealDamage falls back to opponent when targets empty), replaced `stack[0]` with `stack.top().unwrap()`, replaced `pass_priority()` x2 with `resolve_top_of_stack()`
 - Task 20: Rewrote `spell_effects_execute_on_resolve` test: replaced 3-arg `cast_spell(p1, spell_id, vec![p2.as_target()])` with 2-arg `cast_spell(p1, spell_id)`, replaced `stack[0]` with `stack.top().unwrap()`, replaced `pass_priority()` x2 with `resolve_top_of_stack()`, fixed `mana_pool.add()` from 1 arg to 3 args `(Mana::red(1), None, false)`
 - Task 21: Fixed `fizzle_when_target_removed` test: replaced 3-arg `cast_spell(p1, spell_id, vec![bear_id])` with 2-arg `cast_spell(p1, spell_id)`, replaced `pass_priority(p1)` + `pass_priority(p2)` with `resolve_top_of_stack()`. Note: `hand.add()` and `graveyard.contains(spell_id)` were already correct from previous fixes.
+- Task 22: Fixed `setup()` calls in triggers.rs at lines 414 and 451 — added `(Box::new(PassivePlayer), Box::new(PassivePlayer))` arguments. Also discovered 5 remaining errors in effects.rs and equipment_auras.rs that weren't in the original task list; added as Tasks 22a-22c.
