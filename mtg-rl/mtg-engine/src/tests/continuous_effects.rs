@@ -1,0 +1,1399 @@
+// Tests extracted from game.rs
+
+use crate::game::*;
+use crate::abilities::{Ability, Cost, Effect, TargetSpec, StaticEffect, ModalMode};
+use crate::card::CardData;
+use crate::combat::CombatState;
+use crate::constants::{CardType, Color, KeywordAbilities, Outcome, PhaseStep, SubType, SuperType, Zone};
+use crate::counters::CounterType;
+use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
+use crate::events::{EventType, GameEvent};
+use crate::mana::{Mana, ManaCost};
+use crate::permanent::Permanent;
+use crate::state::StateBasedActions;
+use crate::types::{AbilityId, ObjectId, PlayerId};
+use crate::watchers::WatcherManager;
+
+
+use super::*;
+
+#[cfg(test)]
+
+    /// Passive decision maker — always passes.
+    struct PassivePlayer;
+
+    impl PlayerDecisionMaker for PassivePlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_deck(owner: PlayerId) -> Vec<CardData> {
+        (0..40).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), owner, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect()
+    }
+
+    fn setup() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Player1".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "Player2".into(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(
+            config,
+            vec![(p1, Box::new(PassivePlayer)), (p2, Box::new(PassivePlayer))],
+        );
+        (game, p1, p2)
+    }
+
+    fn add_creature(
+        game: &mut Game,
+        owner: PlayerId,
+        name: &str,
+        power: i32,
+        toughness: i32,
+        keywords: KeywordAbilities,
+    ) -> ObjectId {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        card.keywords = keywords;
+        let id = card.id;
+        let perm = Permanent::new(card, owner);
+        game.state.battlefield.add(perm);
+        id
+    }
+
+    fn add_creature_with_subtype(
+        game: &mut Game,
+        owner: PlayerId,
+        name: &str,
+        power: i32,
+        toughness: i32,
+        subtype: SubType,
+    ) -> ObjectId {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![subtype];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        let id = card.id;
+        let perm = Permanent::new(card, owner);
+        game.state.battlefield.add(perm);
+        id
+    }
+
+    fn add_lord_with_boost(
+        game: &mut Game,
+        owner: PlayerId,
+        name: &str,
+        power: i32,
+        toughness: i32,
+        subtype: SubType,
+        filter: &str,
+        boost_p: i32,
+        boost_t: i32,
+    ) -> ObjectId {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![subtype];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        let id = card.id;
+        card.abilities = vec![
+            Ability::static_ability(id, &format!("Other creatures get +{boost_p}/+{boost_t}"),
+                vec![StaticEffect::Boost { filter: filter.into(), power: boost_p, toughness: boost_t }]),
+        ];
+        let perm = Permanent::new(card, owner);
+        game.state.battlefield.add(perm);
+        // Register abilities
+        let abilities: Vec<Ability> = game.state.battlefield.get(id).unwrap().card.abilities.clone();
+        for ability in abilities {
+            game.state.ability_store.add(ability);
+        }
+        id
+    }
+
+    fn add_keyword_lord(
+        game: &mut Game,
+        owner: PlayerId,
+        name: &str,
+        power: i32,
+        toughness: i32,
+        filter: &str,
+        keyword: &str,
+    ) -> ObjectId {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        let id = card.id;
+        card.abilities = vec![
+            Ability::static_ability(id, &format!("Creatures have {keyword}"),
+                vec![StaticEffect::GrantKeyword { filter: filter.into(), keyword: keyword.into() }]),
+        ];
+        let perm = Permanent::new(card, owner);
+        game.state.battlefield.add(perm);
+        let abilities: Vec<Ability> = game.state.battlefield.get(id).unwrap().card.abilities.clone();
+        for ability in abilities {
+            game.state.ability_store.add(ability);
+        }
+        id
+    }
+
+    // ── Test: Lord boosts other creatures of same type ──────────────
+
+    #[test]
+    fn lord_boosts_other_creatures_of_same_type() {
+        let (mut game, p1, _p2) = setup();
+
+        // Add an Elf lord: "Other Elf you control get +1/+1"
+        let lord_id = add_lord_with_boost(&mut game, p1, "Elvish Archdruid", 2, 2,
+            SubType::Elf, "other Elf you control", 1, 1);
+
+        // Add two Elf creatures
+        let elf1_id = add_creature_with_subtype(&mut game, p1, "Llanowar Elves", 1, 1, SubType::Elf);
+        let elf2_id = add_creature_with_subtype(&mut game, p1, "Elvish Mystic", 1, 1, SubType::Elf);
+
+        // Add a non-Elf creature
+        let bear_id = add_creature(&mut game, p1, "Grizzly Bears", 2, 2, KeywordAbilities::empty());
+
+        // Apply continuous effects
+        game.apply_continuous_effects();
+
+        // Lord itself should NOT be boosted (filter says "other")
+        let lord = game.state.battlefield.get(lord_id).unwrap();
+        assert_eq!(lord.power(), 2);
+        assert_eq!(lord.toughness(), 2);
+
+        // Elves should be boosted
+        let elf1 = game.state.battlefield.get(elf1_id).unwrap();
+        assert_eq!(elf1.power(), 2);
+        assert_eq!(elf1.toughness(), 2);
+
+        let elf2 = game.state.battlefield.get(elf2_id).unwrap();
+        assert_eq!(elf2.power(), 2);
+        assert_eq!(elf2.toughness(), 2);
+
+        // Bear should NOT be boosted (not an Elf)
+        let bear = game.state.battlefield.get(bear_id).unwrap();
+        assert_eq!(bear.power(), 2);
+        assert_eq!(bear.toughness(), 2);
+    }
+
+    // ── Test: Anthem boosts all creatures you control ──────────────
+
+    #[test]
+    fn anthem_boosts_all_creatures_you_control() {
+        let (mut game, p1, p2) = setup();
+
+        // Add anthem: "creature you control get +1/+1"
+        let anthem_id = add_lord_with_boost(&mut game, p1, "Glorious Anthem", 0, 0,
+            SubType::Custom("Enchantment".into()), "creature you control", 1, 1);
+
+        // P1's creature
+        let bear1_id = add_creature(&mut game, p1, "Bear", 2, 2, KeywordAbilities::empty());
+
+        // P2's creature should NOT be boosted
+        let bear2_id = add_creature(&mut game, p2, "Enemy Bear", 2, 2, KeywordAbilities::empty());
+
+        game.apply_continuous_effects();
+
+        // Anthem itself is a 0/0 creature, so it gets +1/+1 too
+        // (filter is "creature you control", not "other creature")
+        let anthem = game.state.battlefield.get(anthem_id).unwrap();
+        assert_eq!(anthem.power(), 1);
+        assert_eq!(anthem.toughness(), 1);
+
+        let bear1 = game.state.battlefield.get(bear1_id).unwrap();
+        assert_eq!(bear1.power(), 3);
+        assert_eq!(bear1.toughness(), 3);
+
+        let bear2 = game.state.battlefield.get(bear2_id).unwrap();
+        assert_eq!(bear2.power(), 2);
+        assert_eq!(bear2.toughness(), 2);
+    }
+
+    // ── Test: Keyword grant ────────────────────────────────────────
+
+    #[test]
+    fn keyword_grant_gives_keyword_to_matching_creatures() {
+        let (mut game, p1, _p2) = setup();
+
+        // "Creatures you control have flying"
+        add_keyword_lord(&mut game, p1, "Archetype of Imagination", 3, 2,
+            "creature you control", "flying");
+
+        let bear_id = add_creature(&mut game, p1, "Bear", 2, 2, KeywordAbilities::empty());
+
+        game.apply_continuous_effects();
+
+        let bear = game.state.battlefield.get(bear_id).unwrap();
+        assert!(bear.has_flying());
+    }
+
+    // ── Test: Multiple keywords in comma-separated string ──────────
+
+    #[test]
+    fn comma_separated_keywords_granted() {
+        let (mut game, p1, _p2) = setup();
+
+        // "Equipped creature has deathtouch, lifelink"
+        add_keyword_lord(&mut game, p1, "Basilisk Collar", 0, 0,
+            "creature you control", "deathtouch, lifelink");
+
+        let bear_id = add_creature(&mut game, p1, "Bear", 2, 2, KeywordAbilities::empty());
+
+        game.apply_continuous_effects();
+
+        let bear = game.state.battlefield.get(bear_id).unwrap();
+        assert!(bear.has_deathtouch());
+        assert!(bear.has_lifelink());
+    }
+
+    // ── Test: Effects cleared on recalculation ─────────────────────
+
+    #[test]
+    fn effects_cleared_and_recalculated() {
+        let (mut game, p1, _p2) = setup();
+
+        let lord_id = add_lord_with_boost(&mut game, p1, "Elvish Archdruid", 2, 2,
+            SubType::Elf, "other Elf you control", 1, 1);
+
+        let elf_id = add_creature_with_subtype(&mut game, p1, "Llanowar Elves", 1, 1, SubType::Elf);
+
+        // Apply once
+        game.apply_continuous_effects();
+        assert_eq!(game.state.battlefield.get(elf_id).unwrap().power(), 2);
+
+        // Remove lord from battlefield
+        game.state.battlefield.remove(lord_id);
+        game.state.ability_store.remove_source(lord_id);
+
+        // Apply again — boost should be gone
+        game.apply_continuous_effects();
+        assert_eq!(game.state.battlefield.get(elf_id).unwrap().power(), 1);
+    }
+
+    // ── Test: Multiple lords stack ─────────────────────────────────
+
+    #[test]
+    fn multiple_lords_stack() {
+        let (mut game, p1, _p2) = setup();
+
+        // Two Elf lords
+        add_lord_with_boost(&mut game, p1, "Lord 1", 2, 2,
+            SubType::Elf, "other Elf you control", 1, 1);
+        add_lord_with_boost(&mut game, p1, "Lord 2", 2, 2,
+            SubType::Elf, "other Elf you control", 1, 1);
+
+        let elf_id = add_creature_with_subtype(&mut game, p1, "Llanowar Elves", 1, 1, SubType::Elf);
+
+        game.apply_continuous_effects();
+
+        // Elf should get +1/+1 from each lord = +2/+2 total
+        let elf = game.state.battlefield.get(elf_id).unwrap();
+        assert_eq!(elf.power(), 3);
+        assert_eq!(elf.toughness(), 3);
+    }
+
+    // ── Test: Lord boosts each other ───────────────────────────────
+
+    #[test]
+    fn lords_boost_each_other() {
+        let (mut game, p1, _p2) = setup();
+
+        // Two Elf lords with "other Elf you control get +1/+1"
+        let lord1_id = add_lord_with_boost(&mut game, p1, "Lord 1", 2, 2,
+            SubType::Elf, "other Elf you control", 1, 1);
+        let lord2_id = add_lord_with_boost(&mut game, p1, "Lord 2", 2, 2,
+            SubType::Elf, "other Elf you control", 1, 1);
+
+        game.apply_continuous_effects();
+
+        // Each lord should get +1/+1 from the other
+        let lord1 = game.state.battlefield.get(lord1_id).unwrap();
+        assert_eq!(lord1.power(), 3);
+        assert_eq!(lord1.toughness(), 3);
+
+        let lord2 = game.state.battlefield.get(lord2_id).unwrap();
+        assert_eq!(lord2.power(), 3);
+        assert_eq!(lord2.toughness(), 3);
+    }
+
+    // ── Test: "self" filter applies only to source ─────────────────
+
+    #[test]
+    fn self_filter_applies_only_to_source() {
+        let (mut game, p1, _p2) = setup();
+
+        // A creature with a static effect targeting "self"
+        let mut card = CardData::new(ObjectId::new(), p1, "Self-Booster");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(1);
+        card.toughness = Some(1);
+        let id = card.id;
+        card.abilities = vec![
+            Ability::static_ability(id, "+2/+2 to self",
+                vec![StaticEffect::Boost { filter: "self".into(), power: 2, toughness: 2 }]),
+        ];
+        let perm = Permanent::new(card, p1);
+        game.state.battlefield.add(perm);
+        let abilities: Vec<Ability> = game.state.battlefield.get(id).unwrap().card.abilities.clone();
+        for a in abilities { game.state.ability_store.add(a); }
+
+        let other_id = add_creature(&mut game, p1, "Other", 1, 1, KeywordAbilities::empty());
+
+        game.apply_continuous_effects();
+
+        assert_eq!(game.state.battlefield.get(id).unwrap().power(), 3);
+        assert_eq!(game.state.battlefield.get(other_id).unwrap().power(), 1);
+    }
+
+    // ── Test: Token filter ─────────────────────────────────────────
+
+    #[test]
+    fn token_filter_only_matches_tokens() {
+        let (mut game, p1, _p2) = setup();
+
+        // "Creature token you control get +1/+1"
+        add_lord_with_boost(&mut game, p1, "Token Lord", 2, 2,
+            SubType::Custom("Lord".into()), "creature token you control", 1, 1);
+
+        // Regular creature
+        let regular_id = add_creature(&mut game, p1, "Regular Bear", 2, 2, KeywordAbilities::empty());
+
+        // Token creature
+        let token_id = ObjectId::new();
+        let mut token_card = CardData::new(token_id, p1, "Bear Token");
+        token_card.card_types = vec![CardType::Creature];
+        token_card.power = Some(2);
+        token_card.toughness = Some(2);
+        token_card.is_token = true;
+        let token_perm = Permanent::new(token_card, p1);
+        game.state.battlefield.add(token_perm);
+
+        game.apply_continuous_effects();
+
+        // Regular creature should NOT be boosted
+        assert_eq!(game.state.battlefield.get(regular_id).unwrap().power(), 2);
+
+        // Token should be boosted
+        assert_eq!(game.state.battlefield.get(token_id).unwrap().power(), 3);
+    }
+
+    // ── Test: Opponent's lord doesn't boost your creatures ─────────
+
+    #[test]
+    fn opponent_lord_doesnt_boost_your_creatures() {
+        let (mut game, p1, p2) = setup();
+
+        // P2 has Elf lord
+        add_lord_with_boost(&mut game, p2, "Enemy Lord", 2, 2,
+            SubType::Elf, "other Elf you control", 1, 1);
+
+        // P1 has Elf
+        let elf_id = add_creature_with_subtype(&mut game, p1, "My Elf", 1, 1, SubType::Elf);
+
+        game.apply_continuous_effects();
+
+        // P1's Elf should NOT be boosted by P2's lord
+        assert_eq!(game.state.battlefield.get(elf_id).unwrap().power(), 1);
+    }
+
+    // ── Test: Boost + keyword grant combo ──────────────────────────
+
+    #[test]
+    fn boost_and_keyword_combo() {
+        let (mut game, p1, _p2) = setup();
+
+        // A lord with both boost and keyword grant
+        let mut card = CardData::new(ObjectId::new(), p1, "Drogskol Captain");
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![SubType::Spirit];
+        card.power = Some(2);
+        card.toughness = Some(2);
+        let id = card.id;
+        card.abilities = vec![
+            Ability::static_ability(id, "Other Spirit creatures you control get +1/+1 and have hexproof",
+                vec![
+                    StaticEffect::Boost { filter: "other Spirit you control".into(), power: 1, toughness: 1 },
+                    StaticEffect::GrantKeyword { filter: "other Spirit you control".into(), keyword: "hexproof".into() },
+                ]),
+        ];
+        let perm = Permanent::new(card, p1);
+        game.state.battlefield.add(perm);
+        let abilities: Vec<Ability> = game.state.battlefield.get(id).unwrap().card.abilities.clone();
+        for a in abilities { game.state.ability_store.add(a); }
+
+        let spirit_id = add_creature_with_subtype(&mut game, p1, "Mausoleum Wanderer", 1, 1, SubType::Spirit);
+
+        game.apply_continuous_effects();
+
+        let spirit = game.state.battlefield.get(spirit_id).unwrap();
+        assert_eq!(spirit.power(), 2);
+        assert_eq!(spirit.toughness(), 2);
+        assert!(spirit.has_hexproof());
+    }
+
+
+    // Additional tests
+    use uuid::Uuid;
+
+    struct PassPlayer;
+    impl crate::decision::PlayerDecisionMaker for PassPlayer {
+        fn priority(&mut self, _: &crate::decision::GameView, actions: &[crate::decision::PlayerAction]) -> crate::decision::PlayerAction { actions[0].clone() }
+        fn choose_targets(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &crate::decision::TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &crate::decision::GameView, _: &[crate::decision::NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &crate::decision::GameView, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &crate::decision::GameView, _: &[crate::decision::AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &crate::decision::GameView, _: &crate::decision::DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &crate::decision::GameView, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &crate::decision::GameView, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &crate::decision::GameView, hand: &[ObjectId], count: usize) -> Vec<ObjectId> { hand.iter().take(count).copied().collect() }
+        fn choose_amount(&mut self, _: &crate::decision::GameView, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &crate::decision::GameView, _: &crate::decision::UnpaidMana, _: &[crate::decision::PlayerAction]) -> Option<crate::decision::PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &crate::decision::GameView, _: &[crate::decision::ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &str, _: &[crate::decision::NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_test_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId(Uuid::new_v4());
+        let p2 = PlayerId(Uuid::new_v4());
+        let config = GameConfig { players: vec![PlayerConfig { name: "P1".to_string(), deck: vec![] }, PlayerConfig { name: "P2".to_string(), deck: vec![] }], starting_life: 20 };
+        let game = Game::new_two_player(config, vec![
+            (p1, Box::new(PassPlayer)),
+            (p2, Box::new(PassPlayer)),
+        ]);
+        (game, p1, p2)
+    }
+
+    #[test]
+    fn conditional_keyword_your_turn() {
+        let (mut game, p1, _p2) = make_test_game();
+
+        // Create creature with "first strike on your turn"
+        let card_id = ObjectId(Uuid::new_v4());
+        let card = CardData {
+            id: card_id, owner: p1, name: "First Strike Guy".into(),
+            card_types: vec![crate::constants::CardType::Creature],
+            power: Some(2), toughness: Some(1),
+            abilities: vec![Ability::static_ability(card_id, "First strike on your turn.",
+                vec![StaticEffect::ConditionalKeyword { keyword: "first strike".into(), condition: "your turn".into() }])],
+            ..Default::default()
+        };
+        let perm = crate::permanent::Permanent::new(card.clone(), p1);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(card.clone());
+        for ab in &card.abilities { game.state.ability_store.add(ab.clone()); }
+
+        // Set active player to p1 (their turn)
+        game.state.active_player = p1;
+        game.apply_continuous_effects();
+        let perm = game.state.battlefield.get(card_id).unwrap();
+        assert!(perm.has_keyword(crate::constants::KeywordAbilities::FIRST_STRIKE),
+            "should have first strike on own turn");
+
+        // Set active player to p2 (opponent's turn)
+        game.state.active_player = _p2;
+        game.apply_continuous_effects();
+        let perm = game.state.battlefield.get(card_id).unwrap();
+        assert!(!perm.has_keyword(crate::constants::KeywordAbilities::FIRST_STRIKE),
+            "should NOT have first strike on opponent's turn");
+    }
+
+    #[test]
+    fn conditional_keyword_untapped() {
+        let (mut game, p1, _p2) = make_test_game();
+
+        let card_id = ObjectId(Uuid::new_v4());
+        let card = CardData {
+            id: card_id, owner: p1, name: "Hexproof Untapped".into(),
+            card_types: vec![crate::constants::CardType::Creature],
+            power: Some(3), toughness: Some(3),
+            abilities: vec![Ability::static_ability(card_id, "Hexproof as long as untapped.",
+                vec![StaticEffect::ConditionalKeyword { keyword: "hexproof".into(), condition: "untapped".into() }])],
+            ..Default::default()
+        };
+        let perm = crate::permanent::Permanent::new(card.clone(), p1);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(card.clone());
+        for ab in &card.abilities { game.state.ability_store.add(ab.clone()); }
+
+        // Untapped: should have hexproof
+        game.apply_continuous_effects();
+        let perm = game.state.battlefield.get(card_id).unwrap();
+        assert!(perm.has_keyword(crate::constants::KeywordAbilities::HEXPROOF),
+            "should have hexproof when untapped");
+
+        // Tap it
+        if let Some(perm) = game.state.battlefield.get_mut(card_id) {
+            perm.tap();
+        }
+        game.apply_continuous_effects();
+        let perm = game.state.battlefield.get(card_id).unwrap();
+        assert!(!perm.has_keyword(crate::constants::KeywordAbilities::HEXPROOF),
+            "should NOT have hexproof when tapped");
+    }
+
+    #[test]
+    fn conditional_keyword_control_type() {
+        let (mut game, p1, _p2) = make_test_game();
+
+        // Create creature with "flash if you control a Faerie"
+        let card_id = ObjectId(Uuid::new_v4());
+        let card = CardData {
+            id: card_id, owner: p1, name: "Faerie Pal".into(),
+            card_types: vec![crate::constants::CardType::Creature],
+            power: Some(2), toughness: Some(2),
+            abilities: vec![Ability::static_ability(card_id, "Flash if you control a Faerie.",
+                vec![StaticEffect::ConditionalKeyword { keyword: "flash".into(), condition: "you control a Faerie".into() }])],
+            ..Default::default()
+        };
+        let perm = crate::permanent::Permanent::new(card.clone(), p1);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(card.clone());
+        for ab in &card.abilities { game.state.ability_store.add(ab.clone()); }
+
+        // No Faerie: no flash
+        game.apply_continuous_effects();
+        let perm = game.state.battlefield.get(card_id).unwrap();
+        assert!(!perm.has_keyword(crate::constants::KeywordAbilities::FLASH),
+            "should NOT have flash without a Faerie");
+
+        // Add a Faerie
+        let faerie_id = ObjectId(Uuid::new_v4());
+        let faerie = CardData {
+            id: faerie_id, owner: p1, name: "Faerie Token".into(),
+            card_types: vec![crate::constants::CardType::Creature],
+            subtypes: vec![crate::constants::SubType::Faerie],
+            power: Some(1), toughness: Some(1),
+            ..Default::default()
+        };
+        let faerie_perm = crate::permanent::Permanent::new(faerie.clone(), p1);
+        game.state.battlefield.add(faerie_perm);
+        game.state.card_store.insert(faerie);
+
+        game.apply_continuous_effects();
+        let perm = game.state.battlefield.get(card_id).unwrap();
+        assert!(perm.has_keyword(crate::constants::KeywordAbilities::FLASH),
+            "should have flash with a Faerie on BF");
+    }
+
+    #[test]
+    fn conditional_boost_creature_etb() {
+        let (mut game, p1, _p2) = make_test_game();
+
+        let card_id = ObjectId(Uuid::new_v4());
+        let card = CardData {
+            id: card_id, owner: p1, name: "Boost on ETB".into(),
+            card_types: vec![crate::constants::CardType::Creature],
+            power: Some(3), toughness: Some(3),
+            abilities: vec![Ability::static_ability(card_id, "+2/+0 if creature entered this turn.",
+                vec![StaticEffect::ConditionalBoostSelf { power: 2, toughness: 0, condition: "creature entered this turn".into() }])],
+            ..Default::default()
+        };
+        let perm = crate::permanent::Permanent::new(card.clone(), p1);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(card.clone());
+        for ab in &card.abilities { game.state.ability_store.add(ab.clone()); }
+
+        // No ETB event: no boost
+        game.apply_continuous_effects();
+        let perm = game.state.battlefield.get(card_id).unwrap();
+        assert_eq!(perm.power(), 3, "should be base power without ETB event");
+
+        // Add ETB event
+        game.emit_event(crate::events::GameEvent::enters_battlefield(ObjectId(Uuid::new_v4()), p1));
+        game.apply_continuous_effects();
+        let perm = game.state.battlefield.get(card_id).unwrap();
+        assert_eq!(perm.power(), 5, "should be 3+2 with ETB event this turn");
+    }
+
+
+    // Additional tests
+
+    struct AlwaysPassPlayer;
+
+    impl PlayerDecisionMaker for AlwaysPassPlayer {
+        fn priority(&mut self, _game: &GameView<'_>, _legal: &[PlayerAction]) -> PlayerAction {
+            PlayerAction::Pass
+        }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_basic_land(name: &str, owner: PlayerId) -> CardData {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Land];
+        card
+    }
+
+    fn make_creature(name: &str, owner: PlayerId, power: i32, toughness: i32) -> CardData {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        card.keywords = KeywordAbilities::empty();
+        card
+    }
+
+    fn make_deck2(owner: PlayerId) -> Vec<CardData> {
+        let mut deck = Vec::new();
+        for _ in 0..20 {
+            deck.push(make_basic_land("Forest", owner));
+        }
+        for _ in 0..20 {
+            deck.push(make_creature("Grizzly Bears", owner, 2, 2));
+        }
+        deck
+    }
+
+    fn setup_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Alice".to_string(), deck: make_deck2(p1) },
+                PlayerConfig { name: "Bob".to_string(), deck: make_deck2(p2) },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(AlwaysPassPlayer)),
+                (p2, Box::new(AlwaysPassPlayer)),
+            ],
+        );
+        (game, p1, p2)
+    }
+
+    #[test]
+    fn lose_all_abilities_removes_keywords() {
+        let (mut game, p1, p2) = setup_game();
+
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, p2, "Dragon");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(5);
+        card.toughness = Some(5);
+        card.keywords = KeywordAbilities::FLYING | KeywordAbilities::TRAMPLE | KeywordAbilities::HASTE;
+        game.state.battlefield.add(crate::permanent::Permanent::new(card, p2));
+
+        assert!(game.state.battlefield.get(id).unwrap().has_flying());
+        assert!(game.state.battlefield.get(id).unwrap().has_trample());
+        assert!(game.state.battlefield.get(id).unwrap().has_haste());
+
+        game.execute_effects(&[Effect::LoseAllAbilities], p1, &[id], None, None);
+
+        let perm = game.state.battlefield.get(id).unwrap();
+        assert!(!perm.has_flying());
+        assert!(!perm.has_trample());
+        assert!(!perm.has_haste());
+        assert!(perm.abilities_lost);
+    }
+
+    #[test]
+    fn lose_all_abilities_removes_from_ability_store() {
+        let (mut game, p1, p2) = setup_game();
+
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, p2, "Mana Dork");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(1);
+        card.toughness = Some(1);
+        card.abilities = vec![
+            Ability::mana_ability(id, "{T}: Add {G}.", Mana::green(1)),
+            Ability::enters_battlefield_triggered(id, "ETB: draw a card.", vec![Effect::draw_cards(1)], TargetSpec::None),
+        ];
+        for ab in &card.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+        game.state.battlefield.add(crate::permanent::Permanent::new(card, p2));
+
+        assert_eq!(game.state.ability_store.for_source(id).len(), 2);
+
+        game.execute_effects(&[Effect::LoseAllAbilities], p1, &[id], None, None);
+
+        assert_eq!(game.state.ability_store.for_source(id).len(), 0);
+    }
+
+    #[test]
+    fn lose_all_abilities_preserves_pt() {
+        let (mut game, p1, p2) = setup_game();
+
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, p2, "Angel");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(4);
+        card.toughness = Some(4);
+        card.keywords = KeywordAbilities::FLYING | KeywordAbilities::VIGILANCE;
+        game.state.battlefield.add(crate::permanent::Permanent::new(card, p2));
+
+        game.execute_effects(&[Effect::LoseAllAbilities], p1, &[id], None, None);
+
+        let perm = game.state.battlefield.get(id).unwrap();
+        assert_eq!(perm.power(), 4);
+        assert_eq!(perm.toughness(), 4);
+        assert!(!perm.has_flying());
+        assert!(!perm.has_vigilance());
+    }
+
+    #[test]
+    fn lose_all_abilities_also_removes_granted_keywords() {
+        let (mut game, p1, p2) = setup_game();
+
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, p2, "Bear");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(2);
+        card.toughness = Some(2);
+        card.keywords = KeywordAbilities::empty();
+        game.state.battlefield.add(crate::permanent::Permanent::new(card, p2));
+
+        if let Some(perm) = game.state.battlefield.get_mut(id) {
+            perm.granted_keywords |= KeywordAbilities::FLYING | KeywordAbilities::HEXPROOF;
+        }
+        assert!(game.state.battlefield.get(id).unwrap().has_flying());
+        assert!(game.state.battlefield.get(id).unwrap().has_hexproof());
+
+        game.execute_effects(&[Effect::LoseAllAbilities], p1, &[id], None, None);
+
+        let perm = game.state.battlefield.get(id).unwrap();
+        assert!(!perm.has_flying());
+        assert!(!perm.has_hexproof());
+    }
+
+    #[test]
+    fn static_lose_all_abilities_on_enchanted_creature() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let creature_id = ObjectId::new();
+        let mut creature = CardData::new(creature_id, p1, "Dragon");
+        creature.card_types = vec![CardType::Creature];
+        creature.subtypes = vec![SubType::Dragon];
+        creature.power = Some(5);
+        creature.toughness = Some(5);
+        creature.keywords = KeywordAbilities::FLYING | KeywordAbilities::TRAMPLE;
+        creature.abilities = vec![
+            Ability::mana_ability(creature_id, "{T}: Add {R}.", Mana::red(1)),
+        ];
+        for ab in &creature.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+        game.state.battlefield.add(crate::permanent::Permanent::new(creature, p1));
+
+        let aura_id = ObjectId::new();
+        let mut aura = CardData::new(aura_id, p1, "Noggle Aura");
+        aura.card_types = vec![CardType::Enchantment];
+        aura.subtypes = vec![SubType::Aura];
+        aura.abilities = vec![
+            Ability::static_ability(aura_id,
+                "Enchanted creature loses all abilities.",
+                vec![StaticEffect::LoseAllAbilities { filter: "enchanted creature".into() }]),
+        ];
+        for ab in &aura.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+        let mut aura_perm = crate::permanent::Permanent::new(aura, p1);
+        aura_perm.attached_to = Some(creature_id);
+        game.state.battlefield.add(aura_perm);
+        if let Some(c) = game.state.battlefield.get_mut(creature_id) {
+            c.attachments.push(aura_id);
+        }
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(!perm.has_flying());
+        assert!(!perm.has_trample());
+        assert!(perm.abilities_lost);
+    }
+
+    #[test]
+    fn effect_builder() {
+        match Effect::lose_all_abilities() {
+            Effect::LoseAllAbilities => {}
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn static_effect_builder() {
+        match StaticEffect::lose_all_abilities("enchanted creature") {
+            StaticEffect::LoseAllAbilities { filter } => {
+                assert_eq!(filter, "enchanted creature");
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+
+    // Additional tests
+
+    struct AlwaysPassPlayer2;
+
+    impl PlayerDecisionMaker for AlwaysPassPlayer2 {
+        fn priority(&mut self, _game: &GameView<'_>, _legal: &[PlayerAction]) -> PlayerAction {
+            PlayerAction::Pass
+        }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_basic_land2(name: &str, owner: PlayerId) -> CardData {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Land];
+        card
+    }
+
+    fn make_deck3(owner: PlayerId) -> Vec<CardData> {
+        let mut deck = Vec::new();
+        for _ in 0..20 {
+            deck.push(make_basic_land2("Forest", owner));
+        }
+        for _ in 0..20 {
+            let mut c = CardData::new(ObjectId::new(), owner, "Grizzly Bears");
+            c.card_types = vec![CardType::Creature];
+            c.power = Some(2);
+            c.toughness = Some(2);
+            deck.push(c);
+        }
+        deck
+    }
+
+    fn setup_game2() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Alice".to_string(), deck: make_deck3(p1) },
+                PlayerConfig { name: "Bob".to_string(), deck: make_deck3(p2) },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(AlwaysPassPlayer)),
+                (p2, Box::new(AlwaysPassPlayer)),
+            ],
+        );
+        (game, p1, p2)
+    }
+
+    #[test]
+    fn set_base_pt_all_opponents_creatures() {
+        let (mut game, p1, p2) = setup_game2();
+
+        let bear_id = ObjectId::new();
+        let mut bear = CardData::new(bear_id, p2, "Big Bear");
+        bear.card_types = vec![CardType::Creature];
+        bear.power = Some(5);
+        bear.toughness = Some(5);
+        bear.keywords = KeywordAbilities::TRAMPLE;
+        game.state.battlefield.add(crate::permanent::Permanent::new(bear, p2));
+
+        let angel_id = ObjectId::new();
+        let mut angel = CardData::new(angel_id, p2, "Angel");
+        angel.card_types = vec![CardType::Creature];
+        angel.power = Some(4);
+        angel.toughness = Some(4);
+        angel.keywords = KeywordAbilities::FLYING;
+        game.state.battlefield.add(crate::permanent::Permanent::new(angel, p2));
+
+        let own_id = ObjectId::new();
+        let mut own = CardData::new(own_id, p1, "Own Bear");
+        own.card_types = vec![CardType::Creature];
+        own.power = Some(3);
+        own.toughness = Some(3);
+        game.state.battlefield.add(crate::permanent::Permanent::new(own, p1));
+
+        game.execute_effects(
+            &[Effect::SetBasePowerToughnessAll { power: 1, toughness: 1, filter: "creatures opponents control".into() }],
+            p1, &[], None, None,
+        );
+
+        assert_eq!(game.state.battlefield.get(bear_id).unwrap().power(), 1);
+        assert_eq!(game.state.battlefield.get(bear_id).unwrap().toughness(), 1);
+        assert_eq!(game.state.battlefield.get(angel_id).unwrap().power(), 1);
+        assert_eq!(game.state.battlefield.get(angel_id).unwrap().toughness(), 1);
+        assert_eq!(game.state.battlefield.get(own_id).unwrap().power(), 3);
+        assert_eq!(game.state.battlefield.get(own_id).unwrap().toughness(), 3);
+    }
+
+    #[test]
+    fn lose_all_abilities_all_opponents_creatures() {
+        let (mut game, p1, p2) = setup_game();
+
+        let bear_id = ObjectId::new();
+        let mut bear = CardData::new(bear_id, p2, "Flying Bear");
+        bear.card_types = vec![CardType::Creature];
+        bear.power = Some(3);
+        bear.toughness = Some(3);
+        bear.keywords = KeywordAbilities::FLYING | KeywordAbilities::TRAMPLE;
+        game.state.battlefield.add(crate::permanent::Permanent::new(bear, p2));
+
+        let own_id = ObjectId::new();
+        let mut own = CardData::new(own_id, p1, "Own Flyer");
+        own.card_types = vec![CardType::Creature];
+        own.power = Some(2);
+        own.toughness = Some(2);
+        own.keywords = KeywordAbilities::FLYING;
+        game.state.battlefield.add(crate::permanent::Permanent::new(own, p1));
+
+        game.execute_effects(
+            &[Effect::LoseAllAbilitiesAll { filter: "creatures opponents control".into() }],
+            p1, &[], None, None,
+        );
+
+        assert!(!game.state.battlefield.get(bear_id).unwrap().has_flying());
+        assert!(!game.state.battlefield.get(bear_id).unwrap().has_trample());
+        assert!(game.state.battlefield.get(bear_id).unwrap().abilities_lost);
+        assert!(game.state.battlefield.get(own_id).unwrap().has_flying());
+        assert!(!game.state.battlefield.get(own_id).unwrap().abilities_lost);
+    }
+
+    #[test]
+    fn static_set_base_pt_on_enchanted_creature() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let creature_id = ObjectId::new();
+        let mut creature = CardData::new(creature_id, p1, "Dragon");
+        creature.card_types = vec![CardType::Creature];
+        creature.subtypes = vec![SubType::Dragon];
+        creature.power = Some(5);
+        creature.toughness = Some(5);
+        creature.keywords = KeywordAbilities::FLYING;
+        game.state.battlefield.add(crate::permanent::Permanent::new(creature, p1));
+
+        let aura_id = ObjectId::new();
+        let mut aura = CardData::new(aura_id, p1, "Shrinking Aura");
+        aura.card_types = vec![CardType::Enchantment];
+        aura.subtypes = vec![SubType::Aura];
+        aura.abilities = vec![
+            Ability::static_ability(aura_id,
+                "Enchanted creature has base power and toughness 1/1.",
+                vec![StaticEffect::SetBasePowerToughness {
+                    filter: "enchanted creature".into(),
+                    power: 1,
+                    toughness: 1,
+                }]),
+        ];
+        for ab in &aura.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+        let mut aura_perm = crate::permanent::Permanent::new(aura, p1);
+        aura_perm.attached_to = Some(creature_id);
+        game.state.battlefield.add(aura_perm);
+        if let Some(c) = game.state.battlefield.get_mut(creature_id) {
+            c.attachments.push(aura_id);
+        }
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert_eq!(perm.power(), 1);
+        assert_eq!(perm.toughness(), 1);
+    }
+
+    #[test]
+    fn static_set_base_pt_stacks_with_boost() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let creature_id = ObjectId::new();
+        let mut creature = CardData::new(creature_id, p1, "Dragon");
+        creature.card_types = vec![CardType::Creature];
+        creature.power = Some(5);
+        creature.toughness = Some(5);
+        game.state.battlefield.add(crate::permanent::Permanent::new(creature, p1));
+
+        let lord_id = ObjectId::new();
+        let mut lord = CardData::new(lord_id, p1, "Lord");
+        lord.card_types = vec![CardType::Creature];
+        lord.power = Some(2);
+        lord.toughness = Some(2);
+        lord.abilities = vec![
+            Ability::static_ability(lord_id,
+                "Other creatures you control get +1/+1.",
+                vec![StaticEffect::Boost {
+                    filter: "other creatures you control".into(),
+                    power: 1,
+                    toughness: 1,
+                }]),
+        ];
+        for ab in &lord.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+        game.state.battlefield.add(crate::permanent::Permanent::new(lord, p1));
+
+        let aura_id = ObjectId::new();
+        let mut aura = CardData::new(aura_id, p1, "Shrinking Aura");
+        aura.card_types = vec![CardType::Enchantment];
+        aura.subtypes = vec![SubType::Aura];
+        aura.abilities = vec![
+            Ability::static_ability(aura_id,
+                "Enchanted creature has base power and toughness 1/1.",
+                vec![StaticEffect::SetBasePowerToughness {
+                    filter: "enchanted creature".into(),
+                    power: 1,
+                    toughness: 1,
+                }]),
+        ];
+        for ab in &aura.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+        let mut aura_perm = crate::permanent::Permanent::new(aura, p1);
+        aura_perm.attached_to = Some(creature_id);
+        game.state.battlefield.add(aura_perm);
+        if let Some(c) = game.state.battlefield.get_mut(creature_id) {
+            c.attachments.push(aura_id);
+        }
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert_eq!(perm.power(), 2);
+        assert_eq!(perm.toughness(), 2);
+    }
+
+    #[test]
+    fn static_set_base_pt_resets_when_aura_removed() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let creature_id = ObjectId::new();
+        let mut creature = CardData::new(creature_id, p1, "Dragon");
+        creature.card_types = vec![CardType::Creature];
+        creature.power = Some(5);
+        creature.toughness = Some(5);
+        game.state.battlefield.add(crate::permanent::Permanent::new(creature, p1));
+
+        let aura_id = ObjectId::new();
+        let mut aura = CardData::new(aura_id, p1, "Shrinking Aura");
+        aura.card_types = vec![CardType::Enchantment];
+        aura.subtypes = vec![SubType::Aura];
+        aura.abilities = vec![
+            Ability::static_ability(aura_id,
+                "Enchanted creature has base power and toughness 1/1.",
+                vec![StaticEffect::SetBasePowerToughness {
+                    filter: "enchanted creature".into(),
+                    power: 1,
+                    toughness: 1,
+                }]),
+        ];
+        for ab in &aura.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+        let mut aura_perm = crate::permanent::Permanent::new(aura, p1);
+        aura_perm.attached_to = Some(creature_id);
+        game.state.battlefield.add(aura_perm);
+        if let Some(c) = game.state.battlefield.get_mut(creature_id) {
+            c.attachments.push(aura_id);
+        }
+
+        game.apply_continuous_effects();
+        assert_eq!(game.state.battlefield.get(creature_id).unwrap().power(), 1);
+        assert_eq!(game.state.battlefield.get(creature_id).unwrap().toughness(), 1);
+
+        game.state.battlefield.remove(aura_id);
+        game.state.ability_store.remove_source(aura_id);
+        if let Some(c) = game.state.battlefield.get_mut(creature_id) {
+            c.attachments.retain(|&id| id != aura_id);
+        }
+
+        game.apply_continuous_effects();
+        assert_eq!(game.state.battlefield.get(creature_id).unwrap().power(), 5);
+        assert_eq!(game.state.battlefield.get(creature_id).unwrap().toughness(), 5);
+    }
+
+    #[test]
+    fn set_base_pt_all_only_affects_creatures() {
+        let (mut game, p1, p2) = setup_game();
+
+        let artifact_id = ObjectId::new();
+        let mut artifact = CardData::new(artifact_id, p2, "Artifact");
+        artifact.card_types = vec![CardType::Artifact];
+        game.state.battlefield.add(crate::permanent::Permanent::new(artifact, p2));
+
+        let bear_id = ObjectId::new();
+        let mut bear = CardData::new(bear_id, p2, "Bear");
+        bear.card_types = vec![CardType::Creature];
+        bear.power = Some(3);
+        bear.toughness = Some(3);
+        game.state.battlefield.add(crate::permanent::Permanent::new(bear, p2));
+
+        game.execute_effects(
+            &[Effect::SetBasePowerToughnessAll { power: 1, toughness: 1, filter: "creatures opponents control".into() }],
+            p1, &[], None, None,
+        );
+
+        assert_eq!(game.state.battlefield.get(bear_id).unwrap().power(), 1);
+        assert_eq!(game.state.battlefield.get(bear_id).unwrap().toughness(), 1);
+    }
+
+    #[test]
+    fn effect_builders() {
+        match Effect::set_base_pt_all(1, 1, "creatures opponents control") {
+            Effect::SetBasePowerToughnessAll { power, toughness, filter } => {
+                assert_eq!(power, 1);
+                assert_eq!(toughness, 1);
+                assert_eq!(filter, "creatures opponents control");
+            }
+            _ => panic!("wrong variant"),
+        }
+
+        match Effect::lose_all_abilities_all("creatures opponents control") {
+            Effect::LoseAllAbilitiesAll { filter } => {
+                assert_eq!(filter, "creatures opponents control");
+            }
+            _ => panic!("wrong variant"),
+        }
+
+        match StaticEffect::set_base_pt("enchanted creature", 1, 1) {
+            StaticEffect::SetBasePowerToughness { filter, power, toughness } => {
+                assert_eq!(filter, "enchanted creature");
+                assert_eq!(power, 1);
+                assert_eq!(toughness, 1);
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+
+    // Additional tests
+
+    struct PassPlayer2;
+
+    impl PlayerDecisionMaker for PassPlayer2 {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let deck: Vec<CardData> = (0..40).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), p1, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect();
+        let deck2: Vec<CardData> = (0..40).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), p2, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "P1".into(), deck },
+                PlayerConfig { name: "P2".into(), deck: deck2 },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(config, vec![(p1, Box::new(PassPlayer)), (p2, Box::new(PassPlayer))]);
+        (game, p1, p2)
+    }
+
+    fn add_colored_creature(game: &mut Game, owner: PlayerId, name: &str, colors: Vec<Color>) -> ObjectId {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![SubType::Elemental];
+        card.power = Some(1);
+        card.toughness = Some(1);
+        card.color_identity = colors;
+        let id = card.id;
+        game.state.battlefield.add(Permanent::new(card, owner));
+        id
+    }
+
+    fn add_vivid_creature(game: &mut Game, owner: PlayerId) -> ObjectId {
+        let mut card = CardData::new(ObjectId::new(), owner, "Squawkroaster");
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![SubType::Elemental];
+        card.power = Some(0);
+        card.toughness = Some(4);
+        card.color_identity = vec![Color::Red];
+        let id = card.id;
+        let ability = Ability::static_ability(id,
+            "Vivid — Power is equal to colors among permanents you control.",
+            vec![StaticEffect::set_power_to_color_count()]);
+        card.abilities.push(ability.clone());
+        game.state.card_store.insert(card.clone());
+        game.state.battlefield.add(Permanent::new(card, owner));
+        game.state.ability_store.add(ability);
+        id
+    }
+
+    #[test]
+    fn power_equals_zero_with_no_colored_permanents() {
+        let (mut game, p1, _p2) = make_game();
+
+        let vivid_id = add_vivid_creature(&mut game, p1);
+        if let Some(perm) = game.state.battlefield.get_mut(vivid_id) {
+            perm.card.color_identity = vec![];
+        }
+
+        let mut land = CardData::new(ObjectId::new(), p1, "Wastes");
+        land.card_types = vec![CardType::Land];
+        let land_id = land.id;
+        game.state.battlefield.add(Permanent::new(land, p1));
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(vivid_id).unwrap();
+        assert_eq!(perm.power(), 0, "no colored permanents = power 0");
+        assert_eq!(perm.toughness(), 4, "toughness should remain 4");
+    }
+
+    #[test]
+    fn power_equals_one_with_single_color() {
+        let (mut game, p1, _p2) = make_game();
+
+        let vivid_id = add_vivid_creature(&mut game, p1);
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(vivid_id).unwrap();
+        assert_eq!(perm.power(), 1, "one red permanent = power 1");
+    }
+
+    #[test]
+    fn power_equals_three_with_three_colors() {
+        let (mut game, p1, _p2) = make_game();
+
+        let vivid_id = add_vivid_creature(&mut game, p1);
+        add_colored_creature(&mut game, p1, "Green Elf", vec![Color::Green]);
+        add_colored_creature(&mut game, p1, "Blue Wizard", vec![Color::Blue]);
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(vivid_id).unwrap();
+        assert_eq!(perm.power(), 3, "red + green + blue = power 3");
+    }
+
+    #[test]
+    fn power_equals_five_with_all_colors() {
+        let (mut game, p1, _p2) = make_game();
+
+        let vivid_id = add_vivid_creature(&mut game, p1);
+        add_colored_creature(&mut game, p1, "White Knight", vec![Color::White]);
+        add_colored_creature(&mut game, p1, "Blue Mage", vec![Color::Blue]);
+        add_colored_creature(&mut game, p1, "Black Rogue", vec![Color::Black]);
+        add_colored_creature(&mut game, p1, "Green Beast", vec![Color::Green]);
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(vivid_id).unwrap();
+        assert_eq!(perm.power(), 5, "all five colors = power 5");
+        assert_eq!(perm.toughness(), 4, "toughness unchanged");
+    }
+
+    #[test]
+    fn multicolored_permanent_counts_multiple_colors() {
+        let (mut game, p1, _p2) = make_game();
+
+        let vivid_id = add_vivid_creature(&mut game, p1);
+        add_colored_creature(&mut game, p1, "Niv-Mizzet", vec![Color::Blue, Color::Red]);
+        add_colored_creature(&mut game, p1, "Siege Rhino", vec![Color::White, Color::Black, Color::Green]);
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(vivid_id).unwrap();
+        assert_eq!(perm.power(), 5, "W+U+B+R+G from multicolor = power 5");
+    }
+
+    #[test]
+    fn duplicate_colors_not_double_counted() {
+        let (mut game, p1, _p2) = make_game();
+
+        let vivid_id = add_vivid_creature(&mut game, p1);
+        add_colored_creature(&mut game, p1, "Red Goblin 1", vec![Color::Red]);
+        add_colored_creature(&mut game, p1, "Red Goblin 2", vec![Color::Red]);
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(vivid_id).unwrap();
+        assert_eq!(perm.power(), 1, "multiple red permanents still = 1 color");
+    }
+
+    #[test]
+    fn opponent_permanents_dont_count() {
+        let (mut game, p1, p2) = make_game();
+
+        let vivid_id = add_vivid_creature(&mut game, p1);
+        add_colored_creature(&mut game, p2, "Opponent Blue", vec![Color::Blue]);
+        add_colored_creature(&mut game, p2, "Opponent Green", vec![Color::Green]);
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(vivid_id).unwrap();
+        assert_eq!(perm.power(), 1, "only own permanents count (red from self)");
+    }
+
+    #[test]
+    fn helper_constructor() {
+        match StaticEffect::set_power_to_color_count() {
+            StaticEffect::SetPowerToColorCount => {}
+            _ => panic!("wrong variant"),
+        }
+    }
+

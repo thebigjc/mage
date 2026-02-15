@@ -21,8 +21,6 @@ use crate::decision::{
     AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
     ReplacementEffectChoice, TargetRequirement, UnpaidMana, PlayerDecisionMaker,
 };
-use crate::mana::Mana;
-use crate::types::{PlayerId, ObjectId};
 
 /// A minimal decision maker that always passes priority.
 pub struct AlwaysPassPlayer;
