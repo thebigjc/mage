@@ -2959,7 +2959,7 @@ impl Game {
                 }
                 Cost::TapCreatures { filter, count } => {
                     let f_lower = filter.to_lowercase();
-                    let mut candidates: Vec<ObjectId> = self.state.battlefield.iter()
+                    let candidates: Vec<ObjectId> = self.state.battlefield.iter()
                         .filter(|perm| perm.controller == player_id && !perm.tapped && perm.id() != source_id && perm.is_creature())
                         .filter(|perm| {
                             if f_lower.contains("elf") {
@@ -4114,7 +4114,7 @@ impl Game {
                 }
                 Effect::ReturnExiledToHand => {
                     // Return cards exiled by this source to owners hands
-                    if let Some(src) = source {
+                    if let Some(_src) = source {
                         let exiled_ids: Vec<ObjectId> = self.state.exile.iter_all().copied().collect();
                         for card_id in exiled_ids {
                             // In our simplified model, we track exile source via zone_owner
