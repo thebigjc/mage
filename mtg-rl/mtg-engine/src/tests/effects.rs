@@ -748,7 +748,7 @@ fn look_top_and_pick() {
 
     // Look at top 3, pick lands to hand, rest to graveyard
     game.execute_effects(
-        &[Effect::look_top_and_pick(3, "land card", "hand", "graveyard")],
+        &[Effect::look_top_and_pick(3, "land card")],
         p1, &[], None, None,
     );
 
