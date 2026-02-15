@@ -1,10 +1,9 @@
 // Effect execution tests
 
-use super::*;
 use crate::game::{Game, GameConfig, PlayerConfig};
 use crate::permanent::Permanent;
 use crate::counters::CounterType;
-use crate::constants::{PhaseStep, Outcome};
+use crate::constants::Outcome;
 use crate::decision::{AttackerInfo, DamageAssignment};
 use crate::types::PlayerId;
 use crate::abilities::{Effect, Cost};
