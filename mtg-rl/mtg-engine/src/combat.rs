@@ -288,7 +288,11 @@ pub fn assign_combat_damage(
         return results;
     }
 
-    let power = attacker.power().max(0) as u32;
+    let power = if attacker.assign_damage_with_toughness {
+        attacker.toughness().max(0) as u32
+    } else {
+        attacker.power().max(0) as u32
+    };
     if power == 0 {
         return results;
     }
@@ -356,7 +360,11 @@ pub fn assign_blocker_damage(
         return 0;
     }
 
-    blocker.power().max(0) as u32
+    if blocker.assign_damage_with_toughness {
+        blocker.toughness().max(0) as u32
+    } else {
+        blocker.power().max(0) as u32
+    }
 }
 
 #[cfg(test)]
@@ -643,5 +651,77 @@ mod tests {
         // Blocker with less power can block
         let small = make_creature("Small Blocker", 1, 4, KeywordAbilities::empty());
         assert!(can_block(&small, &attacker));
+    }
+
+    #[test]
+    fn attacker_assigns_damage_with_toughness() {
+        let mut attacker = make_creature("Wall", 1, 5, KeywordAbilities::empty());
+        attacker.assign_damage_with_toughness = true;
+        let attacker_id = attacker.id();
+        let defender_id = ObjectId::new();
+
+        let group = CombatGroup::new(attacker_id, defender_id, true);
+        let results = assign_combat_damage(&group, &attacker, &[], false);
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].1, 5);
+    }
+
+    #[test]
+    fn attacker_without_flag_uses_power() {
+        let attacker = make_creature("Wall", 1, 5, KeywordAbilities::empty());
+        let attacker_id = attacker.id();
+        let defender_id = ObjectId::new();
+
+        let group = CombatGroup::new(attacker_id, defender_id, true);
+        let results = assign_combat_damage(&group, &attacker, &[], false);
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].1, 1);
+    }
+
+    #[test]
+    fn blocker_assigns_damage_with_toughness() {
+        let mut blocker = make_creature("Wall", 0, 4, KeywordAbilities::empty());
+        blocker.assign_damage_with_toughness = true;
+        let attacker_id = ObjectId::new();
+
+        let dmg = assign_blocker_damage(&blocker, attacker_id, false);
+        assert_eq!(dmg, 4);
+    }
+
+    #[test]
+    fn blocker_without_flag_uses_power() {
+        let blocker = make_creature("Wall", 0, 4, KeywordAbilities::empty());
+        let attacker_id = ObjectId::new();
+
+        let dmg = assign_blocker_damage(&blocker, attacker_id, false);
+        assert_eq!(dmg, 0);
+    }
+
+    #[test]
+    fn toughness_damage_with_trample() {
+        let mut attacker = make_creature("Big Wall", 1, 8, KeywordAbilities::TRAMPLE);
+        attacker.assign_damage_with_toughness = true;
+        let attacker_id = attacker.id();
+        let blocker = make_creature("Bear", 2, 2, KeywordAbilities::empty());
+        let blocker_id = blocker.id();
+        let defender_id = ObjectId::new();
+
+        let mut group = CombatGroup::new(attacker_id, defender_id, true);
+        group.add_blocker(blocker_id);
+
+        let results = assign_combat_damage(
+            &group,
+            &attacker,
+            &[(blocker_id, &blocker)],
+            false,
+        );
+
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].0, blocker_id);
+        assert_eq!(results[0].1, 2);
+        assert_eq!(results[1].0, defender_id);
+        assert_eq!(results[1].1, 6);
     }
 }

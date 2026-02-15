@@ -1417,6 +1417,22 @@ impl StaticEffect {
     pub fn set_power_to_color_count() -> Self {
         StaticEffect::SetPowerToColorCount
     }
+
+    /// Matching creature assigns combat damage equal to toughness (unconditional).
+    pub fn assign_damage_with_toughness(filter: &str) -> Self {
+        StaticEffect::AssignDamageWithToughness {
+            filter: filter.to_string(),
+            condition: None,
+        }
+    }
+
+    /// Matching creature assigns combat damage equal to toughness, but only when toughness > power.
+    pub fn assign_damage_with_toughness_if_greater(filter: &str) -> Self {
+        StaticEffect::AssignDamageWithToughness {
+            filter: filter.to_string(),
+            condition: Some("toughness_greater_than_power".to_string()),
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1632,6 +1648,12 @@ pub enum StaticEffect {
     },
     /// Set this creature's base power to the number of colors among permanents you control (Vivid).
     SetPowerToColorCount,
+    /// Matching creature assigns combat damage equal to its toughness rather than its power.
+    /// If `condition` is set (e.g. "toughness_greater_than_power"), only applies when condition is met.
+    AssignDamageWithToughness {
+        filter: String,
+        condition: Option<String>,
+    },
     /// Custom continuous effect.
 
     Custom(String),

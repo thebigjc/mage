@@ -74,6 +74,8 @@ pub struct Permanent {
     pub base_toughness_override: Option<i32>,
     /// Whether this permanent can't untap (set by continuous effects like Blossombind).
     pub cant_untap: bool,
+    /// Whether this creature assigns combat damage equal to its toughness rather than its power.
+    pub assign_damage_with_toughness: bool,
 }
 
 impl Permanent {
@@ -107,6 +109,7 @@ impl Permanent {
             base_power_override: None,
             base_toughness_override: None,
             cant_untap: false,
+            assign_damage_with_toughness: false,
             card,
         }
     }

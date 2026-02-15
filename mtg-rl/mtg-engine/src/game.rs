@@ -422,6 +422,7 @@ impl Game {
             perm.base_power_override = None;
             perm.base_toughness_override = None;
             perm.cant_untap = false;
+            perm.assign_damage_with_toughness = false;
         }
 
         // Step 2: Collect static effects from all battlefield permanents.
@@ -441,6 +442,7 @@ impl Game {
         let mut set_base_pts: Vec<(ObjectId, PlayerId, String, i32, i32)> = Vec::new();
         let mut cant_untaps: Vec<(ObjectId, PlayerId, String)> = Vec::new();
         let mut set_power_color_counts: Vec<(ObjectId, PlayerId)> = Vec::new();
+        let mut assign_damage_toughness: Vec<(ObjectId, PlayerId, String, Option<String>)> = Vec::new();
 
         for perm in self.state.battlefield.iter() {
             let source_id = perm.id();
@@ -496,6 +498,9 @@ impl Game {
                         }
                         crate::abilities::StaticEffect::SetPowerToColorCount => {
                             set_power_color_counts.push((source_id, controller));
+                        }
+                        crate::abilities::StaticEffect::AssignDamageWithToughness { filter, condition } => {
+                            assign_damage_toughness.push((source_id, controller, filter.clone(), condition.clone()));
                         }
                         _ => {}
                     }
@@ -684,6 +689,25 @@ impl Game {
                 if let Some(perm) = self.state.battlefield.get_mut(source_id) {
                     perm.continuous_boost_power += power;
                     perm.continuous_boost_toughness += toughness;
+                }
+            }
+        }
+
+        // Step 8: Apply "assigns combat damage equal to toughness" (after all P/T is finalized)
+        for (source_id, controller, filter, condition) in assign_damage_toughness {
+            let matching = self.find_matching_permanents(source_id, controller, &filter);
+            for target_id in matching {
+                if let Some(cond) = &condition {
+                    if cond == "toughness_greater_than_power" {
+                        if let Some(perm) = self.state.battlefield.get(target_id) {
+                            if perm.toughness() <= perm.power() {
+                                continue;
+                            }
+                        }
+                    }
+                }
+                if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                    perm.assign_damage_with_toughness = true;
                 }
             }
         }
@@ -14295,6 +14319,224 @@ mod set_power_to_color_count_tests {
     fn helper_constructor() {
         match StaticEffect::set_power_to_color_count() {
             StaticEffect::SetPowerToColorCount => {}
+            _ => panic!("wrong variant"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod assign_damage_with_toughness_tests {
+    use super::*;
+    use crate::abilities::{Ability, StaticEffect};
+    use crate::card::CardData;
+    use crate::constants::{CardType, Outcome, SubType};
+    use crate::decision::{
+        AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
+        ReplacementEffectChoice, TargetRequirement, UnpaidMana,
+    };
+
+    struct PassPlayer;
+
+    impl PlayerDecisionMaker for PassPlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let deck: Vec<CardData> = (0..40).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), p1, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect();
+        let deck2: Vec<CardData> = (0..40).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), p2, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "P1".into(), deck },
+                PlayerConfig { name: "P2".into(), deck: deck2 },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(config, vec![(p1, Box::new(PassPlayer)), (p2, Box::new(PassPlayer))]);
+        (game, p1, p2)
+    }
+
+    fn add_creature(game: &mut Game, owner: PlayerId, name: &str, power: i32, toughness: i32) -> ObjectId {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        let id = card.id;
+        game.state.battlefield.add(Permanent::new(card, owner));
+        id
+    }
+
+    fn add_equipment_with_toughness_damage(game: &mut Game, owner: PlayerId, conditional: bool) -> ObjectId {
+        let mut card = CardData::new(ObjectId::new(), owner, "Toughness Equipment");
+        card.card_types = vec![CardType::Artifact];
+        card.subtypes = vec![SubType::Equipment];
+        let id = card.id;
+        let ability = if conditional {
+            Ability::static_ability(id,
+                "Equipped creature assigns combat damage equal to toughness if toughness > power.",
+                vec![StaticEffect::assign_damage_with_toughness_if_greater("equipped creature")])
+        } else {
+            Ability::static_ability(id,
+                "Equipped creature assigns combat damage equal to its toughness.",
+                vec![StaticEffect::assign_damage_with_toughness("equipped creature")])
+        };
+        card.abilities.push(ability.clone());
+        game.state.card_store.insert(card.clone());
+        game.state.battlefield.add(Permanent::new(card, owner));
+        game.state.ability_store.add(ability);
+        id
+    }
+
+    #[test]
+    fn unconditional_sets_flag_on_equipped_creature() {
+        let (mut game, p1, _p2) = make_game();
+
+        let creature_id = add_creature(&mut game, p1, "Wall", 1, 5);
+        let equip_id = add_equipment_with_toughness_damage(&mut game, p1, false);
+
+        if let Some(equip) = game.state.battlefield.get_mut(equip_id) {
+            equip.attached_to = Some(creature_id);
+        }
+        if let Some(creature) = game.state.battlefield.get_mut(creature_id) {
+            creature.attachments.push(equip_id);
+        }
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(perm.assign_damage_with_toughness);
+    }
+
+    #[test]
+    fn conditional_sets_flag_when_toughness_greater() {
+        let (mut game, p1, _p2) = make_game();
+
+        let creature_id = add_creature(&mut game, p1, "Wall", 1, 5);
+        let equip_id = add_equipment_with_toughness_damage(&mut game, p1, true);
+
+        if let Some(equip) = game.state.battlefield.get_mut(equip_id) {
+            equip.attached_to = Some(creature_id);
+        }
+        if let Some(creature) = game.state.battlefield.get_mut(creature_id) {
+            creature.attachments.push(equip_id);
+        }
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(perm.assign_damage_with_toughness, "toughness 5 > power 1, flag should be set");
+    }
+
+    #[test]
+    fn conditional_does_not_set_flag_when_power_greater() {
+        let (mut game, p1, _p2) = make_game();
+
+        let creature_id = add_creature(&mut game, p1, "Big Power", 5, 2);
+        let equip_id = add_equipment_with_toughness_damage(&mut game, p1, true);
+
+        if let Some(equip) = game.state.battlefield.get_mut(equip_id) {
+            equip.attached_to = Some(creature_id);
+        }
+        if let Some(creature) = game.state.battlefield.get_mut(creature_id) {
+            creature.attachments.push(equip_id);
+        }
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(!perm.assign_damage_with_toughness, "power 5 > toughness 2, flag should NOT be set");
+    }
+
+    #[test]
+    fn conditional_does_not_set_flag_when_equal() {
+        let (mut game, p1, _p2) = make_game();
+
+        let creature_id = add_creature(&mut game, p1, "Even", 3, 3);
+        let equip_id = add_equipment_with_toughness_damage(&mut game, p1, true);
+
+        if let Some(equip) = game.state.battlefield.get_mut(equip_id) {
+            equip.attached_to = Some(creature_id);
+        }
+        if let Some(creature) = game.state.battlefield.get_mut(creature_id) {
+            creature.attachments.push(equip_id);
+        }
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(!perm.assign_damage_with_toughness, "power == toughness, flag should NOT be set");
+    }
+
+    #[test]
+    fn flag_cleared_on_recalculation() {
+        let (mut game, p1, _p2) = make_game();
+
+        let creature_id = add_creature(&mut game, p1, "Wall", 1, 5);
+
+        if let Some(perm) = game.state.battlefield.get_mut(creature_id) {
+            perm.assign_damage_with_toughness = true;
+        }
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(!perm.assign_damage_with_toughness, "flag should be cleared without source");
+    }
+
+    #[test]
+    fn unequipped_creature_not_affected() {
+        let (mut game, p1, _p2) = make_game();
+
+        let creature_id = add_creature(&mut game, p1, "Wall", 1, 5);
+        let _equip_id = add_equipment_with_toughness_damage(&mut game, p1, false);
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(!perm.assign_damage_with_toughness, "unequipped creature should not get the flag");
+    }
+
+    #[test]
+    fn helper_unconditional() {
+        match StaticEffect::assign_damage_with_toughness("equipped creature") {
+            StaticEffect::AssignDamageWithToughness { filter, condition } => {
+                assert_eq!(filter, "equipped creature");
+                assert!(condition.is_none());
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn helper_conditional() {
+        match StaticEffect::assign_damage_with_toughness_if_greater("equipped creature") {
+            StaticEffect::AssignDamageWithToughness { filter, condition } => {
+                assert_eq!(filter, "equipped creature");
+                assert_eq!(condition.unwrap(), "toughness_greater_than_power");
+            }
             _ => panic!("wrong variant"),
         }
     }

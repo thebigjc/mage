@@ -2108,7 +2108,7 @@ fn bark_of_doran(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![StaticEffect::boost_controlled("equipped creature", 0, 1)]),
             Ability::static_ability(id,
                 "As long as equipped creature's toughness is greater than its power, it assigns combat damage equal to its toughness rather than its power.",
-                vec![StaticEffect::Custom("Assigns combat damage equal to toughness.".into())]),
+                vec![StaticEffect::assign_damage_with_toughness_if_greater("equipped creature")]),
             Ability::activated(id, "Equip {1}",
                 vec![Cost::pay_mana("{1}")],
                 vec![Effect::equip()],
