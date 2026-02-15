@@ -69,7 +69,7 @@ Recommendation: **Option A** — add minimal test helpers since these are unit t
 - [x] Task 1: Fix `Outcome` import in `effects.rs:14` — change `crate::decision::...Outcome...` to separate `use crate::constants::Outcome;`
 - [x] Task 2: Fix `Outcome` import in `game_basics.rs:14` — same pattern as Task 1
 - [x] Task 3: Add `TurnPhase` import in `triggers.rs` — add `use crate::constants::TurnPhase;` (or add to existing constants import line 7)
-- [ ] Task 4: Fix `combat` ambiguity in `keywords.rs:283` — qualify as `crate::combat::can_block(...)` instead of `combat::can_block(...)`
+- [x] Task 4: Fix `combat` ambiguity in `keywords.rs:283` — qualify as `crate::combat::can_block(...)` instead of `combat::can_block(...)`
 - [ ] Task 5: Fix missing `}` in `keywords.rs` before line 1626 — the `spell_has_convoke_test` function is missing its closing brace
 
 ### Phase 2: Simple API renames in test code (mechanical fixes)
@@ -138,3 +138,4 @@ Recommendation: **Option A** — add minimal test helpers since these are unit t
 - Task 1: Moved `Outcome` from `crate::decision` import to `crate::constants` import in effects.rs
 - Task 2: Moved `Outcome` from `crate::decision` import to `crate::constants` import in game_basics.rs
 - Task 3: Added `TurnPhase` to the existing `crate::constants` import line in triggers.rs
+- Task 4: Qualified `combat::can_block` as `crate::combat::can_block` in keywords.rs:283 to resolve ambiguity with game::tests::combat module

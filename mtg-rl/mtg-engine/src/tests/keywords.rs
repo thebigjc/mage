@@ -1622,6 +1622,7 @@ use super::*;
         non_creature.card_types = vec![CardType::Instant];
         non_creature.mana_cost = ManaCost::parse("{2}{G}");
         assert!(!game.spell_has_convoke(p1, &non_creature));
+    }
 
     #[test]
     fn convoke_excludes_opponent_creatures() {
@@ -1644,4 +1645,3 @@ use super::*;
             _ => panic!("Expected GrantConvoke variant"),
         }
     }
-}
