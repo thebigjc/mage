@@ -503,7 +503,7 @@ impl GameEvent {
 
     /// Create an enters-the-battlefield event.
     pub fn enters_battlefield(permanent_id: ObjectId, player: PlayerId) -> Self {
-        GameEvent::new(EventType::EntersTheBattlefield)
+        GameEvent::new(EventType::EnteredTheBattlefield)
             .target(permanent_id)
             .player(player)
     }

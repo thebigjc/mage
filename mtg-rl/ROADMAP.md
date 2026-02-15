@@ -35,20 +35,16 @@ These are structural deficiencies in `game.rs` that affect ALL cards, not just s
 - `EndCombat`: clears combat state
 - 13 unit tests covering: unblocked damage, blocked damage, vigilance, lifelink, first strike, trample, defender restriction, summoning sickness, haste, flying/reach, multiple attackers
 
-### B. Triggered Abilities Not Stacked
+### ~~B. Triggered Abilities Not Stacked~~ (DONE)
 
-Events are emitted (`GameEvent` structs) and the `AbilityStore` tracks which triggered abilities respond to which `EventType`s, but triggered abilities are **never put on the stack**. There is a TODO comment in `process_step()`:
-
-```rust
-// -- Handle triggered abilities --
-// TODO: Put triggered abilities on the stack (task #13)
-```
-
-In Java XMage, after each game action, all pending triggers are gathered and placed on the stack in APNAP order (active player's triggers first, then next player). Each trigger gets its own stack entry and can be responded to.
-
-**Impact:** Every card with a triggered ability (ETB triggers, attack triggers, death triggers, upkeep triggers, damage triggers) silently does nothing beyond its initial cast. This affects **hundreds** of cards across all sets.
-
-**Fix:** After each state-based action loop, scan `AbilityStore` for triggered abilities whose trigger conditions are met by recent events. Push each onto the stack as a `StackItem`. Resolve via the existing priority loop.
+**Completed 2026-02-14.** Triggered abilities are now detected and stacked:
+- Added `EventLog` to `Game` for tracking game events
+- Events emitted at key game actions: ETB, attack declared, life gain, token creation, land play
+- `check_triggered_abilities()` scans `AbilityStore` for matching triggers, validates source still on battlefield, handles APNAP ordering
+- Supports optional ("may") triggers via `choose_use()`
+- Trigger ownership validation: attack triggers only fire for the attacking creature, ETB triggers only for the entering permanent, life gain triggers only for the controller
+- `process_sba_and_triggers()` implements MTG rules 117.5 SBA+trigger loop until stable
+- 5 unit tests covering ETB triggers, attack triggers, life gain triggers, optional triggers, ownership validation
 
 ### C. Continuous Effect Layers Not Applied
 
@@ -442,7 +438,7 @@ Priority ordered by cards-unblocked per effort.
 
 1. ~~**Combat integration**~~ — **DONE (2026-02-14).** Wired `combat.rs` into `turn_based_actions()` for DeclareAttackers, DeclareBlockers, FirstStrikeDamage, CombatDamage, EndCombat. Connected lifelink, vigilance, flying/reach. Added `CombatState` to `GameState`. 13 unit tests.
 
-2. **Triggered ability stacking** — After each game action, scan for triggered abilities, push onto stack in APNAP order. This makes ETB abilities, attack triggers, death triggers, upkeep triggers, and damage triggers all work. **~400+ cards affected.**
+2. ~~**Triggered ability stacking**~~ — **DONE (2026-02-14).** Events emitted at game actions, triggered abilities detected and stacked in APNAP order. ETB, attack, and life gain triggers functional. 5 unit tests.
 
 3. **Continuous effect layer application** — Recalculate permanent characteristics (P/T, keywords, types) by applying StaticEffect variants in layer order. Makes lord/anthem effects functional. **~50+ cards affected.**
 

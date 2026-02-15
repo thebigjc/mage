@@ -21,6 +21,7 @@ use crate::card::CardData;
 use crate::constants::PhaseStep;
 use crate::counters::CounterType;
 use crate::decision::{AttackerInfo, PlayerDecisionMaker};
+use crate::events::{EventLog, EventType, GameEvent};
 use crate::permanent::Permanent;
 use crate::state::{GameState, StateBasedActions};
 use crate::turn::{has_priority, PriorityTracker, TurnManager};
@@ -83,6 +84,8 @@ pub struct Game {
     decision_makers: HashMap<PlayerId, Box<dyn PlayerDecisionMaker>>,
     /// Watcher manager for event tracking.
     pub watchers: WatcherManager,
+    /// Event log for tracking events that may trigger abilities.
+    event_log: EventLog,
 }
 
 impl Game {
@@ -148,6 +151,7 @@ impl Game {
             turn_manager,
             decision_makers: dm_map,
             watchers: WatcherManager::new(),
+            event_log: EventLog::new(),
         }
     }
 
@@ -348,16 +352,173 @@ impl Game {
         // -- Turn-based actions --
         self.turn_based_actions(step, active);
 
-        // -- Check state-based actions (loop until stable) --
-        self.process_state_based_actions();
-
-        // -- Handle triggered abilities --
-        // TODO: Put triggered abilities on the stack (task #13)
+        // -- SBA + triggered ability loop (MTG rules 117.5) --
+        // Loop: check SBAs, then check triggered abilities, repeat until stable.
+        self.process_sba_and_triggers();
 
         // -- Priority loop --
         if has_priority(step) {
             self.priority_loop();
         }
+    }
+
+    /// Loop state-based actions and triggered ability checks until stable.
+    /// Per MTG rules 117.5: SBAs are checked first, then triggered abilities
+    /// are put on the stack, then SBAs are checked again, until neither
+    /// produces any changes.
+    fn process_sba_and_triggers(&mut self) {
+        for _ in 0..MAX_SBA_ITERATIONS {
+            // Check and apply SBAs
+            let sba = self.state.check_state_based_actions();
+            let had_sba = sba.has_actions();
+            if had_sba {
+                self.apply_state_based_actions(&sba);
+            }
+
+            // Check for triggered abilities
+            let had_triggers = self.check_triggered_abilities();
+
+            // If neither SBAs nor triggers fired, we're stable
+            if !had_sba && !had_triggers {
+                break;
+            }
+        }
+    }
+
+    /// Check for triggered abilities that should fire from recent events.
+    /// Pushes matching triggered abilities onto the stack in APNAP order.
+    /// Returns true if any triggers were placed on the stack.
+    fn check_triggered_abilities(&mut self) -> bool {
+        if self.event_log.is_empty() {
+            return false;
+        }
+
+        // Collect all triggered abilities that match events
+        let mut triggered: Vec<(PlayerId, AbilityId, ObjectId, String)> = Vec::new();
+
+        for event in self.event_log.iter() {
+            let matching = self.state.ability_store.triggered_by(event);
+            for ability in matching {
+                // Only trigger if the source is still on the battlefield
+                let source_on_bf = self.state.battlefield.contains(ability.source_id);
+                if !source_on_bf {
+                    continue;
+                }
+
+                // Determine controller of the source permanent
+                let controller = self
+                    .state
+                    .battlefield
+                    .get(ability.source_id)
+                    .map(|p| p.controller)
+                    .unwrap_or(self.state.active_player);
+
+                // Check if this trigger is "self" only (e.g., "whenever THIS creature attacks")
+                // For attack triggers, only trigger for the source creature
+                if event.event_type == EventType::AttackerDeclared {
+                    if let Some(target_id) = event.target_id {
+                        if target_id != ability.source_id {
+                            continue;
+                        }
+                    }
+                }
+
+                // For ETB triggers, only trigger for the source permanent
+                if event.event_type == EventType::EnteredTheBattlefield {
+                    if let Some(target_id) = event.target_id {
+                        if target_id != ability.source_id {
+                            continue;
+                        }
+                    }
+                }
+
+                // For GainLife, only trigger for the controller's life gain
+                if event.event_type == EventType::GainLife {
+                    if let Some(player_id) = event.player_id {
+                        if player_id != controller {
+                            continue;
+                        }
+                    }
+                }
+
+                // For Dies triggers, the source must have just died
+                if event.event_type == EventType::Dies {
+                    // Dies triggers fire from the graveyard, not the battlefield
+                    // Skip the battlefield check for dies - we already checked above
+                    // Actually for dies, the permanent is gone from battlefield
+                    // We need to check from graveyard instead
+                    continue; // TODO: implement dies triggers from graveyard
+                }
+
+                triggered.push((
+                    controller,
+                    ability.id,
+                    ability.source_id,
+                    ability.rules_text.clone(),
+                ));
+            }
+        }
+
+        // Clear event log after processing
+        self.event_log.clear();
+
+        if triggered.is_empty() {
+            return false;
+        }
+
+        // Sort by APNAP order (active player's triggers first)
+        let active = self.state.active_player;
+        triggered.sort_by_key(|(controller, _, _, _)| if *controller == active { 0 } else { 1 });
+
+        // Push triggered abilities onto the stack
+        for (controller, ability_id, source_id, description) in triggered {
+            // For optional triggers, ask the controller
+            let ability = self.state.ability_store.get(ability_id).cloned();
+            if let Some(ref ab) = ability {
+                if ab.optional_trigger {
+                    let view = crate::decision::GameView::placeholder();
+                    let use_it = if let Some(dm) = self.decision_makers.get_mut(&controller) {
+                        dm.choose_use(
+                            &view,
+                            crate::constants::Outcome::Benefit,
+                            &format!("Use triggered ability: {}?", description),
+                        )
+                    } else {
+                        false
+                    };
+                    if !use_it {
+                        continue;
+                    }
+                }
+            }
+
+            // Select targets for the triggered ability
+            let targets = if let Some(ref ab) = ability {
+                self.select_targets_for_spec(&ab.targets, controller)
+            } else {
+                Vec::new()
+            };
+
+            let stack_item = crate::zones::StackItem {
+                id: ObjectId::new(), // triggered abilities get a fresh ID on the stack
+                kind: crate::zones::StackItemKind::Ability {
+                    source_id,
+                    ability_id,
+                    description,
+                },
+                controller,
+                targets,
+                countered: false,
+            };
+            self.state.stack.push(stack_item);
+        }
+
+        true
+    }
+
+    /// Emit an event to the event log (for triggered ability checking).
+    fn emit_event(&mut self, event: GameEvent) {
+        self.event_log.push(event);
     }
 
     /// Execute turn-based actions for a step.
@@ -538,6 +699,13 @@ impl Game {
                     perm.tap();
                 }
             }
+
+            // Emit attacker declared event
+            self.emit_event(
+                GameEvent::new(EventType::AttackerDeclared)
+                    .target(*attacker_id)
+                    .player(active_player),
+            );
         }
 
         // Check if any attackers have first/double strike to inform TurnManager
@@ -699,6 +867,8 @@ impl Game {
             if let Some(player) = self.state.players.get_mut(controller) {
                 player.gain_life(*amount);
             }
+            // Emit life gain event for lifelink
+            self.emit_event(GameEvent::gain_life(*controller, *amount));
         }
     }
 
@@ -905,6 +1075,9 @@ impl Game {
             let perm = Permanent::new(card_data, player_id);
             self.state.battlefield.add(perm);
             self.state.set_zone(card_id, crate::constants::Zone::Battlefield, None);
+
+            // Emit ETB event
+            self.emit_event(GameEvent::enters_battlefield(card_id, player_id));
         }
     }
 
@@ -1000,6 +1173,9 @@ impl Game {
                     let perm = Permanent::new(card.clone(), item.controller);
                     self.state.battlefield.add(perm);
                     self.state.set_zone(item.id, crate::constants::Zone::Battlefield, None);
+
+                    // Emit ETB event
+                    self.emit_event(GameEvent::enters_battlefield(item.id, item.controller));
                 } else {
                     // Non-permanent spells: execute effects then go to graveyard
                     let effects: Vec<Effect> = card.abilities.iter()
@@ -1427,6 +1603,10 @@ impl Game {
                     if let Some(player) = self.state.players.get_mut(&controller) {
                         player.life += *amount as i32;
                     }
+                    // Emit life gain event
+                    self.emit_event(
+                        GameEvent::gain_life(controller, *amount),
+                    );
                 }
                 Effect::LoseLife { amount } => {
                     // Controller loses life (target player effects will use
@@ -1590,6 +1770,7 @@ impl Game {
                         let perm = Permanent::new(card, controller);
                         self.state.battlefield.add(perm);
                         self.state.set_zone(token_id, crate::constants::Zone::Battlefield, None);
+                        self.emit_event(GameEvent::enters_battlefield(token_id, controller));
                     }
                 }
                 Effect::Scry { count } => {
@@ -2051,6 +2232,9 @@ impl Game {
                     let x = self.count_colors_among_permanents(controller) as u32;
                     if let Some(player) = self.state.players.get_mut(&controller) {
                         player.gain_life(x);
+                    }
+                    if x > 0 {
+                        self.emit_event(GameEvent::gain_life(controller, x));
                     }
                 }
                 Effect::BoostUntilEotVivid => {
@@ -5128,5 +5312,324 @@ mod combat_tests {
 
         // Both should deal damage: 2 + 3 = 5
         assert_eq!(game.state.players[&p2].life, 15);
+    }
+}
+
+#[cfg(test)]
+mod trigger_tests {
+    use super::*;
+    use crate::abilities::{Ability, Effect, TargetSpec};
+    use crate::card::CardData;
+    use crate::constants::{CardType, KeywordAbilities, Outcome};
+    use crate::decision::{
+        AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
+        ReplacementEffectChoice, TargetRequirement, UnpaidMana,
+    };
+    use crate::events::EventType;
+
+    /// Decision maker that always passes and says yes to optional triggers.
+    struct TriggerTestPlayer {
+        attack_all: bool,
+    }
+
+    impl TriggerTestPlayer {
+        fn passive() -> Self { TriggerTestPlayer { attack_all: false } }
+        fn attacker() -> Self { TriggerTestPlayer { attack_all: true } }
+    }
+
+    impl PlayerDecisionMaker for TriggerTestPlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction {
+            PlayerAction::Pass
+        }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { true }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(
+            &mut self,
+            _: &GameView<'_>,
+            possible_attackers: &[ObjectId],
+            possible_defenders: &[ObjectId],
+        ) -> Vec<(ObjectId, ObjectId)> {
+            if self.attack_all && !possible_defenders.is_empty() {
+                let defender = possible_defenders[0];
+                possible_attackers.iter().map(|&a| (a, defender)).collect()
+            } else {
+                vec![]
+            }
+        }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_deck(owner: PlayerId) -> Vec<CardData> {
+        (0..40).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), owner, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect()
+    }
+
+    fn setup(
+        p1_dm: Box<dyn PlayerDecisionMaker>,
+        p2_dm: Box<dyn PlayerDecisionMaker>,
+    ) -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(config, vec![(p1, p1_dm), (p2, p2_dm)]);
+        (game, p1, p2)
+    }
+
+    #[test]
+    fn etb_trigger_fires_and_resolves() {
+        let (mut game, p1, _p2) = setup(
+            Box::new(TriggerTestPlayer::passive()),
+            Box::new(TriggerTestPlayer::passive()),
+        );
+
+        // Create a creature with an ETB trigger: "When this enters, gain 3 life"
+        let card_id = ObjectId::new();
+        let mut card = CardData::new(card_id, p1, "Soul Warden");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(1);
+        card.toughness = Some(1);
+        card.abilities.push(Ability::triggered(
+            card_id,
+            "When Soul Warden enters the battlefield, you gain 3 life.",
+            vec![EventType::EnteredTheBattlefield],
+            vec![Effect::GainLife { amount: 3 }],
+            TargetSpec::None,
+        ));
+
+        // Register the card in the card store
+        game.state.card_store.insert(card.clone());
+
+        // Register abilities
+        for ability in &card.abilities {
+            game.state.ability_store.add(ability.clone());
+        }
+
+        // Put the permanent on the battlefield and emit ETB
+        let perm = Permanent::new(card, p1);
+        game.state.battlefield.add(perm);
+        game.state.set_zone(card_id, crate::constants::Zone::Battlefield, None);
+        game.emit_event(GameEvent::enters_battlefield(card_id, p1));
+
+        // Before processing triggers, life should be 20
+        assert_eq!(game.state.players[&p1].life, 20);
+
+        // Process SBAs + triggers
+        game.process_sba_and_triggers();
+
+        // The trigger should have been put on the stack
+        // Since we called process_sba_and_triggers (not the full priority loop),
+        // the ability is on the stack. Let's resolve it.
+        assert!(!game.state.stack.is_empty());
+
+        // Resolve the triggered ability
+        game.resolve_top_of_stack();
+
+        // Life should now be 23
+        assert_eq!(game.state.players[&p1].life, 23);
+    }
+
+    #[test]
+    fn attack_trigger_fires() {
+        let (mut game, p1, p2) = setup(
+            Box::new(TriggerTestPlayer::attacker()),
+            Box::new(TriggerTestPlayer::passive()),
+        );
+
+        // Create creature with attack trigger: "Whenever this attacks, each opponent loses 1 life"
+        let card_id = ObjectId::new();
+        let mut card = CardData::new(card_id, p1, "Pulse Tracker");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(1);
+        card.toughness = Some(1);
+        card.abilities.push(Ability::triggered(
+            card_id,
+            "Whenever Pulse Tracker attacks, each opponent loses 1 life.",
+            vec![EventType::AttackerDeclared],
+            vec![Effect::LoseLifeOpponents { amount: 1 }],
+            TargetSpec::None,
+        ));
+
+        // Register
+        game.state.card_store.insert(card.clone());
+        for ability in &card.abilities {
+            game.state.ability_store.add(ability.clone());
+        }
+        let mut perm = Permanent::new(card, p1);
+        perm.remove_summoning_sickness();
+        game.state.battlefield.add(perm);
+        game.state.set_zone(card_id, crate::constants::Zone::Battlefield, None);
+
+        // Declare attackers
+        game.state.active_player = p1;
+        game.declare_attackers_step(p1);
+
+        // Process SBAs + triggers
+        game.process_sba_and_triggers();
+
+        // Attack trigger should be on the stack
+        assert!(!game.state.stack.is_empty());
+
+        // Resolve it
+        game.resolve_top_of_stack();
+
+        // Opponent should have lost 1 life
+        assert_eq!(game.state.players[&p2].life, 19);
+    }
+
+    #[test]
+    fn life_gain_trigger_fires() {
+        let (mut game, p1, _p2) = setup(
+            Box::new(TriggerTestPlayer::passive()),
+            Box::new(TriggerTestPlayer::passive()),
+        );
+
+        // Create "Ajani's Pridemate" — whenever you gain life, put a +1/+1 counter
+        let card_id = ObjectId::new();
+        let mut card = CardData::new(card_id, p1, "Ajani's Pridemate");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(2);
+        card.toughness = Some(2);
+        card.abilities.push(Ability::triggered(
+            card_id,
+            "Whenever you gain life, put a +1/+1 counter on Ajani's Pridemate.",
+            vec![EventType::GainLife],
+            vec![Effect::add_counters_self("+1/+1", 1)],
+            TargetSpec::None,
+        ));
+
+        // Register
+        game.state.card_store.insert(card.clone());
+        for ability in &card.abilities {
+            game.state.ability_store.add(ability.clone());
+        }
+        let perm = Permanent::new(card, p1);
+        game.state.battlefield.add(perm);
+
+        // Gain life
+        game.execute_effects(&[Effect::GainLife { amount: 5 }], p1, &[], None);
+
+        // Process triggers
+        game.process_sba_and_triggers();
+        assert!(!game.state.stack.is_empty());
+
+        // Resolve the trigger
+        game.resolve_top_of_stack();
+
+        // Should have a +1/+1 counter
+        let pridemate = game.state.battlefield.get(card_id).unwrap();
+        assert_eq!(pridemate.counters.get(&crate::counters::CounterType::P1P1), 1);
+        assert_eq!(pridemate.power(), 3);
+        assert_eq!(pridemate.toughness(), 3);
+    }
+
+    #[test]
+    fn optional_trigger_not_forced() {
+        let (mut game, p1, _p2) = setup(
+            Box::new(TriggerTestPlayer::passive()),
+            Box::new(TriggerTestPlayer::passive()),
+        );
+
+        // A "may" trigger that the player says yes to (TriggerTestPlayer says yes)
+        let card_id = ObjectId::new();
+        let mut card = CardData::new(card_id, p1, "Optional Creature");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(1);
+        card.toughness = Some(1);
+        let ability = Ability::triggered(
+            card_id,
+            "When Optional Creature enters, you may gain 2 life.",
+            vec![EventType::EnteredTheBattlefield],
+            vec![Effect::GainLife { amount: 2 }],
+            TargetSpec::None,
+        ).set_optional();
+        card.abilities.push(ability);
+
+        game.state.card_store.insert(card.clone());
+        for ability in &card.abilities {
+            game.state.ability_store.add(ability.clone());
+        }
+        let perm = Permanent::new(card, p1);
+        game.state.battlefield.add(perm);
+        game.emit_event(GameEvent::enters_battlefield(card_id, p1));
+
+        // Process triggers — TriggerTestPlayer always says yes
+        game.process_sba_and_triggers();
+
+        // Should be on the stack (player chose yes)
+        assert!(!game.state.stack.is_empty());
+        game.resolve_top_of_stack();
+        assert_eq!(game.state.players[&p1].life, 22);
+    }
+
+    #[test]
+    fn trigger_only_fires_for_own_permanent() {
+        let (mut game, p1, p2) = setup(
+            Box::new(TriggerTestPlayer::passive()),
+            Box::new(TriggerTestPlayer::passive()),
+        );
+
+        // p1's creature has attack trigger
+        let card_id = ObjectId::new();
+        let mut card = CardData::new(card_id, p1, "TriggerCreature");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(2);
+        card.toughness = Some(2);
+        card.abilities.push(Ability::triggered(
+            card_id,
+            "Whenever TriggerCreature attacks, gain 1 life.",
+            vec![EventType::AttackerDeclared],
+            vec![Effect::GainLife { amount: 1 }],
+            TargetSpec::None,
+        ));
+
+        game.state.card_store.insert(card.clone());
+        for ability in &card.abilities {
+            game.state.ability_store.add(ability.clone());
+        }
+        let mut perm = Permanent::new(card, p1);
+        perm.remove_summoning_sickness();
+        game.state.battlefield.add(perm);
+
+        // A DIFFERENT creature from p2 attacks — p1's trigger should NOT fire
+        let other_id = ObjectId::new();
+        let mut other = CardData::new(other_id, p2, "Other");
+        other.card_types = vec![CardType::Creature];
+        other.power = Some(1);
+        other.toughness = Some(1);
+        let mut perm2 = Permanent::new(other, p2);
+        perm2.remove_summoning_sickness();
+        game.state.battlefield.add(perm2);
+
+        // Emit attack event for p2's creature (not p1's)
+        game.emit_event(
+            GameEvent::new(EventType::AttackerDeclared)
+                .target(other_id)
+                .player(p2),
+        );
+
+        // Process triggers
+        game.process_sba_and_triggers();
+
+        // No trigger should have fired (the attacker was a different creature)
+        assert!(game.state.stack.is_empty());
     }
 }

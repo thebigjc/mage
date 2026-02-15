@@ -1252,11 +1252,11 @@ mod tests {
 
         // Check trigger matching
         let event = GameEvent::enters_battlefield(source, PlayerId::new());
-        // The event type is EntersTheBattlefield, but our trigger watches EnteredTheBattlefield
-        let post_event = GameEvent::new(EventType::EnteredTheBattlefield)
-            .target(source);
-        assert!(ability.should_trigger(&post_event));
-        assert!(!ability.should_trigger(&event)); // pre-event, not what we trigger on
+        assert!(ability.should_trigger(&event));
+
+        // Unrelated event should not trigger
+        let unrelated = GameEvent::new(EventType::DamagePlayer).target(source);
+        assert!(!ability.should_trigger(&unrelated));
     }
 
     #[test]
