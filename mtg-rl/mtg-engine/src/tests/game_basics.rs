@@ -1,10 +1,9 @@
 // Basic game mechanics tests
 
-use super::*;
 use crate::game::{Game, GameConfig, PlayerConfig};
 use crate::permanent::Permanent;
 use crate::counters::CounterType;
-use crate::constants::{SuperType, PhaseStep, TurnPhase, Outcome};
+use crate::constants::{SuperType, PhaseStep, Outcome};
 use crate::abilities::{Ability, Cost, TargetSpec};
 use crate::mana::Mana;
 use crate::types::PlayerId;
