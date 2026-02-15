@@ -1412,6 +1412,11 @@ impl StaticEffect {
             filter: filter.to_string(),
         }
     }
+
+    /// Set this creature's base power to the number of colors among permanents you control (Vivid).
+    pub fn set_power_to_color_count() -> Self {
+        StaticEffect::SetPowerToColorCount
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1625,6 +1630,8 @@ pub enum StaticEffect {
     CantUntap {
         filter: String,
     },
+    /// Set this creature's base power to the number of colors among permanents you control (Vivid).
+    SetPowerToColorCount,
     /// Custom continuous effect.
 
     Custom(String),

@@ -440,6 +440,7 @@ impl Game {
         let mut lose_all_abilities: Vec<(ObjectId, PlayerId, String)> = Vec::new();
         let mut set_base_pts: Vec<(ObjectId, PlayerId, String, i32, i32)> = Vec::new();
         let mut cant_untaps: Vec<(ObjectId, PlayerId, String)> = Vec::new();
+        let mut set_power_color_counts: Vec<(ObjectId, PlayerId)> = Vec::new();
 
         for perm in self.state.battlefield.iter() {
             let source_id = perm.id();
@@ -493,6 +494,9 @@ impl Game {
                         crate::abilities::StaticEffect::CantUntap { filter } => {
                             cant_untaps.push((source_id, controller, filter.clone()));
                         }
+                        crate::abilities::StaticEffect::SetPowerToColorCount => {
+                            set_power_color_counts.push((source_id, controller));
+                        }
                         _ => {}
                     }
                 }
@@ -518,6 +522,14 @@ impl Game {
                     perm.base_power_override = Some(power);
                     perm.base_toughness_override = Some(toughness);
                 }
+            }
+        }
+
+        // Step 2c2: Apply SetPowerToColorCount (Layer 7b — Vivid power)
+        for (source_id, controller) in set_power_color_counts {
+            let color_count = self.count_colors_among_permanents(controller) as i32;
+            if let Some(perm) = self.state.battlefield.get_mut(source_id) {
+                perm.base_power_override = Some(color_count);
             }
         }
 
@@ -14085,5 +14097,205 @@ mod choose_type_grant_keywords_tests {
 
         let perm = game.state.battlefield.get(elf_id).unwrap();
         assert!(!perm.has_keyword(KeywordAbilities::HEXPROOF), "Should NOT have hexproof after cleanup");
+    }
+}
+
+#[cfg(test)]
+mod set_power_to_color_count_tests {
+    use super::*;
+    use crate::abilities::{Ability, StaticEffect};
+    use crate::card::CardData;
+    use crate::constants::{CardType, Color, Outcome, SubType};
+    use crate::decision::{
+        AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
+        ReplacementEffectChoice, TargetRequirement, UnpaidMana,
+    };
+
+    struct PassPlayer;
+
+    impl PlayerDecisionMaker for PassPlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let deck: Vec<CardData> = (0..40).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), p1, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect();
+        let deck2: Vec<CardData> = (0..40).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), p2, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "P1".into(), deck },
+                PlayerConfig { name: "P2".into(), deck: deck2 },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(config, vec![(p1, Box::new(PassPlayer)), (p2, Box::new(PassPlayer))]);
+        (game, p1, p2)
+    }
+
+    fn add_colored_creature(game: &mut Game, owner: PlayerId, name: &str, colors: Vec<Color>) -> ObjectId {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![SubType::Elemental];
+        card.power = Some(1);
+        card.toughness = Some(1);
+        card.color_identity = colors;
+        let id = card.id;
+        game.state.battlefield.add(Permanent::new(card, owner));
+        id
+    }
+
+    fn add_vivid_creature(game: &mut Game, owner: PlayerId) -> ObjectId {
+        let mut card = CardData::new(ObjectId::new(), owner, "Squawkroaster");
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![SubType::Elemental];
+        card.power = Some(0);
+        card.toughness = Some(4);
+        card.color_identity = vec![Color::Red];
+        let id = card.id;
+        let ability = Ability::static_ability(id,
+            "Vivid — Power is equal to colors among permanents you control.",
+            vec![StaticEffect::set_power_to_color_count()]);
+        card.abilities.push(ability.clone());
+        game.state.card_store.insert(card.clone());
+        game.state.battlefield.add(Permanent::new(card, owner));
+        game.state.ability_store.add(ability);
+        id
+    }
+
+    #[test]
+    fn power_equals_zero_with_no_colored_permanents() {
+        let (mut game, p1, _p2) = make_game();
+
+        let vivid_id = add_vivid_creature(&mut game, p1);
+        if let Some(perm) = game.state.battlefield.get_mut(vivid_id) {
+            perm.card.color_identity = vec![];
+        }
+
+        let mut land = CardData::new(ObjectId::new(), p1, "Wastes");
+        land.card_types = vec![CardType::Land];
+        let land_id = land.id;
+        game.state.battlefield.add(Permanent::new(land, p1));
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(vivid_id).unwrap();
+        assert_eq!(perm.power(), 0, "no colored permanents = power 0");
+        assert_eq!(perm.toughness(), 4, "toughness should remain 4");
+    }
+
+    #[test]
+    fn power_equals_one_with_single_color() {
+        let (mut game, p1, _p2) = make_game();
+
+        let vivid_id = add_vivid_creature(&mut game, p1);
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(vivid_id).unwrap();
+        assert_eq!(perm.power(), 1, "one red permanent = power 1");
+    }
+
+    #[test]
+    fn power_equals_three_with_three_colors() {
+        let (mut game, p1, _p2) = make_game();
+
+        let vivid_id = add_vivid_creature(&mut game, p1);
+        add_colored_creature(&mut game, p1, "Green Elf", vec![Color::Green]);
+        add_colored_creature(&mut game, p1, "Blue Wizard", vec![Color::Blue]);
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(vivid_id).unwrap();
+        assert_eq!(perm.power(), 3, "red + green + blue = power 3");
+    }
+
+    #[test]
+    fn power_equals_five_with_all_colors() {
+        let (mut game, p1, _p2) = make_game();
+
+        let vivid_id = add_vivid_creature(&mut game, p1);
+        add_colored_creature(&mut game, p1, "White Knight", vec![Color::White]);
+        add_colored_creature(&mut game, p1, "Blue Mage", vec![Color::Blue]);
+        add_colored_creature(&mut game, p1, "Black Rogue", vec![Color::Black]);
+        add_colored_creature(&mut game, p1, "Green Beast", vec![Color::Green]);
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(vivid_id).unwrap();
+        assert_eq!(perm.power(), 5, "all five colors = power 5");
+        assert_eq!(perm.toughness(), 4, "toughness unchanged");
+    }
+
+    #[test]
+    fn multicolored_permanent_counts_multiple_colors() {
+        let (mut game, p1, _p2) = make_game();
+
+        let vivid_id = add_vivid_creature(&mut game, p1);
+        add_colored_creature(&mut game, p1, "Niv-Mizzet", vec![Color::Blue, Color::Red]);
+        add_colored_creature(&mut game, p1, "Siege Rhino", vec![Color::White, Color::Black, Color::Green]);
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(vivid_id).unwrap();
+        assert_eq!(perm.power(), 5, "W+U+B+R+G from multicolor = power 5");
+    }
+
+    #[test]
+    fn duplicate_colors_not_double_counted() {
+        let (mut game, p1, _p2) = make_game();
+
+        let vivid_id = add_vivid_creature(&mut game, p1);
+        add_colored_creature(&mut game, p1, "Red Goblin 1", vec![Color::Red]);
+        add_colored_creature(&mut game, p1, "Red Goblin 2", vec![Color::Red]);
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(vivid_id).unwrap();
+        assert_eq!(perm.power(), 1, "multiple red permanents still = 1 color");
+    }
+
+    #[test]
+    fn opponent_permanents_dont_count() {
+        let (mut game, p1, p2) = make_game();
+
+        let vivid_id = add_vivid_creature(&mut game, p1);
+        add_colored_creature(&mut game, p2, "Opponent Blue", vec![Color::Blue]);
+        add_colored_creature(&mut game, p2, "Opponent Green", vec![Color::Green]);
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(vivid_id).unwrap();
+        assert_eq!(perm.power(), 1, "only own permanents count (red from self)");
+    }
+
+    #[test]
+    fn helper_constructor() {
+        match StaticEffect::set_power_to_color_count() {
+            StaticEffect::SetPowerToColorCount => {}
+            _ => panic!("wrong variant"),
+        }
     }
 }

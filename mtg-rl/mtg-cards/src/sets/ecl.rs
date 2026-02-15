@@ -1454,7 +1454,7 @@ fn squawkroaster(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Vivid — Squawkroaster's power is equal to the number of colors among permanents you control.",
-                vec![StaticEffect::Custom("Power = colors among your permanents.".into())]),
+                vec![StaticEffect::set_power_to_color_count()]),
         ],
         ..Default::default() }
 }
