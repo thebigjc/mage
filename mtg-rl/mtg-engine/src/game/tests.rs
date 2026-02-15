@@ -25,17 +25,3 @@ mod special_mechanics;
 mod tokens;
 #[path = "../tests/triggers.rs"]
 mod triggers;
-
-// Re-export all test modules
-pub use abilities::*;
-pub use combat::*;
-pub use continuous_effects::*;
-pub use costs::*;
-pub use effects::*;
-pub use equipment_auras::*;
-pub use game_basics::*;
-pub use keywords::*;
-pub use modal::*;
-pub use special_mechanics::*;
-pub use tokens::*;
-pub use triggers::*;
