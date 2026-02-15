@@ -510,7 +510,7 @@ fn fizzle_when_target_removed() {
     }
 
     // Cast the spell targeting the bear
-    game.cast_spell(p1, spell_id, vec![bear_id]);
+    game.cast_spell(p1, spell_id);
 
     // Spell should be on the stack
     assert_eq!(game.state.stack.len(), 1);
@@ -519,8 +519,7 @@ fn fizzle_when_target_removed() {
     game.state.battlefield.remove(bear_id);
 
     // Try to resolve the spell - it should fizzle
-    game.pass_priority(p1);
-    game.pass_priority(p2);
+    game.resolve_top_of_stack();
 
     // Stack should be empty
     assert_eq!(game.state.stack.len(), 0);
