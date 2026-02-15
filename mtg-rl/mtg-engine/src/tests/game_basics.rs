@@ -464,7 +464,7 @@ fn spell_effects_execute_on_resolve() {
 
     // Spell should be in the graveyard
     let player1 = game.state.players.get(&p1).unwrap();
-    assert!(player1.graveyard.contains(&spell_id));
+    assert!(player1.graveyard.contains(spell_id));
 }
 
 #[test]
@@ -529,5 +529,5 @@ fn fizzle_when_target_removed() {
 
     // Spell should still end up in graveyard (fizzled spells go to graveyard)
     let player1 = game.state.players.get(&p1).unwrap();
-    assert!(player1.graveyard.contains(&spell_id));
+    assert!(player1.graveyard.contains(spell_id));
 }
