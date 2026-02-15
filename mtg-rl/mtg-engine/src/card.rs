@@ -55,6 +55,9 @@ pub struct CardData {
     pub abilities: Vec<Ability>,
     /// Whether this card is a token (created during the game, not from a deck).
     pub is_token: bool,
+    /// Flashback cost: if set, this card can be cast from the graveyard for this
+    /// cost, then exiled instead of returning to the graveyard.
+    pub flashback_cost: Option<ManaCost>,
 }
 
 impl CardData {
@@ -77,6 +80,7 @@ impl CardData {
             rules_text: String::new(),
             abilities: Vec::new(),
             is_token: false,
+            flashback_cost: None,
         }
     }
 
@@ -143,6 +147,7 @@ impl Default for CardData {
             rules_text: String::new(),
             abilities: Vec::new(),
             is_token: false,
+            flashback_cost: None,
         }
     }
 }

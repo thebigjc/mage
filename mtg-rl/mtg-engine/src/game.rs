@@ -830,6 +830,7 @@ impl Game {
                 targets,
                 countered: false,
             x_value: None,
+            exile_on_resolve: false,
             };
             self.state.stack.push(stack_item);
         }
@@ -1440,6 +1441,33 @@ impl Game {
             }
         }
 
+        // Check for flashback-castable cards in graveyard
+        if let Some(graveyard) = self.state.players.get(&player_id).map(|p| {
+            p.graveyard.iter().copied().collect::<Vec<_>>()
+        }) {
+            for card_id in graveyard {
+                if let Some(card) = self.state.card_store.get(card_id) {
+                    if let Some(ref fb_cost) = card.flashback_cost {
+                        // Non-land spell with flashback
+                        if card.is_land() { continue; }
+                        let needs_sorcery = !card.is_instant()
+                            && !card.keywords.contains(crate::constants::KeywordAbilities::FLASH);
+                        if needs_sorcery && !can_sorcery { continue; }
+                        let mana_cost = fb_cost.to_mana();
+                        let available = player.mana_pool.available();
+                        if available.can_pay(&mana_cost) {
+                            actions.push(crate::decision::PlayerAction::CastSpell {
+                                card_id,
+                                targets: vec![],
+                                mode: None,
+                                without_mana: false,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
         // Check for activatable abilities on permanents the player controls
         let controlled_perms: Vec<(ObjectId, bool)> = self.state.battlefield
             .controlled_by(player_id)
@@ -1557,11 +1585,20 @@ impl Game {
         let without_mana = from_exile && self.state.impulse_playable.iter()
             .any(|ip| ip.card_id == card_id && ip.without_mana);
 
-        // Remove from hand or exile
+        // Check if this is a flashback cast from graveyard
+        let from_graveyard = !from_exile && card_data.flashback_cost.is_some()
+            && self.state.players.get(&player_id)
+                .map(|p| p.graveyard.contains(card_id))
+                .unwrap_or(false);
+
+        // Remove from hand, exile, or graveyard
         if from_exile {
             self.state.exile.remove(card_id);
-            // Remove the impulse-playable entry
             self.state.impulse_playable.retain(|ip| ip.card_id != card_id);
+        } else if from_graveyard {
+            if let Some(player) = self.state.players.get_mut(&player_id) {
+                player.graveyard.remove(card_id);
+            }
         } else if let Some(player) = self.state.players.get_mut(&player_id) {
             if !player.hand.remove(card_id) {
                 return;
@@ -1571,13 +1608,22 @@ impl Game {
         // Pay mana cost (with X substituted if applicable), unless free cast
         if !without_mana {
             if let Some(player) = self.state.players.get_mut(&player_id) {
-                let mana_cost = match x_value {
-                    Some(x) => card_data.mana_cost.to_mana_with_x(x),
-                    None => card_data.mana_cost.to_mana(),
+                let mana_cost = if from_graveyard {
+                    // Use flashback cost when casting from graveyard
+                    card_data.flashback_cost.as_ref().unwrap().to_mana()
+                } else {
+                    match x_value {
+                        Some(x) => card_data.mana_cost.to_mana_with_x(x),
+                        None => card_data.mana_cost.to_mana(),
+                    }
                 };
                 if !player.mana_pool.try_pay(&mana_cost) {
                     // Can't pay — put card back where it came from
-                    player.hand.add(card_id);
+                    if from_graveyard {
+                        player.graveyard.add(card_id);
+                    } else {
+                        player.hand.add(card_id);
+                    }
                     return;
                 }
             }
@@ -1600,12 +1646,13 @@ impl Game {
             targets,
             countered: false,
             x_value,
+            exile_on_resolve: from_graveyard,
         };
         self.state.stack.push(stack_item);
         self.state.set_zone(card_id, crate::constants::Zone::Stack, None);
 
         // Emit spell cast event (for prowess, storm, etc.)
-        self.emit_event(GameEvent::spell_cast(card_id, player_id, if from_exile { crate::constants::Zone::Exile } else { crate::constants::Zone::Hand }));
+        self.emit_event(GameEvent::spell_cast(card_id, player_id, if from_exile { crate::constants::Zone::Exile } else if from_graveyard { crate::constants::Zone::Graveyard } else { crate::constants::Zone::Hand }));
 
         // Ward check: if any target has Ward and the caster is an opponent, enforce ward cost
         self.check_ward_on_targets(card_id, player_id);
@@ -1783,8 +1830,15 @@ impl Game {
                         .flat_map(|a| a.effects.clone())
                         .collect();
                     let targets = item.targets.clone();
+                    let exile_after = item.exile_on_resolve;
                     self.execute_effects(&effects, item.controller, &targets, Some(item.id), item.x_value);
-                    self.move_card_to_graveyard(item.id, item.controller);
+                    if exile_after {
+                        // Flashback: exile instead of going to graveyard
+                        self.state.exile.exile(item.id);
+                        self.state.set_zone(item.id, crate::constants::Zone::Exile, None);
+                    } else {
+                        self.move_card_to_graveyard(item.id, item.controller);
+                    }
                 }
             }
             crate::zones::StackItemKind::Ability { ability_id, source_id, .. } => {
@@ -1927,6 +1981,7 @@ impl Game {
             targets: targets.to_vec(),
             countered: false,
             x_value: None,
+            exile_on_resolve: false,
         };
         self.state.stack.push(stack_item);
     }
@@ -3987,6 +4042,7 @@ mod tests {
             targets: vec![bear_id],
             countered: false,
             x_value: None,
+            exile_on_resolve: false,
         };
         game.state.stack.push(stack_item);
 
@@ -4050,6 +4106,7 @@ mod tests {
             targets: vec![bear_id],
             countered: false,
             x_value: None,
+            exile_on_resolve: false,
         };
         game.state.stack.push(stack_item);
 
@@ -5838,6 +5895,7 @@ mod combat_tests {
 
         // Set active player to p1
         game.state.active_player = p1;
+        game.state.priority_player = p1;
 
         // Run declare attackers step
         game.declare_attackers_step(p1);
@@ -5866,6 +5924,7 @@ mod combat_tests {
 
         let vig_id = add_creature(&mut game, p1, "Vigilant", 2, 2, KeywordAbilities::VIGILANCE);
         game.state.active_player = p1;
+        game.state.priority_player = p1;
         game.declare_attackers_step(p1);
 
         // Should be attacking but NOT tapped
@@ -5884,6 +5943,7 @@ mod combat_tests {
         let blocker_id = add_creature(&mut game, p2, "Blocker", 2, 4, KeywordAbilities::empty());
 
         game.state.active_player = p1;
+        game.state.priority_player = p1;
         game.declare_attackers_step(p1);
         game.declare_blockers_step(p1);
 
@@ -5910,6 +5970,7 @@ mod combat_tests {
         add_creature(&mut game, p1, "Lifelinker", 4, 4, KeywordAbilities::LIFELINK);
 
         game.state.active_player = p1;
+        game.state.priority_player = p1;
 
         // Reduce p1 life to verify gain
         game.state.players.get_mut(&p1).unwrap().life = 15;
@@ -5934,6 +5995,7 @@ mod combat_tests {
         let blocker_id = add_creature(&mut game, p2, "Blocker", 3, 3, KeywordAbilities::empty());
 
         game.state.active_player = p1;
+        game.state.priority_player = p1;
         game.declare_attackers_step(p1);
         game.declare_blockers_step(p1);
 
@@ -5964,6 +6026,7 @@ mod combat_tests {
         let blocker_id = add_creature(&mut game, p2, "SmallBlocker", 1, 2, KeywordAbilities::empty());
 
         game.state.active_player = p1;
+        game.state.priority_player = p1;
         game.declare_attackers_step(p1);
         game.declare_blockers_step(p1);
         game.combat_damage_step(false);
@@ -5983,6 +6046,7 @@ mod combat_tests {
         add_creature(&mut game, p1, "Bear", 2, 2, KeywordAbilities::empty());
 
         game.state.active_player = p1;
+        game.state.priority_player = p1;
         game.declare_attackers_step(p1);
         assert!(game.state.combat.has_attackers());
 
@@ -6002,6 +6066,7 @@ mod combat_tests {
         add_creature(&mut game, p1, "Wall", 0, 5, KeywordAbilities::DEFENDER);
 
         game.state.active_player = p1;
+        game.state.priority_player = p1;
         game.declare_attackers_step(p1);
 
         // Should have no attackers (defender can't attack)
@@ -6022,6 +6087,7 @@ mod combat_tests {
         game.state.battlefield.add(perm);
 
         game.state.active_player = p1;
+        game.state.priority_player = p1;
         game.declare_attackers_step(p1);
 
         // Should not have attacked
@@ -6042,6 +6108,7 @@ mod combat_tests {
         game.state.battlefield.add(perm);
 
         game.state.active_player = p1;
+        game.state.priority_player = p1;
         game.declare_attackers_step(p1);
         game.declare_blockers_step(p1);
         game.combat_damage_step(false);
@@ -6062,6 +6129,7 @@ mod combat_tests {
         add_creature(&mut game, p2, "Ground", 2, 2, KeywordAbilities::empty());
 
         game.state.active_player = p1;
+        game.state.priority_player = p1;
         game.declare_attackers_step(p1);
         game.declare_blockers_step(p1);
         game.combat_damage_step(false);
@@ -6081,6 +6149,7 @@ mod combat_tests {
         let reacher_id = add_creature(&mut game, p2, "Reacher", 1, 4, KeywordAbilities::REACH);
 
         game.state.active_player = p1;
+        game.state.priority_player = p1;
         game.declare_attackers_step(p1);
         game.declare_blockers_step(p1);
 
@@ -6107,6 +6176,7 @@ mod combat_tests {
         add_creature(&mut game, p1, "Bear2", 3, 3, KeywordAbilities::empty());
 
         game.state.active_player = p1;
+        game.state.priority_player = p1;
         game.declare_attackers_step(p1);
         game.declare_blockers_step(p1);
         game.combat_damage_step(false);
@@ -6281,6 +6351,7 @@ mod trigger_tests {
 
         // Declare attackers
         game.state.active_player = p1;
+        game.state.priority_player = p1;
         game.declare_attackers_step(p1);
 
         // Process SBAs + triggers
@@ -8190,6 +8261,7 @@ mod cant_be_countered_tests {
             targets: vec![],
             countered: false,
             x_value: None,
+            exile_on_resolve: false,
         };
         game.state.stack.push(stack_item);
 
@@ -8238,6 +8310,7 @@ mod cant_be_countered_tests {
             targets: vec![],
             countered: false,
             x_value: None,
+            exile_on_resolve: false,
         };
         game.state.stack.push(stack_item);
         game.state.card_store.insert(CardData::new(spell_id, p1, "Lightning Bolt"));
@@ -8308,6 +8381,7 @@ mod step_trigger_tests {
             vec![(p1, Box::new(PassivePlayer)), (p2, Box::new(PassivePlayer))],
         );
         game.state.active_player = p1;
+        game.state.priority_player = p1;
 
         // Create a creature with upkeep trigger (gain 1 life at upkeep)
         let creature_id = ObjectId::new();
@@ -8360,6 +8434,7 @@ mod step_trigger_tests {
             vec![(p1, Box::new(PassivePlayer)), (p2, Box::new(PassivePlayer))],
         );
         game.state.active_player = p1;
+        game.state.priority_player = p1;
 
         // Create a creature with end step trigger (draw a card)
         let creature_id = ObjectId::new();
@@ -8412,6 +8487,7 @@ mod step_trigger_tests {
             vec![(p1, Box::new(PassivePlayer)), (p2, Box::new(PassivePlayer))],
         );
         game.state.active_player = p1;
+        game.state.priority_player = p1;
 
         // Create an upkeep trigger creature controlled by p2
         let creature_id = ObjectId::new();
@@ -8720,6 +8796,7 @@ mod impulse_draw_tests {
             ],
         );
         game.state.active_player = p1;
+        game.state.priority_player = p1;
         game.state.current_phase = TurnPhase::PrecombatMain;
         game.state.current_step = PhaseStep::PrecombatMain;
         game.state.turn_number = 1;
@@ -8869,6 +8946,7 @@ mod impulse_draw_tests {
 
         // Simulate P1's next turn cleanup (this is when it should expire)
         game.state.active_player = p1;
+        game.state.priority_player = p1;
         game.state.turn_number = 3;
         game.turn_based_actions(PhaseStep::Cleanup, p1);
         assert_eq!(game.state.impulse_playable.len(), 0,
@@ -8956,6 +9034,7 @@ mod delayed_trigger_tests {
             ],
         );
         game.state.active_player = p1;
+        game.state.priority_player = p1;
         game.state.current_phase = TurnPhase::PrecombatMain;
         game.state.current_step = PhaseStep::PrecombatMain;
         game.state.turn_number = 1;
@@ -9092,5 +9171,186 @@ mod delayed_trigger_tests {
 
         // Trigger should be removed (trigger_only_once)
         assert_eq!(game.state.delayed_triggers.len(), 0);
+    }
+}
+
+#[cfg(test)]
+mod flashback_tests {
+    use super::*;
+    use crate::abilities::{Ability, Effect, TargetSpec};
+    use crate::card::CardData;
+    use crate::constants::{CardType, TurnPhase, PhaseStep, Outcome};
+    use crate::mana::{Mana, ManaCost};
+    use crate::types::{ObjectId, PlayerId};
+    use crate::decision::*;
+
+    struct PassivePlayer;
+    impl PlayerDecisionMaker for PassivePlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn setup_flashback_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            starting_life: 20,
+            players: vec![
+                PlayerConfig { name: "P1".into(), deck: vec![] },
+                PlayerConfig { name: "P2".into(), deck: vec![] },
+            ],
+        };
+        let mut game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(PassivePlayer)),
+                (p2, Box::new(PassivePlayer)),
+            ],
+        );
+        game.state.active_player = p1;
+        game.state.priority_player = p1;
+        game.state.current_phase = TurnPhase::PrecombatMain;
+        game.state.current_step = PhaseStep::PrecombatMain;
+        game.state.turn_number = 1;
+        (game, p1, p2)
+    }
+
+    #[test]
+    fn flashback_appears_in_legal_actions() {
+        let (mut game, p1, _p2) = setup_flashback_game();
+
+        // Create a sorcery with flashback in graveyard
+        let spell_id = ObjectId::new();
+        let mut spell = CardData::new(spell_id, p1, "Flashback Bolt");
+        spell.card_types = vec![CardType::Sorcery];
+        spell.mana_cost = ManaCost::parse("{R}");
+        spell.flashback_cost = Some(ManaCost::parse("{2}{R}"));
+        spell.abilities = vec![Ability::spell(spell_id,
+            vec![Effect::GainLife { amount: 3 }],
+            TargetSpec::None)];
+        game.state.card_store.insert(spell);
+        game.state.players.get_mut(&p1).unwrap().graveyard.add(spell_id);
+
+        // Give P1 enough mana for flashback cost {2}{R}
+        game.state.players.get_mut(&p1).unwrap()
+            .mana_pool.add(Mana { red: 3, ..Mana::new() }, None, false);
+
+        let actions = game.compute_legal_actions(p1);
+        let cast_actions: Vec<_> = actions.iter()
+            .filter(|a| matches!(a, PlayerAction::CastSpell { card_id, .. } if *card_id == spell_id))
+            .collect();
+        assert!(!cast_actions.is_empty(), "Should be able to cast flashback from graveyard");
+    }
+
+    #[test]
+    fn flashback_not_available_without_mana() {
+        let (mut game, p1, _p2) = setup_flashback_game();
+
+        let spell_id = ObjectId::new();
+        let mut spell = CardData::new(spell_id, p1, "Flashback Bolt");
+        spell.card_types = vec![CardType::Sorcery];
+        spell.mana_cost = ManaCost::parse("{R}");
+        spell.flashback_cost = Some(ManaCost::parse("{2}{R}"));
+        spell.abilities = vec![Ability::spell(spell_id,
+            vec![Effect::GainLife { amount: 3 }],
+            TargetSpec::None)];
+        game.state.card_store.insert(spell);
+        game.state.players.get_mut(&p1).unwrap().graveyard.add(spell_id);
+
+        // Only give 1 red (flashback needs {2}{R})
+        game.state.players.get_mut(&p1).unwrap()
+            .mana_pool.add(Mana { red: 1, ..Mana::new() }, None, false);
+
+        let actions = game.compute_legal_actions(p1);
+        let cast_actions: Vec<_> = actions.iter()
+            .filter(|a| matches!(a, PlayerAction::CastSpell { card_id, .. } if *card_id == spell_id))
+            .collect();
+        assert!(cast_actions.is_empty(), "Should NOT be able to flashback without enough mana");
+    }
+
+    #[test]
+    fn flashback_cast_exiles_after_resolution() {
+        let (mut game, p1, _p2) = setup_flashback_game();
+
+        // Create a sorcery with flashback
+        let spell_id = ObjectId::new();
+        let mut spell = CardData::new(spell_id, p1, "Flashback Heal");
+        spell.card_types = vec![CardType::Sorcery];
+        spell.mana_cost = ManaCost::parse("{W}");
+        spell.flashback_cost = Some(ManaCost::parse("{1}{W}"));
+        spell.abilities = vec![Ability::spell(spell_id,
+            vec![Effect::GainLife { amount: 3 }],
+            TargetSpec::None)];
+        game.state.card_store.insert(spell);
+        game.state.players.get_mut(&p1).unwrap().graveyard.add(spell_id);
+
+        // Give P1 mana for flashback {1}{W}
+        game.state.players.get_mut(&p1).unwrap()
+            .mana_pool.add(Mana { white: 2, ..Mana::new() }, None, false);
+
+        let life_before = game.state.players.get(&p1).unwrap().life;
+
+        // Cast from graveyard
+        game.cast_spell(p1, spell_id);
+
+        // Should be on stack
+        assert!(!game.state.stack.is_empty());
+        // Should no longer be in graveyard
+        assert!(!game.state.players.get(&p1).unwrap().graveyard.contains(spell_id));
+
+        // Resolve
+        game.resolve_top_of_stack();
+
+        // Should gain 3 life
+        let life_after = game.state.players.get(&p1).unwrap().life;
+        assert_eq!(life_after, life_before + 3);
+
+        // Should be in exile (NOT graveyard)
+        assert!(game.state.exile.contains(spell_id), "Flashback spell should be exiled after resolution");
+        assert!(!game.state.players.get(&p1).unwrap().graveyard.contains(spell_id),
+            "Flashback spell should NOT be in graveyard");
+    }
+
+    #[test]
+    fn normal_cast_still_goes_to_graveyard() {
+        let (mut game, p1, _p2) = setup_flashback_game();
+
+        // Normal sorcery (no flashback) in hand
+        let spell_id = ObjectId::new();
+        let mut spell = CardData::new(spell_id, p1, "Normal Heal");
+        spell.card_types = vec![CardType::Sorcery];
+        spell.mana_cost = ManaCost::parse("{W}");
+        spell.abilities = vec![Ability::spell(spell_id,
+            vec![Effect::GainLife { amount: 2 }],
+            TargetSpec::None)];
+        game.state.card_store.insert(spell);
+        game.state.players.get_mut(&p1).unwrap().hand.add(spell_id);
+
+        // Give mana
+        game.state.players.get_mut(&p1).unwrap()
+            .mana_pool.add(Mana { white: 1, ..Mana::new() }, None, false);
+
+        // Cast from hand and resolve
+        game.cast_spell(p1, spell_id);
+        game.resolve_top_of_stack();
+
+        // Should be in graveyard (NOT exile)
+        assert!(game.state.players.get(&p1).unwrap().graveyard.contains(spell_id),
+            "Normal spell should go to graveyard");
+        assert!(!game.state.exile.contains(spell_id),
+            "Normal spell should NOT be exiled");
     }
 }

@@ -237,12 +237,15 @@ These require new engine architecture beyond adding match arms to existing funct
 - Convenience builders: `exile_top_and_play(n)`, `exile_top_and_play_next_turn(n)`, `exile_top_and_play_free(n)`
 - 6 unit tests: creation, legal actions, resolve, expiration, next-turn persistence, free cast
 
-#### 9. Graveyard Casting (Flashback/Escape)
-- Cast from graveyard with alternative cost
-- Exile after resolution (flashback) or with escaped counters
-- Requires `AsThoughEffect` equivalent to allow casting from non-hand zones
-- **Blocked cards:** Cards with "Cast from graveyard, then exile" text (~6+ cards)
-- **Java reference:** `FlashbackAbility.java`, `PlayFromNotOwnHandZoneTargetEffect.java`
+#### ~~9. Graveyard Casting (Flashback/Escape)~~ (DONE)
+
+**Completed 2026-02-14.** Flashback casting is now implemented:
+- `flashback_cost: Option<ManaCost>` field on `CardData` for alternative graveyard cast cost
+- `compute_legal_actions()` checks graveyard for cards with flashback_cost, validates mana
+- `cast_spell()` detects graveyard-origin spells, uses flashback cost, sets `exile_on_resolve` flag on StackItem
+- `resolve_top_of_stack()` exiles flashback spells instead of sending to graveyard
+- SpellCast event correctly reports Zone::Graveyard as source zone
+- 4 unit tests: legal actions, mana validation, exile-after-resolution, normal-cast-graveyard
 
 #### 10. Planeswalker System
 - Loyalty counters as activation resource

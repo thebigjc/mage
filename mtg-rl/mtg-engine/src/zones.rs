@@ -441,6 +441,9 @@ pub struct StackItem {
     pub countered: bool,
     /// The X value chosen when casting an X-cost spell.
     pub x_value: Option<u32>,
+    /// If true, this spell was cast from the graveyard (flashback) and should
+    /// be exiled instead of going to the graveyard after resolution.
+    pub exile_on_resolve: bool,
 }
 
 /// What kind of object is on the stack.
@@ -804,6 +807,7 @@ mod tests {
             targets: vec![],
             countered: false,
             x_value: None,
+            exile_on_resolve: false,
         });
 
         let card2 = CardData::new(id2, p, "Counterspell");
@@ -814,6 +818,7 @@ mod tests {
             targets: vec![],
             countered: false,
             x_value: None,
+            exile_on_resolve: false,
         });
 
         assert_eq!(stack.len(), 2);
