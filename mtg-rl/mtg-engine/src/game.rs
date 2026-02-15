@@ -4096,6 +4096,37 @@ impl Game {
                         }
                     }
                 }
+                Effect::TargetControllerDraws { count } => {
+                    // Target's controller draws cards (not the ability's controller)
+                    for &target_id in targets {
+                        let target_controller = self.state.battlefield.get(target_id)
+                            .map(|p| p.controller);
+                        if let Some(tc) = target_controller {
+                            self.draw_cards(tc, *count);
+                        }
+                    }
+                }
+                Effect::TargetControllerCreatesToken { token_name } => {
+                    // Target's controller creates a token
+                    for &target_id in targets {
+                        let target_controller = self.state.battlefield.get(target_id)
+                            .map(|p| p.controller);
+                        if let Some(tc) = target_controller {
+                            let token_id = ObjectId::new();
+                            let mut card = CardData::new(token_id, tc, token_name);
+                            card.card_types = vec![crate::constants::CardType::Creature];
+                            let (p, t, kw) = Self::parse_token_stats(token_name);
+                            card.power = Some(p);
+                            card.toughness = Some(t);
+                            card.keywords = kw;
+                            card.is_token = true;
+                            let perm = Permanent::new(card, tc);
+                            self.state.battlefield.add(perm);
+                            self.state.set_zone(token_id, crate::constants::Zone::Battlefield, None);
+                            self.emit_event(GameEvent::enters_battlefield(token_id, tc));
+                        }
+                    }
+                }
                 _ => {
                     // Remaining effects not yet implemented (protection, etc.)
                 }

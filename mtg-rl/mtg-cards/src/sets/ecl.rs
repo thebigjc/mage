@@ -1736,7 +1736,7 @@ fn crib_swap(id: ObjectId, owner: PlayerId) -> CardData {
         subtypes: vec![SubType::Shapeshifter],
         keywords: KeywordAbilities::CHANGELING,
         rarity: Rarity::Uncommon,
-        abilities: vec![Ability::spell(id, vec![Effect::exile(), Effect::Custom("Its controller creates a 1/1 colorless Shapeshifter creature token with changeling.".into())], TargetSpec::Creature)],
+        abilities: vec![Ability::spell(id, vec![Effect::exile(), Effect::target_controller_creates_token("1/1 colorless Shapeshifter creature token with changeling")], TargetSpec::Creature)],
         ..Default::default() }
 }
 
@@ -2083,7 +2083,7 @@ fn barbed_bloodletter(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When this Equipment enters, attach it to target creature you control. That creature gains wither until end of turn.",
-                vec![Effect::Custom("Attach and grant wither until end of turn.".into())],
+                vec![Effect::equip(), Effect::gain_keyword_eot("wither")],
                 TargetSpec::Creature),
             Ability::static_ability(id,
                 "Equipped creature gets +1/+2.",
@@ -2806,7 +2806,7 @@ fn glen_elendra_guardian(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "{1}{U}, Remove a -1/-1 counter from Glen Elendra Guardian: Counter target noncreature spell. Its controller draws a card.",
                 vec![Cost::pay_mana("{1}{U}"), Cost::remove_counters("-1/-1", 1)],
-                vec![Effect::counter_spell(), Effect::Custom("Its controller draws a card.".into())],
+                vec![Effect::counter_spell(), Effect::target_controller_draws(1)],
                 TargetSpec::Spell),
         ],
         ..Default::default() }
@@ -4171,7 +4171,11 @@ fn formidable_speaker(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When this enters, you may discard a card. If you do, search your library for a creature card, reveal it, put it into your hand, then shuffle.",
-                vec![Effect::Custom("May discard to search for creature card.".into())],
+                vec![Effect::do_if_cost_paid(
+                    Cost::Discard(1),
+                    vec![Effect::search_library("creature")],
+                    vec![],
+                )],
                 TargetSpec::None),
             Ability::activated(id,
                 "{1}, {T}: Untap another target permanent.",

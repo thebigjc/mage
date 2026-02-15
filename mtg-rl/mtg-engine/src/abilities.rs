@@ -352,6 +352,14 @@ pub enum Effect {
     /// value_source examples: "Kithkin you control"
     BoostTargetDynamic { value_source: String },
 
+    /// The controller of the targeted permanent draws N cards.
+    /// Used for effects like "Its controller draws a card."
+    TargetControllerDraws { count: u32 },
+
+    /// The controller of the targeted permanent creates a token.
+    /// Used for effects like "Its controller creates a 1/1 token."
+    TargetControllerCreatesToken { token_name: String },
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1201,6 +1209,16 @@ impl Effect {
     /// Target gets +X/+X until end of turn where X = dynamic value.
     pub fn boost_target_dynamic(value_source: &str) -> Self {
         Effect::BoostTargetDynamic { value_source: value_source.to_string() }
+    }
+
+    /// Target's controller draws N cards.
+    pub fn target_controller_draws(count: u32) -> Self {
+        Effect::TargetControllerDraws { count }
+    }
+
+    /// Target's controller creates a token.
+    pub fn target_controller_creates_token(token_name: &str) -> Self {
+        Effect::TargetControllerCreatesToken { token_name: token_name.to_string() }
     }
 }
 
