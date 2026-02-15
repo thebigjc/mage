@@ -744,7 +744,7 @@ fn look_top_and_pick() {
 
     // Mark top 3 cards to track them
     let lib_before = game.state.players.get(&p1).unwrap().library.len();
-    let top_cards: Vec<ObjectId> = game.state.players.get(&p1).unwrap().library.top_n(3);
+    let top_cards: Vec<ObjectId> = game.state.players.get(&p1).unwrap().library.peek(3).to_vec();
 
     // Look at top 3, pick lands to hand, rest to graveyard
     game.execute_effects(
