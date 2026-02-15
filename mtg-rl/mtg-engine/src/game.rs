@@ -2147,6 +2147,21 @@ impl Game {
                 Effect::CounterSpell => {
                     // Counter first target on the stack
                     for &target_id in targets {
+                        // Check if the target spell has "can't be countered"
+                        let cant_counter = if let Some(item) = self.state.stack.get(target_id) {
+                            if let crate::zones::StackItemKind::Spell { card } = &item.kind {
+                                card.abilities.iter().any(|a| {
+                                    a.static_effects.iter().any(|se| matches!(se, StaticEffect::CantBeCountered))
+                                })
+                            } else {
+                                false
+                            }
+                        } else {
+                            false
+                        };
+                        if cant_counter {
+                            continue; // Can't counter this spell
+                        }
                         if let Some(stack_item) = self.state.stack.remove(target_id) {
                             match &stack_item.kind {
                                 crate::zones::StackItemKind::Spell { .. } => {
@@ -4806,7 +4821,6 @@ mod cost_tests {
     use crate::counters::CounterType;
     use crate::decision::*;
     use crate::game::{GameConfig, PlayerConfig};
-    use crate::permanent::Permanent;
     use crate::types::{ObjectId, PlayerId};
 
     /// Decision maker that selects the last N cards for discard/exile choices.
@@ -4984,7 +4998,6 @@ mod vivid_tests {
     use crate::decision::*;
     use crate::game::{GameConfig, PlayerConfig};
     use crate::mana::{ManaCost};
-    use crate::permanent::Permanent;
     use crate::types::{ObjectId, PlayerId};
 
     struct AlwaysPassPlayer;
@@ -5133,7 +5146,6 @@ mod choice_tests {
     use crate::counters::CounterType;
     use crate::decision::*;
     use crate::game::{GameConfig, PlayerConfig};
-    use crate::permanent::Permanent;
     use crate::types::{ObjectId, PlayerId};
 
     /// Decision maker that always says "yes" to choose_use.
@@ -5273,7 +5285,6 @@ mod type_choice_tests {
     use crate::constants::{CardType, Outcome, SubType};
     use crate::decision::*;
     use crate::game::{GameConfig, PlayerConfig};
-    use crate::permanent::Permanent;
     use crate::types::{ObjectId, PlayerId};
 
     /// Decision maker that picks a given index for choose_option.
@@ -7610,7 +7621,6 @@ mod ward_tests {
     use crate::mana::{ManaCost, Mana};
     use crate::types::{ObjectId, PlayerId};
     use crate::decision::*;
-    use crate::permanent::Permanent;
 
     struct PassivePlayer;
     impl PlayerDecisionMaker for PassivePlayer {
@@ -7844,5 +7854,140 @@ mod ward_tests {
         let stack_item = game.state.stack.get(spell_id);
         assert!(stack_item.is_some());
         assert!(stack_item.unwrap().countered, "Spell should be countered — can't pay 2 life at 1 life");
+    }
+}
+
+#[cfg(test)]
+mod cant_be_countered_tests {
+    use super::*;
+    use crate::abilities::{Ability, StaticEffect, TargetSpec, Effect};
+    use crate::card::CardData;
+    use crate::constants::{CardType, KeywordAbilities, Outcome};
+    use crate::mana::{ManaCost, Mana};
+    use crate::types::{ObjectId, PlayerId};
+    use crate::decision::*;
+
+    struct PassivePlayer;
+    impl PlayerDecisionMaker for PassivePlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_deck(owner: PlayerId) -> Vec<CardData> {
+        (0..40).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), owner, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect()
+    }
+
+    #[test]
+    fn cant_be_countered_resists_counter_spell() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "B".into(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let mut game = Game::new_two_player(
+            config,
+            vec![(p1, Box::new(PassivePlayer)), (p2, Box::new(PassivePlayer))],
+        );
+
+        // Put an uncounterable spell on the stack
+        let spell_id = ObjectId::new();
+        let mut spell_card = CardData::new(spell_id, p1, "Supreme Verdict");
+        spell_card.card_types = vec![CardType::Sorcery];
+        spell_card.mana_cost = ManaCost::parse("{1}{W}{U}{U}");
+        spell_card.abilities = vec![
+            Ability::static_ability(spell_id, "This spell can't be countered.",
+                vec![StaticEffect::CantBeCountered]),
+            Ability::spell(spell_id,
+                vec![Effect::DestroyAll { filter: "creature".into() }],
+                TargetSpec::None),
+        ];
+        let stack_item = crate::zones::StackItem {
+            id: spell_id,
+            kind: crate::zones::StackItemKind::Spell { card: spell_card },
+            controller: p1,
+            targets: vec![],
+            countered: false,
+        };
+        game.state.stack.push(stack_item);
+
+        // Now try to counter it using Effect::CounterSpell
+        game.execute_effects(
+            &[Effect::CounterSpell],
+            p2,
+            &[spell_id],
+            Some(spell_id),
+        );
+
+        // The spell should STILL be on the stack (not removed)
+        assert!(game.state.stack.get(spell_id).is_some(), "Uncounterable spell should remain on the stack");
+    }
+
+    #[test]
+    fn normal_spell_can_be_countered() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "B".into(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let mut game = Game::new_two_player(
+            config,
+            vec![(p1, Box::new(PassivePlayer)), (p2, Box::new(PassivePlayer))],
+        );
+
+        // Put a normal spell on the stack
+        let spell_id = ObjectId::new();
+        let mut spell_card = CardData::new(spell_id, p1, "Lightning Bolt");
+        spell_card.card_types = vec![CardType::Instant];
+        spell_card.mana_cost = ManaCost::parse("{R}");
+        spell_card.abilities = vec![
+            Ability::spell(spell_id,
+                vec![Effect::DealDamage { amount: 3 }],
+                TargetSpec::Creature),
+        ];
+        let stack_item = crate::zones::StackItem {
+            id: spell_id,
+            kind: crate::zones::StackItemKind::Spell { card: spell_card },
+            controller: p1,
+            targets: vec![],
+            countered: false,
+        };
+        game.state.stack.push(stack_item);
+        game.state.card_store.insert(CardData::new(spell_id, p1, "Lightning Bolt"));
+
+        // Counter it
+        game.execute_effects(
+            &[Effect::CounterSpell],
+            p2,
+            &[spell_id],
+            Some(spell_id),
+        );
+
+        // The spell should be removed from the stack
+        assert!(game.state.stack.get(spell_id).is_none(), "Normal spell should be countered");
     }
 }

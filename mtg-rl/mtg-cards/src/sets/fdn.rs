@@ -3150,7 +3150,7 @@ fn curator_of_destinies(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Rare,
         abilities: vec![
             Ability::static_ability(id, "This spell can't be countered.",
-                vec![StaticEffect::Custom("Can't be countered.".into())]),
+                vec![StaticEffect::CantBeCountered]),
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, look at the top five cards of your library and separate them into a face-down pile and a face-up pile. An opponent chooses one. Put that pile into your hand and the other into your graveyard.",
                 vec![Effect::Custom("Fact or Fiction: separate top 5, opponent chooses pile for hand or graveyard.".into())],

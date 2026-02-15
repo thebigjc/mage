@@ -1131,6 +1131,8 @@ pub enum StaticEffect {
     CantGainLife,
     /// Other players can't draw extra cards.
     CantDrawExtraCards,
+    /// This spell can't be countered.
+    CantBeCountered,
     /// Ward — when this becomes the target of a spell or ability an opponent
     /// controls, counter it unless that player pays the specified cost.
     Ward {

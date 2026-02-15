@@ -3453,7 +3453,7 @@ fn surrak_elusive_hunter(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "This spell can't be countered.",
-                vec![StaticEffect::Custom("This spell can't be countered.".into())]),
+                vec![StaticEffect::CantBeCountered]),
             Ability::triggered(id,
                 "Whenever a creature you control or a creature spell you control becomes the target of a spell or ability an opponent controls, draw a card.",
                 vec![EventType::SpellCast],

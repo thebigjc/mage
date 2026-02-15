@@ -2912,7 +2912,7 @@ fn hexing_squelcher(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "This spell can't be countered.",
-                vec![StaticEffect::Custom("This spell can't be countered.".into())]),
+                vec![StaticEffect::CantBeCountered]),
             Ability::static_ability(id,
                 "Ward--Pay 2 life.",
                 vec![StaticEffect::Ward { cost: "Pay 2 life".into() }]),
@@ -4181,8 +4181,11 @@ fn glen_elendras_answer(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Instant],
         rarity: Rarity::Common,
         abilities: vec![
+            Ability::static_ability(id,
+                "This spell can't be countered.",
+                vec![StaticEffect::CantBeCountered]),
             Ability::spell(id,
-                vec![Effect::Custom("This spell can't be countered.".into())],
+                vec![Effect::Custom("Counter all opponent spells and abilities, create tokens.".into())],
                 TargetSpec::None),
         ],
         ..Default::default() }
