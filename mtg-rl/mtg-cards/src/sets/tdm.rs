@@ -321,7 +321,7 @@ pub fn register(registry: &mut CardRegistry) {
 
 fn adorned_crocodile(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Adorned Crocodile".into(), mana_cost: ManaCost::parse("{4}{B}"),
-        card_types: vec![CardType::Creature], subtypes: vec![SubType::Custom("Crocodile".into())],
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Crocodile],
         power: Some(5), toughness: Some(3), rarity: Rarity::Common,
         abilities: vec![
             Ability::dies_triggered(id,
@@ -383,7 +383,7 @@ fn ainok_wayfarer(id: ObjectId, owner: PlayerId) -> CardData {
 
 fn alchemists_assistant(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Alchemist's Assistant".into(), mana_cost: ManaCost::parse("{1}{B}"),
-        card_types: vec![CardType::Creature], subtypes: vec![SubType::Custom("Monkey".into())],
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Monkey],
         power: Some(2), toughness: Some(1), keywords: KeywordAbilities::LIFELINK,
         rarity: Rarity::Uncommon,
         abilities: vec![
@@ -884,7 +884,7 @@ fn reigning_victor(id: ObjectId, owner: PlayerId) -> CardData {
 
 fn reputable_merchant(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Reputable Merchant".into(), mana_cost: ManaCost::parse("{2/W}{2/B}{2/G}"),
-        card_types: vec![CardType::Creature], subtypes: vec![SubType::Human, SubType::Custom("Citizen".into())],
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Human, SubType::Citizen],
         power: Some(2), toughness: Some(2), rarity: Rarity::Common,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
@@ -1045,7 +1045,7 @@ fn skirmish_rhino(id: ObjectId, owner: PlayerId) -> CardData {
 
 fn summit_intimidator(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Summit Intimidator".into(), mana_cost: ManaCost::parse("{3}{R}"),
-        card_types: vec![CardType::Creature], subtypes: vec![SubType::Custom("Yeti".into())],
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Yeti],
         power: Some(4), toughness: Some(3), keywords: KeywordAbilities::REACH,
         rarity: Rarity::Common,
         abilities: vec![
@@ -1133,7 +1133,7 @@ fn veteran_ice_climber(id: ObjectId, owner: PlayerId) -> CardData {
 
 fn voice_of_victory(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Voice of Victory".into(), mana_cost: ManaCost::parse("{1}{W}"),
-        card_types: vec![CardType::Creature], subtypes: vec![SubType::Human, SubType::Custom("Bard".into())],
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Human, SubType::Bard],
         power: Some(1), toughness: Some(3), rarity: Rarity::Common,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
@@ -1753,7 +1753,7 @@ fn mardu_devotee(id: ObjectId, owner: PlayerId) -> CardData {
 fn meticulous_artisan(id: ObjectId, owner: PlayerId) -> CardData {
     // 3/3 Djinn Artificer for {3}{R}. Prowess. ETB: create Treasure token.
     CardData { id, owner, name: "Meticulous Artisan".into(), mana_cost: ManaCost::parse("{3}{R}"),
-        card_types: vec![CardType::Creature], subtypes: vec![SubType::Djinn, SubType::Custom("Artificer".into())],
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Djinn, SubType::Artificer],
         power: Some(3), toughness: Some(3), keywords: KeywordAbilities::PROWESS,
         rarity: Rarity::Uncommon,
         abilities: vec![
@@ -1768,7 +1768,7 @@ fn meticulous_artisan(id: ObjectId, owner: PlayerId) -> CardData {
 fn rainveil_rejuvenator(id: ObjectId, owner: PlayerId) -> CardData {
     // 3/3 Naga Druid for {2}{G}{U}. ETB: draw a card and gain 3 life.
     CardData { id, owner, name: "Rainveil Rejuvenator".into(), mana_cost: ManaCost::parse("{2}{G}{U}"),
-        card_types: vec![CardType::Creature], subtypes: vec![SubType::Custom("Naga".into()), SubType::Druid],
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Naga, SubType::Druid],
         power: Some(3), toughness: Some(3), rarity: Rarity::Uncommon,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
@@ -1797,7 +1797,7 @@ fn salt_road_packbeast(id: ObjectId, owner: PlayerId) -> CardData {
 fn sultai_devotee(id: ObjectId, owner: PlayerId) -> CardData {
     // 3/3 Naga Wizard for {1}{B}{G}{U}. ETB: mill 3, then return a creature card from graveyard to hand.
     CardData { id, owner, name: "Sultai Devotee".into(), mana_cost: ManaCost::parse("{1}{B}{G}{U}"),
-        card_types: vec![CardType::Creature], subtypes: vec![SubType::Custom("Naga".into()), SubType::Wizard],
+        card_types: vec![CardType::Creature], subtypes: vec![SubType::Naga, SubType::Wizard],
         power: Some(3), toughness: Some(3), rarity: Rarity::Uncommon,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
@@ -2970,7 +2970,7 @@ fn lotuslight_dancers(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Lotuslight Dancers".into(),
         mana_cost: ManaCost::parse("{2}{B}{G}{U}"),
         card_types: vec![CardType::Creature],
-        subtypes: vec![SubType::Zombie, SubType::Custom("Bard".into())],
+        subtypes: vec![SubType::Zombie, SubType::Bard],
         power: Some(3), toughness: Some(6),
         rarity: Rarity::Rare,
         keywords: KeywordAbilities::LIFELINK,
@@ -3428,7 +3428,7 @@ fn sunpearl_kirin(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Sunpearl Kirin".into(),
         mana_cost: ManaCost::parse("{1}{W}"),
         card_types: vec![CardType::Creature],
-        subtypes: vec![SubType::Custom("Kirin".into())],
+        subtypes: vec![SubType::Kirin],
         power: Some(2), toughness: Some(1),
         rarity: Rarity::Uncommon,
         keywords: KeywordAbilities::FLASH | KeywordAbilities::FLYING,
@@ -3481,7 +3481,7 @@ fn temur_battlecrier(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Temur Battlecrier".into(),
         mana_cost: ManaCost::parse("{G}{U}{R}"),
         card_types: vec![CardType::Creature],
-        subtypes: vec![SubType::Custom("Orc".into()), SubType::Ranger],
+        subtypes: vec![SubType::Orc, SubType::Ranger],
         power: Some(4), toughness: Some(3),
         rarity: Rarity::Rare,
         keywords: KeywordAbilities::TRAMPLE,
@@ -3501,7 +3501,7 @@ fn tersa_lightshatter(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Tersa Lightshatter".into(),
         mana_cost: ManaCost::parse("{2}{R}"),
         card_types: vec![CardType::Creature],
-        subtypes: vec![SubType::Custom("Orc".into()), SubType::Wizard],
+        subtypes: vec![SubType::Orc, SubType::Wizard],
         supertypes: vec![SuperType::Legendary],
         power: Some(3), toughness: Some(3),
         rarity: Rarity::Rare,
@@ -3650,7 +3650,7 @@ fn zurgo_thunders_decree(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Zurgo, Thunder's Decree".into(),
         mana_cost: ManaCost::parse("{R}{W}{B}"),
         card_types: vec![CardType::Creature],
-        subtypes: vec![SubType::Custom("Orc".into()), SubType::Warrior],
+        subtypes: vec![SubType::Orc, SubType::Warrior],
         supertypes: vec![SuperType::Legendary],
         power: Some(2), toughness: Some(4),
         rarity: Rarity::Rare,
@@ -3765,7 +3765,7 @@ fn dragonbroods_relic(id: ObjectId, owner: PlayerId) -> CardData {
 fn elspeth_storm_slayer(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Elspeth, Storm Slayer".into(), mana_cost: ManaCost::parse("{3}{W}{W}"),
         card_types: vec![CardType::Planeswalker],
-        subtypes: vec![SubType::Custom("Elspeth".into())],
+        subtypes: vec![SubType::PwElspeth],
         supertypes: vec![SuperType::Legendary],
         keywords: KeywordAbilities::FLYING,
         rarity: Rarity::Uncommon,
@@ -3856,7 +3856,7 @@ fn jeskai_monument(id: ObjectId, owner: PlayerId) -> CardData {
 fn kishla_trawlers(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Kishla Trawlers".into(), mana_cost: ManaCost::parse("{2}{U}"),
         card_types: vec![CardType::Creature],
-        subtypes: vec![SubType::Human, SubType::Custom("Citizen".into())],
+        subtypes: vec![SubType::Human, SubType::Citizen],
         power: Some(3), toughness: Some(2),
         rarity: Rarity::Common,
         abilities: vec![
@@ -4083,7 +4083,7 @@ fn scavenger_regent(id: ObjectId, owner: PlayerId) -> CardData {
 fn songcrafter_mage(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Songcrafter Mage".into(), mana_cost: ManaCost::parse("{G}{U}{R}"),
         card_types: vec![CardType::Creature],
-        subtypes: vec![SubType::Human, SubType::Custom("Bard".into())],
+        subtypes: vec![SubType::Human, SubType::Bard],
         power: Some(3), toughness: Some(2),
         keywords: KeywordAbilities::FLASH,
         rarity: Rarity::Common,
@@ -4212,7 +4212,7 @@ fn thunder_of_unity(id: ObjectId, owner: PlayerId) -> CardData {
 fn ugin_eye_of_the_storms(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Ugin, Eye of the Storms".into(), mana_cost: ManaCost::parse("{7}"),
         card_types: vec![CardType::Planeswalker],
-        subtypes: vec![SubType::Custom("Ugin".into())],
+        subtypes: vec![SubType::PwUgin],
         supertypes: vec![SuperType::Legendary],
         rarity: Rarity::Uncommon,
         abilities: vec![
