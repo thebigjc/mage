@@ -2683,9 +2683,9 @@ fn flitterwing_nuisance(id: ObjectId, owner: PlayerId) -> CardData {
         keywords: KeywordAbilities::FLYING,
         abilities: vec![
             Ability::activated(id,
-                    "Activated ability.",
+                    "{2}{U}, Remove a counter from this creature: Whenever a creature you control deals combat damage to a player this turn, you draw a card.",
                     vec![Cost::pay_mana("{2}{U}")],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    vec![Effect::Custom("Remove a counter, grant combat-damage-draw to your creatures this turn.".into())],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -2822,13 +2822,13 @@ fn goliath_daydreamer(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Rare,
         abilities: vec![
             Ability::spell_cast_triggered(id,
-                    "Whenever you cast a spell, trigger effect.",
-                    vec![Effect::Custom("Spell cast trigger.".into())],
+                    "Whenever you cast an instant or sorcery spell from your hand, exile it with a dream counter instead of putting it into your graveyard as it resolves.",
+                    vec![Effect::Custom("Exile cast instant/sorcery from hand with dream counter instead of graveyard.".into())],
                     TargetSpec::None),
             Ability::triggered(id,
-                    "Whenever this attacks, trigger effect.",
+                    "Whenever Goliath Daydreamer attacks, you may cast a spell from among cards you own in exile with dream counters on them without paying its mana cost.",
                     vec![EventType::AttackerDeclared],
-                    vec![Effect::Custom("Attack trigger.".into())],
+                    vec![Effect::Custom("Cast exiled spell with dream counter for free.".into())],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -2837,14 +2837,23 @@ fn goliath_daydreamer(id: ObjectId, owner: PlayerId) -> CardData {
 // ENGINE DEPS: [TRANSFORM+COST] Transform/DFC, return Goblin from GY, attacks blight then token copy tapped+attacking
 fn grub_storied_matriarch(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Grub, Storied Matriarch".into(),
+        mana_cost: ManaCost::parse("{2}{B}"),
         card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Goblin, SubType::Warlock],
         supertypes: vec![SuperType::Legendary],
+        power: Some(2), toughness: Some(1),
         rarity: Rarity::Rare,
+        keywords: KeywordAbilities::MENACE,
         abilities: vec![
             Ability::triggered(id,
-                    "Whenever this attacks, trigger effect.",
+                    "Whenever Grub transforms into this, return up to one target Goblin creature card from your graveyard to your hand.",
+                    vec![EventType::EnteredTheBattlefield],
+                    vec![Effect::Custom("Return target Goblin from graveyard to hand on transform.".into())],
+                    TargetSpec::CardInYourGraveyard),
+            Ability::triggered(id,
+                    "Whenever Grub attacks, you may blight 1. If you do, create a tapped and attacking token copy of it. Sacrifice that token at end of combat.",
                     vec![EventType::AttackerDeclared],
-                    vec![Effect::Custom("Attack trigger.".into())],
+                    vec![Effect::Custom("Blight 1, create tapped+attacking token copy, sacrifice at end of combat.".into())],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -3065,13 +3074,13 @@ fn lluwen_imperfect_naturalist(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Rare,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
-                    "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    "When Lluwen enters, mill four cards. You may put a creature or land card from among them on top of your library.",
+                    vec![Effect::Mill { count: 4 }, Effect::Custom("Put a creature or land from among milled cards on top of library.".into())],
                     TargetSpec::None),
             Ability::activated(id,
-                    "Activated ability.",
-                    vec![Cost::pay_mana("{2}{B/G}{B/G}{B/G}")],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    "{2}{B/G}{B/G}{B/G}, {T}, Discard a land card: Create X 1/1 black and green Worm creature tokens, where X is the number of land cards in your graveyard.",
+                    vec![Cost::pay_mana("{2}{B/G}{B/G}{B/G}"), Cost::tap_self()],
+                    vec![Effect::CreateTokenDynamic { token_name: "1/1 Worm".into(), count_filter: "land cards in your graveyard".into() }],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -3136,9 +3145,13 @@ fn maralen_fae_ascendant(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Rare,
         keywords: KeywordAbilities::FLYING,
         abilities: vec![
+            Ability::other_creature_etb_triggered(id,
+                    "Whenever Maralen or another Elf or Faerie you control enters, exile the top two cards of target opponent's library.",
+                    vec![Effect::Custom("Exile top 2 cards of target opponent's library.".into())],
+                    TargetSpec::Player),
             Ability::static_ability(id,
-                    "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    "Once each turn, you may cast a spell with mana value less than or equal to the number of Elves and Faeries you control from among cards exiled with Maralen without paying its mana cost.",
+                    vec![StaticEffect::Custom("Once per turn, cast exiled spell with MV <= Elves+Faeries you control for free.".into())]),
         ],
         ..Default::default() }
 }
@@ -3151,8 +3164,12 @@ fn mirrormind_crown(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Rare,
         abilities: vec![
             Ability::static_ability(id,
-                    "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    "The first time you would create one or more tokens each turn while equipped creature is on the battlefield, you may instead create that many token copies of equipped creature.",
+                    vec![StaticEffect::Custom("First token creation each turn may instead create copies of equipped creature.".into())]),
+            Ability::activated(id, "Equip {2}",
+                    vec![Cost::pay_mana("{2}")],
+                    vec![Effect::Equip],
+                    TargetSpec::Creature),
         ],
         ..Default::default() }
 }
@@ -3466,10 +3483,18 @@ fn rimefire_torque(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Artifact],
         rarity: Rarity::Rare,
         abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                    "As Rimefire Torque enters, choose a creature type.",
+                    vec![Effect::ChooseCreatureType { restricted: vec![] }],
+                    TargetSpec::None),
+            Ability::other_creature_etb_triggered(id,
+                    "Whenever a creature of the chosen type enters under your control, put a charge counter on Rimefire Torque.",
+                    vec![Effect::AddCountersSelf { counter_type: "charge".into(), count: 1 }],
+                    TargetSpec::None),
             Ability::activated(id,
-                    "Activated ability.",
+                    "{T}, Remove three charge counters from Rimefire Torque: When you next cast an instant or sorcery spell this turn, copy that spell. You may choose new targets for the copy.",
                     vec![Cost::tap_self()],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    vec![Effect::RemoveCounters { counter_type: "charge".into(), count: 3 }, Effect::Custom("Copy next instant/sorcery spell this turn.".into())],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -3542,9 +3567,14 @@ fn shadow_urchin(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Rare,
         abilities: vec![
             Ability::triggered(id,
-                    "Whenever this attacks, trigger effect.",
+                    "Whenever Shadow Urchin attacks, blight 1.",
                     vec![EventType::AttackerDeclared],
-                    vec![Effect::Custom("Attack trigger.".into())],
+                    vec![Effect::BlightOpponents { count: 1 }],
+                    TargetSpec::None),
+            Ability::triggered(id,
+                    "Whenever a creature with counters on it dies, exile that many cards from the top of your library. Until your next end step, you may play those cards.",
+                    vec![EventType::Dies],
+                    vec![Effect::Custom("Exile X cards from top of library where X = counters on dying creature, play until next end step.".into())],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -3574,11 +3604,11 @@ fn spinerock_tyrant(id: ObjectId, owner: PlayerId) -> CardData {
         subtypes: vec![SubType::Dragon],
         power: Some(6), toughness: Some(6),
         rarity: Rarity::Mythic,
-        keywords: KeywordAbilities::FLYING,
+        keywords: KeywordAbilities::FLYING | KeywordAbilities::WITHER,
         abilities: vec![
             Ability::spell_cast_triggered(id,
-                    "Whenever you cast a spell, trigger effect.",
-                    vec![Effect::Custom("Spell cast trigger.".into())],
+                    "Whenever you cast an instant or sorcery spell that targets only a single target, you may copy that spell. You may choose new targets for the copy. Both spells gain wither.",
+                    vec![Effect::Custom("Copy single-target instant/sorcery, both gain wither.".into())],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -3612,11 +3642,10 @@ fn spry_and_mighty(id: ObjectId, owner: PlayerId) -> CardData {
         mana_cost: ManaCost::parse("{4}{G}"),
         card_types: vec![CardType::Sorcery],
         rarity: Rarity::Rare,
-        keywords: KeywordAbilities::TRAMPLE,
         abilities: vec![
             Ability::spell(id,
-                    vec![Effect::Custom("Spell effect.".into())],
-                    TargetSpec::None),
+                    vec![Effect::Custom("Choose two target creatures you control. Draw X cards where X is the difference between their powers. They each get +X/+X and gain trample until end of turn.".into())],
+                    TargetSpec::PermanentFiltered("two creatures you control".into())),
         ],
         ..Default::default() }
 }
@@ -3671,13 +3700,13 @@ fn sunderflock(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Rare,
         keywords: KeywordAbilities::FLYING,
         abilities: vec![
-            Ability::enters_battlefield_triggered(id,
-                    "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
-                    TargetSpec::None),
             Ability::static_ability(id,
-                    "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    "This spell costs {X} less to cast, where X is the greatest mana value among Elementals you control.",
+                    vec![StaticEffect::Custom("Cost reduction by greatest MV among Elementals you control.".into())]),
+            Ability::enters_battlefield_triggered(id,
+                    "When Sunderflock enters, if you cast it, return each non-Elemental creature to its owner's hand.",
+                    vec![Effect::Custom("If cast, return all non-Elemental creatures to owners' hands.".into())],
+                    TargetSpec::None),
         ],
         ..Default::default() }
 }
@@ -3726,13 +3755,13 @@ fn tam_mindful_first_year(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Rare,
         abilities: vec![
             Ability::static_ability(id,
-                    "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    "Each other creature you control has hexproof from each of its colors.",
+                    vec![StaticEffect::Custom("Each other creature you control has hexproof from each of its colors.".into())]),
             Ability::activated(id,
-                    "Activated ability.",
+                    "{T}: Target creature becomes all colors until end of turn.",
                     vec![Cost::tap_self()],
-                    vec![Effect::Custom("Activated effect.".into())],
-                    TargetSpec::None),
+                    vec![Effect::Custom("Target creature becomes all colors until end of turn.".into())],
+                    TargetSpec::Creature),
         ],
         ..Default::default() }
 }
@@ -3747,9 +3776,9 @@ fn taster_of_wares(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Rare,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
-                    "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
-                    TargetSpec::None),
+                    "When Taster of Wares enters, target opponent reveals cards from the top of their library until they reveal X cards, where X is the number of Goblins you control. You choose one and exile it. Put the rest on the bottom in a random order. You may cast that card for as long as you control Taster of Wares, and mana of any type can be spent to cast it.",
+                    vec![Effect::Custom("Opponent reveals X cards (X=Goblins you control), exile one, cast it with any mana while you control this.".into())],
+                    TargetSpec::Player),
         ],
         ..Default::default() }
 }
@@ -3955,7 +3984,7 @@ fn winnowing(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Rare,
         abilities: vec![
             Ability::spell(id,
-                    vec![Effect::Custom("Spell effect.".into())],
+                    vec![Effect::Custom("Convoke. For each player, choose a creature they control. Each player sacrifices each creature they control that doesn't share a creature type with their chosen creature.".into())],
                     TargetSpec::None),
         ],
         ..Default::default() }
