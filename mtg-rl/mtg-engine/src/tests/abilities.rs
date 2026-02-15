@@ -1,21 +1,11 @@
 // Tests extracted from game.rs
 
 use crate::game::*;
-use crate::abilities::{Ability, Cost, Effect, TargetSpec, StaticEffect, ModalMode};
+use crate::abilities::{Ability, Cost, Effect, TargetSpec};
 use crate::card::CardData;
-use crate::combat::CombatState;
-use crate::constants::{CardType, Color, KeywordAbilities, Outcome, PhaseStep, SubType, SuperType, Zone};
-use crate::counters::CounterType;
+use crate::constants::{CardType, SubType};
 use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
-use crate::events::{EventType, GameEvent};
-use crate::mana::{Mana, ManaCost};
-use crate::permanent::Permanent;
-use crate::state::StateBasedActions;
-use crate::types::{AbilityId, ObjectId, PlayerId};
-use crate::watchers::WatcherManager;
-
-
-use super::*;
+use crate::types::{ObjectId, PlayerId};
 
 #[cfg(test)]
 
@@ -28,7 +18,7 @@ use super::*;
             if req.min_targets > 0 && !req.legal_targets.is_empty() { vec![req.legal_targets[0]] } else { vec![] }
         }
         fn choose_use(&mut self, _: &GameView, _: crate::constants::Outcome, _: &str) -> bool { false }
-        fn choose_mode(&mut self, _: &GameView, modes: &[NamedChoice]) -> usize { 0 }
+        fn choose_mode(&mut self, _: &GameView, _modes: &[NamedChoice]) -> usize { 0 }
         fn select_attackers(&mut self, _: &GameView, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
         fn select_blockers(&mut self, _: &GameView, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
         fn assign_damage(&mut self, _: &GameView, a: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![(a.targets[0], a.total_damage)] }
