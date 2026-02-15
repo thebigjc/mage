@@ -67,7 +67,7 @@ Replace generic Custom placeholders with compositions of existing typed effects.
 
 - [x] Task 1.1: Audit all generic-placeholder ECL cards and all 88 Custom fallbacks
 - [x] Task 1.2: Replace generic placeholders on 14 cards with descriptive Custom strings matching Oracle text. Also added missing card data and typed variants where possible.
-- [ ] Task 1.3: Replace simple Custom strings with existing Effect variants where possible (approx 3-5 cards)
+- [x] Task 1.3: Replace simple Custom strings with existing Effect variants where possible (4 cards updated)
 
 ### Phase 2: New Engine Features (Ordered by Dependency + Impact)
 
@@ -160,3 +160,4 @@ Each task: add engine feature, add tests, update ECL cards to use it, commit.
 - Task 0.1: Committed cost reduction system (game.rs + mana.rs) — Mana::reduce_generic(), Game::calculate_cost_reduction(), integration into legal actions and spell payment. 3 tests.
 - Task 1.1: Audited all 88 ECL Custom fallbacks. Found: 18 generic placeholders (14 unique cards), ~3 simple replacements, ~8 partial replacements, ~22 need new engine features. Key finding: ALL 14 generic-placeholder cards need complex new engine features (replacement effects, transform, delayed triggers, watcher patterns, etc.), not simple stub replacement.
 - Task 1.2: Replaced all 18 generic placeholders across 14 ECL cards with descriptive Oracle-text Custom strings. Added missing card data for Grub and Spinerock. Replaced some effects with typed variants (Mill, ChooseCreatureType, AddCountersSelf, RemoveCounters, BlightOpponents, Equip). 0 generic placeholders remain.
+- Task 1.3: Replaced Custom strings with typed Effect variants on 4 cards: (1) champions_of_the_shoal: Custom→TapTarget+AddCounters("stun") with proper TargetSpec; (2) ajani_outland_chaperone: Custom→CreateToken("1/1 Kithkin"), added 2 missing loyalty abilities; (3) swat_away: restructured from misplaced Custom to CostReduction static+PutOnLibrary spell; (4) goatnap: added missing UntapTarget+GainKeywordEot("haste"). Net: +7 typed effects, -1 Custom. ECL now at 48 Effect::Custom + 20 StaticEffect::Custom = 68 unique Custom lines.

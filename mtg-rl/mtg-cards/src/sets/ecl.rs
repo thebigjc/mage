@@ -4026,7 +4026,13 @@ fn ajani_outland_chaperone(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Uncommon,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::Custom("+1: Create a 1/1 green and white Kithkin creature token.".into())],
+                vec![Effect::create_token("1/1 Kithkin", 1)],
+                TargetSpec::None),
+            Ability::spell(id,
+                vec![Effect::Custom("−2: Ajani deals 4 damage to target tapped creature.".into())],
+                TargetSpec::Creature),
+            Ability::spell(id,
+                vec![Effect::Custom("−8: Look at top X cards where X is your life total. Put any number of nonland permanents MV<=3 onto the battlefield.".into())],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -4083,8 +4089,8 @@ fn champions_of_the_shoal(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "Whenever this creature enters or becomes tapped, tap up to one target creature and put a stun counter on it.",
                 vec![EventType::EnteredTheBattlefield],
-                vec![Effect::Custom("Whenever this creature enters or becomes tapped, tap up to one target creature and put a stun counter on it.".into())],
-                TargetSpec::None),
+                vec![Effect::tap_target(), Effect::add_counters("stun", 1)],
+                TargetSpec::Creature),
         ],
         additional_costs: vec![Cost::behold_and_exile("Merfolk")],
         ..Default::default() }
@@ -4256,7 +4262,7 @@ fn goatnap(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::gain_control_eot(), Effect::Custom("If Goat, +3/+0 until end of turn.".into())],
+                vec![Effect::gain_control_eot(), Effect::untap_target(), Effect::gain_keyword_eot("haste"), Effect::Custom("If Goat, +3/+0 until end of turn.".into())],
                 TargetSpec::Creature),
         ],
         ..Default::default() }
@@ -4659,9 +4665,12 @@ fn swat_away(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Instant],
         rarity: Rarity::Common,
         abilities: vec![
+            Ability::static_ability(id,
+                "This spell costs {2} less to cast if a creature is attacking you.",
+                vec![StaticEffect::CostReduction { filter: "self if creature attacking you".into(), amount: 2 }]),
             Ability::spell(id,
-                vec![Effect::Custom("This spell costs {2} less to cast if a creature is attacking you.".into())],
-                TargetSpec::None),
+                vec![Effect::PutOnLibrary],
+                TargetSpec::PermanentFiltered("spell or creature".into())),
         ],
         ..Default::default() }
 }

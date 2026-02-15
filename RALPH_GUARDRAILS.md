@@ -1,0 +1,6 @@
+- `rg -c "Effect::Custom"` matches both `Effect::Custom` and `StaticEffect::Custom` lines — subtract `rg -c "StaticEffect::Custom"` to get pure Effect::Custom count
+- Run `cargo check -p mtg-cards` for fast compilation check, then `cargo test --lib -p mtg-engine` for engine tests
+- Card oracle text should be verified against scryfall.com before making changes
+- `ChooseCreatureType` stores chosen type on `perm.chosen_type` — doesn't work for sorceries (no permanent on battlefield)
+- `ReturnAllTypeFromGraveyard` needs a specific creature_type string, can't dynamically read from chosen_type for sorcery spells
+- ECL cards use helper functions like `Effect::tap_target()`, `Effect::add_counters()`, `Effect::create_token()` — always use helpers when available
