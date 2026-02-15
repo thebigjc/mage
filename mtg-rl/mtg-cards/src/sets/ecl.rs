@@ -1006,7 +1006,7 @@ fn iron_shield_elf(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "Discard a card: Iron-Shield Elf gains indestructible until end of turn. Tap it.",
                 vec![Cost::Discard(1)],
-                vec![Effect::gain_keyword_eot("indestructible"), Effect::Custom("Tap Iron-Shield Elf.".into())],
+                vec![Effect::gain_keyword_eot("indestructible"), Effect::tap_self()],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -4472,7 +4472,7 @@ fn morcants_eyes(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "{4}{G}{G}, Sacrifice Morcant's Eyes: Create X 2/2 black and green Elf creature tokens, where X is the number of Elf cards in your graveyard. Activate only as a sorcery.",
                 vec![Cost::pay_mana("{4}{G}{G}"), Cost::SacrificeSelf],
-                vec![Effect::Custom("Create X 2/2 Elf tokens where X = Elf cards in your graveyard.".into())],
+                vec![Effect::create_token_dynamic("2/2 green Elf Warrior creature token", "Elf cards in your graveyard")],
                 TargetSpec::None),
         ],
         ..Default::default() }

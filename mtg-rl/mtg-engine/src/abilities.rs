@@ -334,6 +334,16 @@ pub enum Effect {
         modifications: Vec<TokenModification>,
     },
 
+    /// Tap the source permanent (self-tap as part of an effect, not a cost).
+    TapSelf,
+
+    /// Return all creature cards of the specified type from your graveyard to the battlefield.
+    ReturnAllTypeFromGraveyard { creature_type: String },
+
+    /// Create X tokens where X is dynamically computed from count_filter.
+    /// count_filter examples: "Elf cards in your graveyard", "Goblins you control"
+    CreateTokenDynamic { token_name: String, count_filter: String },
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1154,6 +1164,24 @@ impl Effect {
                 TokenModification::AddKeyword("haste".into()),
                 TokenModification::SacrificeAtEndStep,
             ],
+        }
+    }
+
+    /// Tap the source permanent.
+    pub fn tap_self() -> Self {
+        Effect::TapSelf
+    }
+
+    /// Return all creatures of a type from your graveyard to the battlefield.
+    pub fn return_all_type_from_graveyard(creature_type: &str) -> Self {
+        Effect::ReturnAllTypeFromGraveyard { creature_type: creature_type.to_string() }
+    }
+
+    /// Create X tokens where X is dynamically counted from a filter.
+    pub fn create_token_dynamic(token_name: &str, count_filter: &str) -> Self {
+        Effect::CreateTokenDynamic {
+            token_name: token_name.to_string(),
+            count_filter: count_filter.to_string(),
         }
     }
 }

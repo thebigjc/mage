@@ -670,6 +670,53 @@ impl Game {
         false // unknown condition
     }
 
+    /// Evaluate a count filter string and return the dynamic count.
+    /// Supports patterns like:
+    /// - "Elf cards in your graveyard" — count of Elf creature cards in controller's graveyard
+    /// - "Goblins you control" — count of Goblins on controller's battlefield
+    fn evaluate_count_filter(&self, filter: &str, controller: PlayerId) -> u32 {
+        let lower = filter.to_lowercase();
+
+        // "{Type} cards in your graveyard"
+        if lower.ends_with("cards in your graveyard") || lower.ends_with("in your graveyard") {
+            // Extract type name: "Elf cards in your graveyard" -> "Elf"
+            let type_str = if let Some(idx) = lower.find(" cards in your graveyard") {
+                &filter[..idx]
+            } else if let Some(idx) = lower.find(" in your graveyard") {
+                &filter[..idx]
+            } else {
+                return 0;
+            };
+            let subtype = crate::constants::SubType::by_description(type_str);
+            if let Some(player) = self.state.players.get(&controller) {
+                return player.graveyard.iter()
+                    .filter(|&&card_id| {
+                        if let Some(card) = self.state.card_store.get(card_id) {
+                            card.subtypes.contains(&subtype)
+                        } else {
+                            false
+                        }
+                    })
+                    .count() as u32;
+            }
+            return 0;
+        }
+
+        // "{Type}s you control" / "{Type} you control"
+        if lower.ends_with("you control") {
+            let type_part = lower.trim_end_matches("you control").trim();
+            let type_str = type_part.trim_end_matches('s'); // "Goblins" -> "Goblin"
+            let subtype = crate::constants::SubType::by_description(
+                &format!("{}{}", &type_str[..1].to_uppercase(), &type_str[1..])
+            );
+            return self.state.battlefield.iter()
+                .filter(|p| p.controller == controller && p.has_subtype(&subtype))
+                .count() as u32;
+        }
+
+        0 // unknown filter
+    }
+
     /// Find permanents matching a filter string, relative to a source permanent.
     ///
     /// Handles common filter patterns:
@@ -3958,6 +4005,63 @@ impl Game {
                                 }
                             }
                         }
+                    }
+                }
+                Effect::TapSelf => {
+                    // Tap the source permanent
+                    if let Some(src_id) = source {
+                        if let Some(perm) = self.state.battlefield.get_mut(src_id) {
+                            perm.tap();
+                        }
+                    }
+                }
+                Effect::ReturnAllTypeFromGraveyard { creature_type } => {
+                    // Return all creature cards of the specified type from controller's graveyard to the battlefield
+                    let target_subtype = crate::constants::SubType::by_description(creature_type);
+                    if let Some(player) = self.state.players.get(&controller) {
+                        let matching_ids: Vec<ObjectId> = player.graveyard.iter()
+                            .filter(|&&card_id| {
+                                if let Some(card) = self.state.card_store.get(card_id) {
+                                    card.is_creature() && card.subtypes.contains(&target_subtype)
+                                } else {
+                                    false
+                                }
+                            })
+                            .copied()
+                            .collect();
+
+                        for card_id in matching_ids {
+                            if let Some(player) = self.state.players.get_mut(&controller) {
+                                player.graveyard.remove(card_id);
+                            }
+                            if let Some(card_data) = self.state.card_store.remove(card_id) {
+                                for ability in &card_data.abilities {
+                                    self.state.ability_store.add(ability.clone());
+                                }
+                                let perm = Permanent::new(card_data, controller);
+                                self.state.battlefield.add(perm);
+                                self.state.set_zone(card_id, crate::constants::Zone::Battlefield, None);
+                                self.emit_event(GameEvent::enters_battlefield(card_id, controller));
+                            }
+                        }
+                    }
+                }
+                Effect::CreateTokenDynamic { token_name, count_filter } => {
+                    // Count matching items based on filter, then create that many tokens
+                    let count = self.evaluate_count_filter(count_filter, controller);
+                    for _ in 0..count {
+                        let token_id = ObjectId::new();
+                        let mut card = CardData::new(token_id, controller, token_name);
+                        card.card_types = vec![crate::constants::CardType::Creature];
+                        let (p, t, kw) = Self::parse_token_stats(token_name);
+                        card.power = Some(p);
+                        card.toughness = Some(t);
+                        card.keywords = kw;
+                        card.is_token = true;
+                        let perm = Permanent::new(card, controller);
+                        self.state.battlefield.add(perm);
+                        self.state.set_zone(token_id, crate::constants::Zone::Battlefield, None);
+                        self.emit_event(GameEvent::enters_battlefield(token_id, controller));
                     }
                 }
                 _ => {
@@ -11572,5 +11676,183 @@ mod token_copy_tests {
             .filter(|e| e.event_type == crate::events::EventType::EnteredTheBattlefield)
             .count();
         assert_eq!(etb_count, 1, "token copy should emit ETB event");
+    }
+}
+
+#[cfg(test)]
+mod tap_self_and_return_type_tests {
+    use super::*;
+    use crate::abilities::{Ability, Cost, Effect, TargetSpec};
+    use crate::card::CardData;
+    use crate::constants::{CardType, KeywordAbilities, SubType};
+    use crate::decision::*;
+    use crate::types::{ObjectId, PlayerId};
+
+    struct AlwaysPassDM;
+    impl PlayerDecisionMaker for AlwaysPassDM {
+        fn priority(&mut self, _: &GameView, actions: &[PlayerAction]) -> PlayerAction {
+            actions.iter().find(|a| matches!(a, PlayerAction::Pass)).cloned().unwrap_or(PlayerAction::Pass)
+        }
+        fn choose_targets(&mut self, _: &GameView, _: crate::constants::Outcome, req: &TargetRequirement) -> Vec<ObjectId> {
+            if req.min_targets > 0 && !req.legal_targets.is_empty() { vec![req.legal_targets[0]] } else { vec![] }
+        }
+        fn choose_use(&mut self, _: &GameView, _: crate::constants::Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView, modes: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView, a: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![(a.targets[0], a.total_damage)] }
+        fn choose_mulligan(&mut self, _: &GameView, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView, hand: &[ObjectId], count: usize) -> Vec<ObjectId> { hand.iter().take(count).copied().collect() }
+        fn choose_amount(&mut self, _: &GameView, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView, _: &UnpaidMana, abilities: &[PlayerAction]) -> Option<PlayerAction> { abilities.first().cloned() }
+        fn choose_replacement_effect(&mut self, _: &GameView, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView, _: crate::constants::Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView, _: crate::constants::Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn setup_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            starting_life: 20,
+            players: vec![
+                PlayerConfig { name: "P1".into(), deck: vec![] },
+                PlayerConfig { name: "P2".into(), deck: vec![] },
+            ],
+        };
+        let game = Game::new_two_player(config, vec![
+            (p1, Box::new(AlwaysPassDM)),
+            (p2, Box::new(AlwaysPassDM)),
+        ]);
+        (game, p1, p2)
+    }
+
+    #[test]
+    fn tap_self_taps_source() {
+        let (mut game, p1, _p2) = setup_game();
+
+        // Create a creature with an activated ability that taps self as part of its effect
+        let creature_id = ObjectId::new();
+        let mut card = CardData::new(creature_id, p1, "Self Tapper");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(2);
+        card.toughness = Some(2);
+        card.abilities = vec![Ability::activated(creature_id,
+            "Pay 1: Tap this creature.",
+            vec![Cost::pay_mana("{1}")],
+            vec![Effect::TapSelf],
+            TargetSpec::None)];
+
+        let perm = crate::permanent::Permanent::new(card.clone(), p1);
+        game.state.card_store.insert(card.clone());
+        game.state.battlefield.add(perm);
+        for ability in &card.abilities {
+            game.state.ability_store.add(ability.clone());
+        }
+
+        // Creature should start untapped
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(!perm.tapped, "should start untapped");
+
+        // Execute TapSelf effect with source
+        game.execute_effects(
+            &[Effect::TapSelf],
+            p1,
+            &[],
+            Some(creature_id),
+            None,
+        );
+
+        // Creature should now be tapped
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(perm.tapped, "should be tapped after TapSelf");
+    }
+
+    #[test]
+    fn return_all_type_from_graveyard() {
+        let (mut game, p1, _p2) = setup_game();
+
+        // Put some Goblins and non-Goblins in the graveyard
+        let goblin1_id = ObjectId::new();
+        let mut goblin1 = CardData::new(goblin1_id, p1, "Goblin Warrior");
+        goblin1.card_types = vec![CardType::Creature];
+        goblin1.subtypes = vec![SubType::Goblin, SubType::Warrior];
+        goblin1.power = Some(2);
+        goblin1.toughness = Some(1);
+
+        let goblin2_id = ObjectId::new();
+        let mut goblin2 = CardData::new(goblin2_id, p1, "Goblin Shaman");
+        goblin2.card_types = vec![CardType::Creature];
+        goblin2.subtypes = vec![SubType::Goblin];
+        goblin2.power = Some(1);
+        goblin2.toughness = Some(1);
+
+        let elf_id = ObjectId::new();
+        let mut elf = CardData::new(elf_id, p1, "Llanowar Elves");
+        elf.card_types = vec![CardType::Creature];
+        elf.subtypes = vec![SubType::Elf];
+        elf.power = Some(1);
+        elf.toughness = Some(1);
+
+        game.state.card_store.insert(goblin1.clone());
+        game.state.card_store.insert(goblin2.clone());
+        game.state.card_store.insert(elf.clone());
+
+        game.state.players.get_mut(&p1).unwrap().graveyard.add(goblin1_id);
+        game.state.players.get_mut(&p1).unwrap().graveyard.add(goblin2_id);
+        game.state.players.get_mut(&p1).unwrap().graveyard.add(elf_id);
+
+        // Execute ReturnAllTypeFromGraveyard for Goblins
+        game.execute_effects(
+            &[Effect::ReturnAllTypeFromGraveyard { creature_type: "Goblin".into() }],
+            p1,
+            &[],
+            None,
+            None,
+        );
+
+        // Both goblins should be on the battlefield
+        assert!(game.state.battlefield.get(goblin1_id).is_some(), "goblin1 should be on battlefield");
+        assert!(game.state.battlefield.get(goblin2_id).is_some(), "goblin2 should be on battlefield");
+        // Elf should still be in graveyard
+        let gy = &game.state.players.get(&p1).unwrap().graveyard;
+        assert!(gy.iter().any(|&id| id == elf_id), "elf should still be in graveyard");
+        assert!(!gy.iter().any(|&id| id == goblin1_id), "goblin1 should not be in graveyard");
+    }
+
+    #[test]
+    fn create_token_dynamic_count() {
+        let (mut game, p1, _p2) = setup_game();
+
+        // Put 3 Elf cards in graveyard
+        for i in 0..3 {
+            let elf_id = ObjectId::new();
+            let mut elf = CardData::new(elf_id, p1, &format!("Dead Elf {}", i));
+            elf.card_types = vec![CardType::Creature];
+            elf.subtypes = vec![SubType::Elf];
+            elf.power = Some(1);
+            elf.toughness = Some(1);
+            game.state.card_store.insert(elf.clone());
+            game.state.players.get_mut(&p1).unwrap().graveyard.add(elf_id);
+        }
+
+        // Create tokens equal to Elf cards in graveyard
+        game.execute_effects(
+            &[Effect::CreateTokenDynamic {
+                token_name: "2/2 green Elf Warrior creature token".into(),
+                count_filter: "Elf cards in your graveyard".into(),
+            }],
+            p1,
+            &[],
+            None,
+            None,
+        );
+
+        // Should have 3 tokens on the battlefield
+        let tokens: Vec<_> = game.state.battlefield.iter()
+            .filter(|p| p.controller == p1 && p.card.is_token)
+            .collect();
+        assert_eq!(tokens.len(), 3, "should have 3 elf tokens");
     }
 }
