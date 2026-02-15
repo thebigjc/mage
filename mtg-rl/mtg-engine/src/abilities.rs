@@ -1386,6 +1386,13 @@ impl StaticEffect {
             toughness,
         }
     }
+
+    /// Matching permanents can't untap during their controller's untap step.
+    pub fn cant_untap(filter: &str) -> Self {
+        StaticEffect::CantUntap {
+            filter: filter.to_string(),
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1594,6 +1601,10 @@ pub enum StaticEffect {
         filter: String,
         power: i32,
         toughness: i32,
+    },
+    /// Prevent matching permanents from untapping during their controller's untap step.
+    CantUntap {
+        filter: String,
     },
     /// Custom continuous effect.
 

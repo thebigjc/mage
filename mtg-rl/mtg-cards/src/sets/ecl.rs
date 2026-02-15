@@ -2156,7 +2156,7 @@ fn blossombind(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::static_ability(id,
                 "Enchanted creature can't become untapped and can't have counters put on it.",
-                vec![StaticEffect::Custom("Enchanted creature can't untap or receive counters.".into())]),
+                vec![StaticEffect::cant_untap("enchanted creature")]),
         ],
         ..Default::default() }
 }

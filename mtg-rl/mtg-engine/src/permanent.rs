@@ -72,6 +72,8 @@ pub struct Permanent {
     pub base_power_override: Option<i32>,
     /// Base toughness override from continuous effects (Layer 7b).
     pub base_toughness_override: Option<i32>,
+    /// Whether this permanent can't untap (set by continuous effects like Blossombind).
+    pub cant_untap: bool,
 }
 
 impl Permanent {
@@ -104,6 +106,7 @@ impl Permanent {
             abilities_lost: false,
             base_power_override: None,
             base_toughness_override: None,
+            cant_untap: false,
             card,
         }
     }

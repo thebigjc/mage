@@ -421,6 +421,7 @@ impl Game {
             perm.abilities_lost = false;
             perm.base_power_override = None;
             perm.base_toughness_override = None;
+            perm.cant_untap = false;
         }
 
         // Step 2: Collect static effects from all battlefield permanents.
@@ -438,6 +439,7 @@ impl Game {
         let mut conditional_boosts: Vec<(ObjectId, PlayerId, i32, i32, String)> = Vec::new();
         let mut lose_all_abilities: Vec<(ObjectId, PlayerId, String)> = Vec::new();
         let mut set_base_pts: Vec<(ObjectId, PlayerId, String, i32, i32)> = Vec::new();
+        let mut cant_untaps: Vec<(ObjectId, PlayerId, String)> = Vec::new();
 
         for perm in self.state.battlefield.iter() {
             let source_id = perm.id();
@@ -488,6 +490,9 @@ impl Game {
                         crate::abilities::StaticEffect::SetBasePowerToughness { filter, power, toughness } => {
                             set_base_pts.push((source_id, controller, filter.clone(), *power, *toughness));
                         }
+                        crate::abilities::StaticEffect::CantUntap { filter } => {
+                            cant_untaps.push((source_id, controller, filter.clone()));
+                        }
                         _ => {}
                     }
                 }
@@ -512,6 +517,16 @@ impl Game {
                 if let Some(perm) = self.state.battlefield.get_mut(target_id) {
                     perm.base_power_override = Some(power);
                     perm.base_toughness_override = Some(toughness);
+                }
+            }
+        }
+
+        // Step 2d: Apply CantUntap restrictions
+        for (source_id, controller, filter) in cant_untaps {
+            let matching = self.find_matching_permanents(source_id, controller, &filter);
+            for target_id in matching {
+                if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                    perm.cant_untap = true;
                 }
             }
         }
@@ -1177,9 +1192,12 @@ impl Game {
         match step {
             PhaseStep::Untap => {
                 // Untap all permanents controlled by the active player
+                // (skip permanents with cant_untap restriction)
                 for perm in self.state.battlefield.iter_mut() {
                     if perm.controller == active_player {
-                        perm.untap();
+                        if !perm.cant_untap {
+                            perm.untap();
+                        }
                         perm.remove_summoning_sickness();
                     }
                 }
@@ -13253,6 +13271,317 @@ mod put_from_hand_tests {
                 assert!(attacking);
                 assert!(!haste);
                 assert!(!sacrifice_eot);
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod cant_untap_tests {
+    use super::*;
+    use crate::abilities::{Ability, StaticEffect};
+    use crate::card::CardData;
+    use crate::constants::{CardType, Outcome, SubType};
+    use crate::decision::{
+        AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
+        ReplacementEffectChoice, TargetRequirement, UnpaidMana,
+    };
+    use crate::permanent::Permanent;
+
+    struct AlwaysPassPlayer;
+
+    impl PlayerDecisionMaker for AlwaysPassPlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction {
+            PlayerAction::Pass
+        }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_basic_land(name: &str, owner: PlayerId) -> CardData {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Land];
+        card
+    }
+
+    fn make_creature(name: &str, owner: PlayerId, power: i32, toughness: i32) -> CardData {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        card
+    }
+
+    fn make_deck(owner: PlayerId) -> Vec<CardData> {
+        let mut deck = Vec::new();
+        for _ in 0..20 {
+            deck.push(make_basic_land("Forest", owner));
+        }
+        for _ in 0..20 {
+            deck.push(make_creature("Grizzly Bears", owner, 2, 2));
+        }
+        deck
+    }
+
+    fn setup_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+                PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(AlwaysPassPlayer)),
+                (p2, Box::new(AlwaysPassPlayer)),
+            ],
+        );
+        (game, p1, p2)
+    }
+
+    #[test]
+    fn cant_untap_prevents_untap_during_untap_step() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let creature = make_creature("Test Creature", p1, 3, 3);
+        let creature_id = creature.id;
+        game.state.battlefield.add(Permanent::new(creature, p1));
+
+        if let Some(perm) = game.state.battlefield.get_mut(creature_id) {
+            perm.tap();
+            perm.cant_untap = true;
+        }
+
+        game.turn_based_actions(PhaseStep::Untap, p1);
+
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(perm.tapped, "Creature with cant_untap should remain tapped after untap step");
+    }
+
+    #[test]
+    fn normal_creature_untaps_during_untap_step() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let creature = make_creature("Test Creature", p1, 3, 3);
+        let creature_id = creature.id;
+        game.state.battlefield.add(Permanent::new(creature, p1));
+
+        if let Some(perm) = game.state.battlefield.get_mut(creature_id) {
+            perm.tap();
+        }
+
+        game.turn_based_actions(PhaseStep::Untap, p1);
+
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(!perm.tapped, "Normal creature should untap during untap step");
+    }
+
+    #[test]
+    fn cant_untap_static_effect_sets_flag_on_enchanted_creature() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let creature = make_creature("Target Creature", p1, 2, 2);
+        let creature_id = creature.id;
+        game.state.battlefield.add(Permanent::new(creature, p1));
+
+        let mut aura_card = CardData::new(ObjectId::new(), p1, "Test Aura");
+        aura_card.card_types = vec![CardType::Enchantment];
+        aura_card.subtypes = vec![SubType::Aura];
+        let aura_id = aura_card.id;
+        let aura_ability = Ability::static_ability(
+            aura_id,
+            "Enchanted creature can't untap.",
+            vec![StaticEffect::cant_untap("enchanted creature")],
+        );
+        game.state.battlefield.add(Permanent::new(aura_card, p1));
+        game.state.ability_store.add(aura_ability);
+
+        if let Some(aura) = game.state.battlefield.get_mut(aura_id) {
+            aura.attach_to(creature_id);
+        }
+        if let Some(creature) = game.state.battlefield.get_mut(creature_id) {
+            creature.add_attachment(aura_id);
+        }
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(perm.cant_untap, "Enchanted creature should have cant_untap set");
+    }
+
+    #[test]
+    fn cant_untap_aura_prevents_untapping() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let creature = make_creature("Target Creature", p1, 2, 2);
+        let creature_id = creature.id;
+        game.state.battlefield.add(Permanent::new(creature, p1));
+
+        let mut aura_card = CardData::new(ObjectId::new(), p1, "Blossombind");
+        aura_card.card_types = vec![CardType::Enchantment];
+        aura_card.subtypes = vec![SubType::Aura];
+        let aura_id = aura_card.id;
+        let aura_ability = Ability::static_ability(
+            aura_id,
+            "Enchanted creature can't untap.",
+            vec![StaticEffect::cant_untap("enchanted creature")],
+        );
+        game.state.battlefield.add(Permanent::new(aura_card, p1));
+        game.state.ability_store.add(aura_ability);
+
+        if let Some(aura) = game.state.battlefield.get_mut(aura_id) {
+            aura.attach_to(creature_id);
+        }
+        if let Some(creature) = game.state.battlefield.get_mut(creature_id) {
+            creature.add_attachment(aura_id);
+            creature.tap();
+        }
+
+        game.apply_continuous_effects();
+        game.turn_based_actions(PhaseStep::Untap, p1);
+
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(perm.tapped, "Creature enchanted by CantUntap aura should stay tapped");
+    }
+
+    #[test]
+    fn removing_cant_untap_aura_allows_untapping() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let creature = make_creature("Target Creature", p1, 2, 2);
+        let creature_id = creature.id;
+        game.state.battlefield.add(Permanent::new(creature, p1));
+
+        let mut aura_card = CardData::new(ObjectId::new(), p1, "Blossombind");
+        aura_card.card_types = vec![CardType::Enchantment];
+        aura_card.subtypes = vec![SubType::Aura];
+        let aura_id = aura_card.id;
+        let aura_ability = Ability::static_ability(
+            aura_id,
+            "Enchanted creature can't untap.",
+            vec![StaticEffect::cant_untap("enchanted creature")],
+        );
+        game.state.battlefield.add(Permanent::new(aura_card, p1));
+        game.state.ability_store.add(aura_ability);
+
+        if let Some(aura) = game.state.battlefield.get_mut(aura_id) {
+            aura.attach_to(creature_id);
+        }
+        if let Some(creature) = game.state.battlefield.get_mut(creature_id) {
+            creature.add_attachment(aura_id);
+            creature.tap();
+        }
+
+        game.apply_continuous_effects();
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(perm.cant_untap, "Should be cant_untap while aura is attached");
+
+        game.state.battlefield.remove(aura_id);
+        game.state.ability_store.remove_source(aura_id);
+        if let Some(creature) = game.state.battlefield.get_mut(creature_id) {
+            creature.remove_attachment(aura_id);
+        }
+
+        game.apply_continuous_effects();
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(!perm.cant_untap, "Should not be cant_untap after aura removed");
+
+        game.turn_based_actions(PhaseStep::Untap, p1);
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(!perm.tapped, "Creature should untap after aura is removed");
+    }
+
+    #[test]
+    fn cant_untap_self_filter() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let creature = make_creature("Self Lock", p1, 4, 4);
+        let creature_id = creature.id;
+        let ability = Ability::static_ability(
+            creature_id,
+            "This creature doesn't untap during your untap step.",
+            vec![StaticEffect::cant_untap("self")],
+        );
+        game.state.battlefield.add(Permanent::new(creature, p1));
+        game.state.ability_store.add(ability);
+
+        if let Some(perm) = game.state.battlefield.get_mut(creature_id) {
+            perm.tap();
+        }
+
+        game.apply_continuous_effects();
+        game.turn_based_actions(PhaseStep::Untap, p1);
+
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(perm.tapped, "Self-locking creature should remain tapped");
+    }
+
+    #[test]
+    fn cant_untap_only_affects_matching_permanents() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let creature1 = make_creature("Locked Creature", p1, 2, 2);
+        let creature1_id = creature1.id;
+        game.state.battlefield.add(Permanent::new(creature1, p1));
+
+        let creature2 = make_creature("Free Creature", p1, 3, 3);
+        let creature2_id = creature2.id;
+        game.state.battlefield.add(Permanent::new(creature2, p1));
+
+        let mut aura_card = CardData::new(ObjectId::new(), p1, "Lockdown Aura");
+        aura_card.card_types = vec![CardType::Enchantment];
+        aura_card.subtypes = vec![SubType::Aura];
+        let aura_id = aura_card.id;
+        let aura_ability = Ability::static_ability(
+            aura_id,
+            "Enchanted creature can't untap.",
+            vec![StaticEffect::cant_untap("enchanted creature")],
+        );
+        game.state.battlefield.add(Permanent::new(aura_card, p1));
+        game.state.ability_store.add(aura_ability);
+
+        if let Some(aura) = game.state.battlefield.get_mut(aura_id) {
+            aura.attach_to(creature1_id);
+        }
+        if let Some(c) = game.state.battlefield.get_mut(creature1_id) {
+            c.add_attachment(aura_id);
+            c.tap();
+        }
+        if let Some(c) = game.state.battlefield.get_mut(creature2_id) {
+            c.tap();
+        }
+
+        game.apply_continuous_effects();
+        game.turn_based_actions(PhaseStep::Untap, p1);
+
+        let c1 = game.state.battlefield.get(creature1_id).unwrap();
+        assert!(c1.tapped, "Enchanted creature should remain tapped");
+        let c2 = game.state.battlefield.get(creature2_id).unwrap();
+        assert!(!c2.tapped, "Non-enchanted creature should untap normally");
+    }
+
+    #[test]
+    fn static_effect_helper_constructor() {
+        match StaticEffect::cant_untap("enchanted creature") {
+            StaticEffect::CantUntap { filter } => {
+                assert_eq!(filter, "enchanted creature");
             }
             _ => panic!("wrong variant"),
         }
