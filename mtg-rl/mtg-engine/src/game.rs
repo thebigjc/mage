@@ -670,12 +670,26 @@ impl Game {
         false // unknown condition
     }
 
-    /// Evaluate a count filter string and return the dynamic count.
+    /// Evaluate a dynamic value source string and return the computed value.
     /// Supports patterns like:
     /// - "Elf cards in your graveyard" — count of Elf creature cards in controller's graveyard
-    /// - "Goblins you control" — count of Goblins on controller's battlefield
+    /// - "Goblins you control" / "Kithkin you control" — count of matching permanents
+    /// - "greatest power among Giants you control" — max power among matching creatures
     fn evaluate_count_filter(&self, filter: &str, controller: PlayerId) -> u32 {
         let lower = filter.to_lowercase();
+
+        // "greatest power among {Type}s you control"
+        if lower.starts_with("greatest power among") && lower.ends_with("you control") {
+            let middle = &filter[21..]; // skip "greatest power among "
+            let type_part = middle.trim_end_matches("you control").trim();
+            let type_str = type_part.trim_end_matches('s');
+            let subtype = crate::constants::SubType::by_description(type_str);
+            return self.state.battlefield.iter()
+                .filter(|p| p.controller == controller && p.has_subtype(&subtype))
+                .map(|p| std::cmp::max(0, p.power()) as u32)
+                .max()
+                .unwrap_or(0);
+        }
 
         // "{Type} cards in your graveyard"
         if lower.ends_with("cards in your graveyard") || lower.ends_with("in your graveyard") {
@@ -4062,6 +4076,24 @@ impl Game {
                         self.state.battlefield.add(perm);
                         self.state.set_zone(token_id, crate::constants::Zone::Battlefield, None);
                         self.emit_event(GameEvent::enters_battlefield(token_id, controller));
+                    }
+                }
+                Effect::GainLifeDynamic { value_source } => {
+                    let amount = self.evaluate_count_filter(value_source, controller);
+                    if amount > 0 {
+                        if let Some(player) = self.state.players.get_mut(&controller) {
+                            player.life += amount as i32;
+                        }
+                        self.emit_event(GameEvent::gain_life(controller, amount));
+                    }
+                }
+                Effect::BoostTargetDynamic { value_source } => {
+                    let amount = self.evaluate_count_filter(value_source, controller) as i32;
+                    for &target_id in targets {
+                        if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                            perm.continuous_boost_power += amount;
+                            perm.continuous_boost_toughness += amount;
+                        }
                     }
                 }
                 _ => {
@@ -11854,5 +11886,119 @@ mod tap_self_and_return_type_tests {
             .filter(|p| p.controller == p1 && p.card.is_token)
             .collect();
         assert_eq!(tokens.len(), 3, "should have 3 elf tokens");
+    }
+}
+
+#[cfg(test)]
+mod dynamic_value_tests {
+    use super::*;
+    use crate::abilities::{Ability, Cost, Effect, TargetSpec};
+    use crate::card::CardData;
+    use crate::constants::{CardType, KeywordAbilities, SubType};
+    use crate::decision::*;
+    use crate::types::{ObjectId, PlayerId};
+
+    struct AlwaysPassDM;
+    impl PlayerDecisionMaker for AlwaysPassDM {
+        fn priority(&mut self, _: &GameView, actions: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView, _: crate::constants::Outcome, req: &TargetRequirement) -> Vec<ObjectId> {
+            if req.min_targets > 0 && !req.legal_targets.is_empty() { vec![req.legal_targets[0]] } else { vec![] }
+        }
+        fn choose_use(&mut self, _: &GameView, _: crate::constants::Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView, _modes: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView, a: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![(a.targets[0], a.total_damage)] }
+        fn choose_mulligan(&mut self, _: &GameView, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView, hand: &[ObjectId], count: usize) -> Vec<ObjectId> { hand.iter().take(count).copied().collect() }
+        fn choose_amount(&mut self, _: &GameView, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView, _: &UnpaidMana, abilities: &[PlayerAction]) -> Option<PlayerAction> { abilities.first().cloned() }
+        fn choose_replacement_effect(&mut self, _: &GameView, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView, _: crate::constants::Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView, _: crate::constants::Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn setup_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            starting_life: 20,
+            players: vec![
+                PlayerConfig { name: "P1".into(), deck: vec![] },
+                PlayerConfig { name: "P2".into(), deck: vec![] },
+            ],
+        };
+        let game = Game::new_two_player(config, vec![
+            (p1, Box::new(AlwaysPassDM)),
+            (p2, Box::new(AlwaysPassDM)),
+        ]);
+        (game, p1, p2)
+    }
+
+    fn add_creature(game: &mut Game, owner: PlayerId, name: &str, power: i32, toughness: i32, subtypes: Vec<SubType>) -> ObjectId {
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        card.subtypes = subtypes;
+        let perm = crate::permanent::Permanent::new(card.clone(), owner);
+        game.state.card_store.insert(card);
+        game.state.battlefield.add(perm);
+        id
+    }
+
+    #[test]
+    fn gain_life_dynamic_greatest_power() {
+        let (mut game, p1, _p2) = setup_game();
+
+        // Add some Giants with different powers
+        add_creature(&mut game, p1, "Small Giant", 3, 3, vec![SubType::Giant]);
+        add_creature(&mut game, p1, "Big Giant", 7, 7, vec![SubType::Giant]);
+        add_creature(&mut game, p1, "Medium Giant", 5, 5, vec![SubType::Giant]);
+        // Non-giant should not count
+        add_creature(&mut game, p1, "Elf", 1, 1, vec![SubType::Elf]);
+
+        let life_before = game.state.players.get(&p1).unwrap().life;
+
+        game.execute_effects(
+            &[Effect::GainLifeDynamic { value_source: "greatest power among Giants you control".into() }],
+            p1,
+            &[],
+            None,
+            None,
+        );
+
+        let life_after = game.state.players.get(&p1).unwrap().life;
+        assert_eq!(life_after - life_before, 7, "should gain life equal to biggest Giant's power (7)");
+    }
+
+    #[test]
+    fn boost_target_dynamic_count() {
+        let (mut game, p1, _p2) = setup_game();
+
+        // Add some Kithkin
+        add_creature(&mut game, p1, "Kithkin 1", 1, 1, vec![SubType::Kithkin]);
+        add_creature(&mut game, p1, "Kithkin 2", 1, 1, vec![SubType::Kithkin]);
+        add_creature(&mut game, p1, "Kithkin 3", 1, 1, vec![SubType::Kithkin]);
+        // Attacker to receive boost
+        let attacker_id = add_creature(&mut game, p1, "Attacker", 2, 2, vec![SubType::Warrior]);
+
+        game.execute_effects(
+            &[Effect::BoostTargetDynamic { value_source: "Kithkin you control".into() }],
+            p1,
+            &[attacker_id],
+            None,
+            None,
+        );
+
+        let perm = game.state.battlefield.get(attacker_id).unwrap();
+        // 3 Kithkin, so +3/+3 (base 2/2 + 3/3 = 5/5)
+        // But boost is until end of turn, so it should be via granted_keywords or continuous boost
+        // Actually, boosts are applied through continuous_boost or direct power modification
+        // Let's check the implementation handles this as a temporary boost
+        assert_eq!(perm.power(), 5, "should be 2 + 3 from Kithkin count");
+        assert_eq!(perm.toughness(), 5, "should be 2 + 3 from Kithkin count");
     }
 }

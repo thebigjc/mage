@@ -1568,7 +1568,7 @@ fn thoughtweft_imbuer(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "Whenever a creature you control attacks alone, it gets +X/+X until end of turn, where X is the number of Kithkin you control.",
                 vec![EventType::AttackerDeclared],
-                vec![Effect::Custom("Attacking creature gets +X/+X where X = Kithkin you control.".into())],
+                vec![Effect::boost_target_dynamic("Kithkin you control")],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -3371,7 +3371,7 @@ fn pummeler_for_hire(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![StaticEffect::ward("{2}")]),
             Ability::enters_battlefield_triggered(id,
                 "When Pummeler for Hire enters, you gain X life, where X is the greatest power among Giants you control.",
-                vec![Effect::Custom("Gain life equal to greatest power among Giants you control.".into())],
+                vec![Effect::gain_life_dynamic("greatest power among Giants you control")],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -4316,13 +4316,9 @@ fn kindle_the_inner_flame(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Kindred, CardType::Sorcery],
         subtypes: vec![SubType::Elemental],
         keywords: KeywordAbilities::HASTE,
+        flashback_cost: Some(ManaCost::parse("{1}{R}")),
         rarity: Rarity::Common,
         abilities: vec![
-            Ability::activated(id,
-                "Flashback {1}{R}",
-                vec![Cost::pay_mana("{1}{R}")],
-                vec![Effect::Custom("Cast from graveyard, then exile.".into())],
-                TargetSpec::None),
             Ability::triggered(id,
                 "Create a token that's a copy of target creature you control, except it has haste and \"At the beginning of the end step, sacrifice this token.\"",
                 vec![EventType::EndStep],

@@ -344,6 +344,14 @@ pub enum Effect {
     /// count_filter examples: "Elf cards in your graveyard", "Goblins you control"
     CreateTokenDynamic { token_name: String, count_filter: String },
 
+    /// Gain life equal to a dynamically computed value.
+    /// value_source examples: "greatest power among Giants you control"
+    GainLifeDynamic { value_source: String },
+
+    /// Target creature gets +X/+X until end of turn where X = a dynamic count.
+    /// value_source examples: "Kithkin you control"
+    BoostTargetDynamic { value_source: String },
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1183,6 +1191,16 @@ impl Effect {
             token_name: token_name.to_string(),
             count_filter: count_filter.to_string(),
         }
+    }
+
+    /// Gain life equal to a dynamic value.
+    pub fn gain_life_dynamic(value_source: &str) -> Self {
+        Effect::GainLifeDynamic { value_source: value_source.to_string() }
+    }
+
+    /// Target gets +X/+X until end of turn where X = dynamic value.
+    pub fn boost_target_dynamic(value_source: &str) -> Self {
+        Effect::BoostTargetDynamic { value_source: value_source.to_string() }
     }
 }
 
