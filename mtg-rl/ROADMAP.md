@@ -16,7 +16,7 @@ This document describes implementation gaps between the Rust mtg-rl engine and t
 | Keywords defined | 47 |
 | Keywords mechanically enforced | 20 (combat active, plus hexproof, shroud, prowess, landwalk, ward) |
 | State-based actions | 8 of ~20 rules implemented |
-| Triggered abilities | Events emitted, triggers stacked (ETB, attack, life gain, dies) |
+| Triggered abilities | Events emitted, triggers stacked (ETB, attack, life gain, dies, upkeep, end step, combat damage) |
 | Replacement effects | Data structures defined but not integrated |
 | Continuous effect layers | Layer 6 (keywords) + Layer 7 (P/T) applied; others pending |
 

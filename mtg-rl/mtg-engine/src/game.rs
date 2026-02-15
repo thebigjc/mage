@@ -673,6 +673,24 @@ impl Game {
                     }
                 }
 
+                // For UpkeepStep/EndStep, only trigger for the controller whose step it is
+                if event.event_type == EventType::UpkeepStep || event.event_type == EventType::EndStep {
+                    if let Some(player_id) = event.player_id {
+                        if player_id != controller {
+                            continue;
+                        }
+                    }
+                }
+
+                // For DamagedPlayer, only trigger for the source creature that dealt damage
+                if event.event_type == EventType::DamagedPlayer {
+                    if let Some(target_id) = event.target_id {
+                        if target_id != ability.source_id {
+                            continue;
+                        }
+                    }
+                }
+
                 triggered.push((
                     controller,
                     ability.id,
@@ -797,6 +815,12 @@ impl Game {
                     player.mana_pool.clear();
                 }
             }
+            PhaseStep::Upkeep => {
+                // Emit upkeep event for "at the beginning of your upkeep" triggers
+                let mut upkeep_event = GameEvent::new(EventType::UpkeepStep);
+                upkeep_event.player_id = Some(active_player);
+                self.emit_event(upkeep_event);
+            }
             PhaseStep::Draw => {
                 // Active player draws a card
                 // Skip draw on turn 1 for the starting player (two-player rule)
@@ -875,6 +899,12 @@ impl Game {
             }
             PhaseStep::EndCombat => {
                 self.state.combat.clear();
+            }
+            PhaseStep::EndStep => {
+                // Emit end step event for "at the beginning of your end step" triggers
+                let mut end_event = GameEvent::new(EventType::EndStep);
+                end_event.player_id = Some(active_player);
+                self.emit_event(end_event);
             }
             _ => {
                 // Other steps: empty mana pool at step transition (simplified)
@@ -1134,12 +1164,18 @@ impl Game {
         }
 
         // Apply all damage
-        for (target_id, amount, is_player, _source_id) in &damage_events {
+        for (target_id, amount, is_player, source_id) in &damage_events {
             if *is_player {
                 let player_id = PlayerId(target_id.0);
                 if let Some(player) = self.state.players.get_mut(&player_id) {
                     player.life -= *amount as i32;
                 }
+                // Emit DamagedPlayer event for "deals combat damage to a player" triggers
+                let mut dmg_event = GameEvent::new(EventType::DamagedPlayer);
+                dmg_event.target_id = Some(*source_id); // The creature that dealt damage
+                dmg_event.player_id = Some(player_id);  // The player that was damaged
+                dmg_event.amount = *amount as i32;
+                self.emit_event(dmg_event);
             } else if let Some(perm) = self.state.battlefield.get_mut(*target_id) {
                 perm.apply_damage(*amount);
             }
@@ -7989,5 +8025,195 @@ mod cant_be_countered_tests {
 
         // The spell should be removed from the stack
         assert!(game.state.stack.get(spell_id).is_none(), "Normal spell should be countered");
+    }
+}
+
+#[cfg(test)]
+mod step_trigger_tests {
+    use super::*;
+    use crate::abilities::{Ability, TargetSpec, Effect};
+    use crate::card::CardData;
+    use crate::constants::{CardType, Outcome};
+    use crate::types::{ObjectId, PlayerId};
+    use crate::decision::*;
+    use crate::permanent::Permanent;
+
+    struct PassivePlayer;
+    impl PlayerDecisionMaker for PassivePlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_deck(owner: PlayerId) -> Vec<CardData> {
+        (0..40).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), owner, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect()
+    }
+
+    #[test]
+    fn upkeep_trigger_fires_on_upkeep_step() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "B".into(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let mut game = Game::new_two_player(
+            config,
+            vec![(p1, Box::new(PassivePlayer)), (p2, Box::new(PassivePlayer))],
+        );
+        game.state.active_player = p1;
+
+        // Create a creature with upkeep trigger (gain 1 life at upkeep)
+        let creature_id = ObjectId::new();
+        let mut card = CardData::new(creature_id, p1, "Upkeep Healer");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(1);
+        card.toughness = Some(1);
+        let perm = Permanent::new(card.clone(), p1);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(card);
+
+        let trigger = Ability::triggered(
+            creature_id,
+            "At the beginning of your upkeep, gain 1 life.",
+            vec![EventType::UpkeepStep],
+            vec![Effect::GainLife { amount: 1 }],
+            TargetSpec::None,
+        );
+        game.state.ability_store.add(trigger);
+
+        let life_before = game.state.player(p1).unwrap().life;
+
+        // Emit upkeep event and process triggers
+        let mut event = GameEvent::new(EventType::UpkeepStep);
+        event.player_id = Some(p1);
+        game.emit_event(event);
+        game.process_sba_and_triggers();
+
+        // Triggered ability should be on the stack — resolve it
+        assert!(!game.state.stack.is_empty(), "Trigger should be on the stack");
+        game.resolve_top_of_stack();
+
+        let life_after = game.state.player(p1).unwrap().life;
+        assert_eq!(life_after, life_before + 1, "Upkeep trigger should have gained 1 life");
+    }
+
+    #[test]
+    fn end_step_trigger_fires() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "B".into(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let mut game = Game::new_two_player(
+            config,
+            vec![(p1, Box::new(PassivePlayer)), (p2, Box::new(PassivePlayer))],
+        );
+        game.state.active_player = p1;
+
+        // Create a creature with end step trigger (draw a card)
+        let creature_id = ObjectId::new();
+        let mut card = CardData::new(creature_id, p1, "End Step Draw");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(2);
+        card.toughness = Some(2);
+        let perm = Permanent::new(card.clone(), p1);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(card);
+
+        let trigger = Ability::triggered(
+            creature_id,
+            "At the beginning of your end step, draw a card.",
+            vec![EventType::EndStep],
+            vec![Effect::DrawCards { count: 1 }],
+            TargetSpec::None,
+        );
+        game.state.ability_store.add(trigger);
+
+        let hand_before = game.state.player(p1).unwrap().hand.len();
+
+        // Emit end step event and process triggers
+        let mut event = GameEvent::new(EventType::EndStep);
+        event.player_id = Some(p1);
+        game.emit_event(event);
+        game.process_sba_and_triggers();
+
+        // Triggered ability should be on the stack — resolve it
+        assert!(!game.state.stack.is_empty(), "Trigger should be on the stack");
+        game.resolve_top_of_stack();
+
+        let hand_after = game.state.player(p1).unwrap().hand.len();
+        assert_eq!(hand_after, hand_before + 1, "End step trigger should have drawn 1 card");
+    }
+
+    #[test]
+    fn upkeep_trigger_only_fires_for_controller() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "B".into(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let mut game = Game::new_two_player(
+            config,
+            vec![(p1, Box::new(PassivePlayer)), (p2, Box::new(PassivePlayer))],
+        );
+        game.state.active_player = p1;
+
+        // Create an upkeep trigger creature controlled by p2
+        let creature_id = ObjectId::new();
+        let mut card = CardData::new(creature_id, p2, "Opponent Healer");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(1);
+        card.toughness = Some(1);
+        let perm = Permanent::new(card.clone(), p2);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(card);
+
+        let trigger = Ability::triggered(
+            creature_id,
+            "At the beginning of your upkeep, gain 1 life.",
+            vec![EventType::UpkeepStep],
+            vec![Effect::GainLife { amount: 1 }],
+            TargetSpec::None,
+        );
+        game.state.ability_store.add(trigger);
+
+        let p2_life = game.state.player(p2).unwrap().life;
+
+        // Emit p1's upkeep — p2's trigger should NOT fire
+        let mut event = GameEvent::new(EventType::UpkeepStep);
+        event.player_id = Some(p1);
+        game.emit_event(event);
+        game.process_sba_and_triggers();
+
+        let p2_life_after = game.state.player(p2).unwrap().life;
+        assert_eq!(p2_life_after, p2_life, "P2's upkeep trigger should not fire during p1's upkeep");
     }
 }
