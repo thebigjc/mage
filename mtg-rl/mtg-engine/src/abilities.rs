@@ -265,6 +265,9 @@ pub enum Effect {
     /// "Choose a creature type. Return all creature cards of the chosen type from your graveyard to the battlefield."
     ChooseTypeAndReturnFromGraveyard,
 
+    /// "Choose a creature type. Other permanents you control of the chosen type gain [keywords] until end of turn."
+    ChooseTypeAndGrantKeywords { keywords: Vec<String>, other_only: bool },
+
     // -- Equipment --
     /// Attach source equipment to target creature you control.
     Equip,
@@ -1093,6 +1096,14 @@ impl Effect {
     /// "Choose a creature type. Return all creature cards of the chosen type from your graveyard to the battlefield."
     pub fn choose_type_and_return_from_graveyard() -> Self {
         Effect::ChooseTypeAndReturnFromGraveyard
+    }
+
+    /// "Choose a creature type. Other permanents you control of the chosen type gain [keywords] until end of turn."
+    pub fn choose_type_and_grant_keywords(keywords: Vec<&str>, other_only: bool) -> Self {
+        Effect::ChooseTypeAndGrantKeywords {
+            keywords: keywords.into_iter().map(|s| s.to_string()).collect(),
+            other_only,
+        }
     }
 
     /// "When [target/source] dies this turn, [effects]."

@@ -3829,6 +3829,48 @@ impl Game {
                         }
                     }
                 }
+                Effect::ChooseTypeAndGrantKeywords { keywords, other_only } => {
+                    let options: Vec<crate::decision::NamedChoice> =
+                        vec!["Elemental", "Elf", "Faerie", "Giant", "Goblin", "Kithkin", "Merfolk", "Treefolk",
+                             "Human", "Warrior", "Wizard", "Rogue", "Cleric", "Shaman", "Soldier", "Knight"]
+                            .into_iter().enumerate()
+                            .map(|(i, s)| crate::decision::NamedChoice { index: i, description: s.to_string() })
+                            .collect();
+                    let view = crate::decision::GameView::placeholder();
+                    let choice_idx = if let Some(dm) = self.decision_makers.get_mut(&controller) {
+                        dm.choose_option(&view, crate::constants::Outcome::Benefit, "Choose a creature type", &options)
+                    } else {
+                        0
+                    };
+                    if let Some(chosen) = options.get(choice_idx) {
+                        let target_subtype = crate::constants::SubType::by_description(&chosen.description);
+                        let mut combined_kw = crate::constants::KeywordAbilities::empty();
+                        for kw_name in keywords {
+                            if let Some(kw) = crate::constants::KeywordAbilities::keyword_from_name(kw_name) {
+                                combined_kw |= kw;
+                            }
+                        }
+                        let matching: Vec<ObjectId> = self.state.battlefield.iter()
+                            .filter(|p| {
+                                if *other_only && source.map_or(false, |s| p.id() == s) {
+                                    return false;
+                                }
+                                if p.controller != controller {
+                                    return false;
+                                }
+                                let has_type = p.card.subtypes.contains(&target_subtype)
+                                    || (p.is_creature() && p.has_keyword(crate::constants::KeywordAbilities::CHANGELING));
+                                has_type
+                            })
+                            .map(|p| p.id())
+                            .collect();
+                        for id in matching {
+                            if let Some(perm) = self.state.battlefield.get_mut(id) {
+                                perm.granted_keywords |= combined_kw;
+                            }
+                        }
+                    }
+                }
                 Effect::Equip => {
                     // Attach this equipment to target creature.
                     if let Some(source_id) = source {
@@ -13824,5 +13866,224 @@ mod choose_type_reanimate_tests {
         if let Some(player) = game.state.players.get(&p2) {
             assert_eq!(player.graveyard.len(), 1, "P2's graveyard should be unchanged");
         }
+    }
+}
+
+#[cfg(test)]
+mod choose_type_grant_keywords_tests {
+    use super::*;
+    use crate::abilities::Effect;
+    use crate::card::CardData;
+    use crate::constants::{CardType, KeywordAbilities, Outcome, SubType};
+    use crate::decision::{
+        AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
+        ReplacementEffectChoice, TargetRequirement, UnpaidMana,
+    };
+
+    struct OptionPicker(usize);
+
+    impl PlayerDecisionMaker for OptionPicker {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction {
+            PlayerAction::Pass
+        }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize {
+            self.0
+        }
+    }
+
+    fn make_deck(owner: PlayerId) -> Vec<CardData> {
+        (0..20).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), owner, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect()
+    }
+
+    fn setup_game_with_picker(pick_index: usize) -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(OptionPicker(pick_index))),
+                (p2, Box::new(OptionPicker(0))),
+            ],
+        );
+        (game, p1, p2)
+    }
+
+    fn make_creature_with_type(name: &str, owner: PlayerId, subtype: &str, power: i32, toughness: i32) -> CardData {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![SubType::by_description(subtype)];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        card
+    }
+
+    fn put_on_battlefield(game: &mut Game, card: CardData, owner: PlayerId) -> ObjectId {
+        let id = card.id;
+        let perm = Permanent::new(card, owner);
+        game.state.battlefield.add(perm);
+        game.state.set_zone(id, crate::constants::Zone::Battlefield, None);
+        id
+    }
+
+    #[test]
+    fn grants_keywords_to_matching_creatures() {
+        let (mut game, p1, _p2) = setup_game_with_picker(1);
+
+        let source = make_creature_with_type("Selfless Safewright", p1, "Elf", 4, 2);
+        let source_id = put_on_battlefield(&mut game, source, p1);
+        let elf1 = make_creature_with_type("Llanowar Elves", p1, "Elf", 1, 1);
+        let elf1_id = put_on_battlefield(&mut game, elf1, p1);
+        let elf2 = make_creature_with_type("Elvish Mystic", p1, "Elf", 1, 1);
+        let elf2_id = put_on_battlefield(&mut game, elf2, p1);
+
+        let effects = vec![Effect::choose_type_and_grant_keywords(vec!["hexproof", "indestructible"], true)];
+        game.execute_effects(&effects, p1, &[], Some(source_id), None);
+
+        let perm1 = game.state.battlefield.get(elf1_id).unwrap();
+        assert!(perm1.has_keyword(KeywordAbilities::HEXPROOF), "Elf 1 should have hexproof");
+        assert!(perm1.has_keyword(KeywordAbilities::INDESTRUCTIBLE), "Elf 1 should have indestructible");
+        let perm2 = game.state.battlefield.get(elf2_id).unwrap();
+        assert!(perm2.has_keyword(KeywordAbilities::HEXPROOF), "Elf 2 should have hexproof");
+        assert!(perm2.has_keyword(KeywordAbilities::INDESTRUCTIBLE), "Elf 2 should have indestructible");
+    }
+
+    #[test]
+    fn excludes_source_when_other_only() {
+        let (mut game, p1, _p2) = setup_game_with_picker(1);
+
+        let source = make_creature_with_type("Selfless Safewright", p1, "Elf", 4, 2);
+        let source_id = put_on_battlefield(&mut game, source, p1);
+        let elf = make_creature_with_type("Llanowar Elves", p1, "Elf", 1, 1);
+        let elf_id = put_on_battlefield(&mut game, elf, p1);
+
+        let effects = vec![Effect::choose_type_and_grant_keywords(vec!["hexproof", "indestructible"], true)];
+        game.execute_effects(&effects, p1, &[], Some(source_id), None);
+
+        let source_perm = game.state.battlefield.get(source_id).unwrap();
+        assert!(!source_perm.has_keyword(KeywordAbilities::HEXPROOF), "Source should NOT have hexproof (other_only=true)");
+        let elf_perm = game.state.battlefield.get(elf_id).unwrap();
+        assert!(elf_perm.has_keyword(KeywordAbilities::HEXPROOF), "Other elf should have hexproof");
+    }
+
+    #[test]
+    fn includes_source_when_not_other_only() {
+        let (mut game, p1, _p2) = setup_game_with_picker(1);
+
+        let source = make_creature_with_type("Source Elf", p1, "Elf", 4, 2);
+        let source_id = put_on_battlefield(&mut game, source, p1);
+
+        let effects = vec![Effect::choose_type_and_grant_keywords(vec!["hexproof"], false)];
+        game.execute_effects(&effects, p1, &[], Some(source_id), None);
+
+        let source_perm = game.state.battlefield.get(source_id).unwrap();
+        assert!(source_perm.has_keyword(KeywordAbilities::HEXPROOF), "Source should have hexproof (other_only=false)");
+    }
+
+    #[test]
+    fn ignores_non_matching_types() {
+        let (mut game, p1, _p2) = setup_game_with_picker(1);
+
+        let source = make_creature_with_type("Source", p1, "Elf", 4, 2);
+        let source_id = put_on_battlefield(&mut game, source, p1);
+        let goblin = make_creature_with_type("Goblin Piker", p1, "Goblin", 2, 1);
+        let goblin_id = put_on_battlefield(&mut game, goblin, p1);
+
+        let effects = vec![Effect::choose_type_and_grant_keywords(vec!["hexproof", "indestructible"], true)];
+        game.execute_effects(&effects, p1, &[], Some(source_id), None);
+
+        let goblin_perm = game.state.battlefield.get(goblin_id).unwrap();
+        assert!(!goblin_perm.has_keyword(KeywordAbilities::HEXPROOF), "Goblin should NOT have hexproof");
+        assert!(!goblin_perm.has_keyword(KeywordAbilities::INDESTRUCTIBLE), "Goblin should NOT have indestructible");
+    }
+
+    #[test]
+    fn ignores_opponent_creatures() {
+        let (mut game, p1, p2) = setup_game_with_picker(1);
+
+        let source = make_creature_with_type("Source", p1, "Elf", 4, 2);
+        let source_id = put_on_battlefield(&mut game, source, p1);
+        let opponent_elf = make_creature_with_type("Opponent Elf", p2, "Elf", 1, 1);
+        let opp_id = put_on_battlefield(&mut game, opponent_elf, p2);
+
+        let effects = vec![Effect::choose_type_and_grant_keywords(vec!["hexproof"], true)];
+        game.execute_effects(&effects, p1, &[], Some(source_id), None);
+
+        let opp_perm = game.state.battlefield.get(opp_id).unwrap();
+        assert!(!opp_perm.has_keyword(KeywordAbilities::HEXPROOF), "Opponent's elf should NOT have hexproof");
+    }
+
+    #[test]
+    fn grants_single_keyword() {
+        let (mut game, p1, _p2) = setup_game_with_picker(1);
+
+        let source = make_creature_with_type("Source", p1, "Elf", 4, 2);
+        let source_id = put_on_battlefield(&mut game, source, p1);
+        let elf = make_creature_with_type("Llanowar Elves", p1, "Elf", 1, 1);
+        let elf_id = put_on_battlefield(&mut game, elf, p1);
+
+        let effects = vec![Effect::choose_type_and_grant_keywords(vec!["flying"], true)];
+        game.execute_effects(&effects, p1, &[], Some(source_id), None);
+
+        let elf_perm = game.state.battlefield.get(elf_id).unwrap();
+        assert!(elf_perm.has_keyword(KeywordAbilities::FLYING), "Elf should have flying");
+        assert!(!elf_perm.has_keyword(KeywordAbilities::HEXPROOF), "Elf should NOT have hexproof");
+    }
+
+    #[test]
+    fn helper_constructor_returns_correct_variant() {
+        match Effect::choose_type_and_grant_keywords(vec!["hexproof", "indestructible"], true) {
+            Effect::ChooseTypeAndGrantKeywords { keywords, other_only } => {
+                assert_eq!(keywords, vec!["hexproof", "indestructible"]);
+                assert!(other_only);
+            }
+            other => panic!("Expected ChooseTypeAndGrantKeywords, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn keywords_cleared_at_end_of_turn() {
+        let (mut game, p1, _p2) = setup_game_with_picker(1);
+
+        let source = make_creature_with_type("Source", p1, "Elf", 4, 2);
+        let source_id = put_on_battlefield(&mut game, source, p1);
+        let elf = make_creature_with_type("Llanowar Elves", p1, "Elf", 1, 1);
+        let elf_id = put_on_battlefield(&mut game, elf, p1);
+
+        let effects = vec![Effect::choose_type_and_grant_keywords(vec!["hexproof", "indestructible"], true)];
+        game.execute_effects(&effects, p1, &[], Some(source_id), None);
+
+        let perm = game.state.battlefield.get(elf_id).unwrap();
+        assert!(perm.has_keyword(KeywordAbilities::HEXPROOF), "Should have hexproof before cleanup");
+
+        for perm in game.state.battlefield.iter_mut() {
+            perm.granted_keywords = KeywordAbilities::empty();
+        }
+
+        let perm = game.state.battlefield.get(elf_id).unwrap();
+        assert!(!perm.has_keyword(KeywordAbilities::HEXPROOF), "Should NOT have hexproof after cleanup");
     }
 }

@@ -3540,7 +3540,6 @@ fn sapling_nursery(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [TYPE+COND] Flash, Convoke, choose creature type, grant hexproof+indestructible until EOT
 fn selfless_safewright(id: ObjectId, owner: PlayerId) -> CardData {
     // 4/2 Elf Warrior for {3}{G}{G}. Flash, Convoke.
     // ETB: choose a creature type. Other permanents of that type gain hexproof+indestructible until EOT.
@@ -3554,7 +3553,7 @@ fn selfless_safewright(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, choose a creature type. Other permanents you control of the chosen type gain hexproof and indestructible until end of turn.",
-                vec![Effect::choose_creature_type(), Effect::Custom("Other permanents of chosen type gain hexproof and indestructible until EOT.".into())],
+                vec![Effect::choose_type_and_grant_keywords(vec!["hexproof", "indestructible"], true)],
                 TargetSpec::None),
         ],
         ..Default::default() }
