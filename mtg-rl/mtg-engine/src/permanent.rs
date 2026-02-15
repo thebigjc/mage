@@ -64,6 +64,9 @@ pub struct Permanent {
     /// This creature must be blocked if able.
     /// Set by MustBeBlocked static effect.
     pub must_be_blocked: bool,
+    /// Whether this permanent has lost all abilities (from LoseAllAbilities effect).
+    /// When true, the ability store entries for this permanent are ignored.
+    pub abilities_lost: bool,
 }
 
 impl Permanent {
@@ -93,6 +96,7 @@ impl Permanent {
             max_blocked_by: None,
             cant_be_blocked_by_power_leq: None,
             must_be_blocked: false,
+            abilities_lost: false,
             card,
         }
     }

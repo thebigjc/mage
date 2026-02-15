@@ -1997,7 +1997,7 @@ fn abigale_eloquent_first_year(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, up to one other target creature loses all abilities. Put a flying counter, a first strike counter, and a lifelink counter on that creature.",
-                vec![Effect::Custom("Loses all abilities.".into()), Effect::add_counters("flying", 1), Effect::add_counters("first strike", 1), Effect::add_counters("lifelink", 1)],
+                vec![Effect::lose_all_abilities(), Effect::add_counters("flying", 1), Effect::add_counters("first strike", 1), Effect::add_counters("lifelink", 1)],
                 TargetSpec::PermanentFiltered("another creature".into())),
         ],
         ..Default::default() }
@@ -2385,7 +2385,7 @@ fn curious_colossus(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, each creature target opponent controls loses all abilities, becomes a Coward in addition to its other types, and has base power and toughness 1/1.",
-                vec![Effect::Custom("Opponent's creatures become 1/1 Cowards with no abilities.".into())],
+                vec![Effect::lose_all_abilities(), Effect::Custom("Each creature target opponent controls becomes a Coward in addition to its other types, and has base power and toughness 1/1.".into())],
                 TargetSpec::Player),
         ],
         ..Default::default() }
@@ -3252,7 +3252,7 @@ fn noggle_the_mind(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Enchanted creature loses all abilities and is a colorless Noggle creature with base power and toughness 1/1.",
-                vec![StaticEffect::Custom("Enchanted creature loses all abilities, becomes colorless 1/1 Noggle.".into())]),
+                vec![StaticEffect::lose_all_abilities("enchanted creature"), StaticEffect::Custom("Enchanted creature is a colorless Noggle creature with base power and toughness 1/1.".into())]),
         ],
         ..Default::default() }
 }
@@ -3443,7 +3443,7 @@ fn retched_wretch(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::dies_triggered(id,
                 "When this dies, if it had a -1/-1 counter on it, return it to the battlefield under its owner's control and it loses all abilities.",
-                vec![Effect::reanimate(), Effect::Custom("Loses all abilities (conditional: if had -1/-1 counter).".into())],
+                vec![Effect::reanimate(), Effect::lose_all_abilities()],
                 TargetSpec::None),
         ],
         ..Default::default() }

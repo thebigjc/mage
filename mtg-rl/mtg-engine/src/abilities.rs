@@ -191,6 +191,8 @@ pub enum Effect {
     GainKeyword { keyword: String },
     /// Remove a keyword ability.
     LoseKeyword { keyword: String },
+    /// Target creature loses all abilities (keywords + activated/triggered/static).
+    LoseAllAbilities,
 
     // -- Control --
     /// Gain control of target.
@@ -1220,6 +1222,11 @@ impl Effect {
     pub fn target_controller_creates_token(token_name: &str) -> Self {
         Effect::TargetControllerCreatesToken { token_name: token_name.to_string() }
     }
+
+    /// Target creature loses all abilities.
+    pub fn lose_all_abilities() -> Self {
+        Effect::LoseAllAbilities
+    }
 }
 
 impl ModalMode {
@@ -1292,6 +1299,13 @@ impl StaticEffect {
     pub fn evoke(cost: &str) -> Self {
         StaticEffect::Evoke {
             cost: cost.to_string(),
+        }
+    }
+
+    /// Enchanted/matching creature loses all abilities (continuous).
+    pub fn lose_all_abilities(filter: &str) -> Self {
+        StaticEffect::LoseAllAbilities {
+            filter: filter.to_string(),
         }
     }
 }
@@ -1492,6 +1506,10 @@ pub enum StaticEffect {
         count_filter: String,
         power_per: i32,
         toughness_per: i32,
+    },
+    /// Target/enchanted creature loses all abilities (continuous version for auras).
+    LoseAllAbilities {
+        filter: String,
     },
     /// Custom continuous effect.
 

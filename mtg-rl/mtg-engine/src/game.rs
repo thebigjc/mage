@@ -418,6 +418,7 @@ impl Game {
             perm.max_blocked_by = None;
             perm.cant_be_blocked_by_power_leq = None;
             perm.must_be_blocked = false;
+            perm.abilities_lost = false;
         }
 
         // Step 2: Collect static effects from all battlefield permanents.
@@ -433,6 +434,7 @@ impl Game {
         let mut additional_land_plays: Vec<(PlayerId, u32)> = Vec::new();
         let mut conditional_keywords: Vec<(ObjectId, PlayerId, String, String)> = Vec::new();
         let mut conditional_boosts: Vec<(ObjectId, PlayerId, i32, i32, String)> = Vec::new();
+        let mut lose_all_abilities: Vec<(ObjectId, PlayerId, String)> = Vec::new();
 
         for perm in self.state.battlefield.iter() {
             let source_id = perm.id();
@@ -477,8 +479,22 @@ impl Game {
                         crate::abilities::StaticEffect::ConditionalBoostSelf { power, toughness, condition } => {
                             conditional_boosts.push((source_id, controller, *power, *toughness, condition.clone()));
                         }
+                        crate::abilities::StaticEffect::LoseAllAbilities { filter } => {
+                            lose_all_abilities.push((source_id, controller, filter.clone()));
+                        }
                         _ => {}
                     }
+                }
+            }
+        }
+
+        // Step 2b: Apply "loses all abilities" (Layer 6 — Ability removing)
+        for (source_id, controller, filter) in lose_all_abilities {
+            let matching = self.find_matching_permanents(source_id, controller, &filter);
+            for target_id in matching {
+                if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                    perm.removed_keywords = KeywordAbilities::all();
+                    perm.abilities_lost = true;
                 }
             }
         }
@@ -3350,6 +3366,15 @@ impl Game {
                                 perm.removed_keywords |= kw;
                             }
                         }
+                    }
+                }
+                Effect::LoseAllAbilities => {
+                    for &target_id in targets {
+                        if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                            perm.removed_keywords = crate::constants::KeywordAbilities::all();
+                            perm.abilities_lost = true;
+                        }
+                        self.state.ability_store.remove_source(target_id);
                     }
                 }
                 Effect::BoostAllUntilEndOfTurn { filter, power, toughness: _ } => {
@@ -12236,5 +12261,246 @@ mod cost_reduction_tests {
         let actions = game.compute_legal_actions(p1);
         let can_cast = actions.iter().any(|a| matches!(a, PlayerAction::CastSpell { card_id, .. } if *card_id == elf_id));
         assert!(can_cast, "Should be able to cast 2G Elf with 2G mana and 1 reduction");
+    }
+}
+
+#[cfg(test)]
+mod lose_all_abilities_tests {
+    use super::*;
+    use crate::abilities::{Ability, Cost, Effect, StaticEffect, TargetSpec};
+    use crate::card::CardData;
+    use crate::constants::{AbilityType, CardType, KeywordAbilities, Outcome, SubType};
+    use crate::decision::{
+        AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
+        ReplacementEffectChoice, TargetRequirement, UnpaidMana,
+    };
+    use crate::mana::Mana;
+
+    struct AlwaysPassPlayer;
+
+    impl PlayerDecisionMaker for AlwaysPassPlayer {
+        fn priority(&mut self, _game: &GameView<'_>, _legal: &[PlayerAction]) -> PlayerAction {
+            PlayerAction::Pass
+        }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_basic_land(name: &str, owner: PlayerId) -> CardData {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Land];
+        card
+    }
+
+    fn make_creature(name: &str, owner: PlayerId, power: i32, toughness: i32) -> CardData {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        card.keywords = KeywordAbilities::empty();
+        card
+    }
+
+    fn make_deck(owner: PlayerId) -> Vec<CardData> {
+        let mut deck = Vec::new();
+        for _ in 0..20 {
+            deck.push(make_basic_land("Forest", owner));
+        }
+        for _ in 0..20 {
+            deck.push(make_creature("Grizzly Bears", owner, 2, 2));
+        }
+        deck
+    }
+
+    fn setup_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+                PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(AlwaysPassPlayer)),
+                (p2, Box::new(AlwaysPassPlayer)),
+            ],
+        );
+        (game, p1, p2)
+    }
+
+    #[test]
+    fn lose_all_abilities_removes_keywords() {
+        let (mut game, p1, p2) = setup_game();
+
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, p2, "Dragon");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(5);
+        card.toughness = Some(5);
+        card.keywords = KeywordAbilities::FLYING | KeywordAbilities::TRAMPLE | KeywordAbilities::HASTE;
+        game.state.battlefield.add(crate::permanent::Permanent::new(card, p2));
+
+        assert!(game.state.battlefield.get(id).unwrap().has_flying());
+        assert!(game.state.battlefield.get(id).unwrap().has_trample());
+        assert!(game.state.battlefield.get(id).unwrap().has_haste());
+
+        game.execute_effects(&[Effect::LoseAllAbilities], p1, &[id], None, None);
+
+        let perm = game.state.battlefield.get(id).unwrap();
+        assert!(!perm.has_flying());
+        assert!(!perm.has_trample());
+        assert!(!perm.has_haste());
+        assert!(perm.abilities_lost);
+    }
+
+    #[test]
+    fn lose_all_abilities_removes_from_ability_store() {
+        let (mut game, p1, p2) = setup_game();
+
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, p2, "Mana Dork");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(1);
+        card.toughness = Some(1);
+        card.abilities = vec![
+            Ability::mana_ability(id, "{T}: Add {G}.", Mana::green(1)),
+            Ability::enters_battlefield_triggered(id, "ETB: draw a card.", vec![Effect::draw_cards(1)], TargetSpec::None),
+        ];
+        for ab in &card.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+        game.state.battlefield.add(crate::permanent::Permanent::new(card, p2));
+
+        assert_eq!(game.state.ability_store.for_source(id).len(), 2);
+
+        game.execute_effects(&[Effect::LoseAllAbilities], p1, &[id], None, None);
+
+        assert_eq!(game.state.ability_store.for_source(id).len(), 0);
+    }
+
+    #[test]
+    fn lose_all_abilities_preserves_pt() {
+        let (mut game, p1, p2) = setup_game();
+
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, p2, "Angel");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(4);
+        card.toughness = Some(4);
+        card.keywords = KeywordAbilities::FLYING | KeywordAbilities::VIGILANCE;
+        game.state.battlefield.add(crate::permanent::Permanent::new(card, p2));
+
+        game.execute_effects(&[Effect::LoseAllAbilities], p1, &[id], None, None);
+
+        let perm = game.state.battlefield.get(id).unwrap();
+        assert_eq!(perm.power(), 4);
+        assert_eq!(perm.toughness(), 4);
+        assert!(!perm.has_flying());
+        assert!(!perm.has_vigilance());
+    }
+
+    #[test]
+    fn lose_all_abilities_also_removes_granted_keywords() {
+        let (mut game, p1, p2) = setup_game();
+
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, p2, "Bear");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(2);
+        card.toughness = Some(2);
+        card.keywords = KeywordAbilities::empty();
+        game.state.battlefield.add(crate::permanent::Permanent::new(card, p2));
+
+        if let Some(perm) = game.state.battlefield.get_mut(id) {
+            perm.granted_keywords |= KeywordAbilities::FLYING | KeywordAbilities::HEXPROOF;
+        }
+        assert!(game.state.battlefield.get(id).unwrap().has_flying());
+        assert!(game.state.battlefield.get(id).unwrap().has_hexproof());
+
+        game.execute_effects(&[Effect::LoseAllAbilities], p1, &[id], None, None);
+
+        let perm = game.state.battlefield.get(id).unwrap();
+        assert!(!perm.has_flying());
+        assert!(!perm.has_hexproof());
+    }
+
+    #[test]
+    fn static_lose_all_abilities_on_enchanted_creature() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let creature_id = ObjectId::new();
+        let mut creature = CardData::new(creature_id, p1, "Dragon");
+        creature.card_types = vec![CardType::Creature];
+        creature.subtypes = vec![SubType::Dragon];
+        creature.power = Some(5);
+        creature.toughness = Some(5);
+        creature.keywords = KeywordAbilities::FLYING | KeywordAbilities::TRAMPLE;
+        creature.abilities = vec![
+            Ability::mana_ability(creature_id, "{T}: Add {R}.", Mana::red(1)),
+        ];
+        for ab in &creature.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+        game.state.battlefield.add(crate::permanent::Permanent::new(creature, p1));
+
+        let aura_id = ObjectId::new();
+        let mut aura = CardData::new(aura_id, p1, "Noggle Aura");
+        aura.card_types = vec![CardType::Enchantment];
+        aura.subtypes = vec![SubType::Aura];
+        aura.abilities = vec![
+            Ability::static_ability(aura_id,
+                "Enchanted creature loses all abilities.",
+                vec![StaticEffect::LoseAllAbilities { filter: "enchanted creature".into() }]),
+        ];
+        for ab in &aura.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+        let mut aura_perm = crate::permanent::Permanent::new(aura, p1);
+        aura_perm.attached_to = Some(creature_id);
+        game.state.battlefield.add(aura_perm);
+        if let Some(c) = game.state.battlefield.get_mut(creature_id) {
+            c.attachments.push(aura_id);
+        }
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(!perm.has_flying());
+        assert!(!perm.has_trample());
+        assert!(perm.abilities_lost);
+    }
+
+    #[test]
+    fn effect_builder() {
+        match Effect::lose_all_abilities() {
+            Effect::LoseAllAbilities => {}
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn static_effect_builder() {
+        match StaticEffect::lose_all_abilities("enchanted creature") {
+            StaticEffect::LoseAllAbilities { filter } => {
+                assert_eq!(filter, "enchanted creature");
+            }
+            _ => panic!("wrong variant"),
+        }
     }
 }
