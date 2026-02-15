@@ -375,12 +375,20 @@ impl Game {
             // Check and apply SBAs
             let sba = self.state.check_state_based_actions();
             let had_sba = sba.has_actions();
-            if had_sba {
-                self.apply_state_based_actions(&sba);
-            }
+            let died_sources = if had_sba {
+                self.apply_state_based_actions(&sba)
+            } else {
+                Vec::new()
+            };
 
-            // Check for triggered abilities
+            // Check for triggered abilities (BEFORE cleaning up died sources,
+            // so dies triggers can still find abilities of the dead creature)
             let had_triggers = self.check_triggered_abilities();
+
+            // Clean up abilities for permanents that died, now that triggers have been checked
+            for source_id in died_sources {
+                self.state.ability_store.remove_source(source_id);
+            }
 
             // If neither SBAs nor triggers fired, we're stable
             if !had_sba && !had_triggers {
@@ -568,7 +576,31 @@ impl Game {
         for event in self.event_log.iter() {
             let matching = self.state.ability_store.triggered_by(event);
             for ability in matching {
-                // Only trigger if the source is still on the battlefield
+                // Dies triggers: the source is no longer on the battlefield
+                // but its abilities are still in the store (deferred cleanup).
+                let is_dies_trigger = event.event_type == EventType::Dies;
+
+                if is_dies_trigger {
+                    // For dies triggers, the dying creature's target_id must match
+                    // the ability's source_id (i.e., "when THIS creature dies")
+                    if let Some(target_id) = event.target_id {
+                        if target_id != ability.source_id {
+                            continue;
+                        }
+                    }
+                    // Controller comes from the event's player_id
+                    let controller = event.player_id.unwrap_or(self.state.active_player);
+
+                    triggered.push((
+                        controller,
+                        ability.id,
+                        ability.source_id,
+                        ability.rules_text.clone(),
+                    ));
+                    continue;
+                }
+
+                // For non-dies triggers, source must still be on the battlefield
                 let source_on_bf = self.state.battlefield.contains(ability.source_id);
                 if !source_on_bf {
                     continue;
@@ -608,15 +640,6 @@ impl Game {
                             continue;
                         }
                     }
-                }
-
-                // For Dies triggers, the source must have just died
-                if event.event_type == EventType::Dies {
-                    // Dies triggers fire from the graveyard, not the battlefield
-                    // Skip the battlefield check for dies - we already checked above
-                    // Actually for dies, the permanent is gone from battlefield
-                    // We need to check from graveyard instead
-                    continue; // TODO: implement dies triggers from graveyard
                 }
 
                 triggered.push((
@@ -1381,7 +1404,7 @@ impl Game {
     }
 
     /// Apply the detected state-based actions.
-    fn apply_state_based_actions(&mut self, sba: &StateBasedActions) {
+    fn apply_state_based_actions(&mut self, sba: &StateBasedActions) -> Vec<ObjectId> {
         // Players losing the game
         for &pid in &sba.players_losing {
             if let Some(player) = self.state.players.get_mut(&pid) {
@@ -1389,12 +1412,22 @@ impl Game {
             }
         }
 
+        // Track IDs of permanents that die (for deferred ability cleanup)
+        let mut died_sources: Vec<ObjectId> = Vec::new();
+
         // Permanents going to graveyard (0 toughness)
         for &perm_id in &sba.permanents_to_graveyard {
             if let Some(perm) = self.state.battlefield.remove(perm_id) {
                 let owner = perm.owner();
-                self.state.ability_store.remove_source(perm_id);
+                let controller = perm.controller;
+                let was_creature = perm.is_creature();
                 self.move_card_to_graveyard(perm_id, owner);
+                if was_creature {
+                    self.emit_event(GameEvent::dies(perm_id, controller));
+                    died_sources.push(perm_id);
+                } else {
+                    self.state.ability_store.remove_source(perm_id);
+                }
             }
         }
 
@@ -1402,8 +1435,15 @@ impl Game {
         for &perm_id in &sba.permanents_to_destroy {
             if let Some(perm) = self.state.battlefield.remove(perm_id) {
                 let owner = perm.owner();
-                self.state.ability_store.remove_source(perm_id);
+                let controller = perm.controller;
+                let was_creature = perm.is_creature();
                 self.move_card_to_graveyard(perm_id, owner);
+                if was_creature {
+                    self.emit_event(GameEvent::dies(perm_id, controller));
+                    died_sources.push(perm_id);
+                } else {
+                    self.state.ability_store.remove_source(perm_id);
+                }
             }
         }
 
@@ -1419,6 +1459,10 @@ impl Game {
                 }
             }
         }
+
+        // Return died_sources so caller can clean up AFTER trigger checking
+        died_sources
+
     }
 
     /// Activate an activated ability (goes on the stack).
@@ -1726,9 +1770,14 @@ impl Game {
                     for &target_id in targets {
                         if let Some(perm) = self.state.battlefield.get(target_id) {
                             if !perm.has_indestructible() {
+                                let was_creature = perm.is_creature();
+                                let perm_controller = perm.controller;
                                 if let Some(perm) = self.state.battlefield.remove(target_id) {
-                                    self.state.ability_store.remove_source(target_id);
                                     self.move_card_to_graveyard_inner(target_id, perm.owner());
+                                    if was_creature {
+                                        self.emit_event(GameEvent::dies(target_id, perm_controller));
+                                    }
+                                    self.state.ability_store.remove_source(target_id);
                                 }
                             }
                         }
@@ -2057,38 +2106,45 @@ impl Game {
                 }
                 Effect::Sacrifice { filter } => {
                     // Each opponent sacrifices a permanent matching filter.
-                    // For "target player sacrifices" effects, this targets the opponent.
                     let opponents: Vec<PlayerId> = self.state.turn_order.iter()
                         .filter(|&&id| id != controller)
                         .copied()
                         .collect();
                     for opp in opponents {
-                        // Find permanents controlled by opponent matching filter
                         let matching: Vec<ObjectId> = self.state.battlefield.iter()
                             .filter(|p| p.controller == opp && Self::matches_filter(p, filter))
                             .map(|p| p.id())
                             .collect();
                         if let Some(&victim_id) = matching.first() {
-                            // Simplified: sacrifice the first matching permanent
-                            // (proper implementation would let opponent choose)
+                            let was_creature = self.state.battlefield.get(victim_id)
+                                .map(|p| p.is_creature()).unwrap_or(false);
                             if let Some(perm) = self.state.battlefield.remove(victim_id) {
-                                self.state.ability_store.remove_source(victim_id);
                                 self.move_card_to_graveyard_inner(victim_id, perm.owner());
+                                if was_creature {
+                                    self.emit_event(GameEvent::dies(victim_id, opp));
+                                }
+                                self.state.ability_store.remove_source(victim_id);
                             }
                         }
                     }
                 }
                 Effect::DestroyAll { filter } => {
                     // Destroy all permanents matching filter
-                    let to_destroy: Vec<(ObjectId, PlayerId)> = self.state.battlefield.iter()
+                    let to_destroy: Vec<(ObjectId, PlayerId, bool)> = self.state.battlefield.iter()
                         .filter(|p| Self::matches_filter(p, filter) && !p.has_indestructible())
-                        .map(|p| (p.id(), p.owner()))
+                        .map(|p| (p.id(), p.owner(), p.is_creature()))
                         .collect();
-                    for (id, owner) in to_destroy {
-                        if self.state.battlefield.remove(id).is_some() {
-                            self.state.ability_store.remove_source(id);
-                            self.move_card_to_graveyard_inner(id, owner);
+                    for (id, owner, was_creature) in &to_destroy {
+                        if let Some(perm) = self.state.battlefield.remove(*id) {
+                            self.move_card_to_graveyard_inner(*id, *owner);
+                            if *was_creature {
+                                self.emit_event(GameEvent::dies(*id, perm.controller));
+                            }
                         }
+                    }
+                    // Deferred ability cleanup
+                    for (id, _, _) in &to_destroy {
+                        self.state.ability_store.remove_source(*id);
                     }
                 }
                 Effect::DealDamageAll { amount, filter } => {
@@ -4488,7 +4544,7 @@ mod cost_tests {
     use super::*;
     use crate::abilities::Cost;
     use crate::card::CardData;
-    use crate::constants::{CardType, KeywordAbilities, Outcome};
+    use crate::constants::{CardType, Outcome};
     use crate::counters::CounterType;
     use crate::decision::*;
     use crate::game::{GameConfig, PlayerConfig};
@@ -4666,7 +4722,7 @@ mod vivid_tests {
     use super::*;
     use crate::abilities::Effect;
     use crate::card::CardData;
-    use crate::constants::{CardType, KeywordAbilities, Outcome};
+    use crate::constants::{CardType, Outcome};
     use crate::decision::*;
     use crate::game::{GameConfig, PlayerConfig};
     use crate::mana::{ManaCost};
@@ -4815,7 +4871,7 @@ mod choice_tests {
     use super::*;
     use crate::abilities::{Cost, Effect};
     use crate::card::CardData;
-    use crate::constants::{CardType, KeywordAbilities, Outcome};
+    use crate::constants::{CardType, Outcome};
     use crate::counters::CounterType;
     use crate::decision::*;
     use crate::game::{GameConfig, PlayerConfig};
@@ -5093,7 +5149,7 @@ mod type_choice_tests {
 mod combat_tests {
     use super::*;
     use crate::card::CardData;
-    use crate::constants::{CardType, KeywordAbilities, Outcome};
+    use crate::constants::{CardType, Outcome};
     use crate::decision::{
         AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
         ReplacementEffectChoice, TargetRequirement, UnpaidMana,
@@ -6417,7 +6473,7 @@ mod hexproof_tests {
     use super::*;
     use crate::abilities::TargetSpec;
     use crate::card::CardData;
-    use crate::constants::{CardType, KeywordAbilities, Outcome};
+    use crate::constants::{CardType, Outcome};
     use crate::decision::{
         AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
         ReplacementEffectChoice, TargetRequirement, UnpaidMana,
@@ -6553,5 +6609,180 @@ mod hexproof_tests {
         // P1 should not be able to target the bear with continuous hexproof
         let targets = game.legal_targets_for_spec(&TargetSpec::Creature, p1);
         assert!(!targets.contains(&bear_id));
+    }
+}
+
+#[cfg(test)]
+mod dies_trigger_tests {
+    use super::*;
+    use crate::abilities::{Ability, Effect, TargetSpec};
+    use crate::card::CardData;
+    use crate::constants::{CardType, Outcome};
+    use crate::decision::{
+        AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
+        ReplacementEffectChoice, TargetRequirement, UnpaidMana,
+    };
+    use crate::events::EventType;
+
+    struct PassivePlayer;
+    impl PlayerDecisionMaker for PassivePlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { true }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_deck(owner: PlayerId) -> Vec<CardData> {
+        (0..40).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), owner, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect()
+    }
+
+    fn setup() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Player1".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "Player2".into(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(
+            config,
+            vec![(p1, Box::new(PassivePlayer)), (p2, Box::new(PassivePlayer))],
+        );
+        (game, p1, p2)
+    }
+
+    #[test]
+    fn dies_trigger_fires_on_lethal_damage() {
+        let (mut game, p1, _p2) = setup();
+
+        // Create a creature with "When this creature dies, draw a card"
+        let mut card = CardData::new(ObjectId::new(), p1, "Doomed Traveler");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(1);
+        card.toughness = Some(1);
+        let id = card.id;
+        card.abilities = vec![
+            Ability::triggered(id, "When Doomed Traveler dies, draw a card.",
+                vec![EventType::Dies],
+                vec![Effect::DrawCards { count: 1 }],
+                TargetSpec::None),
+        ];
+        for ability in &card.abilities {
+            game.state.ability_store.add(ability.clone());
+        }
+        let mut perm = Permanent::new(card, p1);
+        perm.remove_summoning_sickness();
+        game.state.battlefield.add(perm);
+
+        // Mark lethal damage on the creature
+        game.state.battlefield.get_mut(id).unwrap().apply_damage(1);
+
+        // Process SBAs + triggers
+        game.process_sba_and_triggers();
+
+        // Creature should be in graveyard
+        assert!(!game.state.battlefield.contains(id));
+
+        // Dies trigger should have put an ability on the stack
+        assert!(!game.state.stack.is_empty(), "Dies trigger should be on stack");
+    }
+
+    #[test]
+    fn dies_trigger_fires_on_destroy_effect() {
+        let (mut game, p1, p2) = setup();
+
+        // Create a creature with dies trigger controlled by p2
+        let mut card = CardData::new(ObjectId::new(), p2, "Blood Artist");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(0);
+        card.toughness = Some(1);
+        let id = card.id;
+        card.abilities = vec![
+            Ability::triggered(id, "When Blood Artist dies, opponent loses 1 life.",
+                vec![EventType::Dies],
+                vec![Effect::LoseLifeOpponents { amount: 1 }],
+                TargetSpec::None),
+        ];
+        for ability in &card.abilities {
+            game.state.ability_store.add(ability.clone());
+        }
+        let perm = Permanent::new(card, p2);
+        game.state.battlefield.add(perm);
+
+        // Destroy it with an effect
+        game.execute_effects(
+            &[Effect::Destroy],
+            p1,
+            &[id],
+            None,
+        );
+
+        // Creature should be in graveyard
+        assert!(!game.state.battlefield.contains(id));
+
+        // Check that dies event was emitted
+        assert!(!game.event_log.is_empty(), "Dies event should be in log");
+    }
+
+    #[test]
+    fn dies_trigger_only_for_dying_creature() {
+        let (mut game, p1, _p2) = setup();
+
+        // Creature A has a dies trigger
+        let mut card_a = CardData::new(ObjectId::new(), p1, "Creature A");
+        card_a.card_types = vec![CardType::Creature];
+        card_a.power = Some(1);
+        card_a.toughness = Some(1);
+        let id_a = card_a.id;
+        card_a.abilities = vec![
+            Ability::triggered(id_a, "When this dies, draw a card.",
+                vec![EventType::Dies],
+                vec![Effect::DrawCards { count: 1 }],
+                TargetSpec::None),
+        ];
+        for ability in &card_a.abilities {
+            game.state.ability_store.add(ability.clone());
+        }
+        let perm_a = Permanent::new(card_a, p1);
+        game.state.battlefield.add(perm_a);
+
+        // Creature B has NO dies trigger
+        let mut card_b = CardData::new(ObjectId::new(), p1, "Creature B");
+        card_b.card_types = vec![CardType::Creature];
+        card_b.power = Some(1);
+        card_b.toughness = Some(1);
+        let id_b = card_b.id;
+        let perm_b = Permanent::new(card_b, p1);
+        game.state.battlefield.add(perm_b);
+
+        // Kill Creature B only (not A)
+        game.state.battlefield.get_mut(id_b).unwrap().apply_damage(1);
+
+        // Process SBAs
+        game.process_sba_and_triggers();
+
+        // Creature B should be dead, Creature A should be alive
+        assert!(game.state.battlefield.contains(id_a));
+        assert!(!game.state.battlefield.contains(id_b));
+
+        // No trigger should fire (the dying creature had no dies trigger)
+        assert!(game.state.stack.is_empty());
     }
 }

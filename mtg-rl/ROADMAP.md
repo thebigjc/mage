@@ -16,7 +16,7 @@ This document describes implementation gaps between the Rust mtg-rl engine and t
 | Keywords defined | 47 |
 | Keywords mechanically enforced | 10 (but combat doesn't run, so only Haste + Defender active in practice) |
 | State-based actions | 7 of ~20 rules implemented |
-| Triggered abilities | Events emitted but abilities never put on stack |
+| Triggered abilities | Events emitted, triggers stacked (ETB, attack, life gain, dies) |
 | Replacement effects | Data structures defined but not integrated |
 | Continuous effect layers | Layer 6 (keywords) + Layer 7 (P/T) applied; others pending |
 
@@ -45,6 +45,7 @@ These are structural deficiencies in `game.rs` that affect ALL cards, not just s
 - Trigger ownership validation: attack triggers only fire for the attacking creature, ETB triggers only for the entering permanent, life gain triggers only for the controller
 - `process_sba_and_triggers()` implements MTG rules 117.5 SBA+trigger loop until stable
 - 5 unit tests covering ETB triggers, attack triggers, life gain triggers, optional triggers, ownership validation
+- **Dies triggers added 2026-02-14:** `check_triggered_abilities()` now handles `EventType::Dies` events. Ability cleanup is deferred until after trigger checking so dies triggers can fire. `apply_state_based_actions()` returns died source IDs for post-trigger cleanup. 4 unit tests (lethal damage, destroy effect, ownership filtering).
 
 ### ~~C. Continuous Effect Layers Not Applied~~ (DONE)
 
