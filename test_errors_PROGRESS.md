@@ -64,7 +64,7 @@ The cleanest approach is to fix file-by-file, starting with game.rs (production 
 - [x] Task 6: Fix 8 warnings in `tests/costs.rs` — remove unused imports (`ModalMode`, `CombatState`, `Color`, `PhaseStep`, `SuperType`, `Zone`, `EventType`, `GameEvent`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`)
 - [x] Task 7: Fix 2 warnings in `tests/effects.rs` — remove unused `super::*` import, remove unused `PhaseStep` import
 - [x] Task 8: Fix 12 warnings in `tests/equipment_auras.rs` — remove unused imports (`ModalMode`, `CombatState`, `Color`, `KeywordAbilities`, `PhaseStep`, `SuperType`, `Zone`, `CounterType`, `EventType`, `GameEvent`, `Mana`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), remove dead `PassivePlayer2` struct + impl, remove dead `setup2` function
-- [ ] Task 9: Fix 2 warnings in `tests/game_basics.rs` — remove unused `super::*` import, remove unused `TurnPhase` import
+- [x] Task 9: Fix 2 warnings in `tests/game_basics.rs` — remove unused `super::*` import, remove unused `TurnPhase` import
 - [ ] Task 10: Fix 14 warnings in `tests/keywords.rs` — remove unused imports (`Cost`, `ModalMode`, `CombatState`, `SuperType`, `Zone`, `CounterType`, `EventType`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), remove dead `PassivePlayer2` struct + impl, remove dead `PassivePlayer3` struct + impl, remove dead `PassivePlayer4` struct + impl, remove dead `PassivePlayer5` struct + impl, remove dead `PassivePlayer6` struct + impl
 - [ ] Task 11: Fix 13 warnings in `tests/modal.rs` — remove unused imports (`Ability`, `Cost`, `StaticEffect`, `TargetSpec`, `CombatState`, `Color`, `KeywordAbilities`, `PhaseStep`, `SubType`, `SuperType`, `Zone`, `CounterType`, `EventType`, `GameEvent`, `Mana`, `ManaCost`, `Permanent`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), remove dead `make_deck` function, remove dead `AlwaysPassPlayer` struct + impl
 - [ ] Task 12: Fix 13 warnings in `tests/special_mechanics.rs` — remove unused imports (`ModalMode`, `TargetSpec`, `CombatState`, `Color`, `SuperType`, `Zone`, `EventType`, `GameEvent`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), remove dead `PassivePlayer2` struct + impl, remove dead `PassivePlayer3` struct + impl, remove dead `OptionPicker2` struct + impl, remove dead `AlwaysPassPlayer2` struct + impl, prefix `lib_ids` with `_`
@@ -76,7 +76,7 @@ The cleanest approach is to fix file-by-file, starting with game.rs (production 
 - [ ] Task 16: Run `cargo test --lib -p mtg-engine` and verify all tests still pass
 
 ## Completed This Iteration
-- Task 8: Removed 10 unused imports, dead `PassivePlayer2` struct+impl, and dead `setup2` function from tests/equipment_auras.rs. Warnings dropped from 76 to 64. All 8 equipment_auras tests pass.
+- Task 9: Removed unused `super::*` import and unused `TurnPhase` import from tests/game_basics.rs. Warnings dropped from 64 to 62. All 10 game_basics tests pass.
 
 ## Notes
 
