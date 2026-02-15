@@ -433,7 +433,7 @@ fn spell_effects_execute_on_resolve() {
 
     // Add red mana to player 1's pool
     let player = game.state.players.get_mut(&p1).unwrap();
-    player.mana_pool.add(Mana::red(1));
+    player.mana_pool.add(Mana::red(1), None, false);
 
     // Put the card in player 1's hand
     player.hand.add(spell_id);
@@ -443,16 +443,15 @@ fn spell_effects_execute_on_resolve() {
     }
 
     // Cast the spell targeting player 2
-    game.cast_spell(p1, spell_id, vec![p2.as_target()]);
+    game.cast_spell(p1, spell_id);
 
     // Spell should be on the stack
     assert_eq!(game.state.stack.len(), 1);
-    let stack_item = &game.state.stack[0];
+    let stack_item = game.state.stack.top().unwrap();
     assert_eq!(stack_item.controller, p1);
 
     // Resolve the spell
-    game.pass_priority(p1);
-    game.pass_priority(p2);
+    game.resolve_top_of_stack();
 
     // Stack should be empty
     assert_eq!(game.state.stack.len(), 0);

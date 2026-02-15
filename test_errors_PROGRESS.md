@@ -100,7 +100,7 @@ Recommendation: **Option A** — add minimal test helpers since these are unit t
   - Fix `activate_ability` call: pass `&[ObjectId]` not `vec![PlayerId.as_target()]` — need to convert p2 (PlayerId) to an appropriate target. Since the engine internally handles player targeting, may need to pass empty targets or use a player-as-target approach
   - Use `stack.top().unwrap()` instead of `stack[0]`
   - Use `resolve_top_of_stack()` instead of `pass_priority()` x2
-- [ ] Task 20: Rewrite `spell_effects_execute_on_resolve` test (game_basics.rs:400-468):
+- [x] Task 20: Rewrite `spell_effects_execute_on_resolve` test (game_basics.rs:400-468):
   - Use `set_step()` instead of `turn_manager.set_phase_step()`
   - Use `DealDamage`/`CreatureOrPlayer`
   - Use `hand.add()` instead of `hand.push()`
@@ -154,3 +154,4 @@ Recommendation: **Option A** — add minimal test helpers since these are unit t
 - Task 17: Added `#[cfg(test)] pub fn set_phase_step(&mut self, step: PhaseStep)` to TurnManager in turn.rs — finds the step index in TURN_STEPS and sets `current_step_index`
 - Task 18: `cast_spell` is already accessible from tests (tests are submodules of `game` module) — no changes needed
 - Task 19: Rewrote `activated_ability_goes_on_stack` test: changed `make_creature` params from `u32` to `i32`, replaced `vec![p2.as_target()]` with `&[]` (DealDamage falls back to opponent when targets empty), replaced `stack[0]` with `stack.top().unwrap()`, replaced `pass_priority()` x2 with `resolve_top_of_stack()`
+- Task 20: Rewrote `spell_effects_execute_on_resolve` test: replaced 3-arg `cast_spell(p1, spell_id, vec![p2.as_target()])` with 2-arg `cast_spell(p1, spell_id)`, replaced `stack[0]` with `stack.top().unwrap()`, replaced `pass_priority()` x2 with `resolve_top_of_stack()`, fixed `mana_pool.add()` from 1 arg to 3 args `(Mana::red(1), None, false)`
