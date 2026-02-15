@@ -73,7 +73,7 @@ Replace generic Custom placeholders with compositions of existing typed effects.
 
 Each task: add engine feature, add tests, update ECL cards to use it, commit.
 
-- [ ] Task 2.1: Add `Effect::LoseAllAbilities` - remove all abilities from target creature (Java ref: `LoseAllAbilitiesTargetEffect.java`). Update 4 ECL cards: Abigale, Curious Colossus, Noggle the Mind, Retched Wretch. Tests + commit.
+- [x] Task 2.1: Add `Effect::LoseAllAbilities` - remove all abilities from target creature (Java ref: `LoseAllAbilitiesTargetEffect.java`). Update 4 ECL cards: Abigale, Curious Colossus, Noggle the Mind, Retched Wretch. Tests + commit.
 
 - [ ] Task 2.2: Add `Effect::SetPowerToughnessAll { power, toughness, filter }` or expand `SetPowerToughness` - mass P/T setting with optional type change. Update Curious Colossus, Noggle the Mind. Tests + commit.
 
@@ -161,3 +161,4 @@ Each task: add engine feature, add tests, update ECL cards to use it, commit.
 - Task 1.1: Audited all 88 ECL Custom fallbacks. Found: 18 generic placeholders (14 unique cards), ~3 simple replacements, ~8 partial replacements, ~22 need new engine features. Key finding: ALL 14 generic-placeholder cards need complex new engine features (replacement effects, transform, delayed triggers, watcher patterns, etc.), not simple stub replacement.
 - Task 1.2: Replaced all 18 generic placeholders across 14 ECL cards with descriptive Oracle-text Custom strings. Added missing card data for Grub and Spinerock. Replaced some effects with typed variants (Mill, ChooseCreatureType, AddCountersSelf, RemoveCounters, BlightOpponents, Equip). 0 generic placeholders remain.
 - Task 1.3: Replaced Custom strings with typed Effect variants on 4 cards: (1) champions_of_the_shoal: Custom→TapTarget+AddCounters("stun") with proper TargetSpec; (2) ajani_outland_chaperone: Custom→CreateToken("1/1 Kithkin"), added 2 missing loyalty abilities; (3) swat_away: restructured from misplaced Custom to CostReduction static+PutOnLibrary spell; (4) goatnap: added missing UntapTarget+GainKeywordEot("haste"). Net: +7 typed effects, -1 Custom. ECL now at 48 Effect::Custom + 20 StaticEffect::Custom = 68 unique Custom lines.
+- Task 2.1: Added Effect::LoseAllAbilities (one-shot) and StaticEffect::LoseAllAbilities (continuous) to engine. One-shot version sets removed_keywords=all() and clears ability store; continuous version reapplied each recalculation cycle. Added abilities_lost field to Permanent. Updated 4 ECL cards: Abigale (ETB), Curious Colossus (ETB), Noggle the Mind (static aura), Retched Wretch (dies). 7 new tests. Net: -3 Effect::Custom, -1 StaticEffect::Custom (but +1 Custom kept for type/P/T changes on Curious Colossus and Noggle). 325 total engine tests passing.
