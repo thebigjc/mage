@@ -326,11 +326,32 @@ pub enum Effect {
     /// Target creature gains all creature types until end of turn.
     GainAllCreatureTypes,
 
+    /// Create a token that is a copy of target creature/permanent.
+    /// The token gets all the same characteristics (name, types, subtypes,
+    /// abilities, P/T, keywords) plus any specified modifications.
+    CreateTokenCopy {
+        count: u32,
+        modifications: Vec<TokenModification>,
+    },
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
 
     Custom(String),
+}
+
+/// Modifications to apply when creating a token copy of a permanent.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum TokenModification {
+    /// Add a keyword ability (e.g. "haste", "flying").
+    AddKeyword(String),
+    /// Add the changeling keyword (all creature types).
+    AddChangeling,
+    /// Sacrifice the token at the next end step.
+    SacrificeAtEndStep,
+    /// The token enters tapped and attacking.
+    EnterTappedAttacking,
 }
 
 /// One mode of a modal spell. Each mode has a description and a set of
@@ -1102,6 +1123,38 @@ impl Effect {
 
     pub fn gain_all_creature_types() -> Self {
         Effect::GainAllCreatureTypes
+    }
+
+    /// Create a token copy of target creature.
+    pub fn create_token_copy(count: u32) -> Self {
+        Effect::CreateTokenCopy { count, modifications: vec![] }
+    }
+
+    /// Create a token copy with haste.
+    pub fn create_token_copy_with_haste(count: u32) -> Self {
+        Effect::CreateTokenCopy {
+            count,
+            modifications: vec![TokenModification::AddKeyword("haste".into())],
+        }
+    }
+
+    /// Create a token copy with changeling (all creature types).
+    pub fn create_token_copy_with_changeling(count: u32) -> Self {
+        Effect::CreateTokenCopy {
+            count,
+            modifications: vec![TokenModification::AddChangeling],
+        }
+    }
+
+    /// Create a token copy with haste that's sacrificed at end step.
+    pub fn create_token_copy_haste_sacrifice(count: u32) -> Self {
+        Effect::CreateTokenCopy {
+            count,
+            modifications: vec![
+                TokenModification::AddKeyword("haste".into()),
+                TokenModification::SacrificeAtEndStep,
+            ],
+        }
     }
 }
 

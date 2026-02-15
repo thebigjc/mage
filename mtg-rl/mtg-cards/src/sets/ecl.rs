@@ -2030,7 +2030,7 @@ fn ashlings_command(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![Ability::spell(id,
             vec![Effect::modal(vec![
                 ModalMode::new("Create a token that's a copy of target Elemental you control.",
-                    vec![Effect::Custom("Create token copy of target Elemental.".into())]),
+                    vec![Effect::create_token_copy(1)]),
                 ModalMode::new("Target player draws two cards.",
                     vec![Effect::draw_cards(2)]),
                 ModalMode::new("Deal 2 damage to each creature target player controls.",
@@ -2193,7 +2193,7 @@ fn brigids_command(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![Ability::spell(id,
             vec![Effect::modal(vec![
                 ModalMode::new("Create a token that's a copy of target Kithkin you control.",
-                    vec![Effect::Custom("Create token copy of target Kithkin.".into())]),
+                    vec![Effect::create_token_copy(1)]),
                 ModalMode::new("Target player creates a 1/1 green and white Kithkin creature token.",
                     vec![Effect::create_token("1/1 Kithkin", 1)]),
                 ModalMode::new("Target creature you control gets +3/+3 until end of turn.",
@@ -2861,7 +2861,7 @@ fn grubs_command(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::spell(id,
                 vec![Effect::modal(vec![
                     ModalMode::new("Create a token that's a copy of target Goblin you control.",
-                        vec![Effect::Custom("Create token copy of target Goblin.".into())]),
+                        vec![Effect::create_token_copy(1)]),
                     ModalMode::new("Creatures target player controls get +1/+1 and gain haste until end of turn.",
                         vec![Effect::boost_all_eot("creatures target player controls", 1, 1),
                              Effect::grant_keyword_all_eot("creatures target player controls", "haste")]),
@@ -3702,7 +3702,7 @@ fn syggs_command(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::spell(id,
                 vec![Effect::modal(vec![
                     ModalMode::new("Create a token that's a copy of target Merfolk you control.",
-                        vec![Effect::Custom("Create token copy of target Merfolk.".into())]),
+                        vec![Effect::create_token_copy(1)]),
                     ModalMode::new("Creatures target player controls gain lifelink until end of turn.",
                         vec![Effect::grant_keyword_all_eot("creatures target player controls", "lifelink")]),
                     ModalMode::new("Target player draws a card.",
@@ -4326,7 +4326,7 @@ fn kindle_the_inner_flame(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "Create a token that's a copy of target creature you control, except it has haste and \"At the beginning of the end step, sacrifice this token.\"",
                 vec![EventType::EndStep],
-                vec![Effect::Custom("Create a token that's a copy of target creature you control, except it has haste and \"At the beginning of the end step, sacrifice this token.\"".into())],
+                vec![Effect::create_token_copy_haste_sacrifice(1)],
                 TargetSpec::None),
         ],
         ..Default::default() }

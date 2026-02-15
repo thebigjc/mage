@@ -259,12 +259,15 @@ These require new engine architecture beyond adding match arms to existing funct
 
 ### Tier 3: Advanced Systems (affect 5-10 cards each)
 
-#### 11. Spell/Permanent Copy
-- Copy spell on stack with same abilities; optionally choose new targets
-- Copy permanent on battlefield (token with copied attributes via Layer 1)
-- Copy + modification (e.g., "except it's a 1/1")
-- **Blocked cards:** Electroduplicate, Rite of Replication, Self-Reflection, Flamehold Grappler (~8+ cards)
-- **Java reference:** `CopyEffect.java`, `CreateTokenCopyTargetEffect.java`
+#### 11. Spell/Permanent Copy (PARTIAL)
+
+**Token copy completed 2026-02-15.** `Effect::CreateTokenCopy { count, modifications }` creates token copies of target permanents:
+- Clones CardData (name, types, P/T, abilities, keywords), re-keys ability IDs
+- `TokenModification` enum: `AddKeyword`, `AddChangeling`, `SacrificeAtEndStep`, `EnterTappedAttacking`
+- Convenience builders: `create_token_copy()`, `create_token_copy_with_haste()`, `create_token_copy_with_changeling()`, `create_token_copy_haste_sacrifice()`
+- 4 unit tests; 5 ECL cards updated
+- **Still missing:** Copy spell on stack (Fork, Reverberate), enter-as-copy (clone creatures)
+- **Remaining blocked cards:** Mirrorform (mass copy), enter-as-copy-with-changeling, graveyard-ETB copy trigger (~3 cards)
 
 #### ~~12. Delayed Triggers~~ (DONE)
 
@@ -418,7 +421,7 @@ These are effects where no typed variant exists. Grouped by what engine feature 
 | FDN (Foundations) | 322 | 58 | 21 | 401 |
 | TLA (Avatar: TLA) | 197 | 54 | 2 | 253 |
 | TDM (Tarkir: Dragonstorm) | 111 | 16 | 3 | 130 |
-| ECL (Lorwyn Eclipsed) | 117 | 32 | 7 | 156 |
+| ECL (Lorwyn Eclipsed) | 77 | 20 | 0 | 97 |
 | **Total** | **747** | **160** | **33** | **940** |
 
 Detailed per-card breakdowns in `docs/{fdn,tla,tdm,ecl}-remediation.md`.
@@ -483,7 +486,7 @@ Priority ordered by cards-unblocked per effort.
 
 9. **Planeswalker system** — Loyalty abilities, can-be-attacked, damage redirection. **~10+ cards.**
 
-10. **Spell/permanent copy** — Clone spells on stack, create token copies. **~8+ cards.**
+10. **Spell/permanent copy** — **PARTIAL (2026-02-15).** Token copy done (CreateTokenCopy + TokenModification). Still needs spell copy on stack and enter-as-copy. **~3 remaining cards.**
 
 11. ~~**Delayed triggers**~~ — **DONE (2026-02-14).** `DelayedTrigger` struct, `CreateDelayedTrigger` effect, event-driven firing, duration expiration. 4 unit tests.
 
@@ -524,5 +527,7 @@ After the above systems are in place, systematically replace remaining `Custom(S
 ## IX. Previously Completed Work
 
 **Batch 1-10 remediation** (2026-02-13 to 2026-02-14): Fixed ~60 cards by replacing Custom effects with typed variants. Added engine features: source-fallback for counters, Ward variant, EntersTappedUnless variant, mass-buff effects (BoostAllUntilEndOfTurn, GrantKeywordAllUntilEndOfTurn), AddCountersAll, AddCountersSelf, 7 cost implementations (RemoveCounters, Blight, ExileFromGraveyard, ExileFromHand, SacrificeOther, UntapSelf, Custom), Vivid mechanic (6 effect variants + color counting), Modal spells (Effect::Modal + ModalMode), Fight/Bite mechanics.
+
+**Session 2026-02-15:** Added BoostPerCount (dynamic P/T from counting permanents/graveyard), Flicker/FlickerEndStep/ReturnFromExileTapped, AdditionalLandPlays, OpponentExilesFromHand, ConditionalKeyword/ConditionalBoostSelf (evaluate_condition), BlightOpponents, GainAllCreatureTypes, CreateTokenCopy with TokenModification. Updated ~12 ECL cards. ECL now has 77 Effect::Custom and 20 StaticEffect::Custom.
 
 See `docs/work-queue.md` for the batch-fix loop and per-set remediation docs for card-level details.
