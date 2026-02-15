@@ -88,7 +88,7 @@ These are structural deficiencies in `game.rs` that affect ALL cards, not just s
 | MENACE | `combat.rs:216-224` | Must be blocked by 2+ creatures |
 | INDESTRUCTIBLE | `state.rs:296` | Survives lethal damage (SBA) |
 
-All 10 are now active in practice via combat integration (2026-02-14). Additionally, vigilance and lifelink are now enforced.
+All 10 are now active in practice via combat integration (2026-02-14). Additionally, vigilance and lifelink are now enforced. Menace is now enforced during declare blockers validation (2026-02-14).
 
 ### Not Enforced (35 keywords)
 
@@ -434,8 +434,8 @@ Features the Java engine has that the Rust engine lacks entirely:
 | **84+ Watcher classes** | `mage.watchers.common/` | Basic `WatcherManager` only |
 | **Replacement effect pipeline** | `ContinuousEffects.getReplacementEffects()` | Structs defined, not integrated |
 | **7-layer continuous effect application** | `ContinuousEffects.apply()` | Layers defined, never applied |
-| **RequirementEffect** (must attack/block) | `mage.abilities.effects.RequirementEffect` | No equivalent |
-| **RestrictionEffect** (can't attack/block) | `mage.abilities.effects.RestrictionEffect` | Partial (CantAttack/CantBlock as data) |
+| **RequirementEffect** (must attack/block) | `mage.abilities.effects.RequirementEffect` | **Partial** (`MustBeBlocked` static effect, flag on Permanent) |
+| **RestrictionEffect** (can't attack/block) | `mage.abilities.effects.RestrictionEffect` | **Partial** (CantAttack/CantBlock, CantBeBlockedByMoreThan, CantBeBlockedByPowerLessOrEqual) |
 | **AsThoughEffect** (play from other zones) | `mage.abilities.effects.AsThoughEffect` | **Partial** (`ImpulsePlayable` for exile-and-play) |
 | **CostModificationEffect** | `mage.abilities.effects.CostModificationEffect` | CostReduction stored but not applied |
 | **PreventionEffect** (damage prevention) | `mage.abilities.effects.PreventionEffect` | No equivalent |

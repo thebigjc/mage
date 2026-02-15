@@ -112,6 +112,10 @@ pub struct AttackerInfo {
     pub defending_id: ObjectId,
     /// Creatures that can legally block this attacker.
     pub legal_blockers: Vec<ObjectId>,
+    /// Whether this creature must be blocked if able.
+    pub must_be_blocked: bool,
+    /// Maximum blockers allowed (None = unlimited, Some(1) = can't be blocked by more than 1).
+    pub max_blocked_by: Option<u32>,
 }
 
 /// Description of an unpaid mana cost component.

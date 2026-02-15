@@ -237,6 +237,13 @@ pub fn can_block(blocker: &Permanent, attacker: &Permanent) -> bool {
         }
     }
 
+    // Daunt / CantBeBlockedByPowerLessOrEqual: blocker's power must exceed threshold
+    if let Some(threshold) = attacker.cant_be_blocked_by_power_leq {
+        if blocker.power() <= threshold {
+            return false;
+        }
+    }
+
     true
 }
 

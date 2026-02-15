@@ -1300,7 +1300,7 @@ fn safewright_cavalry(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Safewright Cavalry can't be blocked by more than one creature.",
-                vec![StaticEffect::Custom("Can't be blocked by more than one creature.".into())]),
+                vec![StaticEffect::CantBeBlockedByMoreThan { count: 1 }]),
             Ability::activated(id,
                 "{5}: Target Elf you control gets +2/+2 until end of turn.",
                 vec![Cost::pay_mana("{5}")],
@@ -2240,7 +2240,7 @@ fn bristlebane_outrider(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "This creature can't be blocked by creatures with power 2 or less.",
-                vec![StaticEffect::Custom("Daunt — can't be blocked by power 2 or less.".into())]),
+                vec![StaticEffect::CantBeBlockedByPowerLessOrEqual { power: 2 }]),
             Ability::static_ability(id,
                 "As long as another creature entered the battlefield under your control this turn, this creature gets +2/+0.",
                 vec![StaticEffect::Custom("Conditional +2/+0 if another creature ETB'd this turn.".into())]),
@@ -4693,7 +4693,7 @@ fn vinebred_brawler(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Vinebred Brawler must be blocked if able.",
-                vec![StaticEffect::Custom("must be blocked".into())]),
+                vec![StaticEffect::MustBeBlocked]),
             Ability::attacks_triggered(id,
                 "Whenever Vinebred Brawler attacks, another target Elf you control gets +2/+1 until end of turn.",
                 vec![Effect::boost_until_eot(2, 1)],

@@ -1271,6 +1271,16 @@ pub enum StaticEffect {
     Evoke {
         cost: String,
     },
+    /// This creature can't be blocked by more than N creatures.
+    CantBeBlockedByMoreThan {
+        count: u32,
+    },
+    /// This creature can't be blocked by creatures with power less than or equal to N (daunt).
+    CantBeBlockedByPowerLessOrEqual {
+        power: i32,
+    },
+    /// This creature must be blocked if able.
+    MustBeBlocked,
     /// Custom continuous effect.
 
     Custom(String),

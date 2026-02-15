@@ -55,6 +55,15 @@ pub struct Permanent {
     pub cant_attack: bool,
     /// Whether this permanent can't block (set by continuous effects like Pacifism).
     pub cant_block_from_effect: bool,
+    /// Maximum number of creatures that can block this attacker (None = unlimited).
+    /// Set by CantBeBlockedByMoreThan static effect.
+    pub max_blocked_by: Option<u32>,
+    /// This creature can't be blocked by creatures with power <= this value (daunt).
+    /// Set by CantBeBlockedByPowerLessOrEqual static effect.
+    pub cant_be_blocked_by_power_leq: Option<i32>,
+    /// This creature must be blocked if able.
+    /// Set by MustBeBlocked static effect.
+    pub must_be_blocked: bool,
 }
 
 impl Permanent {
@@ -81,6 +90,9 @@ impl Permanent {
             continuous_keywords: KeywordAbilities::empty(),
             cant_attack: false,
             cant_block_from_effect: false,
+            max_blocked_by: None,
+            cant_be_blocked_by_power_leq: None,
+            must_be_blocked: false,
             card,
         }
     }

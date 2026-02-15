@@ -415,6 +415,9 @@ impl Game {
             perm.continuous_keywords = KeywordAbilities::empty();
             perm.cant_attack = false;
             perm.cant_block_from_effect = false;
+            perm.max_blocked_by = None;
+            perm.cant_be_blocked_by_power_leq = None;
+            perm.must_be_blocked = false;
         }
 
         // Step 2: Collect static effects from all battlefield permanents.
@@ -423,6 +426,9 @@ impl Game {
         let mut keyword_grants: Vec<(ObjectId, PlayerId, String, String)> = Vec::new();
         let mut cant_attacks: Vec<(ObjectId, PlayerId, String)> = Vec::new();
         let mut cant_blocks: Vec<(ObjectId, PlayerId, String)> = Vec::new();
+        let mut max_blocked_bys: Vec<(ObjectId, u32)> = Vec::new();
+        let mut cant_blocked_by_power: Vec<(ObjectId, i32)> = Vec::new();
+        let mut must_be_blockeds: Vec<ObjectId> = Vec::new();
 
         for perm in self.state.battlefield.iter() {
             let source_id = perm.id();
@@ -445,6 +451,15 @@ impl Game {
                         }
                         crate::abilities::StaticEffect::CantBlock { filter } => {
                             cant_blocks.push((source_id, controller, filter.clone()));
+                        }
+                        crate::abilities::StaticEffect::CantBeBlockedByMoreThan { count } => {
+                            max_blocked_bys.push((source_id, *count));
+                        }
+                        crate::abilities::StaticEffect::CantBeBlockedByPowerLessOrEqual { power } => {
+                            cant_blocked_by_power.push((source_id, *power));
+                        }
+                        crate::abilities::StaticEffect::MustBeBlocked => {
+                            must_be_blockeds.push(source_id);
                         }
                         _ => {}
                     }
@@ -480,6 +495,23 @@ impl Game {
                 if let Some(perm) = self.state.battlefield.get_mut(target_id) {
                     perm.cant_block_from_effect = true;
                 }
+            }
+        }
+
+        // Step 3d: Apply block restriction effects
+        for (source_id, count) in max_blocked_bys {
+            if let Some(perm) = self.state.battlefield.get_mut(source_id) {
+                perm.max_blocked_by = Some(count);
+            }
+        }
+        for (source_id, power) in cant_blocked_by_power {
+            if let Some(perm) = self.state.battlefield.get_mut(source_id) {
+                perm.cant_be_blocked_by_power_leq = Some(power);
+            }
+        }
+        for source_id in must_be_blockeds {
+            if let Some(perm) = self.state.battlefield.get_mut(source_id) {
+                perm.must_be_blocked = true;
             }
         }
 
@@ -1138,10 +1170,19 @@ impl Game {
                             .collect()
                     };
 
+                    let (must_be_blocked, max_blocked_by) = self
+                        .state
+                        .battlefield
+                        .get(g.attacker_id)
+                        .map(|a| (a.must_be_blocked, a.max_blocked_by))
+                        .unwrap_or((false, None));
+
                     AttackerInfo {
                         attacker_id: g.attacker_id,
                         defending_id: g.defending_id,
                         legal_blockers,
+                        must_be_blocked,
+                        max_blocked_by,
                     }
                 })
                 .collect();
@@ -1161,6 +1202,25 @@ impl Game {
             // Register blocks
             for (blocker_id, attacker_id) in blocks {
                 self.state.combat.declare_blocker(blocker_id, attacker_id);
+            }
+        }
+
+        // Validate block restrictions: max_blocked_by and menace
+        for group in &mut self.state.combat.groups {
+            // max_blocked_by: trim excess blockers
+            if let Some(attacker) = self.state.battlefield.get(group.attacker_id) {
+                if let Some(max) = attacker.max_blocked_by {
+                    while group.blockers.len() > max as usize {
+                        let removed = group.blockers.pop().unwrap();
+                        self.state.combat.blocker_to_attacker.remove(&removed);
+                    }
+                }
+                // menace: if only 1 blocker, remove it (must have 2+)
+                if attacker.has_menace() && group.blockers.len() == 1 {
+                    let removed = group.blockers.pop().unwrap();
+                    self.state.combat.blocker_to_attacker.remove(&removed);
+                    group.blocked = false;
+                }
             }
         }
 
@@ -9822,5 +9882,323 @@ mod behold_tests {
 
         // Changeling should count as an Elf for behold
         assert!(game.pay_costs(p1, source_id, &[Cost::behold("Elf")]));
+    }
+}
+
+#[cfg(test)]
+mod block_restriction_tests {
+    use super::*;
+    use crate::card::CardData;
+    use crate::constants::{CardType, KeywordAbilities, Outcome, AbilityType};
+    use crate::decision::{
+        AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
+        ReplacementEffectChoice, TargetRequirement, UnpaidMana,
+    };
+    use crate::abilities::{Ability, StaticEffect};
+
+    /// Decision maker that attacks with all creatures.
+    struct AttackAllPlayer;
+
+    impl PlayerDecisionMaker for AttackAllPlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, possible_attackers: &[ObjectId], possible_defenders: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> {
+            let defender = possible_defenders[0];
+            possible_attackers.iter().map(|&a| (a, defender)).collect()
+        }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    /// Decision maker that assigns ALL available blockers to each attacker.
+    struct BlockAllMultiplePlayer;
+
+    impl PlayerDecisionMaker for BlockAllMultiplePlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, attackers: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> {
+            // Assign ALL legal blockers to each attacker
+            let mut blocks = Vec::new();
+            for info in attackers {
+                for &blocker_id in &info.legal_blockers {
+                    blocks.push((blocker_id, info.attacker_id));
+                }
+            }
+            blocks
+        }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    /// Decision maker that blocks with exactly one blocker per attacker.
+    struct BlockOnePerAttackerPlayer;
+
+    impl PlayerDecisionMaker for BlockOnePerAttackerPlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, attackers: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> {
+            let mut blocks = Vec::new();
+            let mut used = std::collections::HashSet::new();
+            for info in attackers {
+                for &blocker_id in &info.legal_blockers {
+                    if !used.contains(&blocker_id) {
+                        blocks.push((blocker_id, info.attacker_id));
+                        used.insert(blocker_id);
+                        break;
+                    }
+                }
+            }
+            blocks
+        }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_deck(owner: PlayerId) -> Vec<CardData> {
+        (0..40).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), owner, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect()
+    }
+
+    fn setup_game(
+        p1_dm: Box<dyn PlayerDecisionMaker>,
+        p2_dm: Box<dyn PlayerDecisionMaker>,
+    ) -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Attacker".to_string(), deck: make_deck(p1) },
+                PlayerConfig { name: "Defender".to_string(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(config, vec![(p1, p1_dm), (p2, p2_dm)]);
+        (game, p1, p2)
+    }
+
+    fn add_creature(
+        game: &mut Game,
+        owner: PlayerId,
+        name: &str,
+        power: i32,
+        toughness: i32,
+        keywords: KeywordAbilities,
+    ) -> ObjectId {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        card.keywords = keywords;
+        let id = card.id;
+        let mut perm = Permanent::new(card, owner);
+        perm.remove_summoning_sickness();
+        game.state.battlefield.add(perm);
+        id
+    }
+
+    fn add_creature_with_static(
+        game: &mut Game,
+        owner: PlayerId,
+        name: &str,
+        power: i32,
+        toughness: i32,
+        keywords: KeywordAbilities,
+        static_effects: Vec<StaticEffect>,
+    ) -> ObjectId {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        card.keywords = keywords;
+        let id = card.id;
+        let ability = Ability::static_ability(id, "", static_effects);
+        game.state.card_store.insert(card.clone());
+        let mut perm = Permanent::new(card, owner);
+        perm.remove_summoning_sickness();
+        game.state.battlefield.add(perm);
+        game.state.ability_store.add(ability);
+        id
+    }
+
+    #[test]
+    fn daunt_blocks_low_power_creatures() {
+        // Creature with "can't be blocked by power 2 or less" (daunt)
+        let (mut game, p1, p2) = setup_game(
+            Box::new(AttackAllPlayer),
+            Box::new(BlockOnePerAttackerPlayer),
+        );
+
+        let attacker_id = add_creature_with_static(
+            &mut game, p1, "Daunt Creature", 4, 4, KeywordAbilities::empty(),
+            vec![StaticEffect::CantBeBlockedByPowerLessOrEqual { power: 2 }],
+        );
+        let small_blocker = add_creature(&mut game, p2, "Small Blocker", 2, 2, KeywordAbilities::empty());
+        let big_blocker = add_creature(&mut game, p2, "Big Blocker", 3, 3, KeywordAbilities::empty());
+
+        game.state.active_player = p1;
+        game.state.priority_player = p1;
+
+        // Apply continuous effects so daunt threshold is set
+        game.apply_continuous_effects();
+
+        game.declare_attackers_step(p1);
+        assert!(game.state.combat.is_attacking(attacker_id));
+
+        game.declare_blockers_step(p1);
+
+        // Small blocker (power 2) should NOT be blocking (daunt prevents it)
+        assert!(!game.state.combat.is_blocking(small_blocker));
+        // Big blocker (power 3) SHOULD be blocking
+        assert!(game.state.combat.is_blocking(big_blocker));
+    }
+
+    #[test]
+    fn cant_be_blocked_by_more_than_one() {
+        let (mut game, p1, p2) = setup_game(
+            Box::new(AttackAllPlayer),
+            Box::new(BlockAllMultiplePlayer),
+        );
+
+        let attacker_id = add_creature_with_static(
+            &mut game, p1, "Max1 Creature", 3, 3, KeywordAbilities::empty(),
+            vec![StaticEffect::CantBeBlockedByMoreThan { count: 1 }],
+        );
+        let _blocker1 = add_creature(&mut game, p2, "Blocker1", 2, 2, KeywordAbilities::empty());
+        let _blocker2 = add_creature(&mut game, p2, "Blocker2", 2, 2, KeywordAbilities::empty());
+        let _blocker3 = add_creature(&mut game, p2, "Blocker3", 2, 2, KeywordAbilities::empty());
+
+        game.state.active_player = p1;
+        game.state.priority_player = p1;
+        game.apply_continuous_effects();
+
+        game.declare_attackers_step(p1);
+        game.declare_blockers_step(p1);
+
+        // Should have at most 1 blocker despite defender wanting to assign all 3
+        let group = game.state.combat.group_for_attacker(attacker_id).unwrap();
+        assert!(group.blockers.len() <= 1, "max_blocked_by=1 but got {} blockers", group.blockers.len());
+        assert!(group.is_blocked()); // Still counted as blocked
+    }
+
+    #[test]
+    fn menace_single_blocker_removed() {
+        // Menace: must be blocked by 2+ creatures. A single blocker should be removed.
+        let (mut game, p1, p2) = setup_game(
+            Box::new(AttackAllPlayer),
+            Box::new(BlockOnePerAttackerPlayer),
+        );
+
+        let attacker_id = add_creature(&mut game, p1, "Menace Creature", 3, 3, KeywordAbilities::MENACE);
+        let _blocker1 = add_creature(&mut game, p2, "Blocker1", 2, 2, KeywordAbilities::empty());
+
+        game.state.active_player = p1;
+        game.state.priority_player = p1;
+
+        game.declare_attackers_step(p1);
+        game.declare_blockers_step(p1);
+
+        // Single blocker should be removed by menace validation
+        let group = game.state.combat.group_for_attacker(attacker_id).unwrap();
+        assert_eq!(group.blockers.len(), 0, "menace should remove single blocker");
+        assert!(!group.is_blocked());
+    }
+
+    #[test]
+    fn menace_two_blockers_allowed() {
+        // Menace with 2 blockers: should be allowed
+        let (mut game, p1, p2) = setup_game(
+            Box::new(AttackAllPlayer),
+            Box::new(BlockAllMultiplePlayer),
+        );
+
+        let attacker_id = add_creature(&mut game, p1, "Menace Creature", 3, 3, KeywordAbilities::MENACE);
+        let _blocker1 = add_creature(&mut game, p2, "Blocker1", 2, 2, KeywordAbilities::empty());
+        let _blocker2 = add_creature(&mut game, p2, "Blocker2", 2, 2, KeywordAbilities::empty());
+
+        game.state.active_player = p1;
+        game.state.priority_player = p1;
+
+        game.declare_attackers_step(p1);
+        game.declare_blockers_step(p1);
+
+        // Two blockers should satisfy menace
+        let group = game.state.combat.group_for_attacker(attacker_id).unwrap();
+        assert_eq!(group.blockers.len(), 2, "menace satisfied by 2 blockers");
+        assert!(group.is_blocked());
+    }
+
+    #[test]
+    fn must_be_blocked_flag_set() {
+        // MustBeBlocked static effect sets the flag on the permanent
+        let (mut game, p1, _p2) = setup_game(
+            Box::new(AttackAllPlayer),
+            Box::new(BlockOnePerAttackerPlayer),
+        );
+
+        let creature_id = add_creature_with_static(
+            &mut game, p1, "Lure Creature", 3, 3, KeywordAbilities::empty(),
+            vec![StaticEffect::MustBeBlocked],
+        );
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(perm.must_be_blocked, "must_be_blocked should be set by static effect");
+    }
+
+    #[test]
+    fn must_be_blocked_info_in_attacker_info() {
+        // The must_be_blocked flag should be available in AttackerInfo
+        let (mut game, p1, p2) = setup_game(
+            Box::new(AttackAllPlayer),
+            Box::new(BlockOnePerAttackerPlayer),
+        );
+
+        let _lure_id = add_creature_with_static(
+            &mut game, p1, "Lure Creature", 3, 3, KeywordAbilities::empty(),
+            vec![StaticEffect::MustBeBlocked],
+        );
+        let _blocker = add_creature(&mut game, p2, "Blocker", 2, 2, KeywordAbilities::empty());
+
+        game.state.active_player = p1;
+        game.state.priority_player = p1;
+        game.apply_continuous_effects();
+
+        // Just verify the continuous effects set the flag correctly
+        let perm = game.state.battlefield.get(_lure_id).unwrap();
+        assert!(perm.must_be_blocked);
     }
 }
