@@ -55,7 +55,7 @@ The cleanest approach is to fix file-by-file, starting with game.rs (production 
 - [x] Task 1: Fix 2 warnings in `mtg-engine/src/game.rs` — remove `mut` from `candidates` (line 2962), prefix `src` with `_` (line 4117)
 
 ### Test infrastructure fix
-- [ ] Task 2: Fix 12 warnings in `mtg-engine/src/game/tests.rs` — remove `pub use module::*` re-exports (these are test modules, nothing should import from them)
+- [x] Task 2: Fix 12 warnings in `mtg-engine/src/game/tests.rs` — remove `pub use module::*` re-exports (these are test modules, nothing should import from them)
 
 ### Test file import + dead code cleanup (one task per file)
 - [ ] Task 3: Fix 12 warnings in `tests/abilities.rs` — remove unused imports (`StaticEffect`, `ModalMode`, `CombatState`, `Color`, `KeywordAbilities`, `Outcome`, `PhaseStep`, `SuperType`, `Zone`, `CounterType`, `EventType`, `GameEvent`, `Mana`, `ManaCost`, `Permanent`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), prefix `modes` variable with `_`
@@ -76,12 +76,11 @@ The cleanest approach is to fix file-by-file, starting with game.rs (production 
 - [ ] Task 16: Run `cargo test --lib -p mtg-engine` and verify all tests still pass
 
 ## Completed This Iteration
-- Task 1: Removed `mut` from `candidates` variable (line 2962) and prefixed unused `src` with `_` (line 4117) in game.rs
+- Task 2: Removed 12 `pub use module::*` re-exports from tests.rs. Warnings dropped from 137 to 123. All 386 tests pass.
 
 ## Notes
 
 - The `super::*` import in each test file is redundant because `super` refers to the `tests` module in tests.rs, which re-exports everything — but since each test file already imports what it needs via `crate::`, the `super::*` is unnecessary.
 - All 19 dead code items (structs and functions) are genuinely unused duplicates of patterns used elsewhere in the test suite. They can be safely deleted.
 - `cargo fix --lib -p mtg-engine --tests` could auto-fix 114 of the import warnings, but manual cleanup is preferred to also handle the dead code and ensure correctness.
-- After fixing, the `pub use` in tests.rs should be removed since test modules don't need public re-exports, and removing them also eliminates the 12 "unused import" warnings from tests.rs itself.
-- Important: When removing `pub use` from tests.rs, need to verify that removing them doesn't break anything. Since these are `#[cfg(test)]` modules, nothing outside tests should depend on them.
+- Task 2 done: Removed `pub use` from tests.rs. This also means `super::*` in each test file now imports nothing (since tests.rs no longer re-exports). The `super::*` warnings should still show up in each test file; they'll be cleaned up as part of Tasks 3–14.
