@@ -2782,7 +2782,7 @@ fn glamer_gifter(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When this enters, up to one other target creature has base power and toughness 4/4 and gains all creature types until end of turn.",
-                vec![Effect::SetPowerToughness { power: 4, toughness: 4 }, Effect::Custom("Gains all creature types until end of turn.".into())],
+                vec![Effect::SetPowerToughness { power: 4, toughness: 4 }, Effect::gain_all_creature_types()],
                 TargetSpec::Creature),
         ],
         ..Default::default() }
@@ -2948,7 +2948,7 @@ fn high_perfect_morcant(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "Whenever High Perfect Morcant or another Elf enters the battlefield under your control, each opponent blights 1.",
                 vec![EventType::EnteredTheBattlefield],
-                vec![Effect::Custom("Each opponent blights 1 (puts a -1/-1 counter on a creature they control).".into())],
+                vec![Effect::blight_opponents(1)],
                 TargetSpec::None),
             Ability::activated(id,
                 "Tap three untapped Elves you control: Proliferate. Activate only as a sorcery.",

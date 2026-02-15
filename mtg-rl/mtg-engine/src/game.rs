@@ -3839,6 +3839,48 @@ impl Game {
                         }
                     }
                 }
+                Effect::BlightOpponents { count } => {
+                    // Each opponent puts N -1/-1 counters on a creature they control
+                    let count = resolve_x(*count);
+                    let opponents: Vec<PlayerId> = self.state.turn_order.iter()
+                        .filter(|&&id| id != controller)
+                        .copied()
+                        .collect();
+                    for opp in opponents {
+                        // Find creatures the opponent controls
+                        let creatures: Vec<ObjectId> = self.state.battlefield.iter()
+                            .filter(|p| p.controller == opp && p.is_creature())
+                            .map(|p| p.id())
+                            .collect();
+                        if !creatures.is_empty() {
+                            // Opponent chooses which creature to blight
+                            let view = crate::decision::GameView::placeholder();
+                            let chosen = if let Some(dm) = self.decision_makers.get_mut(&opp) {
+                                let targets = dm.choose_targets(&view, crate::constants::Outcome::Detriment,
+                                    &crate::decision::TargetRequirement {
+                                        description: format!("Blight {} (put -1/-1 counters on creature you control)", count),
+                                        legal_targets: creatures.clone(),
+                                        min_targets: 1, max_targets: 1,
+                                        required: true,
+                                    });
+                                targets.into_iter().next().unwrap_or(creatures[0])
+                            } else {
+                                creatures[0]
+                            };
+                            if let Some(perm) = self.state.battlefield.get_mut(chosen) {
+                                perm.counters.add(crate::counters::CounterType::M1M1, count);
+                            }
+                        }
+                    }
+                }
+                Effect::GainAllCreatureTypes => {
+                    // Target gains all creature types until end of turn (changeling)
+                    for &target_id in targets {
+                        if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                            perm.granted_keywords |= crate::constants::KeywordAbilities::CHANGELING;
+                        }
+                    }
+                }
                 _ => {
                     // Remaining effects not yet implemented (protection, etc.)
                 }
@@ -11202,5 +11244,103 @@ mod conditional_static_tests {
         game.apply_continuous_effects();
         let perm = game.state.battlefield.get(card_id).unwrap();
         assert_eq!(perm.power(), 5, "should be 3+2 with ETB event this turn");
+    }
+}
+
+#[cfg(test)]
+mod blight_and_types_tests {
+    use super::*;
+    use crate::abilities::*;
+    use crate::types::*;
+    use crate::counters::CounterType;
+    use uuid::Uuid;
+
+    struct PassPlayer;
+    impl crate::decision::PlayerDecisionMaker for PassPlayer {
+        fn priority(&mut self, _: &crate::decision::GameView, actions: &[crate::decision::PlayerAction]) -> crate::decision::PlayerAction { actions[0].clone() }
+        fn choose_targets(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, req: &crate::decision::TargetRequirement) -> Vec<ObjectId> {
+            // Pick the first legal target
+            req.legal_targets.iter().take(1).copied().collect()
+        }
+        fn choose_use(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &crate::decision::GameView, _: &[crate::decision::NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &crate::decision::GameView, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &crate::decision::GameView, _: &[crate::decision::AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &crate::decision::GameView, _: &crate::decision::DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &crate::decision::GameView, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &crate::decision::GameView, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &crate::decision::GameView, hand: &[ObjectId], count: usize) -> Vec<ObjectId> { hand.iter().take(count).copied().collect() }
+        fn choose_amount(&mut self, _: &crate::decision::GameView, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &crate::decision::GameView, _: &crate::decision::UnpaidMana, _: &[crate::decision::PlayerAction]) -> Option<crate::decision::PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &crate::decision::GameView, _: &[crate::decision::ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &str, _: &[crate::decision::NamedChoice]) -> usize { 0 }
+    }
+
+    #[test]
+    fn blight_opponents_puts_counter() {
+        let p1 = PlayerId(Uuid::new_v4());
+        let p2 = PlayerId(Uuid::new_v4());
+        let config = GameConfig { players: vec![PlayerConfig { name: "P1".into(), deck: vec![] }, PlayerConfig { name: "P2".into(), deck: vec![] }], starting_life: 20 };
+        let mut game = Game::new_two_player(config, vec![
+            (p1, Box::new(PassPlayer)),
+            (p2, Box::new(PassPlayer)),
+        ]);
+
+        // Give opponent a creature
+        let opp_creature = ObjectId(Uuid::new_v4());
+        let card = CardData {
+            id: opp_creature, owner: p2, name: "Bear".into(),
+            card_types: vec![crate::constants::CardType::Creature],
+            power: Some(3), toughness: Some(3),
+            ..Default::default()
+        };
+        let perm = crate::permanent::Permanent::new(card.clone(), p2);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(card);
+
+        // Blight opponents 1
+        game.execute_effects(&[Effect::blight_opponents(1)], p1, &[], None, None);
+
+        // Opponent's creature should have a -1/-1 counter
+        let perm = game.state.battlefield.get(opp_creature).unwrap();
+        assert_eq!(perm.counters.get(&CounterType::M1M1), 1, "should have -1/-1 counter");
+        assert_eq!(perm.power(), 2, "power should be reduced by -1/-1");
+    }
+
+    #[test]
+    fn gain_all_creature_types() {
+        let p1 = PlayerId(Uuid::new_v4());
+        let p2 = PlayerId(Uuid::new_v4());
+        let config = GameConfig { players: vec![PlayerConfig { name: "P1".into(), deck: vec![] }, PlayerConfig { name: "P2".into(), deck: vec![] }], starting_life: 20 };
+        let mut game = Game::new_two_player(config, vec![
+            (p1, Box::new(PassPlayer)),
+            (p2, Box::new(PassPlayer)),
+        ]);
+
+        let creature_id = ObjectId(Uuid::new_v4());
+        let card = CardData {
+            id: creature_id, owner: p1, name: "Type Gainer".into(),
+            card_types: vec![crate::constants::CardType::Creature],
+            subtypes: vec![crate::constants::SubType::Human],
+            power: Some(2), toughness: Some(2),
+            ..Default::default()
+        };
+        let perm = crate::permanent::Permanent::new(card.clone(), p1);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(card);
+
+        // Should not have Elf type initially
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(!perm.has_subtype(&crate::constants::SubType::Elf));
+
+        // Grant all creature types
+        game.execute_effects(&[Effect::gain_all_creature_types()], p1, &[creature_id], None, None);
+
+        // Should now have changeling (all creature types)
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(perm.has_keyword(crate::constants::KeywordAbilities::CHANGELING), "should have changeling");
+        assert!(perm.has_subtype(&crate::constants::SubType::Elf), "should have Elf as changeling");
+        assert!(perm.has_subtype(&crate::constants::SubType::Goblin), "should have Goblin as changeling");
     }
 }

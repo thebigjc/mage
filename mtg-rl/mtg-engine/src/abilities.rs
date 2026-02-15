@@ -320,6 +320,12 @@ pub enum Effect {
     /// Target opponent exiles cards from their hand.
     OpponentExilesFromHand { count: u32 },
 
+    /// Each opponent blights N (puts N -1/-1 counters on a creature they control).
+    BlightOpponents { count: u32 },
+
+    /// Target creature gains all creature types until end of turn.
+    GainAllCreatureTypes,
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1088,6 +1094,14 @@ impl Effect {
 
     pub fn opponent_exiles_from_hand(count: u32) -> Self {
         Effect::OpponentExilesFromHand { count }
+    }
+
+    pub fn blight_opponents(count: u32) -> Self {
+        Effect::BlightOpponents { count }
+    }
+
+    pub fn gain_all_creature_types() -> Self {
+        Effect::GainAllCreatureTypes
     }
 }
 
