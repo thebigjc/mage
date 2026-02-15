@@ -736,10 +736,53 @@ impl Game {
             }
         }
 
+        // Check delayed triggers against events
+        let mut delayed_fired: Vec<(usize, crate::state::DelayedTrigger)> = Vec::new();
+        for event in self.event_log.iter() {
+            for (idx, dt) in self.state.delayed_triggers.iter().enumerate() {
+                if dt.event_type != event.event_type {
+                    continue;
+                }
+                // If watching a specific object, check it matches
+                if let Some(watched_id) = dt.watching {
+                    if let Some(target_id) = event.target_id {
+                        if target_id != watched_id {
+                            continue;
+                        }
+                    } else {
+                        continue;
+                    }
+                }
+                // For EndStep triggers, only fire on the controller's end step
+                if event.event_type == EventType::EndStep {
+                    if let Some(pid) = event.player_id {
+                        if pid != dt.controller {
+                            continue;
+                        }
+                    }
+                }
+                delayed_fired.push((idx, dt.clone()));
+            }
+        }
+        // Remove fired trigger-only-once entries (reverse order to preserve indices)
+        let mut indices_to_remove: Vec<usize> = delayed_fired.iter()
+            .filter(|(_, dt)| dt.trigger_only_once)
+            .map(|(idx, _)| *idx)
+            .collect();
+        indices_to_remove.sort_unstable();
+        indices_to_remove.dedup();
+        for idx in indices_to_remove.into_iter().rev() {
+            self.state.delayed_triggers.remove(idx);
+        }
+        // Execute delayed trigger effects
+        for (_, dt) in &delayed_fired {
+            self.execute_effects(&dt.effects, dt.controller, &dt.targets, dt.source, None);
+        }
+
         // Clear event log after processing
         self.event_log.clear();
 
-        if triggered.is_empty() {
+        if triggered.is_empty() && delayed_fired.is_empty() {
             return false;
         }
 
@@ -896,6 +939,13 @@ impl Game {
                             !(active_player == ip.player_id
                               && turn_num > ip.created_turn)
                         }
+                    }
+                });
+                // Clean up expired delayed triggers
+                self.state.delayed_triggers.retain(|dt| {
+                    match dt.duration {
+                        crate::state::DelayedDuration::EndOfTurn => false,
+                        crate::state::DelayedDuration::UntilTriggered => true,
                     }
                 });
             }
@@ -3047,6 +3097,29 @@ impl Game {
                             }
                         }
                     }
+                }
+                Effect::CreateDelayedTrigger { event_type, trigger_effects, duration, watch_target } => {
+                    let evt = crate::events::EventType::from_name(event_type);
+                    let dur = match duration.as_str() {
+                        "until_triggered" => crate::state::DelayedDuration::UntilTriggered,
+                        _ => crate::state::DelayedDuration::EndOfTurn,
+                    };
+                    let watching = if *watch_target {
+                        targets.first().copied().or(source)
+                    } else {
+                        None
+                    };
+                    self.state.delayed_triggers.push(crate::state::DelayedTrigger {
+                        event_type: evt,
+                        watching,
+                        effects: trigger_effects.clone(),
+                        controller,
+                        source,
+                        targets: targets.to_vec(),
+                        duration: dur,
+                        trigger_only_once: true,
+                        created_turn: self.state.turn_number,
+                    });
                 }
                 Effect::ExileTopAndPlay { count, duration, without_mana } => {
                     let n = resolve_x(*count) as usize;
@@ -8831,5 +8904,193 @@ mod impulse_draw_tests {
         assert!(!game.state.stack.is_empty());
         // Mana should still be 0
         assert_eq!(game.state.players.get(&p1).unwrap().mana_pool.available().count(), 0);
+    }
+}
+
+#[cfg(test)]
+mod delayed_trigger_tests {
+    use super::*;
+    use crate::abilities::{Ability, Effect, TargetSpec};
+    use crate::card::CardData;
+    use crate::constants::{CardType, TurnPhase, PhaseStep, Outcome};
+    use crate::events::{EventType, GameEvent};
+    use crate::mana::Mana;
+    use crate::permanent::Permanent;
+    use crate::types::{ObjectId, PlayerId};
+    use crate::decision::*;
+
+    struct PassivePlayer;
+    impl PlayerDecisionMaker for PassivePlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn setup_delayed_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            starting_life: 20,
+            players: vec![
+                PlayerConfig { name: "P1".into(), deck: vec![] },
+                PlayerConfig { name: "P2".into(), deck: vec![] },
+            ],
+        };
+        let mut game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(PassivePlayer)),
+                (p2, Box::new(PassivePlayer)),
+            ],
+        );
+        game.state.active_player = p1;
+        game.state.current_phase = TurnPhase::PrecombatMain;
+        game.state.current_step = PhaseStep::PrecombatMain;
+        game.state.turn_number = 1;
+        (game, p1, p2)
+    }
+
+    #[test]
+    fn delayed_on_death_fires_when_creature_dies() {
+        let (mut game, p1, _p2) = setup_delayed_game();
+
+        // Put a card in library so we can draw
+        let draw_card_id = ObjectId::new();
+        let draw_card = CardData::new(draw_card_id, p1, "Prize");
+        game.state.card_store.insert(draw_card);
+        game.state.players.get_mut(&p1).unwrap().library.put_on_top(draw_card_id);
+
+        // Put a creature on the battlefield
+        let creature_id = ObjectId::new();
+        let mut card = CardData::new(creature_id, p1, "Doomed Creature");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(2);
+        card.toughness = Some(2);
+        let perm = Permanent::new(card.clone(), p1);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(card);
+
+        // Create a delayed trigger: "when Doomed Creature dies this turn, draw a card"
+        let effects = vec![Effect::delayed_on_death(vec![Effect::DrawCards { count: 1 }])];
+        game.execute_effects(&effects, p1, &[creature_id], None, None);
+
+        // Should have 1 delayed trigger registered
+        assert_eq!(game.state.delayed_triggers.len(), 1);
+        assert_eq!(game.state.delayed_triggers[0].watching, Some(creature_id));
+
+        let hand_before = game.state.players.get(&p1).unwrap().hand.len();
+
+        // Kill the creature (emit dies event)
+        game.state.battlefield.remove(creature_id);
+        game.emit_event(GameEvent::dies(creature_id, p1));
+        game.check_triggered_abilities();
+
+        let hand_after = game.state.players.get(&p1).unwrap().hand.len();
+        assert_eq!(hand_after, hand_before + 1, "Should have drawn a card when creature died");
+
+        // Delayed trigger should have been removed (trigger_only_once)
+        assert_eq!(game.state.delayed_triggers.len(), 0);
+    }
+
+    #[test]
+    fn delayed_on_death_does_not_fire_for_wrong_creature() {
+        let (mut game, p1, p2) = setup_delayed_game();
+
+        // Two creatures
+        let watched_id = ObjectId::new();
+        let mut watched_card = CardData::new(watched_id, p1, "Watched");
+        watched_card.card_types = vec![CardType::Creature];
+        watched_card.power = Some(2);
+        watched_card.toughness = Some(2);
+        game.state.battlefield.add(Permanent::new(watched_card.clone(), p1));
+        game.state.card_store.insert(watched_card);
+
+        let other_id = ObjectId::new();
+        let mut other_card = CardData::new(other_id, p2, "Other");
+        other_card.card_types = vec![CardType::Creature];
+        other_card.power = Some(2);
+        other_card.toughness = Some(2);
+        game.state.battlefield.add(Permanent::new(other_card.clone(), p2));
+        game.state.card_store.insert(other_card);
+
+        // Delayed trigger watching the first creature
+        game.execute_effects(
+            &[Effect::delayed_on_death(vec![Effect::GainLife { amount: 5 }])],
+            p1, &[watched_id], None, None,
+        );
+
+        let life_before = game.state.players.get(&p1).unwrap().life;
+
+        // Kill the OTHER creature (should NOT trigger)
+        game.state.battlefield.remove(other_id);
+        game.emit_event(GameEvent::dies(other_id, p2));
+        game.check_triggered_abilities();
+
+        let life_after = game.state.players.get(&p1).unwrap().life;
+        assert_eq!(life_after, life_before, "Should NOT gain life when wrong creature dies");
+
+        // Trigger should still be registered
+        assert_eq!(game.state.delayed_triggers.len(), 1);
+    }
+
+    #[test]
+    fn delayed_trigger_expires_at_end_of_turn() {
+        let (mut game, p1, _p2) = setup_delayed_game();
+
+        // Create a delayed trigger with EndOfTurn duration
+        game.execute_effects(
+            &[Effect::delayed_on_death(vec![Effect::GainLife { amount: 5 }])],
+            p1, &[], Some(ObjectId::new()), None,
+        );
+        assert_eq!(game.state.delayed_triggers.len(), 1);
+
+        // Cleanup step should remove EndOfTurn delayed triggers
+        game.turn_based_actions(PhaseStep::Cleanup, p1);
+        assert_eq!(game.state.delayed_triggers.len(), 0,
+            "EndOfTurn delayed trigger should be removed at cleanup");
+    }
+
+    #[test]
+    fn at_next_end_step_fires_once() {
+        let (mut game, p1, _p2) = setup_delayed_game();
+
+        // Put a card in library
+        let card_id = ObjectId::new();
+        let card = CardData::new(card_id, p1, "Prize");
+        game.state.card_store.insert(card);
+        game.state.players.get_mut(&p1).unwrap().library.put_on_top(card_id);
+
+        // Create "at the beginning of the next end step, draw a card"
+        game.execute_effects(
+            &[Effect::at_next_end_step(vec![Effect::DrawCards { count: 1 }])],
+            p1, &[], None, None,
+        );
+        assert_eq!(game.state.delayed_triggers.len(), 1);
+
+        let hand_before = game.state.players.get(&p1).unwrap().hand.len();
+
+        // Emit end step event
+        let mut event = GameEvent::new(EventType::EndStep);
+        event.player_id = Some(p1);
+        game.emit_event(event);
+        game.check_triggered_abilities();
+
+        let hand_after = game.state.players.get(&p1).unwrap().hand.len();
+        assert_eq!(hand_after, hand_before + 1, "Should draw on end step");
+
+        // Trigger should be removed (trigger_only_once)
+        assert_eq!(game.state.delayed_triggers.len(), 0);
     }
 }

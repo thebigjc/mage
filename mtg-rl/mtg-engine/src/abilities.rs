@@ -245,6 +245,20 @@ pub enum Effect {
     /// Attach source equipment to target creature you control.
     Equip,
 
+    // -- Delayed triggers --
+    /// Create a delayed triggered ability that fires when a specific event occurs.
+    /// Example: "When this creature dies this turn, draw a card."
+    CreateDelayedTrigger {
+        /// Event type to watch for.
+        event_type: String,
+        /// Effects to execute when the trigger fires.
+        trigger_effects: Vec<Effect>,
+        /// "end_of_turn" or "until_triggered"
+        duration: String,
+        /// If true, watches the first target or source; if false, any matching event.
+        watch_target: bool,
+    },
+
     // -- Impulse draw --
     /// Exile top N cards of your library; you may play them until the specified duration.
     ExileTopAndPlay {
@@ -945,6 +959,26 @@ impl Effect {
     /// "Choose a creature type. Draw a card for each permanent you control of that type."
     pub fn choose_type_and_draw_per_permanent() -> Self {
         Effect::ChooseTypeAndDrawPerPermanent
+    }
+
+    /// "When [target/source] dies this turn, [effects]."
+    pub fn delayed_on_death(effects: Vec<Effect>) -> Self {
+        Effect::CreateDelayedTrigger {
+            event_type: "dies".into(),
+            trigger_effects: effects,
+            duration: "end_of_turn".into(),
+            watch_target: true,
+        }
+    }
+
+    /// "At the beginning of the next end step, [effects]."
+    pub fn at_next_end_step(effects: Vec<Effect>) -> Self {
+        Effect::CreateDelayedTrigger {
+            event_type: "end_step".into(),
+            trigger_effects: effects,
+            duration: "until_triggered".into(),
+            watch_target: false,
+        }
     }
 
     /// "Exile the top N cards. You may play them until end of turn."

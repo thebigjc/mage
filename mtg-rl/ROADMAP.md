@@ -263,11 +263,17 @@ These require new engine architecture beyond adding match arms to existing funct
 - **Blocked cards:** Electroduplicate, Rite of Replication, Self-Reflection, Flamehold Grappler (~8+ cards)
 - **Java reference:** `CopyEffect.java`, `CreateTokenCopyTargetEffect.java`
 
-#### 12. Delayed Triggers
-- "When this creature dies this turn, draw a card" — one-shot trigger registered for remainder of turn
-- Framework: register trigger with expiration, fire when condition met, remove after
-- **Blocked cards:** Undying Malice, Fake Your Own Death, Desperate Measures, Scarblades Malice (~5+ cards)
-- **Java reference:** `DelayedTriggeredAbility.java`
+#### ~~12. Delayed Triggers~~ (DONE)
+
+**Completed 2026-02-14.** Delayed triggered abilities are now functional:
+- `DelayedTrigger` struct in `GameState` tracks: event type, watched object, effects, controller, duration, trigger-only-once
+- `DelayedDuration::EndOfTurn` (removed at cleanup) and `UntilTriggered` (persists until fired)
+- `Effect::CreateDelayedTrigger` registers a delayed trigger during effect resolution
+- `check_triggered_abilities()` checks delayed triggers against events, fires matching ones
+- Watched object filtering: only fires when the specific watched permanent/creature matches the event
+- `EventType::from_name()` parses string event types for flexible card authoring
+- Convenience builders: `delayed_on_death(effects)`, `at_next_end_step(effects)`
+- 4 unit tests: death trigger fires, wrong creature doesn't fire, expiration, end step trigger
 
 #### 13. Saga Enchantments
 - Lore counters added on ETB and after draw step
@@ -429,7 +435,7 @@ Features the Java engine has that the Rust engine lacks entirely:
 | **Planeswalker loyalty abilities** | `LoyaltyAbility`, `PayLoyaltyCost` | No equivalent |
 | **X-cost system** | `VariableManaCost`, `ManaCostsImpl.getX()` | **Implemented** (`X_VALUE`, `StackItem.x_value`, `resolve_x()`) |
 | **Spell copying** | `CopyEffect`, `CopySpellForEachItCouldTargetEffect` | No equivalent |
-| **Delayed triggered abilities** | `DelayedTriggeredAbility` | No equivalent |
+| **Delayed triggered abilities** | `DelayedTriggeredAbility` | **Implemented** (`DelayedTrigger`, `CreateDelayedTrigger`) |
 | **Alternative costs** (Flashback, Evoke, etc.) | `AlternativeCostSourceAbility` | Evoke stored as StaticEffect, not enforced |
 | **Additional costs** (Kicker, Buyback, etc.) | `OptionalAdditionalCostImpl` | No equivalent |
 | **Combat damage assignment order** | `CombatGroup.pickBlockerOrder()` | Simplified (first blocker takes all) |
@@ -470,7 +476,7 @@ Priority ordered by cards-unblocked per effort.
 
 10. **Spell/permanent copy** — Clone spells on stack, create token copies. **~8+ cards.**
 
-11. **Delayed triggers** — One-shot triggered abilities with expiration. **~5+ cards.**
+11. ~~**Delayed triggers**~~ — **DONE (2026-02-14).** `DelayedTrigger` struct, `CreateDelayedTrigger` effect, event-driven firing, duration expiration. 4 unit tests.
 
 12. **Graveyard casting** — Flashback, Escape, cast-from-graveyard. **~6+ cards.**
 

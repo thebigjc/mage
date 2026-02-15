@@ -294,6 +294,27 @@ pub enum EventType {
     Transformed,
 }
 
+impl EventType {
+    /// Parse an event type from a string name (case-insensitive).
+    pub fn from_name(name: &str) -> Self {
+        match name.to_lowercase().as_str() {
+            "dies" => EventType::Dies,
+            "end_step" | "endstep" => EventType::EndStep,
+            "upkeep" | "upkeep_step" => EventType::UpkeepStep,
+            "entered_the_battlefield" | "etb" => EventType::EnteredTheBattlefield,
+            "spell_cast" => EventType::SpellCast,
+            "attacker_declared" | "attack" => EventType::AttackerDeclared,
+            "gain_life" | "gained_life" => EventType::GainedLife,
+            "damaged_player" => EventType::DamagedPlayer,
+            "damaged_permanent" => EventType::DamagedPermanent,
+            "created_token" => EventType::CreatedToken,
+            "land_played" => EventType::LandPlayed,
+            "counters_added" => EventType::CountersAdded,
+            _ => EventType::EnteredTheBattlefield, // fallback
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // GameEvent struct
 // ---------------------------------------------------------------------------

@@ -108,6 +108,11 @@ pub struct GameState {
     // ── Impulse draw tracking ────────────────────────────────────────────
     /// Cards exiled with "you may play until ..." permission.
     pub impulse_playable: Vec<ImpulsePlayable>,
+
+    // ── Delayed triggers ─────────────────────────────────────────────────
+    /// One-shot triggered abilities registered by effects (e.g. "when this
+    /// creature dies this turn, draw a card").
+    pub delayed_triggers: Vec<DelayedTrigger>,
 }
 
 /// Duration for impulse draw effects (how long the exiled card remains playable).
@@ -132,6 +137,40 @@ pub struct ImpulsePlayable {
     pub created_turn: u32,
     /// Whether to play without paying mana cost.
     pub without_mana: bool,
+}
+
+/// Duration for delayed triggers.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DelayedDuration {
+    /// Expires at end of the current turn.
+    EndOfTurn,
+    /// Never expires on its own (must be explicitly removed or fire once).
+    UntilTriggered,
+}
+
+/// A delayed triggered ability registered by a resolving effect.
+/// Example: "When this creature dies this turn, draw a card."
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DelayedTrigger {
+    /// Event type that causes this trigger to fire.
+    pub event_type: crate::events::EventType,
+    /// The specific object this trigger watches (e.g. the creature that must die).
+    /// None means any matching event fires it.
+    pub watching: Option<ObjectId>,
+    /// Effects to execute when the trigger fires.
+    pub effects: Vec<crate::abilities::Effect>,
+    /// Who controls the trigger (and its effects).
+    pub controller: PlayerId,
+    /// Source permanent that created this trigger.
+    pub source: Option<ObjectId>,
+    /// Targets for the effects (captured at creation time, if any).
+    pub targets: Vec<ObjectId>,
+    /// How long this trigger persists.
+    pub duration: DelayedDuration,
+    /// If true, trigger fires at most once then is removed.
+    pub trigger_only_once: bool,
+    /// Turn number when created (for expiration).
+    pub created_turn: u32,
 }
 
 /// Describes where a specific game object currently exists.
@@ -182,6 +221,7 @@ impl GameState {
             combat: CombatState::new(),
             values: HashMap::new(),
             impulse_playable: Vec::new(),
+            delayed_triggers: Vec::new(),
         }
     }
 
