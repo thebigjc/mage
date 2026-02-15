@@ -1,22 +1,16 @@
 // Tests extracted from game.rs
 
 use crate::game::*;
-use crate::abilities::{Ability, Cost, Effect, TargetSpec, StaticEffect, ModalMode};
+use crate::abilities::{Ability, Cost, Effect, TargetSpec, StaticEffect};
 use crate::card::CardData;
-use crate::combat::CombatState;
-use crate::constants::{CardType, Color, KeywordAbilities, Outcome, PhaseStep, SubType, SuperType, Zone};
+use crate::constants::{CardType, KeywordAbilities, Outcome, SubType};
 use crate::counters::CounterType;
 use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
-use crate::events::{EventType, GameEvent};
 use crate::mana::{Mana, ManaCost};
 use crate::permanent::Permanent;
-use crate::state::StateBasedActions;
-use crate::types::{AbilityId, ObjectId, PlayerId};
-use crate::watchers::WatcherManager;
+use crate::types::{ObjectId, PlayerId};
 use crate::abilities::X_VALUE;
 
-
-use super::*;
 
 #[cfg(test)]
 
