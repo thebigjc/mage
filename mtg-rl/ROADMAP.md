@@ -15,7 +15,7 @@ This document describes implementation gaps between the Rust mtg-rl engine and t
 | **Total Custom fallbacks** | **940** |
 | Keywords defined | 47 |
 | Keywords mechanically enforced | 19 (combat active, plus hexproof, shroud, prowess, landwalk) |
-| State-based actions | 7 of ~20 rules implemented |
+| State-based actions | 8 of ~20 rules implemented |
 | Triggered abilities | Events emitted, triggers stacked (ETB, attack, life gain, dies) |
 | Replacement effects | Data structures defined but not integrated |
 | Continuous effect layers | Layer 6 (keywords) + Layer 7 (P/T) applied; others pending |
@@ -141,7 +141,7 @@ Checked in `state.rs:check_state_based_actions()`:
 | 704.5a | Player at 0 or less life loses | **Implemented** |
 | 704.5b | Player draws from empty library loses | **Implemented** (in draw_cards()) |
 | 704.5c | 10+ poison counters = loss | **Implemented** |
-| 704.5d | Token not on battlefield ceases to exist | **Not implemented** |
+| 704.5d | Token not on battlefield ceases to exist | **Implemented** |
 | 704.5e | 0-cost copy on stack/BF ceases to exist | **Not implemented** |
 | 704.5f | Creature with 0 toughness → graveyard | **Implemented** |
 | 704.5g | Lethal damage → destroy (if not indestructible) | **Implemented** |
@@ -152,7 +152,7 @@ Checked in `state.rs:check_state_based_actions()`:
 | 704.5r | +1/+1 and -1/-1 counter annihilation | **Implemented** |
 | 704.5s | Saga with lore counters ≥ chapters → sacrifice | **Not implemented** |
 
-**Missing SBAs:** Library-empty loss, token cleanup, aura fall-off, equipment detach, saga sacrifice. These affect ~40+ cards.
+**Missing SBAs:** Saga sacrifice. These affect ~40+ cards.
 
 ---
 

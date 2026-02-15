@@ -1581,6 +1581,15 @@ impl Game {
             }
         }
 
+        // Token cleanup: tokens not on battlefield cease to exist (704.5d)
+        for &(player_id, card_id) in &sba.tokens_to_remove {
+            if let Some(player) = self.state.players.get_mut(&player_id) {
+                player.graveyard.remove(card_id);
+                player.hand.remove(card_id);
+            }
+            self.state.exile.remove(card_id);
+            self.state.card_store.remove(card_id);
+        }
         // Return died_sources so caller can clean up AFTER trigger checking
         died_sources
 

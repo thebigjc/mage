@@ -366,6 +366,33 @@ impl GameState {
             }
         }
 
+        // Rule 704.5d: Tokens not on the battlefield cease to exist.
+        for (&player_id, player) in &self.players {
+            for &card_id in player.graveyard.iter() {
+                if let Some(card) = self.card_store.get(card_id) {
+                    if card.is_token {
+                        sba.tokens_to_remove.push((player_id, card_id));
+                    }
+                }
+            }
+            for &card_id in player.hand.iter() {
+                if let Some(card) = self.card_store.get(card_id) {
+                    if card.is_token {
+                        sba.tokens_to_remove.push((player_id, card_id));
+                    }
+                }
+            }
+        }
+        // Also check exile zone for tokens
+        for &card_id in self.exile.iter_all() {
+            if let Some(card) = self.card_store.get(card_id) {
+                if card.is_token {
+                    // Find owner for removal
+                    sba.tokens_to_remove.push((card.owner, card_id));
+                }
+            }
+        }
+
         sba
     }
 
@@ -394,6 +421,8 @@ pub struct StateBasedActions {
     pub attachments_to_detach: Vec<ObjectId>,
     /// Auras that need to go to graveyard (enchanted permanent left battlefield).
     pub auras_to_graveyard: Vec<ObjectId>,
+    /// Tokens in non-battlefield zones that should cease to exist (704.5d).
+    pub tokens_to_remove: Vec<(PlayerId, ObjectId)>,
 }
 
 impl StateBasedActions {
@@ -409,6 +438,7 @@ impl StateBasedActions {
             || !self.auras_to_graveyard.is_empty()
             || !self.permanents_to_destroy.is_empty()
             || !self.counters_to_annihilate.is_empty()
+            || !self.tokens_to_remove.is_empty()
     }
 }
 
@@ -673,5 +703,70 @@ mod tests {
 
         let sba = state.check_state_based_actions();
         assert!(sba.permanents_to_graveyard.contains(&perm_id));
+    }
+}
+
+#[cfg(test)]
+mod token_cleanup_tests {
+    use super::*;
+    use crate::card::CardData;
+    use crate::constants::CardType;
+    use crate::types::{ObjectId, PlayerId};
+
+    fn two_player_state() -> (GameState, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let state = GameState::new(&[("Alice", p1), ("Bob", p2)]);
+        (state, p1, p2)
+    }
+
+    #[test]
+    fn token_in_graveyard_triggers_sba() {
+        let (mut state, p1, _p2) = two_player_state();
+
+        // Create a token card and put it in the graveyard
+        let token_id = ObjectId::new();
+        let mut card = CardData::new(token_id, p1, "Soldier Token");
+        card.card_types = vec![CardType::Creature];
+        card.is_token = true;
+        state.card_store.insert(card);
+        state.players.get_mut(&p1).unwrap().graveyard.add(token_id);
+
+        let sba = state.check_state_based_actions();
+        assert!(sba.tokens_to_remove.iter().any(|(_, id)| *id == token_id));
+        assert!(sba.has_actions());
+    }
+
+    #[test]
+    fn non_token_in_graveyard_not_removed() {
+        let (mut state, p1, _p2) = two_player_state();
+
+        // Create a normal card in the graveyard
+        let card_id = ObjectId::new();
+        let mut card = CardData::new(card_id, p1, "Grizzly Bears");
+        card.card_types = vec![CardType::Creature];
+        state.card_store.insert(card);
+        state.players.get_mut(&p1).unwrap().graveyard.add(card_id);
+
+        let sba = state.check_state_based_actions();
+        assert!(sba.tokens_to_remove.is_empty());
+    }
+
+    #[test]
+    fn token_on_battlefield_not_removed() {
+        let (mut state, p1, _p2) = two_player_state();
+
+        // Create a token on the battlefield - should NOT be flagged
+        let token_id = ObjectId::new();
+        let mut card = CardData::new(token_id, p1, "Soldier Token");
+        card.card_types = vec![CardType::Creature];
+        card.is_token = true;
+        card.power = Some(1);
+        card.toughness = Some(1);
+        let perm = crate::permanent::Permanent::new(card, p1);
+        state.battlefield.add(perm);
+
+        let sba = state.check_state_based_actions();
+        assert!(sba.tokens_to_remove.is_empty());
     }
 }
