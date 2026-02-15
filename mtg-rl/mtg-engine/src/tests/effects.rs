@@ -798,7 +798,7 @@ fn gain_control_until_end_of_turn() {
 
     // P1 gains control
     game.execute_effects(
-        &[Effect::gain_control_until_end_of_turn()],
+        &[Effect::gain_control_eot()],
         p1,
         &[creature_id],
         None, None,
