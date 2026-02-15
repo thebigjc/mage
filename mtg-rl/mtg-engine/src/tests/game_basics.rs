@@ -29,7 +29,7 @@ fn make_basic_land(name: &str, owner: PlayerId) -> CardData {
     card
 }
 
-fn make_creature(name: &str, owner: PlayerId, power: u32, toughness: u32) -> CardData {
+fn make_creature(name: &str, owner: PlayerId, power: i32, toughness: i32) -> CardData {
     let mut card = CardData::new(ObjectId::new(), owner, name);
     card.card_types = vec![CardType::Creature];
     card.power = Some(power);
@@ -373,21 +373,20 @@ fn activated_ability_goes_on_stack() {
         p1,
         creature_id,
         ability_id,
-        vec![p2.as_target()],
+        &[],
     );
 
     // Check that the stack has the ability
     assert_eq!(game.state.stack.len(), 1);
-    let stack_item = &game.state.stack[0];
+    let stack_item = game.state.stack.top().unwrap();
     assert_eq!(stack_item.controller, p1);
 
     // The permanent should be tapped from the cost
     let perm = game.state.battlefield.get(creature_id).unwrap();
     assert!(perm.tapped);
 
-    // Pass priority and let it resolve
-    game.pass_priority(p1);
-    game.pass_priority(p2);
+    // Resolve the ability
+    game.resolve_top_of_stack();
 
     // Stack should be empty after resolution
     assert_eq!(game.state.stack.len(), 0);

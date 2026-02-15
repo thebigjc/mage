@@ -89,11 +89,11 @@ Recommendation: **Option A** — add minimal test helpers since these are unit t
 
 - [x] Task 16: Add `#[cfg(test)] pub(crate) fn resolve_top_of_stack(&mut self)` helper to Game that pops and resolves the top stack item (replaces `pass_priority` x2 pattern)
 - [x] Task 17: Add `#[cfg(test)] pub(crate) fn set_step(&mut self, step: PhaseStep)` helper to Game (replaces `turn_manager.set_phase_step(...)`)
-- [ ] Task 18: Make `cast_spell` accessible from tests — add `#[cfg(test)] pub(crate) fn test_cast_spell(&mut self, player_id: PlayerId, card_id: ObjectId)` wrapper or make `cast_spell` `pub(crate)`
+- [x] Task 18: Make `cast_spell` accessible from tests — already accessible since tests are submodules of `game` via `#[path]` directives; no wrapper needed
 
 ### Phase 4: Rewrite affected test functions in game_basics.rs
 
-- [ ] Task 19: Rewrite `activated_ability_puts_on_stack` test (game_basics.rs:325-398):
+- [x] Task 19: Rewrite `activated_ability_goes_on_stack` test (game_basics.rs:323-398):
   - Use `set_step()` instead of `turn_manager.set_phase_step()`
   - Use `DealDamage`/`CreatureOrPlayer` instead of `DealDamageAny`/`AnyTarget`
   - Fix `entered_this_turn` → `summoning_sick`
@@ -152,3 +152,5 @@ Recommendation: **Option A** — add minimal test helpers since these are unit t
 - Task 15: Changed `TargetSpec::AnyTarget` to `TargetSpec::CreatureOrPlayer` at lines 355 and 432 in game_basics.rs
 - Task 16: `resolve_top_of_stack` already exists as private method on Game (line 2338), accessible from test submodules — no changes needed
 - Task 17: Added `#[cfg(test)] pub fn set_phase_step(&mut self, step: PhaseStep)` to TurnManager in turn.rs — finds the step index in TURN_STEPS and sets `current_step_index`
+- Task 18: `cast_spell` is already accessible from tests (tests are submodules of `game` module) — no changes needed
+- Task 19: Rewrote `activated_ability_goes_on_stack` test: changed `make_creature` params from `u32` to `i32`, replaced `vec![p2.as_target()]` with `&[]` (DealDamage falls back to opponent when targets empty), replaced `stack[0]` with `stack.top().unwrap()`, replaced `pass_priority()` x2 with `resolve_top_of_stack()`
