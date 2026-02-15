@@ -367,6 +367,21 @@ pub enum Effect {
     /// Used for effects like "Its controller creates a 1/1 token."
     TargetControllerCreatesToken { token_name: String },
 
+    /// You may put a creature card matching the filter from your hand onto the battlefield.
+    /// Supports haste grant, tapped entry, attacking entry, and sacrifice at next end step.
+    /// `max_mana_value` is the maximum MV allowed (u32::MAX = no limit, X_VALUE = use X from stack).
+    /// `max_mv_dynamic`: if Some, evaluated via evaluate_count_filter to determine MV limit (overrides max_mana_value).
+    /// `tapped`: enters tapped. `attacking`: enters attacking. `haste`: gains haste.
+    /// `sacrifice_eot`: sacrifice at the beginning of the next end step.
+    PutFromHandToBattlefield {
+        max_mana_value: u32,
+        max_mv_dynamic: Option<String>,
+        tapped: bool,
+        attacking: bool,
+        haste: bool,
+        sacrifice_eot: bool,
+    },
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1246,6 +1261,39 @@ impl Effect {
     pub fn lose_all_abilities_all(filter: &str) -> Self {
         Effect::LoseAllAbilitiesAll {
             filter: filter.to_string(),
+        }
+    }
+
+    pub fn put_from_hand_with_haste_sacrifice(max_mv: u32) -> Self {
+        Effect::PutFromHandToBattlefield {
+            max_mana_value: max_mv,
+            max_mv_dynamic: None,
+            tapped: false,
+            attacking: false,
+            haste: true,
+            sacrifice_eot: true,
+        }
+    }
+
+    pub fn put_from_hand_tapped_attacking(max_mv: u32) -> Self {
+        Effect::PutFromHandToBattlefield {
+            max_mana_value: max_mv,
+            max_mv_dynamic: None,
+            tapped: true,
+            attacking: true,
+            haste: false,
+            sacrifice_eot: false,
+        }
+    }
+
+    pub fn put_from_hand_tapped_attacking_dynamic(dynamic_source: &str) -> Self {
+        Effect::PutFromHandToBattlefield {
+            max_mana_value: 0,
+            max_mv_dynamic: Some(dynamic_source.to_string()),
+            tapped: true,
+            attacking: true,
+            haste: false,
+            sacrifice_eot: false,
         }
     }
 }

@@ -1873,7 +1873,7 @@ fn meek_attack(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "{1}{R}: You may put a creature card with mana value 2 or less from your hand onto the battlefield. It gains haste. Sacrifice it at the beginning of the next end step.",
                 vec![Cost::pay_mana("{1}{R}")],
-                vec![Effect::Custom("Put creature MV<=2 from hand onto battlefield with haste, sacrifice at end step.".into())],
+                vec![Effect::put_from_hand_with_haste_sacrifice(2)],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -3036,7 +3036,7 @@ fn kinscaer_sentry(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::attacks_triggered(id,
                 "Whenever this creature attacks, you may put a creature card with mana value X or less from your hand onto the battlefield tapped and attacking, where X is the number of attacking creatures you control.",
-                vec![Effect::Custom("Put creature MV<=attacking count from hand onto BF tapped+attacking.".into())],
+                vec![Effect::put_from_hand_tapped_attacking_dynamic("attacking creatures you control")],
                 TargetSpec::None),
         ],
         ..Default::default() }

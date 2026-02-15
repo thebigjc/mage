@@ -749,6 +749,13 @@ impl Game {
             return 0;
         }
 
+        if lower == "attacking creatures you control" {
+            return self.state.battlefield.iter()
+                .filter(|p| p.controller == controller && p.is_creature()
+                    && self.state.combat.attackers.contains(&p.id()))
+                .count() as u32;
+        }
+
         // "{Type}s you control" / "{Type} you control"
         if lower.ends_with("you control") {
             let type_part = lower.trim_end_matches("you control").trim();
@@ -4264,6 +4271,77 @@ impl Game {
                             self.state.battlefield.add(perm);
                             self.state.set_zone(token_id, crate::constants::Zone::Battlefield, None);
                             self.emit_event(GameEvent::enters_battlefield(token_id, tc));
+                        }
+                    }
+                }
+                Effect::PutFromHandToBattlefield { max_mana_value, max_mv_dynamic, tapped, attacking, haste, sacrifice_eot } => {
+                    let max_mv = if let Some(dynamic_source) = max_mv_dynamic {
+                        self.evaluate_count_filter(dynamic_source, controller)
+                    } else {
+                        resolve_x(*max_mana_value)
+                    };
+                    let hand: Vec<ObjectId> = self.state.players.get(&controller)
+                        .map(|p| p.hand.iter().copied().collect())
+                        .unwrap_or_default();
+                    let eligible: Vec<ObjectId> = hand.iter().copied()
+                        .filter(|&cid| {
+                            self.state.card_store.get(cid).map_or(false, |card| {
+                                card.card_types.contains(&crate::constants::CardType::Creature)
+                                    && card.mana_value() <= max_mv
+                            })
+                        })
+                        .collect();
+                    if !eligible.is_empty() {
+                        let view = crate::decision::GameView::placeholder();
+                        let wants = if let Some(dm) = self.decision_makers.get_mut(&controller) {
+                            dm.choose_use(&view, crate::constants::Outcome::Benefit,
+                                "Put a creature card from your hand onto the battlefield?")
+                        } else {
+                            true
+                        };
+                        if wants {
+                            let chosen = if let Some(dm) = self.decision_makers.get_mut(&controller) {
+                                let picked = dm.choose_discard(&view, &eligible, 1);
+                                picked.into_iter().next()
+                            } else {
+                                eligible.first().copied()
+                            };
+                            if let Some(card_id) = chosen {
+                                if let Some(player) = self.state.players.get_mut(&controller) {
+                                    player.hand.remove(card_id);
+                                }
+                                if let Some(card_data) = self.state.card_store.remove(card_id) {
+                                    for ability in &card_data.abilities {
+                                        self.state.ability_store.add(ability.clone());
+                                    }
+                                    let mut perm = Permanent::new(card_data, controller);
+                                    if *tapped {
+                                        perm.tapped = true;
+                                    }
+                                    if *attacking {
+                                        perm.summoning_sick = false;
+                                    }
+                                    if *haste {
+                                        perm.granted_keywords |= crate::constants::KeywordAbilities::HASTE;
+                                    }
+                                    self.state.battlefield.add(perm);
+                                    self.state.set_zone(card_id, crate::constants::Zone::Battlefield, None);
+                                    self.emit_event(GameEvent::enters_battlefield(card_id, controller));
+                                    if *sacrifice_eot {
+                                        self.state.delayed_triggers.push(crate::state::DelayedTrigger {
+                                            event_type: crate::events::EventType::EndStep,
+                                            watching: None,
+                                            effects: vec![Effect::Sacrifice { filter: "self".into() }],
+                                            controller,
+                                            source: Some(card_id),
+                                            targets: vec![card_id],
+                                            duration: crate::state::DelayedDuration::UntilTriggered,
+                                            trigger_only_once: true,
+                                            created_turn: self.state.turn_number,
+                                        });
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -12897,6 +12975,284 @@ mod set_base_pt_tests {
                 assert_eq!(filter, "enchanted creature");
                 assert_eq!(power, 1);
                 assert_eq!(toughness, 1);
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod put_from_hand_tests {
+    use super::*;
+    use crate::abilities::Effect;
+    use crate::card::CardData;
+    use crate::constants::{CardType, KeywordAbilities, Outcome, PhaseStep, TurnPhase};
+    use crate::decision::{
+        AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
+        ReplacementEffectChoice, TargetRequirement, UnpaidMana,
+    };
+    use crate::mana::ManaCost;
+
+    struct YesPickFirstPlayer;
+
+    impl PlayerDecisionMaker for YesPickFirstPlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { true }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, hand: &[ObjectId], count: usize) -> Vec<ObjectId> {
+            hand.iter().take(count).copied().collect()
+        }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    struct NoPlayer;
+
+    impl PlayerDecisionMaker for NoPlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn setup_game_with_dm(dm1: Box<dyn PlayerDecisionMaker>, dm2: Box<dyn PlayerDecisionMaker>) -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            starting_life: 20,
+            players: vec![
+                PlayerConfig { name: "P1".into(), deck: vec![] },
+                PlayerConfig { name: "P2".into(), deck: vec![] },
+            ],
+        };
+        let mut game = Game::new_two_player(config, vec![(p1, dm1), (p2, dm2)]);
+        game.state.active_player = p1;
+        game.state.priority_player = p1;
+        game.state.current_phase = TurnPhase::PrecombatMain;
+        game.state.current_step = PhaseStep::PrecombatMain;
+        game.state.turn_number = 1;
+        (game, p1, p2)
+    }
+
+    fn add_creature_to_hand(game: &mut Game, owner: PlayerId, name: &str, mana_cost: &str, power: i32, toughness: i32) -> ObjectId {
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        card.mana_cost = ManaCost::parse(mana_cost);
+        game.state.card_store.insert(card);
+        game.state.players.get_mut(&owner).unwrap().hand.add(id);
+        id
+    }
+
+    #[test]
+    fn put_from_hand_basic() {
+        let (mut game, p1, _p2) = setup_game_with_dm(
+            Box::new(YesPickFirstPlayer), Box::new(NoPlayer));
+
+        let goblin_id = add_creature_to_hand(&mut game, p1, "Goblin", "{R}", 1, 1);
+
+        assert_eq!(game.state.players.get(&p1).unwrap().hand.len(), 1);
+
+        game.execute_effects(
+            &[Effect::put_from_hand_with_haste_sacrifice(2)],
+            p1, &[], None, None,
+        );
+
+        assert_eq!(game.state.players.get(&p1).unwrap().hand.len(), 0);
+        let perm = game.state.battlefield.get(goblin_id).unwrap();
+        assert_eq!(perm.card.name, "Goblin");
+        assert!(perm.has_keyword(KeywordAbilities::HASTE));
+    }
+
+    #[test]
+    fn put_from_hand_mv_filter() {
+        let (mut game, p1, _p2) = setup_game_with_dm(
+            Box::new(YesPickFirstPlayer), Box::new(NoPlayer));
+
+        let expensive_id = add_creature_to_hand(&mut game, p1, "Dragon", "{4}{R}{R}", 5, 5);
+
+        game.execute_effects(
+            &[Effect::put_from_hand_with_haste_sacrifice(2)],
+            p1, &[], None, None,
+        );
+
+        assert_eq!(game.state.players.get(&p1).unwrap().hand.len(), 1);
+        assert!(game.state.battlefield.get(expensive_id).is_none());
+    }
+
+    #[test]
+    fn put_from_hand_player_declines() {
+        let (mut game, p1, _p2) = setup_game_with_dm(
+            Box::new(NoPlayer), Box::new(NoPlayer));
+
+        let goblin_id = add_creature_to_hand(&mut game, p1, "Goblin", "{R}", 1, 1);
+
+        game.execute_effects(
+            &[Effect::put_from_hand_with_haste_sacrifice(2)],
+            p1, &[], None, None,
+        );
+
+        assert_eq!(game.state.players.get(&p1).unwrap().hand.len(), 1);
+        assert!(game.state.battlefield.get(goblin_id).is_none());
+    }
+
+    #[test]
+    fn put_from_hand_tapped_attacking() {
+        let (mut game, p1, _p2) = setup_game_with_dm(
+            Box::new(YesPickFirstPlayer), Box::new(NoPlayer));
+
+        let soldier_id = add_creature_to_hand(&mut game, p1, "Soldier", "{W}", 2, 2);
+
+        game.execute_effects(
+            &[Effect::put_from_hand_tapped_attacking(3)],
+            p1, &[], None, None,
+        );
+
+        assert_eq!(game.state.players.get(&p1).unwrap().hand.len(), 0);
+        let perm = game.state.battlefield.get(soldier_id).unwrap();
+        assert!(perm.tapped);
+        assert!(!perm.summoning_sick);
+    }
+
+    #[test]
+    fn put_from_hand_sacrifice_at_eot() {
+        let (mut game, p1, _p2) = setup_game_with_dm(
+            Box::new(YesPickFirstPlayer), Box::new(NoPlayer));
+
+        let _goblin_id = add_creature_to_hand(&mut game, p1, "Goblin", "{R}", 1, 1);
+
+        game.execute_effects(
+            &[Effect::put_from_hand_with_haste_sacrifice(2)],
+            p1, &[], None, None,
+        );
+
+        assert_eq!(game.state.delayed_triggers.len(), 1);
+        let dt = &game.state.delayed_triggers[0];
+        assert_eq!(dt.event_type, crate::events::EventType::EndStep);
+        assert!(dt.trigger_only_once);
+    }
+
+    #[test]
+    fn put_from_hand_no_sacrifice_when_not_requested() {
+        let (mut game, p1, _p2) = setup_game_with_dm(
+            Box::new(YesPickFirstPlayer), Box::new(NoPlayer));
+
+        let _soldier_id = add_creature_to_hand(&mut game, p1, "Soldier", "{W}", 2, 2);
+
+        game.execute_effects(
+            &[Effect::put_from_hand_tapped_attacking(3)],
+            p1, &[], None, None,
+        );
+
+        assert_eq!(game.state.delayed_triggers.len(), 0);
+    }
+
+    #[test]
+    fn put_from_hand_x_value_mv_limit() {
+        let (mut game, p1, _p2) = setup_game_with_dm(
+            Box::new(YesPickFirstPlayer), Box::new(NoPlayer));
+
+        let small_id = add_creature_to_hand(&mut game, p1, "Goblin", "{R}", 1, 1);
+        let big_id = add_creature_to_hand(&mut game, p1, "Dragon", "{3}{R}{R}", 5, 5);
+
+        game.execute_effects(
+            &[Effect::PutFromHandToBattlefield {
+                max_mana_value: crate::abilities::X_VALUE,
+                max_mv_dynamic: None,
+                tapped: true,
+                attacking: true,
+                haste: false,
+                sacrifice_eot: false,
+            }],
+            p1, &[], None, Some(2),
+        );
+
+        assert_eq!(game.state.players.get(&p1).unwrap().hand.len(), 1);
+        assert!(game.state.battlefield.get(small_id).is_some());
+        assert!(game.state.battlefield.get(big_id).is_none());
+    }
+
+    #[test]
+    fn put_from_hand_empty_hand_noop() {
+        let (mut game, p1, _p2) = setup_game_with_dm(
+            Box::new(YesPickFirstPlayer), Box::new(NoPlayer));
+
+        game.execute_effects(
+            &[Effect::put_from_hand_with_haste_sacrifice(2)],
+            p1, &[], None, None,
+        );
+
+        assert_eq!(game.state.battlefield.len(), 0);
+    }
+
+    #[test]
+    fn put_from_hand_noncreature_not_eligible() {
+        let (mut game, p1, _p2) = setup_game_with_dm(
+            Box::new(YesPickFirstPlayer), Box::new(NoPlayer));
+
+        let enchantment_id = ObjectId::new();
+        let mut card = CardData::new(enchantment_id, p1, "Enchantment");
+        card.card_types = vec![CardType::Enchantment];
+        card.mana_cost = ManaCost::parse("{1}");
+        game.state.card_store.insert(card);
+        game.state.players.get_mut(&p1).unwrap().hand.add(enchantment_id);
+
+        game.execute_effects(
+            &[Effect::put_from_hand_with_haste_sacrifice(5)],
+            p1, &[], None, None,
+        );
+
+        assert_eq!(game.state.players.get(&p1).unwrap().hand.len(), 1);
+        assert!(game.state.battlefield.get(enchantment_id).is_none());
+    }
+
+    #[test]
+    fn effect_builder_put_from_hand_haste_sacrifice() {
+        match Effect::put_from_hand_with_haste_sacrifice(2) {
+            Effect::PutFromHandToBattlefield { max_mana_value, max_mv_dynamic, tapped, attacking, haste, sacrifice_eot } => {
+                assert_eq!(max_mana_value, 2);
+                assert!(max_mv_dynamic.is_none());
+                assert!(!tapped);
+                assert!(!attacking);
+                assert!(haste);
+                assert!(sacrifice_eot);
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn effect_builder_put_from_hand_tapped_attacking() {
+        match Effect::put_from_hand_tapped_attacking(5) {
+            Effect::PutFromHandToBattlefield { max_mana_value, max_mv_dynamic, tapped, attacking, haste, sacrifice_eot } => {
+                assert_eq!(max_mana_value, 5);
+                assert!(max_mv_dynamic.is_none());
+                assert!(tapped);
+                assert!(attacking);
+                assert!(!haste);
+                assert!(!sacrifice_eot);
             }
             _ => panic!("wrong variant"),
         }
