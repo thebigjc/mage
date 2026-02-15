@@ -491,6 +491,11 @@ impl Stack {
         self.items.iter().find(|item| item.id == id)
     }
 
+    /// Get a mutable reference to a specific stack item by ID.
+    pub fn get_mut(&mut self, id: ObjectId) -> Option<&mut StackItem> {
+        self.items.iter_mut().find(|item| item.id == id)
+    }
+
     /// Remove a specific item from the stack (e.g. when countered).
     pub fn remove(&mut self, id: ObjectId) -> Option<StackItem> {
         if let Some(pos) = self.items.iter().position(|item| item.id == id) {

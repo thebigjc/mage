@@ -14,7 +14,8 @@
 //
 // Ported from mage.game.GameImpl.
 
-use crate::abilities::{Cost, Effect};
+use crate::abilities::{Cost, Effect, StaticEffect};
+use crate::mana::ManaCost;
 use crate::combat::{self, CombatState};
 use crate::constants::AbilityType;
 use crate::card::CardData;
@@ -1409,6 +1410,111 @@ impl Game {
 
         // Emit spell cast event (for prowess, storm, etc.)
         self.emit_event(GameEvent::spell_cast(card_id, player_id, crate::constants::Zone::Hand));
+
+        // Ward check: if any target has Ward and the caster is an opponent, enforce ward cost
+        self.check_ward_on_targets(card_id, player_id);
+    }
+
+    /// Check ward on targets of a spell/ability. If any target has Ward and
+    /// the spell controller is an opponent, try to charge the ward cost.
+    /// If the cost can't be paid, counter the spell.
+    fn check_ward_on_targets(&mut self, spell_id: ObjectId, caster: PlayerId) {
+        // Collect ward costs for targets that have ward
+        let mut should_counter = false;
+        let targets: Vec<ObjectId> = self.state.stack.get(spell_id)
+            .map(|item| item.targets.clone())
+            .unwrap_or_default();
+
+        for &target_id in &targets {
+            let target_controller = match self.state.battlefield.get(target_id) {
+                Some(perm) => perm.controller,
+                None => continue,
+            };
+            // Ward only applies when an opponent targets the permanent
+            if target_controller == caster {
+                continue;
+            }
+
+            // Check for Ward static effect in abilities
+            let ward_cost = self.find_ward_cost(target_id);
+            if let Some(cost_str) = ward_cost {
+                // Try to charge the ward cost
+                if !self.try_pay_ward_cost(caster, &cost_str) {
+                    should_counter = true;
+                    break;
+                }
+            }
+        }
+
+        if should_counter {
+            if let Some(item) = self.state.stack.get_mut(spell_id) {
+                item.countered = true;
+            }
+        }
+    }
+
+    /// Find the ward cost for a permanent (from its static abilities).
+    fn find_ward_cost(&self, permanent_id: ObjectId) -> Option<String> {
+        for ability in self.state.ability_store.for_source(permanent_id) {
+            for effect in &ability.static_effects {
+                if let StaticEffect::Ward { cost } = effect {
+                    return Some(cost.clone());
+                }
+            }
+        }
+        // Also check if ward is granted via continuous keywords but has no explicit cost
+        // (e.g., GrantKeyword "ward" — in this case we can't enforce it without a cost value)
+        None
+    }
+
+    /// Try to pay a ward cost. Returns true if the cost was paid.
+    fn try_pay_ward_cost(&mut self, payer: PlayerId, cost: &str) -> bool {
+        // Mana cost (e.g., "{2}", "{1}{U}")
+        if cost.starts_with('{') {
+            let mana_cost = ManaCost::parse(cost);
+            let mana = mana_cost.to_mana();
+            if let Some(player) = self.state.players.get_mut(&payer) {
+                return player.mana_pool.try_pay(&mana);
+            }
+            return false;
+        }
+
+        // Life cost (e.g., "Pay 2 life")
+        if cost.contains("life") {
+            // Extract the number from "Pay N life"
+            let amount: i32 = cost.chars()
+                .filter(|c| c.is_ascii_digit())
+                .collect::<String>()
+                .parse()
+                .unwrap_or(0);
+            if amount > 0 {
+                if let Some(player) = self.state.players.get_mut(&payer) {
+                    if player.life > amount {
+                        player.life -= amount;
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Discard cost (e.g., "Discard a card.")
+        if cost.contains("iscard") {
+            if let Some(player) = self.state.players.get(&payer) {
+                if player.hand.len() > 0 {
+                    // Discard a card (pick first card in hand for simplicity)
+                    let card_id = *player.hand.iter().next().unwrap();
+                    let player = self.state.players.get_mut(&payer).unwrap();
+                    player.hand.remove(card_id);
+                    player.graveyard.add(card_id);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Unknown ward cost — can't pay
+        false
     }
 
     /// Resolve the top item on the stack.
@@ -7490,5 +7596,253 @@ mod prowess_landwalk_tests {
 
         // Without landwalk check, normal blocking is fine
         assert!(combat::can_block(&blocker, &attacker));
+    }
+}
+
+
+#[cfg(test)]
+mod ward_tests {
+    use super::*;
+    use crate::abilities::{Ability, StaticEffect, TargetSpec, Effect};
+    use crate::constants::Outcome;
+    use crate::card::CardData;
+    use crate::constants::{CardType, KeywordAbilities};
+    use crate::mana::{ManaCost, Mana};
+    use crate::types::{ObjectId, PlayerId};
+    use crate::decision::*;
+    use crate::permanent::Permanent;
+
+    struct PassivePlayer;
+    impl PlayerDecisionMaker for PassivePlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_deck(owner: PlayerId) -> Vec<CardData> {
+        (0..40).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), owner, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect()
+    }
+
+    fn setup_ward_game() -> (Game, PlayerId, PlayerId, ObjectId, ObjectId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Attacker".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "Defender".into(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let mut game = Game::new_two_player(
+            config,
+            vec![(p1, Box::new(PassivePlayer)), (p2, Box::new(PassivePlayer))],
+        );
+
+        // Create a creature with Ward {2} controlled by p2
+        let ward_creature_id = ObjectId::new();
+        let mut ward_card = CardData::new(ward_creature_id, p2, "Warded Beast");
+        ward_card.card_types = vec![CardType::Creature];
+        ward_card.power = Some(4);
+        ward_card.toughness = Some(4);
+        ward_card.keywords = KeywordAbilities::WARD;
+        let perm = Permanent::new(ward_card.clone(), p2);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(ward_card);
+
+        // Register Ward {2} static ability
+        let ward_ability = Ability::static_ability(
+            ward_creature_id,
+            "Ward {2}",
+            vec![StaticEffect::ward("{2}")],
+        );
+        game.state.ability_store.add(ward_ability);
+
+        // Create a removal spell in p1's hand
+        let spell_id = ObjectId::new();
+        let mut spell_card = CardData::new(spell_id, p1, "Doom Blade");
+        spell_card.card_types = vec![CardType::Instant];
+        spell_card.mana_cost = ManaCost::parse("{1}{B}");
+        spell_card.abilities = vec![Ability::spell(
+            spell_id,
+            vec![Effect::Destroy],
+            TargetSpec::OpponentCreature,
+        )];
+        game.state.card_store.insert(spell_card);
+        game.state.players.get_mut(&p1).unwrap().hand.add(spell_id);
+
+        (game, p1, p2, ward_creature_id, spell_id)
+    }
+
+    #[test]
+    fn ward_counters_spell_when_opponent_cant_pay() {
+        let (mut game, p1, _p2, ward_creature_id, spell_id) = setup_ward_game();
+
+        // Give p1 only enough mana for the spell (1B), not for ward ({2})
+        game.state.players.get_mut(&p1).unwrap().mana_pool.add(
+            Mana { white: 0, blue: 0, black: 1, red: 0, green: 0, colorless: 1, generic: 0, any: 0 }, None, false
+        );
+
+        game.cast_spell(p1, spell_id);
+
+        // The spell should be on the stack but countered (no mana left for ward)
+        let stack_item = game.state.stack.get(spell_id);
+        assert!(stack_item.is_some(), "Spell should be on the stack");
+        assert!(stack_item.unwrap().countered, "Spell should be countered by Ward");
+
+        // Resolve — creature should survive
+        game.resolve_top_of_stack();
+        assert!(game.state.battlefield.contains(ward_creature_id), "Warded creature should survive");
+    }
+
+    #[test]
+    fn ward_allows_spell_when_opponent_pays() {
+        let (mut game, p1, _p2, _ward_creature_id, spell_id) = setup_ward_game();
+
+        // Give p1 enough mana for spell (1B) + ward (2)
+        game.state.players.get_mut(&p1).unwrap().mana_pool.add(
+            Mana { white: 0, blue: 0, black: 1, red: 0, green: 0, colorless: 4, generic: 0, any: 0 }, None, false
+        );
+
+        game.cast_spell(p1, spell_id);
+
+        // Ward should be paid — spell should NOT be countered
+        let stack_item = game.state.stack.get(spell_id);
+        assert!(stack_item.is_some(), "Spell should be on the stack");
+        assert!(!stack_item.unwrap().countered, "Spell should NOT be countered when ward cost is paid");
+    }
+
+    #[test]
+    fn ward_doesnt_trigger_on_own_creatures() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "B".into(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let mut game = Game::new_two_player(
+            config,
+            vec![(p1, Box::new(PassivePlayer)), (p2, Box::new(PassivePlayer))],
+        );
+
+        // Create a ward creature controlled by p1 (self-target shouldn't trigger ward)
+        let own_ward_id = ObjectId::new();
+        let mut own_card = CardData::new(own_ward_id, p1, "Own Warded");
+        own_card.card_types = vec![CardType::Creature];
+        own_card.power = Some(3);
+        own_card.toughness = Some(3);
+        own_card.keywords = KeywordAbilities::WARD;
+        let perm = Permanent::new(own_card.clone(), p1);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(own_card);
+
+        let ward_ability = Ability::static_ability(
+            own_ward_id,
+            "Ward {2}",
+            vec![StaticEffect::ward("{2}")],
+        );
+        game.state.ability_store.add(ward_ability);
+
+        // Create a buff spell targeting own creature
+        let buff_id = ObjectId::new();
+        let mut buff_card = CardData::new(buff_id, p1, "Giant Growth");
+        buff_card.card_types = vec![CardType::Instant];
+        buff_card.mana_cost = ManaCost::parse("{G}");
+        buff_card.abilities = vec![Ability::spell(
+            buff_id,
+            vec![Effect::BoostUntilEndOfTurn { power: 3, toughness: 3 }],
+            TargetSpec::CreatureYouControl,
+        )];
+        game.state.card_store.insert(buff_card);
+        game.state.players.get_mut(&p1).unwrap().hand.add(buff_id);
+
+        // Give enough mana for the spell only (1G) — no extra for ward
+        game.state.players.get_mut(&p1).unwrap().mana_pool.add(
+            Mana { white: 0, blue: 0, black: 0, red: 0, green: 1, colorless: 0, generic: 0, any: 0 }, None, false
+        );
+
+        game.cast_spell(p1, buff_id);
+
+        // Ward should NOT trigger (own creature) — spell should not be countered
+        let stack_item = game.state.stack.get(buff_id);
+        assert!(stack_item.is_some(), "Spell should be on the stack");
+        assert!(!stack_item.unwrap().countered, "Ward should not trigger on own creatures");
+    }
+
+    #[test]
+    fn ward_pay_life_counters_when_insufficient() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "B".into(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let mut game = Game::new_two_player(
+            config,
+            vec![(p1, Box::new(PassivePlayer)), (p2, Box::new(PassivePlayer))],
+        );
+
+        // Create ward creature with "Pay 2 life" cost
+        let ward_id = ObjectId::new();
+        let mut ward_card = CardData::new(ward_id, p2, "Life Ward");
+        ward_card.card_types = vec![CardType::Creature];
+        ward_card.power = Some(2);
+        ward_card.toughness = Some(2);
+        let perm = Permanent::new(ward_card.clone(), p2);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(ward_card);
+
+        let ward_ability = Ability::static_ability(
+            ward_id,
+            "Ward--Pay 2 life.",
+            vec![StaticEffect::Ward { cost: "Pay 2 life".into() }],
+        );
+        game.state.ability_store.add(ward_ability);
+
+        // Create a removal spell
+        let spell_id = ObjectId::new();
+        let mut spell_card = CardData::new(spell_id, p1, "Lightning Bolt");
+        spell_card.card_types = vec![CardType::Instant];
+        spell_card.mana_cost = ManaCost::parse("{R}");
+        spell_card.abilities = vec![Ability::spell(
+            spell_id,
+            vec![Effect::DealDamage { amount: 3 }],
+            TargetSpec::Creature,
+        )];
+        game.state.card_store.insert(spell_card);
+        game.state.players.get_mut(&p1).unwrap().hand.add(spell_id);
+
+        // Set p1's life to 1 — can't afford "Pay 2 life"
+        game.state.players.get_mut(&p1).unwrap().life = 1;
+        game.state.players.get_mut(&p1).unwrap().mana_pool.add(
+            Mana { white: 0, blue: 0, black: 0, red: 1, green: 0, colorless: 0, generic: 0, any: 0 }, None, false
+        );
+
+        game.cast_spell(p1, spell_id);
+
+        let stack_item = game.state.stack.get(spell_id);
+        assert!(stack_item.is_some());
+        assert!(stack_item.unwrap().countered, "Spell should be countered — can't pay 2 life at 1 life");
     }
 }

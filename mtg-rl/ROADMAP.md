@@ -14,7 +14,7 @@ This document describes implementation gaps between the Rust mtg-rl engine and t
 | `Cost::Custom` fallbacks | 33 |
 | **Total Custom fallbacks** | **940** |
 | Keywords defined | 47 |
-| Keywords mechanically enforced | 19 (combat active, plus hexproof, shroud, prowess, landwalk) |
+| Keywords mechanically enforced | 20 (combat active, plus hexproof, shroud, prowess, landwalk, ward) |
 | State-based actions | 8 of ~20 rules implemented |
 | Triggered abilities | Events emitted, triggers stacked (ETB, attack, life gain, dies) |
 | Replacement effects | Data structures defined but not integrated |
@@ -98,7 +98,7 @@ All 10 are now active in practice via combat integration (2026-02-14). Additiona
 | HEXPROOF | Can't be targeted by opponents | **Enforced** in `legal_targets_for_spec()` |
 | SHROUD | Can't be targeted at all | **Enforced** in `legal_targets_for_spec()` |
 | PROTECTION | Prevents damage/targeting/blocking/enchanting | Not checked |
-| WARD | Counter unless cost paid | Stored as StaticEffect, not enforced |
+| WARD | Counter unless cost paid | **Enforced** in `check_ward_on_targets()` |
 | FEAR | Only blocked by black/artifact | **Enforced** in `combat.rs:can_block()` |
 | INTIMIDATE | Only blocked by same color/artifact | **Enforced** in `combat.rs:can_block()` |
 | SHADOW | Only blocked by/blocks shadow | Not checked |
