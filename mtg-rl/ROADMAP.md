@@ -94,8 +94,8 @@ All 10 are now active in practice via combat integration (2026-02-14). Additiona
 | Keyword | Java Behavior | Rust Status |
 |---------|--------------|-------------|
 | FLASH | Cast at instant speed | Partially (blocks sorcery-speed only) |
-| HEXPROOF | Can't be targeted by opponents | Not checked during targeting |
-| SHROUD | Can't be targeted at all | Not checked |
+| HEXPROOF | Can't be targeted by opponents | **Enforced** in `legal_targets_for_spec()` |
+| SHROUD | Can't be targeted at all | **Enforced** in `legal_targets_for_spec()` |
 | PROTECTION | Prevents damage/targeting/blocking/enchanting | Not checked |
 | WARD | Counter unless cost paid | Stored as StaticEffect, not enforced |
 | FEAR | Only blocked by black/artifact | Not checked |

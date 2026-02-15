@@ -2778,7 +2778,7 @@ impl Game {
                 .state
                 .battlefield
                 .iter()
-                .filter(|p| p.is_creature())
+                .filter(|p| p.is_creature() && !Self::is_untargetable(p, controller))
                 .map(|p| p.id())
                 .collect(),
             TargetSpec::CreatureYouControl => self
@@ -2786,13 +2786,15 @@ impl Game {
                 .battlefield
                 .iter()
                 .filter(|p| p.is_creature() && p.controller == controller)
+                // No hexproof check — you can always target your own permanents
                 .map(|p| p.id())
                 .collect(),
             TargetSpec::OpponentCreature => self
                 .state
                 .battlefield
                 .iter()
-                .filter(|p| p.is_creature() && p.controller != controller)
+                .filter(|p| p.is_creature() && p.controller != controller
+                    && !Self::is_untargetable(p, controller))
                 .map(|p| p.id())
                 .collect(),
             TargetSpec::CreatureOrPlayer => {
@@ -2800,7 +2802,7 @@ impl Game {
                     .state
                     .battlefield
                     .iter()
-                    .filter(|p| p.is_creature())
+                    .filter(|p| p.is_creature() && !Self::is_untargetable(p, controller))
                     .map(|p| p.id())
                     .collect();
                 // Player targeting would need a different mechanism;
@@ -2812,13 +2814,15 @@ impl Game {
                 .state
                 .battlefield
                 .iter()
+                .filter(|p| !Self::is_untargetable(p, controller))
                 .map(|p| p.id())
                 .collect(),
             TargetSpec::PermanentFiltered(filter) => self
                 .state
                 .battlefield
                 .iter()
-                .filter(|p| Self::matches_filter(p, filter))
+                .filter(|p| Self::matches_filter(p, filter)
+                    && !Self::is_untargetable(p, controller))
                 .map(|p| p.id())
                 .collect(),
             TargetSpec::Spell => self
@@ -2829,6 +2833,21 @@ impl Game {
                 .collect(),
             _ => vec![], // None, CardInGraveyard, Multiple, Custom, Pair — handled elsewhere
         }
+    }
+
+    /// Check if a permanent is untargetable by a given controller.
+    /// Returns true for shroud (can't be targeted by anyone) or
+    /// hexproof (can't be targeted by opponents).
+    fn is_untargetable(perm: &Permanent, targeting_controller: PlayerId) -> bool {
+        // Shroud: can't be targeted by anyone
+        if perm.has_keyword(crate::constants::KeywordAbilities::SHROUD) {
+            return true;
+        }
+        // Hexproof: can't be targeted by opponents
+        if perm.has_hexproof() && perm.controller != targeting_controller {
+            return true;
+        }
+        false
     }
 
     /// Human-readable description for a TargetSpec.
@@ -6373,5 +6392,149 @@ mod enters_tapped_tests {
         game.check_enters_tapped(id);
 
         assert!(!game.state.battlefield.get(id).unwrap().tapped);
+    }
+}
+
+#[cfg(test)]
+mod hexproof_tests {
+    use super::*;
+    use crate::abilities::TargetSpec;
+    use crate::card::CardData;
+    use crate::constants::{CardType, KeywordAbilities, Outcome};
+    use crate::decision::{
+        AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
+        ReplacementEffectChoice, TargetRequirement, UnpaidMana,
+    };
+
+    struct PassivePlayer;
+    impl PlayerDecisionMaker for PassivePlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_deck(owner: PlayerId) -> Vec<CardData> {
+        (0..40).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), owner, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect()
+    }
+
+    fn setup() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Player1".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "Player2".into(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(
+            config,
+            vec![(p1, Box::new(PassivePlayer)), (p2, Box::new(PassivePlayer))],
+        );
+        (game, p1, p2)
+    }
+
+    fn add_creature(game: &mut Game, owner: PlayerId, name: &str, kw: KeywordAbilities) -> ObjectId {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(2);
+        card.toughness = Some(2);
+        card.keywords = kw;
+        let id = card.id;
+        game.state.battlefield.add(Permanent::new(card, owner));
+        id
+    }
+
+    #[test]
+    fn hexproof_prevents_opponent_targeting() {
+        let (mut game, p1, p2) = setup();
+
+        let hexproof_id = add_creature(&mut game, p2, "Hexproof Bear", KeywordAbilities::HEXPROOF);
+        let regular_id = add_creature(&mut game, p2, "Regular Bear", KeywordAbilities::empty());
+
+        // P1 targeting creatures — hexproof creature should NOT be in legal targets
+        let targets = game.legal_targets_for_spec(&TargetSpec::Creature, p1);
+        assert!(!targets.contains(&hexproof_id));
+        assert!(targets.contains(&regular_id));
+
+        // Opponent creature targeting — same
+        let targets = game.legal_targets_for_spec(&TargetSpec::OpponentCreature, p1);
+        assert!(!targets.contains(&hexproof_id));
+        assert!(targets.contains(&regular_id));
+    }
+
+    #[test]
+    fn hexproof_allows_controller_targeting() {
+        let (mut game, _p1, p2) = setup();
+
+        let hexproof_id = add_creature(&mut game, p2, "Hexproof Bear", KeywordAbilities::HEXPROOF);
+
+        // P2 targeting their own hexproof creature — should be allowed
+        let targets = game.legal_targets_for_spec(&TargetSpec::CreatureYouControl, p2);
+        assert!(targets.contains(&hexproof_id));
+
+        // P2 targeting any creature — their own hexproof creature is fine
+        let targets = game.legal_targets_for_spec(&TargetSpec::Creature, p2);
+        assert!(targets.contains(&hexproof_id));
+    }
+
+    #[test]
+    fn shroud_prevents_all_targeting() {
+        let (mut game, p1, p2) = setup();
+
+        let shroud_id = add_creature(&mut game, p2, "Shroud Bear", KeywordAbilities::SHROUD);
+
+        // Neither player can target a shroud creature
+        let targets = game.legal_targets_for_spec(&TargetSpec::Creature, p1);
+        assert!(!targets.contains(&shroud_id));
+
+        let targets = game.legal_targets_for_spec(&TargetSpec::Creature, p2);
+        assert!(!targets.contains(&shroud_id));
+    }
+
+    #[test]
+    fn hexproof_on_permanent_targeting() {
+        let (mut game, p1, p2) = setup();
+
+        let hexproof_id = add_creature(&mut game, p2, "Hexproof Bear", KeywordAbilities::HEXPROOF);
+        let regular_id = add_creature(&mut game, p2, "Regular Bear", KeywordAbilities::empty());
+
+        // TargetSpec::Permanent — hexproof blocks opponent targeting
+        let targets = game.legal_targets_for_spec(&TargetSpec::Permanent, p1);
+        assert!(!targets.contains(&hexproof_id));
+        assert!(targets.contains(&regular_id));
+    }
+
+    #[test]
+    fn granted_hexproof_prevents_targeting() {
+        let (mut game, p1, p2) = setup();
+
+        // A creature without hexproof that gets it granted
+        let bear_id = add_creature(&mut game, p2, "Bear", KeywordAbilities::empty());
+
+        // Grant hexproof via continuous_keywords
+        if let Some(perm) = game.state.battlefield.get_mut(bear_id) {
+            perm.continuous_keywords |= KeywordAbilities::HEXPROOF;
+        }
+
+        // P1 should not be able to target the bear with continuous hexproof
+        let targets = game.legal_targets_for_spec(&TargetSpec::Creature, p1);
+        assert!(!targets.contains(&bear_id));
     }
 }
