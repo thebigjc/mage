@@ -62,8 +62,8 @@ The cleanest approach is to fix file-by-file, starting with game.rs (production 
 - [x] Task 4: Fix 12 warnings in `tests/combat.rs` — remove unused imports (`Cost`, `Effect`, `ModalMode`, `TargetSpec`, `CombatState`, `Color`, `PhaseStep`, `SuperType`, `Zone`, `CounterType`, `EventType`, `GameEvent`, `Mana`, `ManaCost`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), remove dead `AttackAllPlayer2` struct + impl (~30 lines), remove dead `add_creature2` function
 - [x] Task 5: Fix 13 warnings in `tests/continuous_effects.rs` — remove unused imports (`Cost`, `ModalMode`, `CombatState`, `PhaseStep`, `SuperType`, `Zone`, `CounterType`, `EventType`, `GameEvent`, `ManaCost`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), remove dead `AlwaysPassPlayer2` struct + impl, remove dead `PassPlayer2` struct + impl, prefix `land_id` with `_`
 - [x] Task 6: Fix 8 warnings in `tests/costs.rs` — remove unused imports (`ModalMode`, `CombatState`, `Color`, `PhaseStep`, `SuperType`, `Zone`, `EventType`, `GameEvent`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`)
-- [ ] Task 7: Fix 2 warnings in `tests/effects.rs` — remove unused `super::*` import, remove unused `PhaseStep` import
-- [ ] Task 8: Fix 12 warnings in `tests/equipment_auras.rs` — remove unused imports (`ModalMode`, `CombatState`, `Color`, `KeywordAbilities`, `PhaseStep`, `SuperType`, `Zone`, `CounterType`, `EventType`, `GameEvent`, `Mana`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), remove dead `PassivePlayer2` struct + impl, remove dead `setup2` function
+- [x] Task 7: Fix 2 warnings in `tests/effects.rs` — remove unused `super::*` import, remove unused `PhaseStep` import
+- [x] Task 8: Fix 12 warnings in `tests/equipment_auras.rs` — remove unused imports (`ModalMode`, `CombatState`, `Color`, `KeywordAbilities`, `PhaseStep`, `SuperType`, `Zone`, `CounterType`, `EventType`, `GameEvent`, `Mana`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), remove dead `PassivePlayer2` struct + impl, remove dead `setup2` function
 - [ ] Task 9: Fix 2 warnings in `tests/game_basics.rs` — remove unused `super::*` import, remove unused `TurnPhase` import
 - [ ] Task 10: Fix 14 warnings in `tests/keywords.rs` — remove unused imports (`Cost`, `ModalMode`, `CombatState`, `SuperType`, `Zone`, `CounterType`, `EventType`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), remove dead `PassivePlayer2` struct + impl, remove dead `PassivePlayer3` struct + impl, remove dead `PassivePlayer4` struct + impl, remove dead `PassivePlayer5` struct + impl, remove dead `PassivePlayer6` struct + impl
 - [ ] Task 11: Fix 13 warnings in `tests/modal.rs` — remove unused imports (`Ability`, `Cost`, `StaticEffect`, `TargetSpec`, `CombatState`, `Color`, `KeywordAbilities`, `PhaseStep`, `SubType`, `SuperType`, `Zone`, `CounterType`, `EventType`, `GameEvent`, `Mana`, `ManaCost`, `Permanent`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), remove dead `make_deck` function, remove dead `AlwaysPassPlayer` struct + impl
@@ -76,7 +76,7 @@ The cleanest approach is to fix file-by-file, starting with game.rs (production 
 - [ ] Task 16: Run `cargo test --lib -p mtg-engine` and verify all tests still pass
 
 ## Completed This Iteration
-- Task 6: Removed 8 unused imports from tests/costs.rs (ModalMode, CombatState, Color, PhaseStep, SuperType, Zone, EventType, GameEvent, StateBasedActions, AbilityId, WatcherManager, super::*). Warnings dropped from 86 to 78. All 13 costs tests pass.
+- Task 8: Removed 10 unused imports, dead `PassivePlayer2` struct+impl, and dead `setup2` function from tests/equipment_auras.rs. Warnings dropped from 76 to 64. All 8 equipment_auras tests pass.
 
 ## Notes
 
