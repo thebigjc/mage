@@ -68,7 +68,7 @@ The cleanest approach is to fix file-by-file, starting with game.rs (production 
 - [x] Task 10: Fix 14 warnings in `tests/keywords.rs` — remove unused imports (`Cost`, `ModalMode`, `CombatState`, `SuperType`, `Zone`, `CounterType`, `EventType`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), remove dead `PassivePlayer2` struct + impl, remove dead `PassivePlayer3` struct + impl, remove dead `PassivePlayer4` struct + impl, remove dead `PassivePlayer5` struct + impl, remove dead `PassivePlayer6` struct + impl
 - [x] Task 11: Fix 13 warnings in `tests/modal.rs` — remove unused imports (`Ability`, `Cost`, `StaticEffect`, `TargetSpec`, `CombatState`, `Color`, `KeywordAbilities`, `PhaseStep`, `SubType`, `SuperType`, `Zone`, `CounterType`, `EventType`, `GameEvent`, `Mana`, `ManaCost`, `Permanent`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), remove dead `make_deck` function, remove dead `AlwaysPassPlayer` struct + impl
 - [x] Task 12: Fix 13 warnings in `tests/special_mechanics.rs` — remove unused imports (`ModalMode`, `TargetSpec`, `CombatState`, `Color`, `SuperType`, `Zone`, `EventType`, `GameEvent`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), remove dead `PassivePlayer2` struct + impl, remove dead `PassivePlayer3` struct + impl, remove dead `OptionPicker2` struct + impl, remove dead `AlwaysPassPlayer2` struct + impl, prefix `lib_ids` with `_`
-- [ ] Task 13: Fix 11 warnings in `tests/tokens.rs` — remove unused imports (`Ability`, `Cost`, `ModalMode`, `StaticEffect`, `TargetSpec`, `CombatState`, `CardType`, `Color`, `KeywordAbilities`, `Outcome`, `PhaseStep`, `SubType`, `SuperType`, `Zone`, `CounterType`, `AttackerInfo`, `DamageAssignment`, `GameView`, `NamedChoice`, `PlayerAction`, `PlayerDecisionMaker`, `ReplacementEffectChoice`, `TargetRequirement`, `UnpaidMana`, `EventType`, `GameEvent`, `Mana`, `ManaCost`, `Permanent`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`)
+- [x] Task 13: Fix 11 warnings in `tests/tokens.rs` — remove unused imports (`Ability`, `Cost`, `ModalMode`, `StaticEffect`, `TargetSpec`, `CombatState`, `CardType`, `Color`, `KeywordAbilities`, `Outcome`, `PhaseStep`, `SubType`, `SuperType`, `Zone`, `CounterType`, `AttackerInfo`, `DamageAssignment`, `GameView`, `NamedChoice`, `PlayerAction`, `PlayerDecisionMaker`, `ReplacementEffectChoice`, `TargetRequirement`, `UnpaidMana`, `EventType`, `GameEvent`, `Mana`, `ManaCost`, `Permanent`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`)
 - [ ] Task 14: Fix 11 warnings in `tests/triggers.rs` — remove unused imports, remove dead `PassivePlayer2` struct + impl, remove dead `PassivePlayer3` struct + impl
 
 ### Verification
@@ -76,7 +76,7 @@ The cleanest approach is to fix file-by-file, starting with game.rs (production 
 - [ ] Task 16: Run `cargo test --lib -p mtg-engine` and verify all tests still pass
 
 ## Completed This Iteration
-- Task 12: Removed 8 unused import lines, `super::*`, dead `PassivePlayer2`/`PassivePlayer3`/`OptionPicker2`/`AlwaysPassPlayer2` structs+impls, prefixed `lib_ids` with `_`. Warnings dropped from 22 to 22 (remaining are tokens.rs and triggers.rs). All 47 special_mechanics tests pass.
+- Task 13: Removed 11 unused import lines and `super::*` from tokens.rs, keeping only `Effect`, `CardData`, `Permanent`, `ObjectId`, `PlayerId`, and `crate::game::*`. All 6 tokens tests pass, 0 warnings from tokens.rs.
 
 ## Notes
 
