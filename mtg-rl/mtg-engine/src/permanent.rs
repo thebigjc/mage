@@ -67,6 +67,11 @@ pub struct Permanent {
     /// Whether this permanent has lost all abilities (from LoseAllAbilities effect).
     /// When true, the ability store entries for this permanent are ignored.
     pub abilities_lost: bool,
+    /// Base power override from continuous effects (Layer 7b, e.g. "base power and toughness 1/1").
+    /// When Some, overrides card.power in the power() calculation.
+    pub base_power_override: Option<i32>,
+    /// Base toughness override from continuous effects (Layer 7b).
+    pub base_toughness_override: Option<i32>,
 }
 
 impl Permanent {
@@ -97,6 +102,8 @@ impl Permanent {
             cant_be_blocked_by_power_leq: None,
             must_be_blocked: false,
             abilities_lost: false,
+            base_power_override: None,
+            base_toughness_override: None,
             card,
         }
     }
@@ -231,14 +238,14 @@ impl Permanent {
 
     /// Get the current power, including counter and continuous effect modifications.
     pub fn power(&self) -> i32 {
-        let base = self.card.power.unwrap_or(0);
+        let base = self.base_power_override.unwrap_or(self.card.power.unwrap_or(0));
         let (counter_p, _) = self.counters.pt_modification();
         base + counter_p + self.continuous_boost_power
     }
 
     /// Get the current toughness, including counter and continuous effect modifications.
     pub fn toughness(&self) -> i32 {
-        let base = self.card.toughness.unwrap_or(0);
+        let base = self.base_toughness_override.unwrap_or(self.card.toughness.unwrap_or(0));
         let (_, counter_t) = self.counters.pt_modification();
         base + counter_t + self.continuous_boost_toughness
     }

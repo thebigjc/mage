@@ -2375,7 +2375,6 @@ fn collective_inferno(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [COND] LoseAllAbilities, AddCardSubType (Coward), SetBasePowerToughness 1/1 on all opponent creatures
 fn curious_colossus(id: ObjectId, owner: PlayerId) -> CardData {
     // 7/7 Giant Warrior for {5}{W}{W}.
     // ETB: each creature target opponent controls loses all abilities, becomes Coward, base P/T 1/1.
@@ -2385,8 +2384,10 @@ fn curious_colossus(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, each creature target opponent controls loses all abilities, becomes a Coward in addition to its other types, and has base power and toughness 1/1.",
-                vec![Effect::lose_all_abilities(), Effect::Custom("Each creature target opponent controls becomes a Coward in addition to its other types, and has base power and toughness 1/1.".into())],
-                TargetSpec::Player),
+                vec![Effect::lose_all_abilities_all("creatures opponents control"),
+                     Effect::set_base_pt_all(1, 1, "creatures opponents control"),
+                     Effect::Custom("Each creature target opponent controls becomes a Coward in addition to its other types.".into())],
+                TargetSpec::None),
         ],
         ..Default::default() }
 }
@@ -3252,7 +3253,9 @@ fn noggle_the_mind(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Enchanted creature loses all abilities and is a colorless Noggle creature with base power and toughness 1/1.",
-                vec![StaticEffect::lose_all_abilities("enchanted creature"), StaticEffect::Custom("Enchanted creature is a colorless Noggle creature with base power and toughness 1/1.".into())]),
+                vec![StaticEffect::lose_all_abilities("enchanted creature"),
+                     StaticEffect::set_base_pt("enchanted creature", 1, 1),
+                     StaticEffect::Custom("Enchanted creature is a colorless Noggle creature.".into())]),
         ],
         ..Default::default() }
 }

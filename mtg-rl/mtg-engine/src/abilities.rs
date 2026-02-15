@@ -193,6 +193,11 @@ pub enum Effect {
     LoseKeyword { keyword: String },
     /// Target creature loses all abilities (keywords + activated/triggered/static).
     LoseAllAbilities,
+    /// Set base power and toughness of all creatures matching filter.
+    /// Used for mass P/T setting effects like "each creature target opponent controls has base power and toughness 1/1".
+    SetBasePowerToughnessAll { power: i32, toughness: i32, filter: String },
+    /// Remove all abilities from all creatures matching filter.
+    LoseAllAbilitiesAll { filter: String },
 
     // -- Control --
     /// Gain control of target.
@@ -1227,6 +1232,22 @@ impl Effect {
     pub fn lose_all_abilities() -> Self {
         Effect::LoseAllAbilities
     }
+
+    /// Set base P/T of all creatures matching a filter.
+    pub fn set_base_pt_all(power: i32, toughness: i32, filter: &str) -> Self {
+        Effect::SetBasePowerToughnessAll {
+            power,
+            toughness,
+            filter: filter.to_string(),
+        }
+    }
+
+    /// Remove all abilities from all creatures matching a filter.
+    pub fn lose_all_abilities_all(filter: &str) -> Self {
+        Effect::LoseAllAbilitiesAll {
+            filter: filter.to_string(),
+        }
+    }
 }
 
 impl ModalMode {
@@ -1306,6 +1327,15 @@ impl StaticEffect {
     pub fn lose_all_abilities(filter: &str) -> Self {
         StaticEffect::LoseAllAbilities {
             filter: filter.to_string(),
+        }
+    }
+
+    /// Set base P/T of matching permanents (continuous Layer 7b).
+    pub fn set_base_pt(filter: &str, power: i32, toughness: i32) -> Self {
+        StaticEffect::SetBasePowerToughness {
+            filter: filter.to_string(),
+            power,
+            toughness,
         }
     }
 }
@@ -1510,6 +1540,12 @@ pub enum StaticEffect {
     /// Target/enchanted creature loses all abilities (continuous version for auras).
     LoseAllAbilities {
         filter: String,
+    },
+    /// Set base power and toughness of matching permanents (Layer 7b continuous override).
+    SetBasePowerToughness {
+        filter: String,
+        power: i32,
+        toughness: i32,
     },
     /// Custom continuous effect.
 
