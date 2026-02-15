@@ -79,7 +79,7 @@ Recommendation: **Option A** — add minimal test helpers since these are unit t
 - [x] Task 8: Fix `Library::top_n(3)` → `Library::peek(3).to_vec()` in `effects.rs:747`
 - [x] Task 9: Fix `Hand::to_vec()` → `hand.as_slice().to_vec()` in `effects.rs:759`
 - [x] Task 10: Fix `Graveyard::to_vec()` → `graveyard.as_slice().to_vec()` in `effects.rs:760`
-- [ ] Task 11: Fix `Effect::gain_control_until_end_of_turn()` → `Effect::gain_control_eot()` in `effects.rs:801`
+- [x] Task 11: Fix `Effect::gain_control_until_end_of_turn()` → `Effect::gain_control_eot()` in `effects.rs:801`
 - [ ] Task 12: Fix `Effect::look_top_and_pick(3, "land card", "hand", "graveyard")` → `Effect::look_top_and_pick(3, "land card")` in `effects.rs:751`
 - [ ] Task 13: Fix `perm.entered_this_turn = false` → `perm.summoning_sick = false` in `game_basics.rs:369`
 - [ ] Task 14: Fix `Effect::DealDamageAny { amount: N }` → `Effect::DealDamage { amount: N }` in `game_basics.rs:354,431`
@@ -145,3 +145,4 @@ Recommendation: **Option A** — add minimal test helpers since these are unit t
 - Task 8: Changed `library.top_n(3)` to `library.peek(3).to_vec()` in effects.rs:747
 - Task 9: Changed `hand.to_vec()` to `hand.as_slice().to_vec()` in effects.rs:759
 - Task 10: Changed `graveyard.to_vec()` to `graveyard.as_slice().to_vec()` in effects.rs:760
+- Task 11: Changed `Effect::gain_control_until_end_of_turn()` to `Effect::gain_control_eot()` in effects.rs:801
