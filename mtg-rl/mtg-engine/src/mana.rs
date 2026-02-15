@@ -142,6 +142,15 @@ impl Mana {
     pub fn is_empty(&self) -> bool {
         self.count() == 0
     }
+
+    /// Return a copy of this mana cost with the generic portion reduced by `amount`.
+    /// Cannot reduce below zero.
+    pub fn reduce_generic(&self, amount: u32) -> Mana {
+        Mana {
+            generic: self.generic.saturating_sub(amount),
+            ..*self
+        }
+    }
 }
 
 impl Add for Mana {
@@ -442,5 +451,31 @@ mod tests {
     fn mana_display() {
         let m = Mana { white: 0, blue: 0, black: 1, red: 0, green: 1, colorless: 0, generic: 2, any: 0 };
         assert_eq!(m.to_string(), "{2}{B}{G}");
+    }
+
+    #[test]
+    fn reduce_generic_test() {
+        // Test basic reduction
+        let cost = Mana { generic: 5, white: 1, ..Default::default() };
+        let reduced = cost.reduce_generic(2);
+        assert_eq!(reduced.generic, 3);
+        assert_eq!(reduced.white, 1);
+
+        // Test over-reduction (should not go below 0)
+        let reduced_over = cost.reduce_generic(10);
+        assert_eq!(reduced_over.generic, 0);
+        assert_eq!(reduced_over.white, 1);
+
+        // Test no reduction
+        let reduced_zero = cost.reduce_generic(0);
+        assert_eq!(reduced_zero.generic, 5);
+        assert_eq!(reduced_zero.white, 1);
+
+        // Test cost with no generic mana
+        let no_generic = Mana { white: 2, blue: 1, ..Default::default() };
+        let reduced_no_generic = no_generic.reduce_generic(3);
+        assert_eq!(reduced_no_generic.generic, 0);
+        assert_eq!(reduced_no_generic.white, 2);
+        assert_eq!(reduced_no_generic.blue, 1);
     }
 }

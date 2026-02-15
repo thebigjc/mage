@@ -731,6 +731,68 @@ impl Game {
         0 // unknown filter
     }
 
+    /// Calculate the total cost reduction that applies to a spell being cast by a player.
+    /// Scans all permanents on the battlefield for CostReduction static effects
+    /// whose filter matches the spell's characteristics.
+    pub fn calculate_cost_reduction(&self, player_id: PlayerId, card: &crate::card::CardData) -> u32 {
+        let mut total_reduction = 0u32;
+        for perm in self.state.battlefield.iter() {
+            if perm.controller != player_id {
+                continue;
+            }
+            let abilities = self.state.ability_store.for_source(perm.id());
+            for ability in abilities {
+                if ability.ability_type != crate::constants::AbilityType::Static {
+                    continue;
+                }
+                for effect in &ability.static_effects {
+                    if let crate::abilities::StaticEffect::CostReduction { filter, amount } = effect {
+                        if self.spell_matches_cost_filter(card, filter) {
+                            total_reduction += amount;
+                        }
+                    }
+                }
+            }
+        }
+        total_reduction
+    }
+
+    /// Check if a spell/card matches a cost reduction filter string.
+    fn spell_matches_cost_filter(&self, card: &crate::card::CardData, filter: &str) -> bool {
+        let lower = filter.to_lowercase();
+
+        // "self" — only the source card itself (doesn't apply to other spells)
+        if lower == "self" {
+            return false;
+        }
+
+        // Subtype match: "Elf", "Goblin", "Merfolk", etc.
+        let subtype = crate::constants::SubType::by_description(filter);
+        if card.subtypes.contains(&subtype) {
+            return true;
+        }
+
+        // "creature spells" / "creature"
+        if lower == "creature spells" || lower == "creature" {
+            return card.card_types.contains(&crate::constants::CardType::Creature);
+        }
+
+        // "instant and sorcery spells"
+        if lower.contains("instant") && lower.contains("sorcery") {
+            return card.is_instant() || card.card_types.contains(&crate::constants::CardType::Sorcery);
+        }
+
+        // Card type match: "artifact", "enchantment", etc.
+        for ct in &card.card_types {
+            let ct_name = format!("{:?}", ct).to_lowercase();
+            if lower == ct_name || lower == format!("{} spells", ct_name) {
+                return true;
+            }
+        }
+
+        false
+    }
+
     /// Find permanents matching a filter string, relative to a source permanent.
     ///
     /// Handles common filter patterns:
@@ -1626,8 +1688,10 @@ impl Game {
                     continue;
                 }
 
-                // Check if the player can pay the mana cost
-                let mana_cost = card.mana_cost.to_mana();
+                // Check if the player can pay the mana cost (with cost reduction)
+                let base_mana_cost = card.mana_cost.to_mana();
+                let reduction = self.calculate_cost_reduction(player_id, card);
+                let mana_cost = base_mana_cost.reduce_generic(reduction);
                 let available = player.mana_pool.available();
 
                 if available.can_pay(&mana_cost) {
@@ -1686,7 +1750,9 @@ impl Game {
                             without_mana: true,
                         });
                     } else {
-                        let mana_cost = card.mana_cost.to_mana();
+                        let base_cost = card.mana_cost.to_mana();
+                        let reduction = self.calculate_cost_reduction(player_id, card);
+                        let mana_cost = base_cost.reduce_generic(reduction);
                         let available = player.mana_pool.available();
                         if available.can_pay(&mana_cost) {
                             actions.push(crate::decision::PlayerAction::CastSpell {
@@ -1867,8 +1933,10 @@ impl Game {
 
         // Pay mana cost (with X substituted if applicable), unless free cast
         if !without_mana {
+            // Calculate cost reduction from static effects
+            let reduction = self.calculate_cost_reduction(player_id, &card_data);
             if let Some(player) = self.state.players.get_mut(&player_id) {
-                let mana_cost = if from_graveyard {
+                let base_cost = if from_graveyard {
                     // Use flashback cost when casting from graveyard
                     card_data.flashback_cost.as_ref().unwrap().to_mana()
                 } else {
@@ -1877,6 +1945,7 @@ impl Game {
                         None => card_data.mana_cost.to_mana(),
                     }
                 };
+                let mana_cost = base_cost.reduce_generic(reduction);
                 if !player.mana_pool.try_pay(&mana_cost) {
                     // Can't pay — put card back where it came from
                     if from_graveyard {
@@ -12031,5 +12100,141 @@ mod dynamic_value_tests {
         // Let's check the implementation handles this as a temporary boost
         assert_eq!(perm.power(), 5, "should be 2 + 3 from Kithkin count");
         assert_eq!(perm.toughness(), 5, "should be 2 + 3 from Kithkin count");
+    }
+}
+
+#[cfg(test)]
+mod cost_reduction_tests {
+    use super::*;
+    use crate::abilities::{Ability, Cost, Effect, StaticEffect, TargetSpec};
+    use crate::card::CardData;
+    use crate::constants::{CardType, KeywordAbilities, SubType};
+    use crate::mana::{Mana, ManaCost};
+    use crate::decision::*;
+    use crate::types::{ObjectId, PlayerId};
+
+    struct AlwaysPassDM;
+    impl PlayerDecisionMaker for AlwaysPassDM {
+        fn priority(&mut self, _: &GameView, _actions: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView, _: crate::constants::Outcome, req: &TargetRequirement) -> Vec<ObjectId> {
+            if req.min_targets > 0 && !req.legal_targets.is_empty() { vec![req.legal_targets[0]] } else { vec![] }
+        }
+        fn choose_use(&mut self, _: &GameView, _: crate::constants::Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView, _modes: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView, a: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![(a.targets[0], a.total_damage)] }
+        fn choose_mulligan(&mut self, _: &GameView, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView, hand: &[ObjectId], count: usize) -> Vec<ObjectId> { hand.iter().take(count).copied().collect() }
+        fn choose_amount(&mut self, _: &GameView, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView, _: &UnpaidMana, abilities: &[PlayerAction]) -> Option<PlayerAction> { abilities.first().cloned() }
+        fn choose_replacement_effect(&mut self, _: &GameView, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView, _: crate::constants::Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView, _: crate::constants::Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn setup_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            starting_life: 20,
+            players: vec![
+                PlayerConfig { name: "P1".into(), deck: vec![] },
+                PlayerConfig { name: "P2".into(), deck: vec![] },
+            ],
+        };
+        let game = Game::new_two_player(config, vec![
+            (p1, Box::new(AlwaysPassDM)),
+            (p2, Box::new(AlwaysPassDM)),
+        ]);
+        (game, p1, p2)
+    }
+
+    #[test]
+    fn cost_reduction_reduces_generic_mana() {
+        let (mut game, p1, _p2) = setup_game();
+
+        // Add a lord with CostReduction for Elf spells
+        let lord_id = ObjectId::new();
+        let mut lord = CardData::new(lord_id, p1, "Elf Cost Reducer");
+        lord.card_types = vec![CardType::Creature];
+        lord.subtypes = vec![SubType::Elf];
+        lord.power = Some(1);
+        lord.toughness = Some(1);
+        lord.abilities = vec![Ability::static_ability(lord_id,
+            "Elf spells you cast cost {1} less.",
+            vec![StaticEffect::CostReduction { filter: "Elf".into(), amount: 1 }])];
+        let perm = crate::permanent::Permanent::new(lord.clone(), p1);
+        game.state.card_store.insert(lord.clone());
+        game.state.battlefield.add(perm);
+        for ab in &lord.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+
+        // Test: calculate_cost_reduction should return 1 for an Elf spell
+        let elf_spell_id = ObjectId::new();
+        let mut elf_spell = CardData::new(elf_spell_id, p1, "Elf Archer");
+        elf_spell.card_types = vec![CardType::Creature];
+        elf_spell.subtypes = vec![SubType::Elf, SubType::Archer];
+        elf_spell.mana_cost = ManaCost::parse("{2}{G}");
+
+        let reduction = game.calculate_cost_reduction(p1, &elf_spell);
+        assert_eq!(reduction, 1, "Elf spell should get 1 reduction");
+
+        // Non-Elf spell should get no reduction
+        let non_elf_id = ObjectId::new();
+        let mut non_elf = CardData::new(non_elf_id, p1, "Goblin");
+        non_elf.card_types = vec![CardType::Creature];
+        non_elf.subtypes = vec![SubType::Goblin];
+        non_elf.mana_cost = ManaCost::parse("{2}{R}");
+
+        let reduction = game.calculate_cost_reduction(p1, &non_elf);
+        assert_eq!(reduction, 0, "Non-Elf spell should get no reduction");
+    }
+
+    #[test]
+    fn cost_reduction_applied_in_legal_actions() {
+        let (mut game, p1, _p2) = setup_game();
+
+        // Give player exactly 2 green mana
+        game.state.players.get_mut(&p1).unwrap().mana_pool.add(Mana::green(2), None, false);
+
+        // Add a cost reducer for Elf spells
+        let lord_id = ObjectId::new();
+        let mut lord = CardData::new(lord_id, p1, "Elf Cost Reducer");
+        lord.card_types = vec![CardType::Creature];
+        lord.subtypes = vec![SubType::Elf];
+        lord.power = Some(1);
+        lord.toughness = Some(1);
+        lord.abilities = vec![Ability::static_ability(lord_id,
+            "Elf spells cost {1} less.",
+            vec![StaticEffect::CostReduction { filter: "Elf".into(), amount: 1 }])];
+        let perm = crate::permanent::Permanent::new(lord.clone(), p1);
+        game.state.card_store.insert(lord.clone());
+        game.state.battlefield.add(perm);
+        for ab in &lord.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+
+        // Add an Elf spell that costs {2}{G} to hand — normally needs 3 mana, reduced to 2
+        let elf_id = ObjectId::new();
+        let mut elf = CardData::new(elf_id, p1, "Elf Archer");
+        elf.card_types = vec![CardType::Creature];
+        elf.subtypes = vec![SubType::Elf, SubType::Archer];
+        elf.mana_cost = ManaCost::parse("{2}{G}");
+        game.state.card_store.insert(elf.clone());
+        game.state.players.get_mut(&p1).unwrap().hand.add(elf_id);
+
+        // Set up game phase for sorcery speed
+        game.state.current_phase = crate::constants::TurnPhase::PrecombatMain;
+        game.state.current_step = crate::constants::PhaseStep::PrecombatMain;
+        game.state.active_player = p1;
+        game.state.priority_player = p1;
+
+        // Compute legal actions — the Elf should be castable with only 2G
+        let actions = game.compute_legal_actions(p1);
+        let can_cast = actions.iter().any(|a| matches!(a, PlayerAction::CastSpell { card_id, .. } if *card_id == elf_id));
+        assert!(can_cast, "Should be able to cast 2G Elf with 2G mana and 1 reduction");
     }
 }
