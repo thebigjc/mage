@@ -52,7 +52,7 @@ The cleanest approach is to fix file-by-file, starting with game.rs (production 
 ## Task List
 
 ### Production code fixes
-- [ ] Task 1: Fix 2 warnings in `mtg-engine/src/game.rs` — remove `mut` from `candidates` (line 2962), prefix `src` with `_` (line 4117)
+- [x] Task 1: Fix 2 warnings in `mtg-engine/src/game.rs` — remove `mut` from `candidates` (line 2962), prefix `src` with `_` (line 4117)
 
 ### Test infrastructure fix
 - [ ] Task 2: Fix 12 warnings in `mtg-engine/src/game/tests.rs` — remove `pub use module::*` re-exports (these are test modules, nothing should import from them)
@@ -74,6 +74,9 @@ The cleanest approach is to fix file-by-file, starting with game.rs (production 
 ### Verification
 - [ ] Task 15: Run `cargo test --lib -p mtg-engine --no-run 2>&1` and verify 0 warnings remain
 - [ ] Task 16: Run `cargo test --lib -p mtg-engine` and verify all tests still pass
+
+## Completed This Iteration
+- Task 1: Removed `mut` from `candidates` variable (line 2962) and prefixed unused `src` with `_` (line 4117) in game.rs
 
 ## Notes
 
