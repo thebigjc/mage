@@ -36,6 +36,8 @@ pub enum Cost {
     PayLife(u32),
     /// Sacrifice this permanent.
     SacrificeSelf,
+    /// Exile this permanent (similar to sacrifice but goes to exile).
+    ExileSelf,
     /// Sacrifice another permanent (described by text).
     SacrificeOther(String),
     /// Discard a card.
@@ -61,6 +63,8 @@ pub enum Cost {
     /// Behold a creature type, or pay alternative mana if unable/unwilling.
     /// Used by cards like "behold a Kithkin or pay {2}".
     BeholdOrPay { creature_type: String, mana: Mana },
+    /// Tap N other untapped creatures you control matching a filter.
+    TapCreatures { filter: String, count: u32 },
     /// A custom/complex cost (described by text).
 
     Custom(String),
@@ -279,6 +283,15 @@ pub enum Effect {
         without_mana: bool,
     },
 
+
+    /// Return all cards exiled by this source to their owners hands.
+    ReturnExiledToHand,
+
+    /// Untap all permanents matching a filter.
+    UntapAll { filter: String },
+
+    /// Give target "can't be blocked this turn" until end of turn.
+    CantBeBlockedUntilEot,
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1005,6 +1018,21 @@ impl Effect {
     pub fn exile_top_and_play_free(count: u32) -> Self {
         Effect::ExileTopAndPlay { count, duration: "end_of_turn".into(), without_mana: true }
     }
+
+    /// Return cards exiled by this source to their owners' hands.
+    pub fn return_exiled_to_hand() -> Self {
+        Effect::ReturnExiledToHand
+    }
+
+    /// Untap all permanents matching a filter.
+    pub fn untap_all(filter: &str) -> Self {
+        Effect::UntapAll { filter: filter.to_string() }
+    }
+
+    /// "This creature can't be blocked this turn."
+    pub fn cant_be_blocked_eot() -> Self {
+        Effect::CantBeBlockedUntilEot
+    }
 }
 
 impl ModalMode {
@@ -1173,6 +1201,11 @@ impl Cost {
             creature_type: creature_type.to_string(),
             mana: ManaCost::parse(mana_str).to_mana(),
         }
+    }
+
+    /// Tap N other creatures matching a filter.
+    pub fn tap_creatures(filter: &str, count: u32) -> Self {
+        Cost::TapCreatures { filter: filter.to_string(), count }
     }
 }
 

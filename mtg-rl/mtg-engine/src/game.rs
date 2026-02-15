@@ -2155,6 +2155,15 @@ impl Game {
                         return false;
                     }
                 }
+                Cost::ExileSelf => {
+                    if let Some(_perm) = self.state.battlefield.remove(source_id) {
+                        self.state.ability_store.remove_source(source_id);
+                        self.state.exile.exile(source_id);
+                        self.state.set_zone(source_id, crate::constants::Zone::Exile, None);
+                    } else {
+                        return false;
+                    }
+                }
                 Cost::Discard(count) => {
                     let hand: Vec<ObjectId> = self.state.players.get(&player_id)
                         .map(|p| p.hand.iter().copied().collect())
@@ -2395,6 +2404,28 @@ impl Game {
                             }
                         } else {
                             return false;
+                        }
+                    }
+                }
+                Cost::TapCreatures { filter, count } => {
+                    let f_lower = filter.to_lowercase();
+                    let mut candidates: Vec<ObjectId> = self.state.battlefield.iter()
+                        .filter(|perm| perm.controller == player_id && !perm.tapped && perm.id() != source_id && perm.is_creature())
+                        .filter(|perm| {
+                            if f_lower.contains("elf") {
+                                self.state.card_store.get(perm.id()).map_or(false, |c| c.subtypes.iter().any(|st| st.to_string().to_lowercase() == "elf") || c.keywords.contains(crate::constants::KeywordAbilities::CHANGELING))
+                            } else {
+                                true
+                            }
+                        })
+                        .map(|perm| perm.id())
+                        .collect();
+                    if (candidates.len() as u32) < *count {
+                        return false;
+                    }
+                    for i in 0..*count as usize {
+                        if let Some(perm) = self.state.battlefield.get_mut(candidates[i]) {
+                            perm.tap();
                         }
                     }
                 }
@@ -3391,6 +3422,43 @@ impl Game {
                             created_turn: turn,
                             without_mana: *without_mana,
                         });
+                    }
+                }
+                Effect::ReturnExiledToHand => {
+                    // Return cards exiled by this source to owners hands
+                    if let Some(src) = source {
+                        let exiled_ids: Vec<ObjectId> = self.state.exile.iter_all().copied().collect();
+                        for card_id in exiled_ids {
+                            // In our simplified model, we track exile source via zone_owner
+                            // For now, return all exiled cards to their owners hands
+                            // A more complete implementation would track exile source
+                            if let Some(card) = self.state.card_store.get(card_id) {
+                                let owner = card.owner;
+                                self.state.exile.remove(card_id);
+                                if let Some(player) = self.state.players.get_mut(&owner) {
+                                    player.hand.add(card_id);
+                                    self.state.set_zone(card_id, crate::constants::Zone::Hand, Some(owner));
+                                }
+                            }
+                        }
+                    }
+                }
+                Effect::UntapAll { filter } => {
+                    let src_id = source.unwrap_or(ObjectId::new());
+                    let matching = self.find_matching_permanents(src_id, controller, filter);
+                    for perm_id in matching {
+                        if let Some(perm) = self.state.battlefield.get_mut(perm_id) {
+                            perm.untap();
+                        }
+                    }
+                }
+                Effect::CantBeBlockedUntilEot => {
+                    // Give target "cant be blocked this turn"
+                    let target = all_targets.first().or(source.as_ref());
+                    if let Some(&tid) = target {
+                        if let Some(perm) = self.state.battlefield.get_mut(tid) {
+                            perm.granted_keywords |= crate::constants::KeywordAbilities::UNBLOCKABLE;
+                        }
                     }
                 }
                 _ => {
