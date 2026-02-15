@@ -1,21 +1,13 @@
 // Tests extracted from game.rs
 
 use crate::game::*;
-use crate::abilities::{Ability, Cost, Effect, TargetSpec, StaticEffect, ModalMode};
+use crate::abilities::{Ability, Effect, TargetSpec};
 use crate::card::CardData;
-use crate::combat::CombatState;
-use crate::constants::{CardType, Color, KeywordAbilities, Outcome, PhaseStep, SubType, SuperType, TurnPhase, Zone};
-use crate::counters::CounterType;
+use crate::constants::{CardType, Outcome, PhaseStep, TurnPhase};
 use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
 use crate::events::{EventType, GameEvent};
-use crate::mana::{Mana, ManaCost};
 use crate::permanent::Permanent;
-use crate::state::StateBasedActions;
-use crate::types::{AbilityId, ObjectId, PlayerId};
-use crate::watchers::WatcherManager;
-
-
-use super::*;
+use crate::types::{ObjectId, PlayerId};
 
 #[cfg(test)]
 
@@ -506,41 +498,14 @@ use super::*;
 
 
 
-    struct PassivePlayer2;
-    impl PlayerDecisionMaker for PassivePlayer2 {
-        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
-        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
-        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
-        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
-        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
-        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
-        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
-        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
-        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
-        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
-        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
-        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
-        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
-        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
-        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
-    }
-
-    fn make_deck3(owner: PlayerId) -> Vec<CardData> {
-        (0..40).map(|i| {
-            let mut c = CardData::new(ObjectId::new(), owner, &format!("Card {i}"));
-            c.card_types = vec![CardType::Land];
-            c
-        }).collect()
-    }
-
     #[test]
     fn upkeep_trigger_fires_on_upkeep_step() {
         let p1 = PlayerId::new();
         let p2 = PlayerId::new();
         let config = GameConfig {
             players: vec![
-                PlayerConfig { name: "A".into(), deck: make_deck3(p1) },
-                PlayerConfig { name: "B".into(), deck: make_deck3(p2) },
+                PlayerConfig { name: "A".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "B".into(), deck: make_deck(p2) },
             ],
             starting_life: 20,
         };
@@ -690,25 +655,6 @@ use super::*;
 
 
     // Additional tests
-
-    struct PassivePlayer3;
-    impl PlayerDecisionMaker for PassivePlayer3 {
-        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
-        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
-        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
-        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
-        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
-        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
-        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
-        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
-        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
-        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
-        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
-        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
-        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
-        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
-        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
-    }
 
     fn setup_delayed_game() -> (Game, PlayerId, PlayerId) {
         let p1 = PlayerId::new();
