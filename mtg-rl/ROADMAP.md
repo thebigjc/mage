@@ -57,15 +57,14 @@ These are structural deficiencies in `game.rs` that affect ALL cards, not just s
 - Called in `process_sba_and_triggers()` before each SBA check
 - 11 unit tests: lord boost, anthem, keyword grant, comma keywords, recalculation, stacking lords, mutual lords, self filter, token filter, opponent isolation, boost+keyword combo
 
-### D. Replacement Effects Not Integrated
+### D. Replacement Effects Not Integrated (PARTIAL)
 
-`ReplacementEffect` and `ReplacementKind` are defined in `effects.rs` with variants like `Prevent`, `ExileInstead`, `ModifyAmount`, `RedirectTarget`, `EnterTapped`, `EnterWithCounters`, `Custom`. But there is **no event interception** in the game loop — events happen without checking for replacements first.
+`ReplacementEffect` and `ReplacementKind` are defined in `effects.rs` with variants like `Prevent`, `ExileInstead`, `ModifyAmount`, `RedirectTarget`, `EnterTapped`, `EnterWithCounters`, `Custom`. The full event interception pipeline is not yet connected, but specific replacement patterns have been implemented:
 
-In Java XMage, replacement effects are checked via `getReplacementEffects()` before every event. Each replacement's `applies()` is checked, and `replaceEvent()` modifies or cancels the event.
+**Completed 2026-02-14:**
+- `EntersTapped { filter: "self" }` — lands/permanents with "enters tapped" now correctly enter tapped via `check_enters_tapped()`. Called at all ETB points: land play, spell resolve, reanimate. 3 unit tests. Affects 7 guildgate/tapland cards across FDN and TDM.
 
-**Impact:** Damage prevention, death replacement ("exile instead of dying"), Doubling Season, "enters tapped" enforcement, and similar effects don't work. Affects ~30+ cards.
-
-**Fix:** Before each event emission, check registered replacement effects. If any apply, call `replaceEvent()` and use the modified event instead.
+**Still missing:** General replacement effect pipeline (damage prevention, death replacement, Doubling Season, counter modification, enters-with-counters). Affects ~20+ additional cards.
 
 ---
 
@@ -441,7 +440,7 @@ Priority ordered by cards-unblocked per effort.
 
 ### Phase 2: Core Missing Mechanics
 
-4. **Replacement effect pipeline** — Event interception. Enables damage prevention, death replacement, enters-tapped enforcement, Undying/Persist. **~30+ cards.**
+4. **Replacement effect pipeline** — Event interception. Enters-tapped enforcement done (2026-02-14). Still needed: damage prevention, death replacement, Undying/Persist, enters-with-counters. **~20+ remaining cards.**
 
 5. **Equipment system** — Attach/detach, equip cost, stat application. **~15+ cards.**
 

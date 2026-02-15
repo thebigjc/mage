@@ -535,6 +535,25 @@ impl Game {
         results
     }
 
+    /// Check if a permanent entering the battlefield should enter tapped.
+    /// Checks the permanent's own static abilities for `EntersTapped { filter: "self" }`.
+    fn check_enters_tapped(&mut self, permanent_id: ObjectId) {
+        let should_tap = {
+            let abilities = self.state.ability_store.for_source(permanent_id);
+            abilities.iter().any(|a| {
+                a.ability_type == AbilityType::Static
+                    && a.static_effects.iter().any(|e| {
+                        matches!(e, crate::abilities::StaticEffect::EntersTapped { filter } if filter == "self")
+                    })
+            })
+        };
+        if should_tap {
+            if let Some(perm) = self.state.battlefield.get_mut(permanent_id) {
+                perm.tap();
+            }
+        }
+    }
+
     /// Check for triggered abilities that should fire from recent events.
     /// Pushes matching triggered abilities onto the stack in APNAP order.
     /// Returns true if any triggers were placed on the stack.
@@ -1225,6 +1244,7 @@ impl Game {
             let perm = Permanent::new(card_data, player_id);
             self.state.battlefield.add(perm);
             self.state.set_zone(card_id, crate::constants::Zone::Battlefield, None);
+            self.check_enters_tapped(card_id);
 
             // Emit ETB event
             self.emit_event(GameEvent::enters_battlefield(card_id, player_id));
@@ -1323,6 +1343,7 @@ impl Game {
                     let perm = Permanent::new(card.clone(), item.controller);
                     self.state.battlefield.add(perm);
                     self.state.set_zone(item.id, crate::constants::Zone::Battlefield, None);
+                    self.check_enters_tapped(item.id);
 
                     // Emit ETB event
                     self.emit_event(GameEvent::enters_battlefield(item.id, item.controller));
@@ -1973,9 +1994,14 @@ impl Game {
                             }
                             // Get card data from the card store to create a permanent
                             if let Some(card_data) = self.state.card_store.remove(target_id) {
+                                // Re-register abilities for reanimated permanent
+                                for ability in &card_data.abilities {
+                                    self.state.ability_store.add(ability.clone());
+                                }
                                 let perm = Permanent::new(card_data, controller);
                                 self.state.battlefield.add(perm);
                                 self.state.set_zone(target_id, crate::constants::Zone::Battlefield, None);
+                                self.check_enters_tapped(target_id);
                             }
                         }
                     }
@@ -5473,7 +5499,7 @@ mod trigger_tests {
     use super::*;
     use crate::abilities::{Ability, Effect, TargetSpec};
     use crate::card::CardData;
-    use crate::constants::{CardType, KeywordAbilities, Outcome};
+    use crate::constants::{CardType, Outcome};
     use crate::decision::{
         AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
         ReplacementEffectChoice, TargetRequirement, UnpaidMana,
@@ -6233,5 +6259,119 @@ mod continuous_effect_tests {
         assert_eq!(spirit.power(), 2);
         assert_eq!(spirit.toughness(), 2);
         assert!(spirit.has_hexproof());
+    }
+}
+
+#[cfg(test)]
+mod enters_tapped_tests {
+    use super::*;
+    use crate::abilities::{Ability, StaticEffect};
+    use crate::card::CardData;
+    use crate::constants::{CardType, Outcome, SubType};
+    use crate::decision::{
+        AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
+        ReplacementEffectChoice, TargetRequirement, UnpaidMana,
+    };
+    use crate::mana::Mana;
+
+    struct PassivePlayer;
+    impl PlayerDecisionMaker for PassivePlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_deck(owner: PlayerId) -> Vec<CardData> {
+        (0..40).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), owner, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect()
+    }
+
+    fn setup() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Player1".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "Player2".into(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(
+            config,
+            vec![(p1, Box::new(PassivePlayer)), (p2, Box::new(PassivePlayer))],
+        );
+        (game, p1, p2)
+    }
+
+    #[test]
+    fn enters_tapped_self_filter_taps_permanent() {
+        let (mut game, p1, _p2) = setup();
+
+        // Create a guildgate-like land that enters tapped
+        let mut card = CardData::new(ObjectId::new(), p1, "Azorius Guildgate");
+        card.card_types = vec![CardType::Land];
+        card.subtypes = vec![SubType::Gate];
+        let id = card.id;
+        card.abilities = vec![
+            Ability::static_ability(id, "Azorius Guildgate enters tapped.",
+                vec![StaticEffect::EntersTapped { filter: "self".into() }]),
+            Ability::mana_ability(id, "{T}: Add {W}.", Mana::white(1)),
+        ];
+        // Register abilities first
+        for ability in &card.abilities {
+            game.state.ability_store.add(ability.clone());
+        }
+        let perm = Permanent::new(card, p1);
+        game.state.battlefield.add(perm);
+        game.check_enters_tapped(id);
+
+        // Should be tapped
+        assert!(game.state.battlefield.get(id).unwrap().tapped);
+    }
+
+    #[test]
+    fn regular_land_enters_untapped() {
+        let (mut game, p1, _p2) = setup();
+
+        let mut card = CardData::new(ObjectId::new(), p1, "Forest");
+        card.card_types = vec![CardType::Land];
+        let id = card.id;
+        let perm = Permanent::new(card, p1);
+        game.state.battlefield.add(perm);
+        game.check_enters_tapped(id);
+
+        // Should NOT be tapped
+        assert!(!game.state.battlefield.get(id).unwrap().tapped);
+    }
+
+    #[test]
+    fn creature_without_enters_tapped_stays_untapped() {
+        let (mut game, p1, _p2) = setup();
+
+        let mut card = CardData::new(ObjectId::new(), p1, "Grizzly Bears");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(2);
+        card.toughness = Some(2);
+        let id = card.id;
+        let perm = Permanent::new(card, p1);
+        game.state.battlefield.add(perm);
+        game.check_enters_tapped(id);
+
+        assert!(!game.state.battlefield.get(id).unwrap().tapped);
     }
 }
