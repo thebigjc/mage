@@ -767,7 +767,7 @@ mod tests {
             test.player_a_id,
             &[bear_id],
             None,
-        );
+        None, );
         game.process_state_based_actions();
 
         // Bear should be gone
@@ -793,7 +793,7 @@ mod tests {
             test.player_a_id,
             &[bear_id],
             None,
-        );
+        None, );
         game.process_state_based_actions();
 
         assert!(!game.state.battlefield.contains(bear_id));
@@ -817,7 +817,7 @@ mod tests {
             test.player_b_id,
             &[bear_id],
             None,
-        );
+        None, );
 
         test.assert_permanent_count(Player::A, "Grizzly Bears", 0);
         test.assert_exile_count("Grizzly Bears", 1);
@@ -834,7 +834,7 @@ mod tests {
             test.player_a_id,
             &[],
             None,
-        );
+        None, );
 
         test.assert_life(Player::A, 25);
         test.assert_life(Player::B, 20);
@@ -866,7 +866,7 @@ mod tests {
             test.player_a_id,
             &[],
             None,
-        );
+        None, );
 
         // Should have 2 Knight tokens on the battlefield
         test.assert_permanent_count(Player::A, "3/3 Knight", 2);
@@ -887,7 +887,7 @@ mod tests {
                 test.player_a_id,
                 &[],
                 None,
-            );
+            None, );
         }
 
         test.assert_permanent_count(Player::A, "5/5 Dragon with flying", 1);

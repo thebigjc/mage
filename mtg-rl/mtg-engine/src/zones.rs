@@ -439,6 +439,8 @@ pub struct StackItem {
     pub targets: Vec<ObjectId>,
     /// Whether this item has been countered.
     pub countered: bool,
+    /// The X value chosen when casting an X-cost spell.
+    pub x_value: Option<u32>,
 }
 
 /// What kind of object is on the stack.
@@ -801,6 +803,7 @@ mod tests {
             controller: p,
             targets: vec![],
             countered: false,
+            x_value: None,
         });
 
         let card2 = CardData::new(id2, p, "Counterspell");
@@ -810,6 +813,7 @@ mod tests {
             controller: p,
             targets: vec![],
             countered: false,
+            x_value: None,
         });
 
         assert_eq!(stack.len(), 2);

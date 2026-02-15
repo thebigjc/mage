@@ -786,6 +786,7 @@ impl Game {
                 controller,
                 targets,
                 countered: false,
+            x_value: None,
             };
             self.state.stack.push(stack_item);
         }
@@ -1409,14 +1410,38 @@ impl Game {
             None => return,
         };
 
+        // Determine X value for X-cost spells
+        let x_value = if card_data.mana_cost.has_x_cost() {
+            let base_cost = card_data.mana_cost.to_mana();
+            let available = self.state.players.get(&player_id)
+                .map(|p| p.mana_pool.available())
+                .unwrap_or_default();
+            // Max X = available mana minus non-X costs
+            let remaining = available.count().saturating_sub(base_cost.count());
+            let x_count = card_data.mana_cost.x_count();
+            let max_x = if x_count > 0 { remaining / x_count } else { 0 };
+            let view = crate::decision::GameView::placeholder();
+            let x = if let Some(dm) = self.decision_makers.get_mut(&player_id) {
+                dm.choose_amount(&view, "Choose X", 0, max_x)
+            } else {
+                max_x // AI defaults to max X
+            };
+            Some(x)
+        } else {
+            None
+        };
+
         // Remove from hand
         if let Some(player) = self.state.players.get_mut(&player_id) {
             if !player.hand.remove(card_id) {
                 return;
             }
 
-            // Pay mana cost
-            let mana_cost = card_data.mana_cost.to_mana();
+            // Pay mana cost (with X substituted if applicable)
+            let mana_cost = match x_value {
+                Some(x) => card_data.mana_cost.to_mana_with_x(x),
+                None => card_data.mana_cost.to_mana(),
+            };
             if !player.mana_pool.try_pay(&mana_cost) {
                 // Can't pay — put card back in hand
                 player.hand.add(card_id);
@@ -1440,6 +1465,7 @@ impl Game {
             controller: player_id,
             targets,
             countered: false,
+            x_value,
         };
         self.state.stack.push(stack_item);
         self.state.set_zone(card_id, crate::constants::Zone::Stack, None);
@@ -1623,7 +1649,7 @@ impl Game {
                         .flat_map(|a| a.effects.clone())
                         .collect();
                     let targets = item.targets.clone();
-                    self.execute_effects(&effects, item.controller, &targets, Some(item.id));
+                    self.execute_effects(&effects, item.controller, &targets, Some(item.id), item.x_value);
                     self.move_card_to_graveyard(item.id, item.controller);
                 }
             }
@@ -1633,7 +1659,7 @@ impl Game {
                 let ability_data = self.state.ability_store.get(*ability_id).cloned();
                 if let Some(ability) = ability_data {
                     let targets = item.targets.clone();
-                    self.execute_effects(&ability.effects, item.controller, &targets, Some(source));
+                    self.execute_effects(&ability.effects, item.controller, &targets, Some(source), None);
                 }
             }
         }
@@ -1766,6 +1792,7 @@ impl Game {
             controller: player_id,
             targets: targets.to_vec(),
             countered: false,
+            x_value: None,
         };
         self.state.stack.push(stack_item);
     }
@@ -2003,7 +2030,17 @@ impl Game {
     }
 
     /// Execute a list of effects for a controller with given targets.
-    pub fn execute_effects(&mut self, effects: &[Effect], controller: PlayerId, all_targets: &[ObjectId], source: Option<ObjectId>) {
+    pub fn execute_effects(&mut self, effects: &[Effect], controller: PlayerId, all_targets: &[ObjectId], source: Option<ObjectId>, x_value: Option<u32>) {
+        // Resolve X-value amounts: when an effect uses X_VALUE as its amount,
+        // substitute the actual x_value chosen at cast time.
+        let resolve_x = |amount: u32| -> u32 {
+            if amount == crate::abilities::X_VALUE {
+                x_value.unwrap_or(0)
+            } else {
+                amount
+            }
+        };
+
         // For compound fight/bite spells (e.g. [AddCounters, Bite]), pre-fight/bite
         // effects should only apply to the first target (your creature), matching
         // Java's per-effect target assignment where AddCountersTargetEffect targets
@@ -2021,19 +2058,16 @@ impl Game {
             };
             match effect {
                 Effect::DealDamage { amount } => {
-                    // Deal damage to target permanents.
-                    // Player targeting is handled separately via SelectedTargets.
+                    let dmg = resolve_x(*amount);
                     for &target_id in targets {
                         if let Some(perm) = self.state.battlefield.get_mut(target_id) {
-                            perm.apply_damage(*amount);
+                            perm.apply_damage(dmg);
                         }
                     }
-                    // If no permanent targets, deal damage to opponents
-                    // (simplified for "deal N damage to target opponent" effects)
                     if targets.is_empty() {
                         if let Some(opp_id) = self.state.opponent_of(controller) {
                             if let Some(opp) = self.state.players.get_mut(&opp_id) {
-                                opp.life -= *amount as i32;
+                                opp.life -= dmg as i32;
                             }
                         }
                     }
@@ -2089,22 +2123,22 @@ impl Game {
                     }
                 }
                 Effect::DrawCards { count } => {
-                    self.draw_cards(controller, *count);
+                    self.draw_cards(controller, resolve_x(*count));
                 }
                 Effect::GainLife { amount } => {
                     if let Some(player) = self.state.players.get_mut(&controller) {
-                        player.life += *amount as i32;
+                        player.life += resolve_x(*amount) as i32;
                     }
                     // Emit life gain event
                     self.emit_event(
-                        GameEvent::gain_life(controller, *amount),
+                        GameEvent::gain_life(controller, resolve_x(*amount)),
                     );
                 }
                 Effect::LoseLife { amount } => {
                     // Controller loses life (target player effects will use
                     // SelectedTargets for proper player targeting)
                     if let Some(player) = self.state.players.get_mut(&controller) {
-                        player.life -= *amount as i32;
+                        player.life -= resolve_x(*amount) as i32;
                     }
                 }
                 Effect::LoseLifeOpponents { amount } => {
@@ -2114,7 +2148,7 @@ impl Game {
                         .collect();
                     for opp in opponents {
                         if let Some(player) = self.state.players.get_mut(&opp) {
-                            player.life -= *amount as i32;
+                            player.life -= resolve_x(*amount) as i32;
                         }
                     }
                 }
@@ -2125,11 +2159,12 @@ impl Game {
                         .collect();
                     for opp in opponents {
                         if let Some(player) = self.state.players.get_mut(&opp) {
-                            player.life -= *amount as i32;
+                            player.life -= resolve_x(*amount) as i32;
                         }
                     }
                 }
-                Effect::AddCounters { counter_type, count } => {
+                Effect::AddCounters { counter_type, count: raw_count } => {
+                    let count = resolve_x(*raw_count);
                     let ct = crate::counters::CounterType::from_name(counter_type);
                     // If no targets, fall back to source (self-targeting counters)
                     let effective_targets: Vec<ObjectId> = if targets.is_empty() {
@@ -2139,17 +2174,18 @@ impl Game {
                     };
                     for target_id in effective_targets {
                         if let Some(perm) = self.state.battlefield.get_mut(target_id) {
-                            perm.add_counters(ct.clone(), *count);
+                            perm.add_counters(ct.clone(), count);
                         }
                     }
                 }
-                Effect::AddCountersSelf { counter_type, count } => {
+                Effect::AddCountersSelf { counter_type, count: raw_count } => {
+                    let count = resolve_x(*raw_count);
                     // Always add counters to the source permanent, even when the
                     // ability has other targets (e.g. blight self + grant haste to target).
                     if let Some(source_id) = source {
                         let ct = crate::counters::CounterType::from_name(counter_type);
                         if let Some(perm) = self.state.battlefield.get_mut(source_id) {
-                            perm.add_counters(ct, *count);
+                            perm.add_counters(ct, count);
                         }
                     }
                 }
@@ -2242,9 +2278,9 @@ impl Game {
                             .unwrap_or_default();
                         let view = crate::decision::GameView::placeholder();
                         let to_discard = if let Some(dm) = self.decision_makers.get_mut(&opp) {
-                            dm.choose_discard(&view, &hand, *count as usize)
+                            dm.choose_discard(&view, &hand, resolve_x(*count) as usize)
                         } else {
-                            hand.iter().rev().take(*count as usize).copied().collect()
+                            hand.iter().rev().take(resolve_x(*count) as usize).copied().collect()
                         };
                         for card_id in to_discard {
                             if let Some(player) = self.state.players.get_mut(&opp) {
@@ -2255,7 +2291,7 @@ impl Game {
                     }
                 }
                 Effect::Mill { count } => {
-                    for _ in 0..*count {
+                    for _ in 0..resolve_x(*count) {
                         let card_id = self.state.players.get_mut(&controller)
                             .and_then(|p| p.library.draw());
                         if let Some(card_id) = card_id {
@@ -2264,7 +2300,7 @@ impl Game {
                     }
                 }
                 Effect::CreateToken { token_name, count } => {
-                    for _ in 0..*count {
+                    for _ in 0..resolve_x(*count) {
                         // Create a minimal token permanent
                         let token_id = ObjectId::new();
                         let mut card = CardData::new(token_id, controller, token_name);
@@ -2435,6 +2471,7 @@ impl Game {
                     }
                 }
                 Effect::DealDamageAll { amount, filter } => {
+                    let dmg = resolve_x(*amount);
                     // Deal damage to all creatures matching filter
                     let matching: Vec<ObjectId> = self.state.battlefield.iter()
                         .filter(|p| p.is_creature() && Self::matches_filter(p, filter))
@@ -2442,7 +2479,7 @@ impl Game {
                         .collect();
                     for id in matching {
                         if let Some(perm) = self.state.battlefield.get_mut(id) {
-                            perm.apply_damage(*amount);
+                            perm.apply_damage(dmg);
                         }
                     }
                 }
@@ -2727,7 +2764,7 @@ impl Game {
                     // Execute each chosen mode's effects
                     for &mode_idx in &chosen_indices {
                         if let Some(mode) = modes.get(mode_idx) {
-                            self.execute_effects(&mode.effects, controller, targets, source);
+                            self.execute_effects(&mode.effects, controller, targets, source, None);
                         }
                     }
                 }
@@ -2832,9 +2869,9 @@ impl Game {
                     };
                     let source_id = source.unwrap_or(ObjectId::new());
                     if wants_to_pay && self.pay_costs(controller, source_id, &[cost.clone()]) {
-                        self.execute_effects(if_paid, controller, targets, source);
+                        self.execute_effects(if_paid, controller, targets, source, None);
                     } else {
-                        self.execute_effects(if_not_paid, controller, targets, source);
+                        self.execute_effects(if_not_paid, controller, targets, source, None);
                     }
                 }
                 Effect::ChooseCreatureType { restricted } => {
@@ -3763,6 +3800,7 @@ mod tests {
             controller: p1,
             targets: vec![bear_id],
             countered: false,
+            x_value: None,
         };
         game.state.stack.push(stack_item);
 
@@ -3825,6 +3863,7 @@ mod tests {
             controller: p1,
             targets: vec![bear_id],
             countered: false,
+            x_value: None,
         };
         game.state.stack.push(stack_item);
 
@@ -3864,7 +3903,7 @@ mod tests {
         let initial_library = game.state.players.get(&p1).unwrap().library.len();
 
         // Execute a draw 2 effect
-        game.execute_effects(&[Effect::DrawCards { count: 2 }], p1, &[], None);
+        game.execute_effects(&[Effect::DrawCards { count: 2 }], p1, &[], None, None);
 
         let final_hand = game.state.players.get(&p1).unwrap().hand.len();
         let final_library = game.state.players.get(&p1).unwrap().library.len();
@@ -3894,7 +3933,7 @@ mod tests {
             ],
         );
 
-        game.execute_effects(&[Effect::GainLife { amount: 5 }], p1, &[], None);
+        game.execute_effects(&[Effect::GainLife { amount: 5 }], p1, &[], None, None);
         assert_eq!(game.state.players.get(&p1).unwrap().life, 25);
     }
 
@@ -3919,7 +3958,7 @@ mod tests {
             ],
         );
 
-        game.execute_effects(&[Effect::lose_life_opponents(3)], p1, &[], None);
+        game.execute_effects(&[Effect::lose_life_opponents(3)], p1, &[], None, None);
         // Controller's life should be unchanged
         assert_eq!(game.state.players.get(&p1).unwrap().life, 20);
         // Opponent loses 3 life
@@ -3957,7 +3996,7 @@ mod tests {
         game.state.battlefield.add(Permanent::new(bear, p2));
 
         // Exile it
-        game.execute_effects(&[Effect::Exile], p1, &[bear_id], None);
+        game.execute_effects(&[Effect::Exile], p1, &[bear_id], None, None);
 
         assert!(!game.state.battlefield.contains(bear_id));
         assert!(game.state.exile.contains(bear_id));
@@ -3995,7 +4034,7 @@ mod tests {
         let initial_hand = game.state.players.get(&p2).unwrap().hand.len();
 
         // Bounce it
-        game.execute_effects(&[Effect::Bounce], p1, &[bear_id], None);
+        game.execute_effects(&[Effect::Bounce], p1, &[bear_id], None, None);
 
         assert!(!game.state.battlefield.contains(bear_id));
         assert_eq!(game.state.players.get(&p2).unwrap().hand.len(), initial_hand + 1);
@@ -4084,7 +4123,7 @@ mod tests {
             p1,
             &[],
             Some(source_id),
-        );
+        None, );
 
         let perm = game.state.battlefield.get(source_id).unwrap();
         assert_eq!(perm.counters.get(&CounterType::M1M1), 2);
@@ -4095,7 +4134,7 @@ mod tests {
             p1,
             &[],
             Some(source_id),
-        );
+        None, );
 
         let perm = game.state.battlefield.get(source_id).unwrap();
         assert_eq!(perm.counters.get(&CounterType::M1M1), 1);
@@ -4149,7 +4188,7 @@ mod tests {
             p1,
             &[target_id],  // target creature
             Some(source_id),  // source permanent
-        );
+        None, );
 
         // Source should have -1/-1 counter (from AddCountersSelf)
         let source_perm = game.state.battlefield.get(source_id).unwrap();
@@ -4227,7 +4266,7 @@ mod tests {
         assert_eq!(p2_hand_before, 3);
 
         // Each opponent discards 1
-        game.execute_effects(&[Effect::discard_opponents(1)], p1, &[], None);
+        game.execute_effects(&[Effect::discard_opponents(1)], p1, &[], None, None);
 
         // Controller's hand unchanged
         assert_eq!(game.state.players.get(&p1).unwrap().hand.len(), p1_hand_before);
@@ -4271,7 +4310,7 @@ mod tests {
         // Boost all creatures P1 controls +1/+1
         game.execute_effects(
             &[Effect::boost_all_eot("creatures you control", 1, 1)],
-            p1, &[], None,
+            p1, &[], None, None,
         );
 
         // P1's creatures should be 3/x, opponent's should remain 2/x
@@ -4282,7 +4321,7 @@ mod tests {
         // Grant trample to all creatures P1 controls
         game.execute_effects(
             &[Effect::grant_keyword_all_eot("creatures you control", "trample")],
-            p1, &[], None,
+            p1, &[], None, None,
         );
 
         // P1's creatures should have trample, opponent's should not
@@ -4327,7 +4366,7 @@ mod tests {
             p1,
             &[target_id],
             Some(fighter_id),
-        );
+        None, );
 
         // Fighter took 3 damage (from target's 3 power): 4 toughness - 3 = 1 remaining
         let f = game.state.battlefield.get(fighter_id).unwrap();
@@ -4346,7 +4385,7 @@ mod tests {
             p1,
             &[target_id],
             Some(fighter_id),
-        );
+        None, );
 
         // Fighter should have no damage
         let f = game.state.battlefield.get(fighter_id).unwrap();
@@ -4389,7 +4428,7 @@ mod tests {
         game.state.battlefield.add(Permanent::new(opp, p2));
 
         // Fight with no source, no targets — auto-selects strongest on each side
-        game.execute_effects(&[Effect::fight()], p1, &[], None);
+        game.execute_effects(&[Effect::fight()], p1, &[], None, None);
 
         // P1's 5/5 should fight P2's 3/3
         // Big bear: 5 toughness - 3 damage = 2 remaining
@@ -4439,7 +4478,7 @@ mod tests {
             &[Effect::add_p1p1_counters(1), Effect::bite()],
             p1,
             &[my_id, opp_id],
-            None,
+            None, None,
         );
 
         // My creature should have the +1/+1 counter (3+1=4 power, 3+1=4 toughness)
@@ -4495,7 +4534,7 @@ mod tests {
             &[Effect::add_counters_all("-1/-1", 2, "creatures")],
             p1,
             &[],
-            None,
+            None, None,
         );
 
         let p1c = game.state.battlefield.get(c1).unwrap();
@@ -4511,7 +4550,7 @@ mod tests {
             &[Effect::add_counters_all("+1/+1", 1, "creatures you control")],
             p1,
             &[],
-            None,
+            None, None,
         );
 
         let p1c = game.state.battlefield.get(c1).unwrap();
@@ -4583,7 +4622,7 @@ mod tests {
             &[Effect::look_top_and_pick(4, "Elf or Swamp or Forest")],
             p1,
             &[],
-            None,
+            None, None,
         );
 
         let player = game.state.players.get(&p1).unwrap();
@@ -4633,7 +4672,7 @@ mod tests {
         // p1 casts gain_control_eot on the bear
         let effects = vec![Effect::GainControlUntilEndOfTurn];
         let targets = vec![bear_id];
-        game.execute_effects(&effects, p1, &targets, None);
+        game.execute_effects(&effects, p1, &targets, None, None);
 
         // Bear should now be controlled by p1, untapped, with haste
         let perm = game.state.battlefield.get(bear_id).unwrap();
@@ -4738,7 +4777,7 @@ mod modal_test {
         );
 
         // Execute with p1 as controller
-        game.execute_effects(&[modal], p1, &[], None);
+        game.execute_effects(&[modal], p1, &[], None, None);
 
         // PickFirstModePlayer always picks mode 0 (gain life)
         assert_eq!(game.state.players[&p1].life, 25, "p1 should have gained 5 life");
@@ -4802,7 +4841,7 @@ mod modal_test {
         );
 
         let hand_before = game.state.players[&p1].hand.len();
-        game.execute_effects(&[modal], p1, &[], None);
+        game.execute_effects(&[modal], p1, &[], None, None);
 
         // Picks mode 0 (gain life) and mode 1 (draw)
         assert_eq!(game.state.players[&p1].life, 23, "p1 should have gained 3 life");
@@ -4840,7 +4879,7 @@ mod modal_test {
             1, // choose one
         );
 
-        game.execute_effects(&[modal], p1, &[], None);
+        game.execute_effects(&[modal], p1, &[], None, None);
 
         // PickSecondModePlayer picks mode 1 (opponents lose life)
         assert_eq!(game.state.players[&p1].life, 20, "p1 should be unchanged");
@@ -5127,7 +5166,7 @@ mod vivid_tests {
         add_colored_creature(&mut game, p1, "G", "{G}");
         add_colored_creature(&mut game, p1, "B", "{B}");
 
-        game.execute_effects(&[Effect::GainLifeVivid], p1, &[], None);
+        game.execute_effects(&[Effect::GainLifeVivid], p1, &[], None, None);
         assert_eq!(game.state.players[&p1].life, 23); // 20 + 3
     }
 
@@ -5140,7 +5179,7 @@ mod vivid_tests {
         // p2 has a creature to target
         let target = add_colored_creature(&mut game, p2, "Bear", "{1}{W}");
 
-        game.execute_effects(&[Effect::DealDamageVivid], p1, &[target], None);
+        game.execute_effects(&[Effect::DealDamageVivid], p1, &[target], None, None);
         assert_eq!(game.state.battlefield.get(target).unwrap().damage, 2);
     }
 
@@ -5152,7 +5191,7 @@ mod vivid_tests {
         add_colored_creature(&mut game, p1, "G", "{G}");
         let target = add_colored_creature(&mut game, p1, "B", "{B}");
 
-        game.execute_effects(&[Effect::BoostUntilEotVivid], p1, &[target], None);
+        game.execute_effects(&[Effect::BoostUntilEotVivid], p1, &[target], None, None);
         let perm = game.state.battlefield.get(target).unwrap();
         assert_eq!(perm.power(), 5); // 2 base + 3 vivid
         assert_eq!(perm.toughness(), 5);
@@ -5167,7 +5206,7 @@ mod vivid_tests {
         add_colored_creature(&mut game, p1, "B", "{B}");
 
         let before = game.state.battlefield.controlled_by(p1).count();
-        game.execute_effects(&[Effect::create_token_vivid("1/1 Kithkin")], p1, &[], None);
+        game.execute_effects(&[Effect::create_token_vivid("1/1 Kithkin")], p1, &[], None, None);
         let after = game.state.battlefield.controlled_by(p1).count();
         assert_eq!(after - before, 3); // 3 tokens for 3 colors
     }
@@ -5264,7 +5303,7 @@ mod choice_tests {
             vec![],
         );
 
-        game.execute_effects(&[effect], p1, &[], Some(src_id));
+        game.execute_effects(&[effect], p1, &[], Some(src_id), None);
 
         // AlwaysPayPlayer says yes, blight adds -1/-1, gain 3 life
         assert_eq!(game.state.battlefield.get(src_id).unwrap().counters.get(&CounterType::M1M1), 1);
@@ -5303,7 +5342,7 @@ mod choice_tests {
             vec![Effect::add_counters_self("-1/-1", 2)],
         );
 
-        game.execute_effects(&[effect], p1, &[], Some(src_id));
+        game.execute_effects(&[effect], p1, &[], Some(src_id), None);
 
         // NeverPayPlayer says no, so blight 2 happens
         assert_eq!(game.state.players[&p1].life, 20); // no life paid
@@ -5388,7 +5427,7 @@ mod type_choice_tests {
         let effects = vec![Effect::choose_creature_type_restricted(
             vec!["Elemental", "Elf", "Faerie"]
         )];
-        game.execute_effects(&effects, p1, &[], Some(src_id));
+        game.execute_effects(&effects, p1, &[], Some(src_id), None);
 
         let perm = game.state.battlefield.get(src_id).unwrap();
         assert!(perm.chosen_type.is_some());
@@ -5410,7 +5449,7 @@ mod type_choice_tests {
         let effects = vec![Effect::choose_creature_type_restricted(
             vec!["Goblin", "Elf", "Merfolk"]
         )];
-        game.execute_effects(&effects, p1, &[], Some(src_id));
+        game.execute_effects(&effects, p1, &[], Some(src_id), None);
 
         let perm = game.state.battlefield.get(src_id).unwrap();
         match &perm.chosen_type {
@@ -5442,7 +5481,7 @@ mod type_choice_tests {
 
         let hand_before = game.state.players[&p1].hand.len();
         let effects = vec![Effect::choose_type_and_draw_per_permanent()];
-        game.execute_effects(&effects, p1, &[], None);
+        game.execute_effects(&effects, p1, &[], None, None);
 
         // Should have drawn 3 cards (3 Goblins)
         let hand_after = game.state.players[&p1].hand.len();
@@ -6101,7 +6140,7 @@ mod trigger_tests {
         game.state.battlefield.add(perm);
 
         // Gain life
-        game.execute_effects(&[Effect::GainLife { amount: 5 }], p1, &[], None);
+        game.execute_effects(&[Effect::GainLife { amount: 5 }], p1, &[], None, None);
 
         // Process triggers
         game.process_sba_and_triggers();
@@ -7036,7 +7075,7 @@ mod dies_trigger_tests {
             &[Effect::Destroy],
             p1,
             &[id],
-            None,
+            None, None,
         );
 
         // Creature should be in graveyard
@@ -7198,7 +7237,7 @@ mod equipment_tests {
         game.state.battlefield.add(Permanent::new(make_equipment(equip_id, p1, "Short Sword", 1, 1), p1));
         register_abilities(&mut game, equip_id);
 
-        game.execute_effects(&[Effect::equip()], p1, &[creature_id], Some(equip_id));
+        game.execute_effects(&[Effect::equip()], p1, &[creature_id], Some(equip_id), None);
 
         let equip = game.state.battlefield.get(equip_id).unwrap();
         assert_eq!(equip.attached_to, Some(creature_id));
@@ -7217,7 +7256,7 @@ mod equipment_tests {
         register_abilities(&mut game, equip_id);
 
         assert_eq!(game.state.battlefield.get(creature_id).unwrap().power(), 2);
-        game.execute_effects(&[Effect::equip()], p1, &[creature_id], Some(equip_id));
+        game.execute_effects(&[Effect::equip()], p1, &[creature_id], Some(equip_id), None);
         game.apply_continuous_effects();
 
         assert_eq!(game.state.battlefield.get(creature_id).unwrap().power(), 3);
@@ -7234,7 +7273,7 @@ mod equipment_tests {
         game.state.battlefield.add(Permanent::new(make_equipment(equip_id, p1, "Short Sword", 1, 1), p1));
         register_abilities(&mut game, equip_id);
 
-        game.execute_effects(&[Effect::equip()], p1, &[creature_id], Some(equip_id));
+        game.execute_effects(&[Effect::equip()], p1, &[creature_id], Some(equip_id), None);
         assert_eq!(game.state.battlefield.get(equip_id).unwrap().attached_to, Some(creature_id));
 
         // Remove creature (simulating death)
@@ -7261,10 +7300,10 @@ mod equipment_tests {
         game.state.battlefield.add(Permanent::new(make_equipment(equip_id, p1, "Short Sword", 1, 1), p1));
         register_abilities(&mut game, equip_id);
 
-        game.execute_effects(&[Effect::equip()], p1, &[c1], Some(equip_id));
+        game.execute_effects(&[Effect::equip()], p1, &[c1], Some(equip_id), None);
         assert_eq!(game.state.battlefield.get(equip_id).unwrap().attached_to, Some(c1));
 
-        game.execute_effects(&[Effect::equip()], p1, &[c2], Some(equip_id));
+        game.execute_effects(&[Effect::equip()], p1, &[c2], Some(equip_id), None);
         assert_eq!(game.state.battlefield.get(equip_id).unwrap().attached_to, Some(c2));
         assert!(game.state.battlefield.get(c2).unwrap().attachments.contains(&equip_id));
         assert!(!game.state.battlefield.get(c1).unwrap().attachments.contains(&equip_id));
@@ -7305,7 +7344,7 @@ mod equipment_tests {
         assert!(!game.state.battlefield.get(creature_id).unwrap().has_hexproof());
         assert!(!game.state.battlefield.get(creature_id).unwrap().has_haste());
 
-        game.execute_effects(&[Effect::equip()], p1, &[creature_id], Some(equip_id));
+        game.execute_effects(&[Effect::equip()], p1, &[creature_id], Some(equip_id), None);
         game.apply_continuous_effects();
 
         assert!(game.state.battlefield.get(creature_id).unwrap().has_hexproof());
@@ -7964,6 +8003,7 @@ mod cant_be_countered_tests {
             controller: p1,
             targets: vec![],
             countered: false,
+            x_value: None,
         };
         game.state.stack.push(stack_item);
 
@@ -7973,7 +8013,7 @@ mod cant_be_countered_tests {
             p2,
             &[spell_id],
             Some(spell_id),
-        );
+        None, );
 
         // The spell should STILL be on the stack (not removed)
         assert!(game.state.stack.get(spell_id).is_some(), "Uncounterable spell should remain on the stack");
@@ -8011,6 +8051,7 @@ mod cant_be_countered_tests {
             controller: p1,
             targets: vec![],
             countered: false,
+            x_value: None,
         };
         game.state.stack.push(stack_item);
         game.state.card_store.insert(CardData::new(spell_id, p1, "Lightning Bolt"));
@@ -8021,7 +8062,7 @@ mod cant_be_countered_tests {
             p2,
             &[spell_id],
             Some(spell_id),
-        );
+        None, );
 
         // The spell should be removed from the stack
         assert!(game.state.stack.get(spell_id).is_none(), "Normal spell should be countered");
@@ -8215,5 +8256,232 @@ mod step_trigger_tests {
 
         let p2_life_after = game.state.player(p2).unwrap().life;
         assert_eq!(p2_life_after, p2_life, "P2's upkeep trigger should not fire during p1's upkeep");
+    }
+}
+
+#[cfg(test)]
+mod x_cost_tests {
+    use super::*;
+    use crate::abilities::{Ability, Effect, TargetSpec, X_VALUE};
+    use crate::card::CardData;
+    use crate::constants::{CardType, Outcome};
+    use crate::mana::{Mana, ManaCost};
+    use crate::types::{ObjectId, PlayerId};
+    use crate::decision::*;
+
+    struct XChooserPlayer {
+        x_choice: u32,
+    }
+
+    impl PlayerDecisionMaker for XChooserPlayer {
+        fn priority(&mut self, _: &GameView<'_>, legal: &[PlayerAction]) -> PlayerAction {
+            for action in legal {
+                if let PlayerAction::CastSpell { .. } = action {
+                    return action.clone();
+                }
+            }
+            PlayerAction::Pass
+        }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, req: &TargetRequirement) -> Vec<ObjectId> {
+            req.legal_targets.iter().take(1).copied().collect()
+        }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { true }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, _: u32, _: u32) -> u32 {
+            self.x_choice
+        }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn setup_x_game(x_choice: u32) -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+
+        let config = GameConfig {
+            starting_life: 20,
+            players: vec![
+                PlayerConfig { name: "P1".into(), deck: vec![] },
+                PlayerConfig { name: "P2".into(), deck: vec![] },
+            ],
+        };
+
+        let dms: Vec<(PlayerId, Box<dyn PlayerDecisionMaker>)> = vec![
+            (p1, Box::new(XChooserPlayer { x_choice })),
+            (p2, Box::new(XChooserPlayer { x_choice: 0 })),
+        ];
+
+        (Game::new_two_player(config, dms), p1, p2)
+    }
+
+    #[test]
+    fn x_cost_deal_damage() {
+        let (mut game, p1, p2) = setup_x_game(3);
+
+        // Give P1 4 mana for {X}{R} with X=3
+        if let Some(player) = game.state.players.get_mut(&p1) {
+            player.mana_pool.add(Mana { red: 1, green: 3, ..Mana::new() }, None, false);
+        }
+
+        // Create X-cost damage spell: {X}{R} - deal X damage
+        let spell_id = ObjectId::new();
+        let mut spell = CardData::new(spell_id, p1, "X Bolt");
+        spell.card_types = vec![CardType::Sorcery];
+        spell.mana_cost = ManaCost::parse("{X}{R}");
+        spell.abilities = vec![Ability::spell(spell_id,
+            vec![Effect::DealDamage { amount: X_VALUE }],
+            TargetSpec::Creature)];
+
+        // Create a target creature for P2
+        let creature_id = ObjectId::new();
+        let mut creature = CardData::new(creature_id, p2, "Big Beast");
+        creature.card_types = vec![CardType::Creature];
+        creature.power = Some(5);
+        creature.toughness = Some(5);
+        game.state.battlefield.add(crate::permanent::Permanent::new(creature.clone(), p2));
+        game.state.card_store.insert(creature);
+        game.state.set_zone(creature_id, crate::constants::Zone::Battlefield, None);
+
+        // Put spell in hand
+        if let Some(player) = game.state.players.get_mut(&p1) {
+            player.hand.add(spell_id);
+        }
+        game.state.card_store.insert(spell);
+        game.state.set_zone(spell_id, crate::constants::Zone::Hand, None);
+
+        // Cast the spell (X=3)
+        game.cast_spell(p1, spell_id);
+
+        // Verify X value on stack
+        let stack_item = game.state.stack.top().unwrap();
+        assert_eq!(stack_item.x_value, Some(3));
+
+        // Resolve
+        game.resolve_top_of_stack();
+
+        // Creature should have 3 damage
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert_eq!(perm.damage, 3);
+    }
+
+    #[test]
+    fn x_cost_draw_cards() {
+        let (mut game, p1, _p2) = setup_x_game(2);
+
+        // Give P1 4 mana for {X}{U}{U} with X=2
+        if let Some(player) = game.state.players.get_mut(&p1) {
+            player.mana_pool.add(Mana { blue: 2, green: 2, ..Mana::new() }, None, false);
+        }
+
+        // Add cards to library
+        for _ in 0..5 {
+            let card_id = ObjectId::new();
+            let card = CardData::new(card_id, p1, "Island");
+            game.state.card_store.insert(card);
+            if let Some(player) = game.state.players.get_mut(&p1) {
+                player.library.put_on_top(card_id);
+            }
+        }
+
+        // Create X-cost draw spell: {X}{U}{U}
+        let spell_id = ObjectId::new();
+        let mut spell = CardData::new(spell_id, p1, "X Draw");
+        spell.card_types = vec![CardType::Sorcery];
+        spell.mana_cost = ManaCost::parse("{X}{U}{U}");
+        spell.abilities = vec![Ability::spell(spell_id,
+            vec![Effect::DrawCards { count: X_VALUE }],
+            TargetSpec::None)];
+
+        if let Some(player) = game.state.players.get_mut(&p1) {
+            player.hand.add(spell_id);
+        }
+        game.state.card_store.insert(spell);
+
+        let hand_before = game.state.players.get(&p1).unwrap().hand.len();
+
+        // Cast and resolve (X=2)
+        game.cast_spell(p1, spell_id);
+        game.resolve_top_of_stack();
+
+        // Should have drawn 2 cards (minus spell removed from hand)
+        let hand_after = game.state.players.get(&p1).unwrap().hand.len();
+        assert_eq!(hand_after, hand_before - 1 + 2);
+    }
+
+    #[test]
+    fn x_cost_zero() {
+        let (mut game, p1, _p2) = setup_x_game(0);
+
+        // Give P1 1 mana for {X}{R} with X=0
+        if let Some(player) = game.state.players.get_mut(&p1) {
+            player.mana_pool.add(Mana { red: 1, ..Mana::new() }, None, false);
+        }
+
+        let spell_id = ObjectId::new();
+        let mut spell = CardData::new(spell_id, p1, "X Zero");
+        spell.card_types = vec![CardType::Sorcery];
+        spell.mana_cost = ManaCost::parse("{X}{R}");
+        spell.abilities = vec![Ability::spell(spell_id,
+            vec![Effect::DealDamage { amount: X_VALUE }],
+            TargetSpec::None)];
+
+        if let Some(player) = game.state.players.get_mut(&p1) {
+            player.hand.add(spell_id);
+        }
+        game.state.card_store.insert(spell);
+
+        game.cast_spell(p1, spell_id);
+        assert_eq!(game.state.stack.top().unwrap().x_value, Some(0));
+
+        // Resolve - 0 damage to opponent
+        let opp = *game.state.turn_order.iter().find(|&&id| id != p1).unwrap();
+        let life_before = game.state.players.get(&opp).unwrap().life;
+        game.resolve_top_of_stack();
+        let life_after = game.state.players.get(&opp).unwrap().life;
+        assert_eq!(life_before, life_after);
+    }
+
+    #[test]
+    fn x_value_mana_payment() {
+        let (mut game, p1, _p2) = setup_x_game(3);
+
+        // Give P1 5 mana
+        if let Some(player) = game.state.players.get_mut(&p1) {
+            player.mana_pool.add(Mana { red: 1, green: 4, ..Mana::new() }, None, false);
+        }
+
+        // Spell costs {X}{R} with X=3 -> 4 mana total
+        let spell_id = ObjectId::new();
+        let mut spell = CardData::new(spell_id, p1, "X Payment");
+        spell.card_types = vec![CardType::Sorcery];
+        spell.mana_cost = ManaCost::parse("{X}{R}");
+        spell.abilities = vec![Ability::spell(spell_id,
+            vec![Effect::GainLife { amount: X_VALUE }],
+            TargetSpec::None)];
+
+        if let Some(player) = game.state.players.get_mut(&p1) {
+            player.hand.add(spell_id);
+        }
+        game.state.card_store.insert(spell);
+
+        game.cast_spell(p1, spell_id);
+
+        // Should have 1 mana remaining (5 - 4)
+        let remaining = game.state.players.get(&p1).unwrap().mana_pool.available().count();
+        assert_eq!(remaining, 1);
+
+        // Resolve: X=3 life gain
+        let life_before = game.state.players.get(&p1).unwrap().life;
+        game.resolve_top_of_stack();
+        let life_after = game.state.players.get(&p1).unwrap().life;
+        assert_eq!(life_after, life_before + 3);
     }
 }

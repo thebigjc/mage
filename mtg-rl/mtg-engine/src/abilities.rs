@@ -15,6 +15,10 @@ use crate::mana::Mana;
 use crate::types::{AbilityId, ObjectId};
 use serde::{Deserialize, Serialize};
 
+/// Sentinel value for effect amounts that should use the X value from the stack.
+/// When an effect has this amount, it will be resolved using the X value chosen at cast time.
+pub const X_VALUE: u32 = u32::MAX;
+
 // ---------------------------------------------------------------------------
 // Cost types
 // ---------------------------------------------------------------------------

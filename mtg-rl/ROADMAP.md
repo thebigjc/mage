@@ -214,13 +214,16 @@ These require new engine architecture beyond adding match arms to existing funct
 - **Blocked features:** Damage prevention, death replacement, Doubling Season, Undying, Persist (~30+ cards)
 - **Java reference:** `ReplacementEffectImpl.java`, `ContinuousEffects.getReplacementEffects()`
 
-#### 7. X-Cost Spells
-- Announce X before paying mana (X ≥ 0)
-- Track X value on the stack; pass to effects on resolution
-- Support {X}{X}, min/max X, X in activated abilities
-- Add `choose_x_value()` to `PlayerDecisionMaker`
-- **Blocked cards:** Day of Black Sun, Genesis Wave, Finale of Revelation, Spectral Denial (~10+ cards)
-- **Java reference:** `VariableManaCost.java`, `ManaCostsImpl.getX()`
+#### ~~7. X-Cost Spells~~ (DONE)
+
+**Completed 2026-02-14.** X-cost spells are now functional:
+- `ManaCost::has_x_cost()`, `x_count()`, `to_mana_with_x(x)` for X detection and mana calculation
+- `X_VALUE` sentinel constant (u32::MAX) used in effect amounts to indicate "use X"
+- `StackItem.x_value: Option<u32>` tracks chosen X on the stack
+- `cast_spell()` detects X costs, calls `choose_amount()` for X value, pays `to_mana_with_x(x)`
+- `execute_effects()` receives x_value and uses `resolve_x()` closure to substitute X_VALUE with actual X
+- All numeric effect handlers updated: DealDamage, DrawCards, GainLife, LoseLife, LoseLifeOpponents, DealDamageOpponents, DealDamageAll, Mill, AddCounters, AddCountersSelf, DiscardOpponents, CreateToken
+- 4 unit tests: X damage, X draw, X=0, mana payment verification
 
 #### 8. Impulse Draw (Exile-and-Play)
 - "Exile top card, you may play it until end of [next] turn"
@@ -419,7 +422,7 @@ Features the Java engine has that the Rust engine lacks entirely:
 | **Equipment attachment** | `EquipAbility`, `AttachEffect` | No equivalent |
 | **Aura attachment** | `AuraReplacementEffect` | No equivalent |
 | **Planeswalker loyalty abilities** | `LoyaltyAbility`, `PayLoyaltyCost` | No equivalent |
-| **X-cost system** | `VariableManaCost`, `ManaCostsImpl.getX()` | No equivalent |
+| **X-cost system** | `VariableManaCost`, `ManaCostsImpl.getX()` | **Implemented** (`X_VALUE`, `StackItem.x_value`, `resolve_x()`) |
 | **Spell copying** | `CopyEffect`, `CopySpellForEachItCouldTargetEffect` | No equivalent |
 | **Delayed triggered abilities** | `DelayedTriggeredAbility` | No equivalent |
 | **Alternative costs** (Flashback, Evoke, etc.) | `AlternativeCostSourceAbility` | Evoke stored as StaticEffect, not enforced |
@@ -452,7 +455,7 @@ Priority ordered by cards-unblocked per effort.
 
 6. **Aura/enchant system** — Attach on ETB, apply continuous effects while attached, fall-off SBA. **~15+ cards.**
 
-7. **X-cost spells** — Announce X, track on stack, pass to effects. **~10+ cards.**
+7. ~~**X-cost spells**~~ — **DONE (2026-02-14).** `X_VALUE` sentinel, `StackItem.x_value`, `resolve_x()` closure in execute_effects. 4 unit tests.
 
 8. **Impulse draw** — Exile-and-play tracking with expiration. **~10+ cards.**
 

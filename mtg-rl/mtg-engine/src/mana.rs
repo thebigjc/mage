@@ -333,6 +333,32 @@ impl ManaCost {
         }
         result
     }
+
+    /// Whether this mana cost contains an X component.
+    pub fn has_x_cost(&self) -> bool {
+        self.items.iter().any(|item| matches!(item, ManaCostItem::X))
+    }
+
+    /// Count how many X symbols are in this cost (e.g. {X}{X}{B} has 2).
+    pub fn x_count(&self) -> u32 {
+        self.items.iter().filter(|item| matches!(item, ManaCostItem::X)).count() as u32
+    }
+
+    /// Convert to a Mana struct with X substituted as generic mana.
+    pub fn to_mana_with_x(&self, x_value: u32) -> Mana {
+        let mut mana = Mana::new();
+        for item in &self.items {
+            match item {
+                ManaCostItem::Colored(c) => mana.add_color(*c, 1),
+                ManaCostItem::Colorless => mana.colorless += 1,
+                ManaCostItem::Generic(n) => mana.generic += n,
+                ManaCostItem::Snow => mana.generic += 1,
+                ManaCostItem::X => mana.generic += x_value,
+                _ => {}
+            }
+        }
+        mana
+    }
 }
 
 impl Default for ManaCost {
