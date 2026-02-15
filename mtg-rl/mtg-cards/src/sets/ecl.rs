@@ -2476,7 +2476,7 @@ fn deepway_navigator(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, untap each other Merfolk you control.",
-                vec![Effect::Custom("Untap each other Merfolk you control.".into())],
+                vec![Effect::untap_all("other Merfolk you control")],
                 TargetSpec::None),
             Ability::static_ability(id,
                 "As long as you attacked with three or more Merfolk this turn, Merfolk you control get +1/+0.",
@@ -3506,7 +3506,7 @@ fn sapling_nursery(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "{1}{G}, Exile this enchantment: Treefolk and Forests you control gain indestructible until end of turn.",
                 vec![Cost::pay_mana("{1}{G}"), Cost::ExileSelf],
-                vec![Effect::Custom("Treefolk and Forests you control gain indestructible until end of turn.".into())],
+                vec![Effect::GrantKeywordAllUntilEndOfTurn { filter: "Treefolk you control".into(), keyword: "indestructible".into() }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -4246,7 +4246,7 @@ fn gravelgill_scoundrel(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![EventType::AttackerDeclared],
                 vec![Effect::do_if_cost_paid(
                     Cost::tap_creatures("creature", 1),
-                    vec![Effect::Custom("This creature can\x27t be blocked this turn.".into())],
+                    vec![Effect::cant_be_blocked_eot()],
                     vec![])],
                 TargetSpec::None),
         ],
