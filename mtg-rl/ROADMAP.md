@@ -98,8 +98,8 @@ All 10 are now active in practice via combat integration (2026-02-14). Additiona
 | SHROUD | Can't be targeted at all | **Enforced** in `legal_targets_for_spec()` |
 | PROTECTION | Prevents damage/targeting/blocking/enchanting | Not checked |
 | WARD | Counter unless cost paid | Stored as StaticEffect, not enforced |
-| FEAR | Only blocked by black/artifact | Not checked |
-| INTIMIDATE | Only blocked by same color/artifact | Not checked |
+| FEAR | Only blocked by black/artifact | **Enforced** in `combat.rs:can_block()` |
+| INTIMIDATE | Only blocked by same color/artifact | **Enforced** in `combat.rs:can_block()` |
 | SHADOW | Only blocked by/blocks shadow | Not checked |
 | PROWESS | +1/+1 when noncreature spell cast | Trigger never fires |
 | UNDYING | Return with +1/+1 counter on death | No death replacement |
@@ -107,8 +107,8 @@ All 10 are now active in practice via combat integration (2026-02-14). Additiona
 | WITHER | Damage as -1/-1 counters | Not checked |
 | INFECT | Damage as -1/-1 counters + poison | Not checked |
 | TOXIC | Combat damage → poison counters | Not checked |
-| UNBLOCKABLE | Can't be blocked | Not checked |
-| CHANGELING | All creature types | Not checked in type queries |
+| UNBLOCKABLE | Can't be blocked | **Enforced** in `combat.rs:can_block()` |
+| CHANGELING | All creature types | **Enforced** in `permanent.rs:has_subtype()` + `matches_filter()` |
 | CASCADE | Exile-and-cast on cast | No trigger |
 | CONVOKE | Tap creatures to pay | Not checked in cost payment |
 | DELVE | Exile graveyard to pay | Not checked in cost payment |
@@ -124,7 +124,7 @@ All 10 are now active in practice via combat integration (2026-02-14). Additiona
 | TOTEM_ARMOR | Prevents enchanted creature death | No replacement |
 | AFFLICT | Life loss when blocked | No trigger |
 | BATTLE_CRY | +1/+0 to other attackers | No trigger |
-| SKULK | Can't be blocked by greater power | Not checked |
+| SKULK | Can't be blocked by greater power | **Enforced** in `combat.rs:can_block()` |
 | FABRICATE | Counters or tokens on ETB | No choice/trigger |
 | STORM | Copy for each prior spell | No trigger |
 | PARTNER | Commander pairing | Not relevant |

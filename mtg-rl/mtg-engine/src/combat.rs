@@ -201,12 +201,41 @@ pub fn can_block(blocker: &Permanent, attacker: &Permanent) -> bool {
         return false;
     }
 
+    // Unblockable: can't be blocked at all
+    if attacker.has_keyword(crate::constants::KeywordAbilities::UNBLOCKABLE) {
+        return false;
+    }
+
     // Flying: can only be blocked by creatures with flying or reach
     if attacker.has_flying() && !blocker.has_flying() && !blocker.has_reach() {
         return false;
     }
 
-    // TODO: Add more blocking restrictions (menace, intimidate, fear, etc.)
+    // Fear: can only be blocked by artifact or black creatures
+    if attacker.has_keyword(crate::constants::KeywordAbilities::FEAR) {
+        let is_artifact = blocker.is_artifact();
+        let is_black = blocker.card.colors().contains(&crate::constants::Color::Black);
+        if !is_artifact && !is_black {
+            return false;
+        }
+    }
+
+    // Intimidate: can only be blocked by artifact creatures or creatures that share a color
+    if attacker.has_keyword(crate::constants::KeywordAbilities::INTIMIDATE) {
+        let is_artifact = blocker.is_artifact();
+        let shares_color = attacker.card.colors().iter()
+            .any(|c| blocker.card.colors().contains(c));
+        if !is_artifact && !shares_color {
+            return false;
+        }
+    }
+
+    // Skulk: can't be blocked by creatures with greater power
+    if attacker.has_keyword(crate::constants::KeywordAbilities::SKULK) {
+        if blocker.power() > attacker.power() {
+            return false;
+        }
+    }
 
     true
 }
@@ -556,5 +585,56 @@ mod tests {
         // Normal blocker deals damage in regular step only
         assert_eq!(assign_blocker_damage(&normal, attacker_id, true), 0);
         assert_eq!(assign_blocker_damage(&normal, attacker_id, false), 2);
+    }
+
+    #[test]
+    fn unblockable_cant_be_blocked() {
+        let attacker = make_creature("Unblockable", 2, 2, KeywordAbilities::UNBLOCKABLE);
+        let blocker = make_creature("Blocker", 3, 3, KeywordAbilities::empty());
+        assert!(!can_block(&blocker, &attacker));
+    }
+
+    #[test]
+    fn fear_blocked_by_black_or_artifact() {
+        let attacker = make_creature("Fear Creature", 2, 2, KeywordAbilities::FEAR);
+
+        // Regular creature can't block
+        let regular = make_creature("Regular", 2, 2, KeywordAbilities::empty());
+        assert!(!can_block(&regular, &attacker));
+
+        // Black creature can block
+        let owner = PlayerId::new();
+        let mut black_card = CardData::new(ObjectId::new(), owner, "Black Creature");
+        black_card.card_types = vec![CardType::Creature];
+        black_card.power = Some(2);
+        black_card.toughness = Some(2);
+        black_card.color_identity = vec![crate::constants::Color::Black];
+        let black = Permanent::new(black_card, owner);
+        assert!(can_block(&black, &attacker));
+
+        // Artifact creature can block
+        let mut art_card = CardData::new(ObjectId::new(), owner, "Artifact Creature");
+        art_card.card_types = vec![CardType::Creature, CardType::Artifact];
+        art_card.power = Some(2);
+        art_card.toughness = Some(2);
+        let artifact = Permanent::new(art_card, owner);
+        assert!(can_block(&artifact, &attacker));
+    }
+
+    #[test]
+    fn skulk_blocked_by_equal_or_lesser_power() {
+        let attacker = make_creature("Skulk 2/2", 2, 2, KeywordAbilities::SKULK);
+
+        // Blocker with greater power can't block
+        let big = make_creature("Big Blocker", 3, 3, KeywordAbilities::empty());
+        assert!(!can_block(&big, &attacker));
+
+        // Blocker with equal power can block
+        let equal = make_creature("Equal Blocker", 2, 2, KeywordAbilities::empty());
+        assert!(can_block(&equal, &attacker));
+
+        // Blocker with less power can block
+        let small = make_creature("Small Blocker", 1, 4, KeywordAbilities::empty());
+        assert!(can_block(&small, &attacker));
     }
 }

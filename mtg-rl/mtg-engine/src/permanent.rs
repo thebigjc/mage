@@ -123,6 +123,10 @@ impl Permanent {
     }
 
     pub fn has_subtype(&self, st: &SubType) -> bool {
+        // Changeling: has every creature type
+        if self.has_keyword(KeywordAbilities::CHANGELING) && self.is_creature() {
+            return true;
+        }
         self.card.subtypes.contains(st)
     }
 
@@ -424,5 +428,31 @@ mod tests {
         let _ = perm.clone(); // ensure Clone works
         assert!(!perm.can_attack());
         assert!(perm.can_block());
+    }
+
+    #[test]
+    fn changeling_has_all_creature_types() {
+        let perm = make_creature("Shapeshifter", 2, 2, KeywordAbilities::CHANGELING);
+        // Changeling has every creature type
+        assert!(perm.has_subtype(&SubType::Elf));
+        assert!(perm.has_subtype(&SubType::Goblin));
+        assert!(perm.has_subtype(&SubType::Human));
+        assert!(perm.has_subtype(&SubType::Spirit));
+        assert!(perm.has_subtype(&SubType::Dragon));
+        // Even custom types
+        assert!(perm.has_subtype(&SubType::Custom("Weird".into())));
+    }
+
+    #[test]
+    fn non_changeling_only_has_listed_subtypes() {
+        let owner = PlayerId::new();
+        let mut card = CardData::new(ObjectId::new(), owner, "Elf");
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![SubType::Elf];
+        card.power = Some(1);
+        card.toughness = Some(1);
+        let perm = Permanent::new(card, owner);
+        assert!(perm.has_subtype(&SubType::Elf));
+        assert!(!perm.has_subtype(&SubType::Goblin));
     }
 }

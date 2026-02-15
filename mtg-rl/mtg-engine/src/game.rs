@@ -2665,7 +2665,9 @@ impl Game {
         if f.is_empty() || f == "all" {
             return true;
         }
-        // Check creature types
+        // Check creature types (changelings match all creature types)
+        let is_changeling = perm.is_creature()
+            && perm.has_keyword(crate::constants::KeywordAbilities::CHANGELING);
         for st in &perm.card.subtypes {
             if f.contains(&st.to_string().to_lowercase()) {
                 return true;
@@ -2675,6 +2677,21 @@ impl Game {
         for ct in &perm.card.card_types {
             let ct_name = format!("{:?}", ct).to_lowercase();
             if f.contains(&ct_name) {
+                return true;
+            }
+        }
+        // Changeling matches any creature type name in the filter
+        // (if the filter didn't already match a card type like "creature")
+        if is_changeling {
+            // If filter mentions any creature type name, changeling matches
+            // We detect this by checking if the filter doesn't match common
+            // card types — if it still hasn't matched, it's likely a creature subtype
+            let is_card_type = f.contains("creature") || f.contains("land")
+                || f.contains("artifact") || f.contains("enchantment")
+                || f.contains("planeswalker") || f.contains("instant")
+                || f.contains("sorcery") || f.contains("nonland");
+            if !is_card_type {
+                // Filter is likely a creature type name (e.g. "elf", "goblin", "spirit")
                 return true;
             }
         }
