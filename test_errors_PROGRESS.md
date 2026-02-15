@@ -60,7 +60,7 @@ The cleanest approach is to fix file-by-file, starting with game.rs (production 
 ### Test file import + dead code cleanup (one task per file)
 - [x] Task 3: Fix 12 warnings in `tests/abilities.rs` — remove unused imports (`StaticEffect`, `ModalMode`, `CombatState`, `Color`, `KeywordAbilities`, `Outcome`, `PhaseStep`, `SuperType`, `Zone`, `CounterType`, `EventType`, `GameEvent`, `Mana`, `ManaCost`, `Permanent`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), prefix `modes` variable with `_`
 - [x] Task 4: Fix 12 warnings in `tests/combat.rs` — remove unused imports (`Cost`, `Effect`, `ModalMode`, `TargetSpec`, `CombatState`, `Color`, `PhaseStep`, `SuperType`, `Zone`, `CounterType`, `EventType`, `GameEvent`, `Mana`, `ManaCost`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), remove dead `AttackAllPlayer2` struct + impl (~30 lines), remove dead `add_creature2` function
-- [ ] Task 5: Fix 13 warnings in `tests/continuous_effects.rs` — remove unused imports (`Cost`, `ModalMode`, `CombatState`, `PhaseStep`, `SuperType`, `Zone`, `CounterType`, `EventType`, `GameEvent`, `ManaCost`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), remove dead `AlwaysPassPlayer2` struct + impl, remove dead `PassPlayer2` struct + impl, prefix `land_id` with `_`
+- [x] Task 5: Fix 13 warnings in `tests/continuous_effects.rs` — remove unused imports (`Cost`, `ModalMode`, `CombatState`, `PhaseStep`, `SuperType`, `Zone`, `CounterType`, `EventType`, `GameEvent`, `ManaCost`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), remove dead `AlwaysPassPlayer2` struct + impl, remove dead `PassPlayer2` struct + impl, prefix `land_id` with `_`
 - [ ] Task 6: Fix 8 warnings in `tests/costs.rs` — remove unused imports (`ModalMode`, `CombatState`, `Color`, `PhaseStep`, `SuperType`, `Zone`, `EventType`, `GameEvent`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`)
 - [ ] Task 7: Fix 2 warnings in `tests/effects.rs` — remove unused `super::*` import, remove unused `PhaseStep` import
 - [ ] Task 8: Fix 12 warnings in `tests/equipment_auras.rs` — remove unused imports (`ModalMode`, `CombatState`, `Color`, `KeywordAbilities`, `PhaseStep`, `SuperType`, `Zone`, `CounterType`, `EventType`, `GameEvent`, `Mana`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), remove dead `PassivePlayer2` struct + impl, remove dead `setup2` function
@@ -76,7 +76,7 @@ The cleanest approach is to fix file-by-file, starting with game.rs (production 
 - [ ] Task 16: Run `cargo test --lib -p mtg-engine` and verify all tests still pass
 
 ## Completed This Iteration
-- Task 4: Removed unused imports, dead `AttackAllPlayer2` struct+impl, and dead `add_creature2` function in tests/combat.rs. Warnings dropped from 111 to 99. All 386 tests pass.
+- Task 5: Removed unused imports, dead `AlwaysPassPlayer2` and `PassPlayer2` structs+impls, prefixed `land_id` with `_` in tests/continuous_effects.rs. Warnings dropped from 99 to 86. All 386 tests pass.
 
 ## Notes
 
