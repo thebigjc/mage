@@ -437,7 +437,7 @@ fn spell_effects_execute_on_resolve() {
     player.mana_pool.add(Mana::red(1));
 
     // Put the card in player 1's hand
-    player.hand.push(spell_id);
+    player.hand.add(spell_id);
     game.state.card_store.insert(spell.clone());
     for ability in &spell.abilities {
         game.state.ability_store.add(ability.clone());
@@ -505,7 +505,7 @@ fn fizzle_when_target_removed() {
 
     // Put the card in player 1's hand
     let player = game.state.players.get_mut(&p1).unwrap();
-    player.hand.push(spell_id);
+    player.hand.add(spell_id);
     game.state.card_store.insert(spell.clone());
     for ability in &spell.abilities {
         game.state.ability_store.add(ability.clone());
