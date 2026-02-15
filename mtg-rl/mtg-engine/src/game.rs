@@ -2687,8 +2687,8 @@ impl Game {
                 Effect::CounterSpell => {
                     // Counter first target on the stack
                     for &target_id in targets {
-                        // Check if the target spell has "can't be countered"
-                        let cant_counter = if let Some(item) = self.state.stack.get(target_id) {
+                        // Check if the target spell has "can't be countered" (individual card)
+                        let cant_counter_self = if let Some(item) = self.state.stack.get(target_id) {
                             if let crate::zones::StackItemKind::Spell { card } = &item.kind {
                                 card.abilities.iter().any(|a| {
                                     a.static_effects.iter().any(|se| matches!(se, StaticEffect::CantBeCountered))
@@ -2699,7 +2699,22 @@ impl Game {
                         } else {
                             false
                         };
-                        if cant_counter {
+                        // Check if the spell's controller has "spells can't be countered" from a permanent
+                        let cant_counter_from_permanent = if let Some(item) = self.state.stack.get(target_id) {
+                            let spell_controller = item.controller;
+                            self.state.battlefield.iter().any(|perm| {
+                                perm.controller == spell_controller && {
+                                    let abilities = self.state.ability_store.for_source(perm.id());
+                                    abilities.iter().any(|a| {
+                                        a.ability_type == AbilityType::Static
+                                            && a.static_effects.iter().any(|se| matches!(se, StaticEffect::SpellsCantBeCountered))
+                                    })
+                                }
+                            })
+                        } else {
+                            false
+                        };
+                        if cant_counter_self || cant_counter_from_permanent {
                             continue; // Can't counter this spell
                         }
                         if let Some(stack_item) = self.state.stack.remove(target_id) {
@@ -3518,6 +3533,82 @@ impl Game {
                     if let Some(&tid) = target {
                         if let Some(perm) = self.state.battlefield.get_mut(tid) {
                             perm.granted_keywords |= crate::constants::KeywordAbilities::UNBLOCKABLE;
+                        }
+                    }
+                }
+                Effect::TapAttached => {
+                    // Tap the permanent this source is attached to (aura/equipment ETB)
+                    if let Some(&src_id) = source.as_ref() {
+                        let attached_to = self.state.battlefield.get(src_id)
+                            .and_then(|p| p.attached_to);
+                        if let Some(target_id) = attached_to {
+                            if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                                perm.tap();
+                            }
+                        }
+                    }
+                }
+                Effect::Proliferate => {
+                    // For each permanent with counters, add one more of each type
+                    let perm_counters: Vec<(ObjectId, Vec<crate::counters::CounterType>)> = self
+                        .state
+                        .battlefield
+                        .iter()
+                        .filter(|p| !p.counters.is_empty())
+                        .map(|p| {
+                            let types: Vec<crate::counters::CounterType> = p.counters.iter()
+                                .map(|(ct, _)| ct.clone())
+                                .collect();
+                            (p.id(), types)
+                        })
+                        .collect();
+                    for (perm_id, counter_types) in perm_counters {
+                        for ct in counter_types {
+                            if let Some(perm) = self.state.battlefield.get_mut(perm_id) {
+                                perm.add_counters(ct, 1);
+                            }
+                        }
+                    }
+                }
+                Effect::RemoveAllCounters => {
+                    // Remove all counters from target creature
+                    for &target_id in targets {
+                        if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                            perm.counters.clear();
+                        }
+                    }
+                    // Fall back to source if no targets
+                    if targets.is_empty() {
+                        if let Some(&src_id) = source.as_ref() {
+                            if let Some(perm) = self.state.battlefield.get_mut(src_id) {
+                                perm.counters.clear();
+                            }
+                        }
+                    }
+                }
+                Effect::ExileTargetCardsFromGraveyards { count } => {
+                    // Exile cards from any graveyard(s) — targets are the cards to exile
+                    let count = resolve_x(*count);
+                    let mut exiled = 0u32;
+                    for &target_id in targets {
+                        if exiled >= count {
+                            break;
+                        }
+                        // Find which player's graveyard has this card
+                        let mut found_player = None;
+                        for (&pid, player) in self.state.players.iter() {
+                            if player.graveyard.contains(target_id) {
+                                found_player = Some(pid);
+                                break;
+                            }
+                        }
+                        if let Some(pid) = found_player {
+                            if let Some(player) = self.state.players.get_mut(&pid) {
+                                player.graveyard.remove(target_id);
+                                self.state.exile.exile(target_id);
+                                self.state.set_zone(target_id, crate::constants::Zone::Exile, None);
+                                exiled += 1;
+                            }
                         }
                     }
                 }
@@ -10200,5 +10291,143 @@ mod block_restriction_tests {
         // Just verify the continuous effects set the flag correctly
         let perm = game.state.battlefield.get(_lure_id).unwrap();
         assert!(perm.must_be_blocked);
+    }
+}
+
+#[cfg(test)]
+mod simple_effect_tests {
+    use super::*;
+    use crate::card::CardData;
+    use crate::constants::{CardType, Outcome};
+    use crate::counters::CounterType;
+    use crate::decision::{
+        AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
+        ReplacementEffectChoice, TargetRequirement, UnpaidMana,
+    };
+
+    struct PassPlayer;
+    impl PlayerDecisionMaker for PassPlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let deck: Vec<CardData> = (0..40).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), p1, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect();
+        let deck2: Vec<CardData> = (0..40).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), p2, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "P1".to_string(), deck },
+                PlayerConfig { name: "P2".to_string(), deck: deck2 },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(config, vec![(p1, Box::new(PassPlayer)), (p2, Box::new(PassPlayer))]);
+        (game, p1, p2)
+    }
+
+    #[test]
+    fn proliferate_adds_counters() {
+        let (mut game, p1, _p2) = make_game();
+
+        // Add a creature with +1/+1 counters
+        let mut card = CardData::new(ObjectId::new(), p1, "Creature");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(2);
+        card.toughness = Some(2);
+        let id = card.id;
+        let mut perm = Permanent::new(card, p1);
+        perm.add_counters(CounterType::P1P1, 2);
+        game.state.battlefield.add(perm);
+
+        // Execute proliferate
+        game.execute_effects(
+            &[crate::abilities::Effect::Proliferate],
+            p1, &[], Some(ObjectId::new()), None,
+        );
+
+
+
+
+
+        // Should have 3 +1/+1 counters now (2 + 1 from proliferate)
+        let perm = game.state.battlefield.get(id).unwrap();
+        assert_eq!(perm.counters.get(&CounterType::P1P1), 3);
+    }
+
+    #[test]
+    fn remove_all_counters_clears_creature() {
+        let (mut game, p1, _p2) = make_game();
+
+        let mut card = CardData::new(ObjectId::new(), p1, "Creature");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(2);
+        card.toughness = Some(2);
+        let id = card.id;
+        let mut perm = Permanent::new(card, p1);
+        perm.add_counters(CounterType::P1P1, 3);
+        perm.add_counters(CounterType::M1M1, 1);
+        game.state.battlefield.add(perm);
+
+        // Execute remove all counters targeting the creature
+        game.execute_effects(
+            &[crate::abilities::Effect::RemoveAllCounters],
+            p1, &[id], Some(ObjectId::new()), None,
+        );
+
+        let perm = game.state.battlefield.get(id).unwrap();
+        assert!(perm.counters.is_empty());
+    }
+
+    #[test]
+    fn tap_attached_taps_enchanted_creature() {
+        let (mut game, p1, _p2) = make_game();
+
+        // Create a creature
+        let mut creature_card = CardData::new(ObjectId::new(), p1, "Target Creature");
+        creature_card.card_types = vec![CardType::Creature];
+        creature_card.power = Some(2);
+        creature_card.toughness = Some(2);
+        let creature_id = creature_card.id;
+        game.state.battlefield.add(Permanent::new(creature_card, p1));
+
+        // Create an aura attached to the creature
+        let mut aura_card = CardData::new(ObjectId::new(), p1, "Aura");
+        aura_card.card_types = vec![CardType::Enchantment];
+        let aura_id = aura_card.id;
+        let mut aura_perm = Permanent::new(aura_card, p1);
+        aura_perm.attach_to(creature_id);
+        game.state.battlefield.add(aura_perm);
+
+        // Execute TapAttached from the aura's perspective
+        game.execute_effects(
+            &[crate::abilities::Effect::TapAttached],
+            p1, &[], Some(aura_id), None,
+        );
+
+        // Creature should be tapped
+        assert!(game.state.battlefield.get(creature_id).unwrap().tapped);
     }
 }

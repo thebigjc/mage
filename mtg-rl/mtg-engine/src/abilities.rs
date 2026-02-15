@@ -292,6 +292,20 @@ pub enum Effect {
 
     /// Give target "can't be blocked this turn" until end of turn.
     CantBeBlockedUntilEot,
+
+    /// Tap the permanent this source is attached to (aura/equipment ETB).
+    TapAttached,
+
+    /// Proliferate — for each permanent with a counter, add one more of each type it already has.
+    /// For each player with a counter, do the same.
+    Proliferate,
+
+    /// Remove all counters from target creature.
+    RemoveAllCounters,
+
+    /// Exile up to N target cards from graveyards.
+    ExileTargetCardsFromGraveyards { count: u32 },
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1033,6 +1047,22 @@ impl Effect {
     pub fn cant_be_blocked_eot() -> Self {
         Effect::CantBeBlockedUntilEot
     }
+
+    pub fn tap_attached() -> Self {
+        Effect::TapAttached
+    }
+
+    pub fn proliferate() -> Self {
+        Effect::Proliferate
+    }
+
+    pub fn remove_all_counters() -> Self {
+        Effect::RemoveAllCounters
+    }
+
+    pub fn exile_from_graveyards(count: u32) -> Self {
+        Effect::ExileTargetCardsFromGraveyards { count }
+    }
 }
 
 impl ModalMode {
@@ -1281,6 +1311,8 @@ pub enum StaticEffect {
     },
     /// This creature must be blocked if able.
     MustBeBlocked,
+    /// Spells you control can't be countered.
+    SpellsCantBeCountered,
     /// Custom continuous effect.
 
     Custom(String),

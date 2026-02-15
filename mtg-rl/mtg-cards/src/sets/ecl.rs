@@ -1286,7 +1286,7 @@ fn rooftop_percher(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Rooftop Percher enters, exile up to two target cards from graveyards. You gain 3 life.",
-                vec![Effect::Custom("Exile up to two target cards from graveyards.".into()), Effect::gain_life(3)],
+                vec![Effect::exile_from_graveyards(2), Effect::gain_life(3)],
                 TargetSpec::CardInGraveyard),
         ],
         ..Default::default() }
@@ -2152,7 +2152,7 @@ fn blossombind(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When this Aura enters, tap enchanted creature.",
-                vec![Effect::Custom("Tap enchanted creature.".into())],
+                vec![Effect::tap_attached()],
                 TargetSpec::None),
             Ability::static_ability(id,
                 "Enchanted creature can't become untapped and can't have counters put on it.",
@@ -2924,7 +2924,7 @@ fn hexing_squelcher(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![StaticEffect::Ward { cost: "Pay 2 life".into() }]),
             Ability::static_ability(id,
                 "Spells you control can't be countered.",
-                vec![StaticEffect::Custom("Spells you control can't be countered.".into())]),
+                vec![StaticEffect::SpellsCantBeCountered]),
             Ability::static_ability(id,
                 "Other creatures you control have ward--pay 2 life.",
                 vec![StaticEffect::GrantKeyword { filter: "other creature you control".into(), keyword: "ward".into() }]),
@@ -2953,7 +2953,7 @@ fn high_perfect_morcant(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "Tap three untapped Elves you control: Proliferate. Activate only as a sorcery.",
                 vec![Cost::tap_creatures("Elf", 3)],
-                vec![Effect::Custom("Proliferate.".into())],
+                vec![Effect::proliferate()],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -3290,7 +3290,7 @@ fn perfect_intimidation(id: ObjectId, owner: PlayerId) -> CardData {
                     ModalMode::new("Target opponent exiles two cards from their hand.",
                         vec![Effect::Custom("Target opponent exiles two cards from hand.".into())]),
                     ModalMode::new("Remove all counters from target creature.",
-                        vec![Effect::Custom("Remove all counters from target creature.".into())]),
+                        vec![Effect::remove_all_counters()]),
                 ], 1, 2)],
                 TargetSpec::Custom("opponent and/or creature".into())),
         ],
@@ -3453,7 +3453,7 @@ fn rhys_the_evermore(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "{W}, {T}: Remove any number of counters from target creature you control. Activate only as a sorcery.",
                 vec![Cost::pay_mana("{W}"), Cost::TapSelf],
-                vec![Effect::Custom("Remove any number of counters from target creature.".into())],
+                vec![Effect::remove_all_counters()],
                 TargetSpec::CreatureYouControl),
         ],
         ..Default::default() }

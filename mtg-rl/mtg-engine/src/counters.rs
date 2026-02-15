@@ -260,6 +260,11 @@ impl Counters {
         self.map.is_empty()
     }
 
+    /// Remove all counters of all types.
+    pub fn clear(&mut self) {
+        self.map.clear();
+    }
+
     /// Iterator over all (counter_type, count) pairs.
     pub fn iter(&self) -> impl Iterator<Item = (&CounterType, &u32)> {
         self.map.iter()
