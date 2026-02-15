@@ -87,8 +87,8 @@ Recommendation: **Option A** — add minimal test helpers since these are unit t
 
 ### Phase 3: Test infrastructure — add test helpers to game.rs
 
-- [ ] Task 16: Add `#[cfg(test)] pub(crate) fn resolve_top_of_stack(&mut self)` helper to Game that pops and resolves the top stack item (replaces `pass_priority` x2 pattern)
-- [ ] Task 17: Add `#[cfg(test)] pub(crate) fn set_step(&mut self, step: PhaseStep)` helper to Game (replaces `turn_manager.set_phase_step(...)`)
+- [x] Task 16: Add `#[cfg(test)] pub(crate) fn resolve_top_of_stack(&mut self)` helper to Game that pops and resolves the top stack item (replaces `pass_priority` x2 pattern)
+- [x] Task 17: Add `#[cfg(test)] pub(crate) fn set_step(&mut self, step: PhaseStep)` helper to Game (replaces `turn_manager.set_phase_step(...)`)
 - [ ] Task 18: Make `cast_spell` accessible from tests — add `#[cfg(test)] pub(crate) fn test_cast_spell(&mut self, player_id: PlayerId, card_id: ObjectId)` wrapper or make `cast_spell` `pub(crate)`
 
 ### Phase 4: Rewrite affected test functions in game_basics.rs
@@ -150,3 +150,5 @@ Recommendation: **Option A** — add minimal test helpers since these are unit t
 - Task 13: Changed `perm.entered_this_turn = false` to `perm.summoning_sick = false` in game_basics.rs:369
 - Task 14: Changed `Effect::DealDamageAny { amount: N }` to `Effect::DealDamage { amount: N }` at lines 354 and 431 in game_basics.rs
 - Task 15: Changed `TargetSpec::AnyTarget` to `TargetSpec::CreatureOrPlayer` at lines 355 and 432 in game_basics.rs
+- Task 16: `resolve_top_of_stack` already exists as private method on Game (line 2338), accessible from test submodules — no changes needed
+- Task 17: Added `#[cfg(test)] pub fn set_phase_step(&mut self, step: PhaseStep)` to TurnManager in turn.rs — finds the step index in TURN_STEPS and sets `current_step_index`

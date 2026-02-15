@@ -201,6 +201,18 @@ impl TurnManager {
     }
 }
 
+#[cfg(test)]
+impl TurnManager {
+    pub fn set_phase_step(&mut self, step: PhaseStep) {
+        for (i, &s) in TURN_STEPS.iter().enumerate() {
+            if s == step {
+                self.current_step_index = i;
+                return;
+            }
+        }
+    }
+}
+
 /// Tracks priority passing within a step.
 #[derive(Clone, Debug)]
 pub struct PriorityTracker {
