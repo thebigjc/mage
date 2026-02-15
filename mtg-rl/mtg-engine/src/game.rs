@@ -1460,6 +1460,13 @@ impl Game {
             }
         }
 
+        // Equipment/Aura detachment: unattach from missing targets
+        for &perm_id in &sba.attachments_to_detach {
+            if let Some(perm) = self.state.battlefield.get_mut(perm_id) {
+                perm.detach();
+            }
+        }
+
         // Return died_sources so caller can clean up AFTER trigger checking
         died_sources
 
@@ -2614,6 +2621,28 @@ impl Game {
                                 for card_id in drawn {
                                     self.state.set_zone(card_id, crate::constants::Zone::Hand, Some(controller));
                                 }
+                            }
+                        }
+                    }
+                }
+                Effect::Equip => {
+                    // Attach this equipment to target creature.
+                    if let Some(source_id) = source {
+                        for &target_id in targets {
+                            // Detach from previous creature if already equipped
+                            if let Some(equip) = self.state.battlefield.get(source_id) {
+                                if let Some(old_target) = equip.attached_to {
+                                    if let Some(old_creature) = self.state.battlefield.get_mut(old_target) {
+                                        old_creature.remove_attachment(source_id);
+                                    }
+                                }
+                            }
+                            // Attach to new target
+                            if let Some(equip) = self.state.battlefield.get_mut(source_id) {
+                                equip.attach_to(target_id);
+                            }
+                            if let Some(creature) = self.state.battlefield.get_mut(target_id) {
+                                creature.add_attachment(source_id);
                             }
                         }
                     }
@@ -4544,7 +4573,7 @@ mod cost_tests {
     use super::*;
     use crate::abilities::Cost;
     use crate::card::CardData;
-    use crate::constants::{CardType, Outcome};
+    use crate::constants::{CardType, KeywordAbilities, Outcome};
     use crate::counters::CounterType;
     use crate::decision::*;
     use crate::game::{GameConfig, PlayerConfig};
@@ -4722,7 +4751,7 @@ mod vivid_tests {
     use super::*;
     use crate::abilities::Effect;
     use crate::card::CardData;
-    use crate::constants::{CardType, Outcome};
+    use crate::constants::{CardType, KeywordAbilities, Outcome};
     use crate::decision::*;
     use crate::game::{GameConfig, PlayerConfig};
     use crate::mana::{ManaCost};
@@ -4871,7 +4900,7 @@ mod choice_tests {
     use super::*;
     use crate::abilities::{Cost, Effect};
     use crate::card::CardData;
-    use crate::constants::{CardType, Outcome};
+    use crate::constants::{CardType, KeywordAbilities, Outcome};
     use crate::counters::CounterType;
     use crate::decision::*;
     use crate::game::{GameConfig, PlayerConfig};
@@ -5149,7 +5178,7 @@ mod type_choice_tests {
 mod combat_tests {
     use super::*;
     use crate::card::CardData;
-    use crate::constants::{CardType, Outcome};
+    use crate::constants::{CardType, KeywordAbilities, Outcome};
     use crate::decision::{
         AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
         ReplacementEffectChoice, TargetRequirement, UnpaidMana,
@@ -6473,7 +6502,7 @@ mod hexproof_tests {
     use super::*;
     use crate::abilities::TargetSpec;
     use crate::card::CardData;
-    use crate::constants::{CardType, Outcome};
+    use crate::constants::{CardType, KeywordAbilities, Outcome};
     use crate::decision::{
         AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
         ReplacementEffectChoice, TargetRequirement, UnpaidMana,
@@ -6784,5 +6813,226 @@ mod dies_trigger_tests {
 
         // No trigger should fire (the dying creature had no dies trigger)
         assert!(game.state.stack.is_empty());
+    }
+}
+
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Equipment tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod equipment_tests {
+    use super::*;
+    use crate::abilities::{Ability, Cost, Effect, StaticEffect, TargetSpec};
+    use crate::card::CardData;
+    use crate::constants::{CardType, Outcome, SubType};
+    use crate::decision::{
+        AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
+        ReplacementEffectChoice, TargetRequirement, UnpaidMana,
+    };
+    use crate::mana::ManaCost;
+    use crate::types::{ObjectId, PlayerId};
+
+    struct PassivePlayer;
+    impl PlayerDecisionMaker for PassivePlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { true }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn setup() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "P1".into(), deck: vec![] },
+                PlayerConfig { name: "P2".into(), deck: vec![] },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(PassivePlayer)),
+                (p2, Box::new(PassivePlayer)),
+            ],
+        );
+        (game, p1, p2)
+    }
+
+    fn make_creature(id: ObjectId, owner: PlayerId, name: &str, power: i32, toughness: i32) -> CardData {
+        let mut card = CardData::new(id, owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![SubType::Human];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        card
+    }
+
+    fn make_equipment(id: ObjectId, owner: PlayerId, name: &str, power_boost: i32, toughness_boost: i32) -> CardData {
+        let mut card = CardData::new(id, owner, name);
+        card.card_types = vec![CardType::Artifact];
+        card.subtypes = vec![SubType::Equipment];
+        card.mana_cost = ManaCost::parse("{1}");
+        card.abilities = vec![
+            Ability::static_ability(id,
+                "Equipped creature gets boost.",
+                vec![StaticEffect::Boost {
+                    filter: "equipped creature".into(),
+                    power: power_boost,
+                    toughness: toughness_boost,
+                }]),
+            Ability::activated(id,
+                "Equip {1}",
+                vec![Cost::pay_mana("{1}")],
+                vec![Effect::equip()],
+                TargetSpec::CreatureYouControl),
+        ];
+        card
+    }
+
+    fn register_abilities(game: &mut Game, perm_id: ObjectId) {
+        let abilities = game.state.battlefield.get(perm_id).unwrap().card.abilities.clone();
+        for ability in abilities {
+            game.state.ability_store.add(ability);
+        }
+    }
+
+    #[test]
+    fn equip_attaches_equipment_to_creature() {
+        let (mut game, p1, _p2) = setup();
+        let creature_id = ObjectId::new();
+        let equip_id = ObjectId::new();
+
+        game.state.battlefield.add(Permanent::new(make_creature(creature_id, p1, "Soldier", 2, 2), p1));
+        game.state.battlefield.add(Permanent::new(make_equipment(equip_id, p1, "Short Sword", 1, 1), p1));
+        register_abilities(&mut game, equip_id);
+
+        game.execute_effects(&[Effect::equip()], p1, &[creature_id], Some(equip_id));
+
+        let equip = game.state.battlefield.get(equip_id).unwrap();
+        assert_eq!(equip.attached_to, Some(creature_id));
+        let creature = game.state.battlefield.get(creature_id).unwrap();
+        assert!(creature.attachments.contains(&equip_id));
+    }
+
+    #[test]
+    fn equipped_creature_gets_stat_boost() {
+        let (mut game, p1, _p2) = setup();
+        let creature_id = ObjectId::new();
+        let equip_id = ObjectId::new();
+
+        game.state.battlefield.add(Permanent::new(make_creature(creature_id, p1, "Soldier", 2, 2), p1));
+        game.state.battlefield.add(Permanent::new(make_equipment(equip_id, p1, "Short Sword", 1, 1), p1));
+        register_abilities(&mut game, equip_id);
+
+        assert_eq!(game.state.battlefield.get(creature_id).unwrap().power(), 2);
+        game.execute_effects(&[Effect::equip()], p1, &[creature_id], Some(equip_id));
+        game.apply_continuous_effects();
+
+        assert_eq!(game.state.battlefield.get(creature_id).unwrap().power(), 3);
+        assert_eq!(game.state.battlefield.get(creature_id).unwrap().toughness(), 3);
+    }
+
+    #[test]
+    fn equipment_detaches_when_creature_leaves() {
+        let (mut game, p1, _p2) = setup();
+        let creature_id = ObjectId::new();
+        let equip_id = ObjectId::new();
+
+        game.state.battlefield.add(Permanent::new(make_creature(creature_id, p1, "Soldier", 2, 2), p1));
+        game.state.battlefield.add(Permanent::new(make_equipment(equip_id, p1, "Short Sword", 1, 1), p1));
+        register_abilities(&mut game, equip_id);
+
+        game.execute_effects(&[Effect::equip()], p1, &[creature_id], Some(equip_id));
+        assert_eq!(game.state.battlefield.get(equip_id).unwrap().attached_to, Some(creature_id));
+
+        // Remove creature (simulating death)
+        game.state.battlefield.remove(creature_id);
+
+        let sba = game.state.check_state_based_actions();
+        assert!(sba.attachments_to_detach.contains(&equip_id));
+
+        game.apply_state_based_actions(&sba);
+        let equip = game.state.battlefield.get(equip_id).unwrap();
+        assert_eq!(equip.attached_to, None);
+        assert!(game.state.battlefield.contains(equip_id));
+    }
+
+    #[test]
+    fn re_equip_moves_to_new_creature() {
+        let (mut game, p1, _p2) = setup();
+        let c1 = ObjectId::new();
+        let c2 = ObjectId::new();
+        let equip_id = ObjectId::new();
+
+        game.state.battlefield.add(Permanent::new(make_creature(c1, p1, "Soldier A", 2, 2), p1));
+        game.state.battlefield.add(Permanent::new(make_creature(c2, p1, "Soldier B", 3, 3), p1));
+        game.state.battlefield.add(Permanent::new(make_equipment(equip_id, p1, "Short Sword", 1, 1), p1));
+        register_abilities(&mut game, equip_id);
+
+        game.execute_effects(&[Effect::equip()], p1, &[c1], Some(equip_id));
+        assert_eq!(game.state.battlefield.get(equip_id).unwrap().attached_to, Some(c1));
+
+        game.execute_effects(&[Effect::equip()], p1, &[c2], Some(equip_id));
+        assert_eq!(game.state.battlefield.get(equip_id).unwrap().attached_to, Some(c2));
+        assert!(game.state.battlefield.get(c2).unwrap().attachments.contains(&equip_id));
+        assert!(!game.state.battlefield.get(c1).unwrap().attachments.contains(&equip_id));
+
+        game.apply_continuous_effects();
+        assert_eq!(game.state.battlefield.get(c1).unwrap().power(), 2);
+        assert_eq!(game.state.battlefield.get(c2).unwrap().power(), 4);
+    }
+
+    #[test]
+    fn equipment_keyword_grant() {
+        let (mut game, p1, _p2) = setup();
+        let creature_id = ObjectId::new();
+        let equip_id = ObjectId::new();
+
+        game.state.battlefield.add(Permanent::new(make_creature(creature_id, p1, "Soldier", 2, 2), p1));
+
+        let mut equipment = CardData::new(equip_id, p1, "Swiftfoot Boots");
+        equipment.card_types = vec![CardType::Artifact];
+        equipment.subtypes = vec![SubType::Equipment];
+        equipment.mana_cost = ManaCost::parse("{2}");
+        equipment.abilities = vec![
+            Ability::static_ability(equip_id,
+                "Equipped creature has hexproof and haste.",
+                vec![StaticEffect::GrantKeyword {
+                    filter: "equipped creature".into(),
+                    keyword: "hexproof, haste".into(),
+                }]),
+            Ability::activated(equip_id,
+                "Equip {1}",
+                vec![Cost::pay_mana("{1}")],
+                vec![Effect::equip()],
+                TargetSpec::CreatureYouControl),
+        ];
+        game.state.battlefield.add(Permanent::new(equipment, p1));
+        register_abilities(&mut game, equip_id);
+
+        assert!(!game.state.battlefield.get(creature_id).unwrap().has_hexproof());
+        assert!(!game.state.battlefield.get(creature_id).unwrap().has_haste());
+
+        game.execute_effects(&[Effect::equip()], p1, &[creature_id], Some(equip_id));
+        game.apply_continuous_effects();
+
+        assert!(game.state.battlefield.get(creature_id).unwrap().has_hexproof());
+        assert!(game.state.battlefield.get(creature_id).unwrap().has_haste());
     }
 }

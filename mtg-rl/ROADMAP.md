@@ -139,7 +139,7 @@ Checked in `state.rs:check_state_based_actions()`:
 | Rule | Description | Status |
 |------|-------------|--------|
 | 704.5a | Player at 0 or less life loses | **Implemented** |
-| 704.5b | Player draws from empty library loses | **Not implemented** |
+| 704.5b | Player draws from empty library loses | **Implemented** (in draw_cards()) |
 | 704.5c | 10+ poison counters = loss | **Implemented** |
 | 704.5d | Token not on battlefield ceases to exist | **Not implemented** |
 | 704.5e | 0-cost copy on stack/BF ceases to exist | **Not implemented** |
@@ -148,7 +148,7 @@ Checked in `state.rs:check_state_based_actions()`:
 | 704.5i | Planeswalker with 0 loyalty → graveyard | **Implemented** |
 | 704.5j | Legend rule (same name) | **Implemented** |
 | 704.5n | Aura not attached → graveyard | **Not implemented** |
-| 704.5p | Equipment/Fortification illegal attach → unattach | **Not implemented** |
+| 704.5p | Equipment/Fortification illegal attach → unattach | **Implemented** |
 | 704.5r | +1/+1 and -1/-1 counter annihilation | **Implemented** |
 | 704.5s | Saga with lore counters ≥ chapters → sacrifice | **Not implemented** |
 
@@ -185,13 +185,15 @@ These require new engine architecture beyond adding match arms to existing funct
 
 ### Tier 2: Key Mechanics (affect 10-30 cards each)
 
-#### 4. Equipment System
-- Attach/detach mechanic (Equipment attaches to creature you control)
-- Equip cost (activated ability, sorcery speed)
-- Stat/keyword bonuses applied while attached (via continuous effects layer)
-- Detach when creature leaves battlefield (SBA)
-- **Blocked cards:** Basilisk Collar, Swiftfoot Boots, Goldvein Pick, Fishing Pole, all Equipment (~15+ cards)
-- **Java reference:** `EquipAbility.java`, `AttachEffect.java`
+#### ~~4. Equipment System~~ (DONE)
+
+**Completed 2026-02-14.** Equipment is now fully functional:
+- `Effect::Equip` variant handles attaching equipment to target creature
+- Detach from previous creature when re-equipping
+- Continuous effects ("equipped creature" filter) already handled by `find_matching_permanents()`
+- SBA 704.5p: Equipment auto-detaches when attached creature leaves battlefield
+- 12 card factories updated from `Effect::Custom` to `Effect::equip()`
+- 5 unit tests: attach, stat boost, detach on death, re-equip, keyword grant
 
 #### 5. Aura/Enchant System
 - Auras target on cast, attach on ETB

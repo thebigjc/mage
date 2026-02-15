@@ -2136,7 +2136,7 @@ fn cori_steel_cutter(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::activated(id, "Equip {3}",
                 vec![Cost::pay_mana("{3}")],
-                vec![Effect::Custom("Attach to target creature you control.".into())],
+                vec![Effect::equip()],
                 TargetSpec::Creature),
         ],
         ..Default::default() }
@@ -2188,7 +2188,7 @@ fn dragonfire_blade(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::Creature),
             Ability::activated(id, "Equip {1}",
                 vec![Cost::pay_mana("{1}")],
-                vec![Effect::Custom("Attach to target creature you control.".into())],
+                vec![Effect::equip()],
                 TargetSpec::Creature),
         ],
         ..Default::default() }
@@ -2727,7 +2727,7 @@ fn stormbeacon_blade(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "Equip {2}",
                 vec![Cost::pay_mana("{2}")],
-                vec![Effect::Custom("Attach to target creature you control.".into())],
+                vec![Effect::equip()],
                 TargetSpec::Creature),
         ],
         ..Default::default() }

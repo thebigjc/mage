@@ -352,6 +352,16 @@ impl GameState {
             }
         }
 
+        // Rule 704.5p: Equipment/Fortification attached to an illegal or missing permanent
+        // becomes unattached but stays on the battlefield.
+        for perm in self.battlefield.iter() {
+            if let Some(attached_to) = perm.attached_to {
+                if !self.battlefield.contains(attached_to) {
+                    sba.attachments_to_detach.push(perm.id());
+                }
+            }
+        }
+
         sba
     }
 
@@ -376,6 +386,8 @@ pub struct StateBasedActions {
     pub permanents_to_destroy: Vec<ObjectId>,
     /// Permanents with +1/+1 and -1/-1 counters that need annihilation.
     pub counters_to_annihilate: Vec<ObjectId>,
+    /// Equipment/Auras that need to be detached (attached target left battlefield).
+    pub attachments_to_detach: Vec<ObjectId>,
 }
 
 impl StateBasedActions {
@@ -387,6 +399,7 @@ impl StateBasedActions {
     pub fn has_actions(&self) -> bool {
         !self.players_losing.is_empty()
             || !self.permanents_to_graveyard.is_empty()
+            || !self.attachments_to_detach.is_empty()
             || !self.permanents_to_destroy.is_empty()
             || !self.counters_to_annihilate.is_empty()
     }

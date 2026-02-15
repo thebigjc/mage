@@ -1345,7 +1345,7 @@ fn basilisk_collar(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "Equip {2}",
                 vec![Cost::pay_mana("{2}")],
-                vec![Effect::Custom("Attach to target creature you control.".into())],
+                vec![Effect::equip()],
                 TargetSpec::Creature),
         ],
         ..Default::default() }
@@ -1427,7 +1427,7 @@ fn swiftfoot_boots(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "Equip {1}",
                 vec![Cost::pay_mana("{1}")],
-                vec![Effect::Custom("Attach to target creature you control.".into())],
+                vec![Effect::equip()],
                 TargetSpec::Creature),
         ],
         ..Default::default() }
@@ -3037,7 +3037,7 @@ fn celestial_armor(id: ObjectId, owner: PlayerId) -> CardData {
                      StaticEffect::grant_keyword_controlled("equipped creature", "flying")]),
             Ability::activated(id, "Equip {3}{W}",
                 vec![Cost::pay_mana("{3}{W}")],
-                vec![Effect::Custom("Attach to target creature you control.".into())],
+                vec![Effect::equip()],
                 TargetSpec::Creature),
         ],
         ..Default::default() }
@@ -5233,7 +5233,7 @@ fn adventuring_gear(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "Equip {1}",
                 vec![Cost::pay_mana("{1}")],
-                vec![Effect::Custom("Attach to target creature you control.".into())],
+                vec![Effect::equip()],
                 TargetSpec::Creature),
         ],
         ..Default::default() }
@@ -6042,7 +6042,7 @@ fn fireshrieker(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "Equip {2}",
                 vec![Cost::pay_mana("{2}")],
-                vec![Effect::Custom("Attach to target creature you control.".into())],
+                vec![Effect::equip()],
                 TargetSpec::Creature),
         ],
         ..Default::default() }
@@ -6845,7 +6845,7 @@ fn quick_draw_katana(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "Equip {2}",
                 vec![Cost::pay_mana("{2}")],
-                vec![Effect::Custom("Attach to target creature you control.".into())],
+                vec![Effect::equip()],
                 TargetSpec::Creature),
         ],
         ..Default::default() }

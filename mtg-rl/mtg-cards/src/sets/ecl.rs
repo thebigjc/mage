@@ -2086,7 +2086,7 @@ fn barbed_bloodletter(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![StaticEffect::boost_controlled("equipped creature", 1, 2)]),
             Ability::activated(id, "Equip {2}",
                 vec![Cost::pay_mana("{2}")],
-                vec![Effect::Custom("Attach to target creature you control.".into())],
+                vec![Effect::equip()],
                 TargetSpec::Creature),
         ],
         ..Default::default() }
@@ -2107,7 +2107,7 @@ fn bark_of_doran(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![StaticEffect::Custom("Assigns combat damage equal to toughness.".into())]),
             Ability::activated(id, "Equip {1}",
                 vec![Cost::pay_mana("{1}")],
-                vec![Effect::Custom("Attach to target creature you control.".into())],
+                vec![Effect::equip()],
                 TargetSpec::Creature),
         ],
         ..Default::default() }
@@ -3633,7 +3633,7 @@ fn stalactite_dagger(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "Equip {2}",
                 vec![Cost::pay_mana("{2}")],
-                vec![Effect::Custom("Equip".into())],
+                vec![Effect::equip()],
                 TargetSpec::CreatureYouControl),
         ],
         ..Default::default() }

@@ -233,8 +233,13 @@ pub enum Effect {
     /// choice on the source permanent's `chosen_type` field.
     /// `restricted` limits the available types (empty = any type).
     ChooseCreatureType { restricted: Vec<String> },
+
     /// "Choose a creature type. Draw a card for each permanent you control of that type."
     ChooseTypeAndDrawPerPermanent,
+
+    // -- Equipment --
+    /// Attach source equipment to target creature you control.
+    Equip,
 
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
@@ -916,6 +921,11 @@ impl Effect {
     /// "As this permanent enters, choose [list of types]."
     pub fn choose_creature_type_restricted(types: Vec<&str>) -> Self {
         Effect::ChooseCreatureType { restricted: types.into_iter().map(|s| s.to_string()).collect() }
+    }
+
+    /// "Attach this Equipment to target creature you control."
+    pub fn equip() -> Self {
+        Effect::Equip
     }
 
     /// "Choose a creature type. Draw a card for each permanent you control of that type."
