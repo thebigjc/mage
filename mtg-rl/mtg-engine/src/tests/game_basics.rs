@@ -366,7 +366,7 @@ fn activated_ability_goes_on_stack() {
 
     // Clear summoning sickness
     let perm = game.state.battlefield.get_mut(creature_id).unwrap();
-    perm.entered_this_turn = false;
+    perm.summoning_sick = false;
 
     // Activate the ability targeting player 2
     game.activate_ability(
