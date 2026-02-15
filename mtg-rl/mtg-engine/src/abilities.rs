@@ -1451,6 +1451,10 @@ impl StaticEffect {
             filter: filter.to_string(),
         }
     }
+
+    pub fn damage_doubling_from_type() -> Self {
+        StaticEffect::DamageDoublingFromType
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1676,6 +1680,8 @@ pub enum StaticEffect {
     GrantConvoke {
         filter: String,
     },
+    /// Double all damage that sources the controller controls of the chosen creature type would deal.
+    DamageDoublingFromType,
     /// Custom continuous effect.
 
     Custom(String),

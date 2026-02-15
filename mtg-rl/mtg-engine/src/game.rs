@@ -424,6 +424,7 @@ impl Game {
             perm.cant_untap = false;
             perm.assign_damage_with_toughness = false;
         }
+        self.state.damage_doublings.clear();
 
         // Step 2: Collect static effects from all battlefield permanents.
         // We must collect first to avoid borrow conflicts.
@@ -443,6 +444,7 @@ impl Game {
         let mut cant_untaps: Vec<(ObjectId, PlayerId, String)> = Vec::new();
         let mut set_power_color_counts: Vec<(ObjectId, PlayerId)> = Vec::new();
         let mut assign_damage_toughness: Vec<(ObjectId, PlayerId, String, Option<String>)> = Vec::new();
+        let mut damage_doublings: Vec<(ObjectId, PlayerId)> = Vec::new();
 
         for perm in self.state.battlefield.iter() {
             let source_id = perm.id();
@@ -501,6 +503,9 @@ impl Game {
                         }
                         crate::abilities::StaticEffect::AssignDamageWithToughness { filter, condition } => {
                             assign_damage_toughness.push((source_id, controller, filter.clone(), condition.clone()));
+                        }
+                        crate::abilities::StaticEffect::DamageDoublingFromType => {
+                            damage_doublings.push((source_id, controller));
                         }
                         _ => {}
                     }
@@ -708,6 +713,15 @@ impl Game {
                 }
                 if let Some(perm) = self.state.battlefield.get_mut(target_id) {
                     perm.assign_damage_with_toughness = true;
+                }
+            }
+        }
+
+        // Step 9: Collect damage doubling effects (source permanent's chosen_type)
+        for (source_id, controller) in damage_doublings {
+            if let Some(perm) = self.state.battlefield.get(source_id) {
+                if let Some(ref chosen) = perm.chosen_type {
+                    self.state.damage_doublings.push((controller, chosen.clone()));
                 }
             }
         }
@@ -991,6 +1005,23 @@ impl Game {
     /// - `"self"` — only the source permanent
     /// - `"enchanted creature"` / `"equipped creature"` — the permanent this is attached to
     /// - `"other X you control"` — excludes source, controller must match
+    fn get_damage_multiplier(&self, source_id: ObjectId) -> u32 {
+        if self.state.damage_doublings.is_empty() {
+            return 1;
+        }
+        let perm = match self.state.battlefield.get(source_id) {
+            Some(p) => p,
+            None => return 1,
+        };
+        let mut multiplier = 1u32;
+        for (controller, ref subtype) in &self.state.damage_doublings {
+            if perm.controller == *controller && perm.has_subtype(subtype) {
+                multiplier *= 2;
+            }
+        }
+        multiplier
+    }
+
     /// - `"X you control"` — controller must match
     /// - `"attacking X you control"` — must be currently attacking
     /// - `"creature token you control"` — must be a token creature
@@ -1723,10 +1754,12 @@ impl Game {
             let attacker_dmg =
                 combat::assign_combat_damage(&group, attacker_info, &blocker_refs, is_first_strike);
 
+            let attacker_mult = self.get_damage_multiplier(group.attacker_id);
             for (target_id, amount, is_player) in &attacker_dmg {
-                damage_events.push((*target_id, *amount, *is_player, group.attacker_id));
-                if attacker_has_lifelink && *amount > 0 {
-                    lifelink_sources.push((attacker_controller, *amount));
+                let final_amount = *amount * attacker_mult;
+                damage_events.push((*target_id, final_amount, *is_player, group.attacker_id));
+                if attacker_has_lifelink && final_amount > 0 {
+                    lifelink_sources.push((attacker_controller, final_amount));
                 }
             }
 
@@ -1735,10 +1768,11 @@ impl Game {
                 let blocker_dmg =
                     combat::assign_blocker_damage(blocker_perm, group.attacker_id, is_first_strike);
                 if blocker_dmg > 0 {
-                    damage_events.push((group.attacker_id, blocker_dmg, false, *blocker_id));
-                    // Check blocker lifelink
+                    let blocker_mult = self.get_damage_multiplier(*blocker_id);
+                    let final_blocker_dmg = blocker_dmg * blocker_mult;
+                    damage_events.push((group.attacker_id, final_blocker_dmg, false, *blocker_id));
                     if blocker_perm.has_lifelink() {
-                        lifelink_sources.push((blocker_perm.controller, blocker_dmg));
+                        lifelink_sources.push((blocker_perm.controller, final_blocker_dmg));
                     }
                 }
             }
@@ -3016,7 +3050,9 @@ impl Game {
             };
             match effect {
                 Effect::DealDamage { amount } => {
-                    let dmg = resolve_x(*amount);
+                    let base_dmg = resolve_x(*amount);
+                    let mult = source.map(|s| self.get_damage_multiplier(s)).unwrap_or(1);
+                    let dmg = base_dmg * mult;
                     for &target_id in targets {
                         if let Some(perm) = self.state.battlefield.get_mut(target_id) {
                             perm.apply_damage(dmg);
@@ -3111,13 +3147,16 @@ impl Game {
                     }
                 }
                 Effect::DealDamageOpponents { amount } => {
+                    let base_dmg = resolve_x(*amount);
+                    let mult = source.map(|s| self.get_damage_multiplier(s)).unwrap_or(1);
+                    let dmg = base_dmg * mult;
                     let opponents: Vec<PlayerId> = self.state.turn_order.iter()
                         .filter(|&&id| id != controller)
                         .copied()
                         .collect();
                     for opp in opponents {
                         if let Some(player) = self.state.players.get_mut(&opp) {
-                            player.life -= resolve_x(*amount) as i32;
+                            player.life -= dmg as i32;
                         }
                     }
                 }
@@ -3443,8 +3482,9 @@ impl Game {
                     }
                 }
                 Effect::DealDamageAll { amount, filter } => {
-                    let dmg = resolve_x(*amount);
-                    // Deal damage to all creatures matching filter
+                    let base_dmg = resolve_x(*amount);
+                    let mult = source.map(|s| self.get_damage_multiplier(s)).unwrap_or(1);
+                    let dmg = base_dmg * mult;
                     let matching: Vec<ObjectId> = self.state.battlefield.iter()
                         .filter(|p| p.is_creature() && Self::matches_filter(p, filter))
                         .map(|p| p.id())
@@ -3668,19 +3708,18 @@ impl Game {
                                 .map(|p| p.power().max(0) as u32).unwrap_or(0);
                             let target_power = self.state.battlefield.get(tid)
                                 .map(|p| p.power().max(0) as u32).unwrap_or(0);
+                            let fighter_mult = self.get_damage_multiplier(fid);
+                            let target_mult = self.get_damage_multiplier(tid);
                             if let Some(target_perm) = self.state.battlefield.get_mut(tid) {
-                                target_perm.apply_damage(fighter_power);
+                                target_perm.apply_damage(fighter_power * fighter_mult);
                             }
                             if let Some(fighter_perm) = self.state.battlefield.get_mut(fid) {
-                                fighter_perm.apply_damage(target_power);
+                                fighter_perm.apply_damage(target_power * target_mult);
                             }
                         }
                     }
                 }
                 Effect::Bite => {
-                    // Bite: source creature deals damage equal to its power to target
-                    // creature (one-way; the target does not deal damage back).
-                    // Same target resolution as Fight.
                     let (biter_id, target_id) = Self::resolve_fight_pair(
                         &self.state, targets, source, controller,
                     );
@@ -3689,8 +3728,9 @@ impl Game {
                         if bid != tid {
                             let biter_power = self.state.battlefield.get(bid)
                                 .map(|p| p.power().max(0) as u32).unwrap_or(0);
+                            let biter_mult = self.get_damage_multiplier(bid);
                             if let Some(target_perm) = self.state.battlefield.get_mut(tid) {
-                                target_perm.apply_damage(biter_power);
+                                target_perm.apply_damage(biter_power * biter_mult);
                             }
                         }
                     }
@@ -3781,16 +3821,17 @@ impl Game {
                 Effect::DealDamageVivid => {
                     let x = self.count_colors_among_permanents(controller) as u32;
                     if x > 0 {
+                        let mult = source.map(|s| self.get_damage_multiplier(s)).unwrap_or(1);
+                        let dmg = x * mult;
                         for &target_id in targets {
                             if let Some(perm) = self.state.battlefield.get_mut(target_id) {
-                                perm.apply_damage(x);
+                                perm.apply_damage(dmg);
                             }
                         }
-                        // If no permanent targets, deal to opponent (same pattern as DealDamage)
                         if targets.is_empty() {
                             if let Some(opp_id) = self.state.opponent_of(controller) {
                                 if let Some(opp) = self.state.players.get_mut(&opp_id) {
-                                    opp.life -= x as i32;
+                                    opp.life -= dmg as i32;
                                 }
                             }
                         }

@@ -2370,7 +2370,7 @@ fn collective_inferno(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::static_ability(id,
                 "Double all damage that sources you control of the chosen type would deal.",
-                vec![StaticEffect::Custom("Double damage from chosen type sources.".into())]),
+                vec![StaticEffect::damage_doubling_from_type()]),
         ],
         ..Default::default() }
 }

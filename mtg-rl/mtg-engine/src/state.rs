@@ -10,7 +10,7 @@
 
 use crate::abilities::AbilityStore;
 use crate::combat::CombatState;
-use crate::constants::{PhaseStep, TurnPhase, Zone};
+use crate::constants::{PhaseStep, SubType, TurnPhase, Zone};
 use crate::player::Player;
 use crate::types::{ObjectId, PlayerId};
 use crate::zones::{Battlefield, CardStore, Exile, Stack};
@@ -113,6 +113,12 @@ pub struct GameState {
     /// One-shot triggered abilities registered by effects (e.g. "when this
     /// creature dies this turn, draw a card").
     pub delayed_triggers: Vec<DelayedTrigger>,
+
+    // ── Damage doubling ────────────────────────────────────────────────
+    /// Active damage doubling effects: (controller, chosen_creature_type).
+    /// Rebuilt each apply_continuous_effects call.
+    #[serde(skip)]
+    pub damage_doublings: Vec<(PlayerId, SubType)>,
 }
 
 /// Duration for impulse draw effects (how long the exiled card remains playable).
@@ -222,6 +228,7 @@ impl GameState {
             values: HashMap::new(),
             impulse_playable: Vec::new(),
             delayed_triggers: Vec::new(),
+            damage_doublings: Vec::new(),
         }
     }
 

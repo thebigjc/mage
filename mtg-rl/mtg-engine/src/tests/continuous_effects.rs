@@ -1324,3 +1324,234 @@ use crate::types::{ObjectId, PlayerId};
         }
     }
 
+// ── DamageDoublingFromType ─────────────────────────────────────────────────
+
+mod damage_doubling_tests {
+    use super::*;
+
+    fn setup_with_enchantment(chosen: SubType) -> (Game, PlayerId, PlayerId, ObjectId) {
+        let (mut game, p1, p2) = setup();
+
+        let mut ench_card = CardData::new(ObjectId::new(), p1, "Damage Doubler");
+        ench_card.card_types = vec![CardType::Enchantment];
+        let ench_id = ench_card.id;
+        let ability = Ability::static_ability(ench_id,
+            "Double all damage from chosen type.",
+            vec![StaticEffect::damage_doubling_from_type()]);
+        let mut ench_perm = Permanent::new(ench_card, p1);
+        ench_perm.chosen_type = Some(chosen);
+        game.state.battlefield.add(ench_perm);
+        game.state.ability_store.add(ability);
+
+        (game, p1, p2, ench_id)
+    }
+
+    #[test]
+    fn doubles_combat_damage_from_matching_type() {
+        let (mut game, p1, p2, _ench_id) = setup_with_enchantment(SubType::Goblin);
+
+        let mut goblin = CardData::new(ObjectId::new(), p1, "Goblin Raider");
+        goblin.card_types = vec![CardType::Creature];
+        goblin.subtypes = vec![SubType::Goblin];
+        goblin.power = Some(3);
+        goblin.toughness = Some(2);
+        goblin.keywords = KeywordAbilities::empty();
+        let goblin_id = goblin.id;
+        game.state.battlefield.add(Permanent::new(goblin, p1));
+
+        let mut target = CardData::new(ObjectId::new(), p2, "Big Wall");
+        target.card_types = vec![CardType::Creature];
+        target.power = Some(0);
+        target.toughness = Some(10);
+        target.keywords = KeywordAbilities::empty();
+        let target_id = target.id;
+        game.state.battlefield.add(Permanent::new(target, p2));
+
+        game.apply_continuous_effects();
+
+        assert_eq!(game.state.damage_doublings.len(), 1);
+        assert_eq!(game.get_damage_multiplier(goblin_id), 2);
+
+        game.execute_effects(
+            &[Effect::DealDamage { amount: 3 }],
+            p1,
+            &[target_id],
+            Some(goblin_id),
+            None,
+        );
+
+        let wall = game.state.battlefield.get(target_id).unwrap();
+        assert_eq!(wall.damage, 6, "3 damage doubled to 6");
+    }
+
+    #[test]
+    fn no_doubling_for_non_matching_type() {
+        let (mut game, p1, _p2, _ench_id) = setup_with_enchantment(SubType::Goblin);
+
+        let mut elf = CardData::new(ObjectId::new(), p1, "Elf Archer");
+        elf.card_types = vec![CardType::Creature];
+        elf.subtypes = vec![SubType::Elf];
+        elf.power = Some(2);
+        elf.toughness = Some(2);
+        elf.keywords = KeywordAbilities::empty();
+        let elf_id = elf.id;
+        game.state.battlefield.add(Permanent::new(elf, p1));
+
+        game.apply_continuous_effects();
+
+        assert_eq!(game.get_damage_multiplier(elf_id), 1);
+    }
+
+    #[test]
+    fn no_doubling_for_opponent_creatures() {
+        let (mut game, _p1, p2, _ench_id) = setup_with_enchantment(SubType::Goblin);
+
+        let mut opp_goblin = CardData::new(ObjectId::new(), p2, "Enemy Goblin");
+        opp_goblin.card_types = vec![CardType::Creature];
+        opp_goblin.subtypes = vec![SubType::Goblin];
+        opp_goblin.power = Some(2);
+        opp_goblin.toughness = Some(2);
+        opp_goblin.keywords = KeywordAbilities::empty();
+        let opp_id = opp_goblin.id;
+        game.state.battlefield.add(Permanent::new(opp_goblin, p2));
+
+        game.apply_continuous_effects();
+
+        assert_eq!(game.get_damage_multiplier(opp_id), 1);
+    }
+
+    #[test]
+    fn changeling_matches_any_chosen_type() {
+        let (mut game, p1, _p2, _ench_id) = setup_with_enchantment(SubType::Dragon);
+
+        let mut changeling = CardData::new(ObjectId::new(), p1, "Changeling Outcast");
+        changeling.card_types = vec![CardType::Creature];
+        changeling.power = Some(1);
+        changeling.toughness = Some(1);
+        changeling.keywords = KeywordAbilities::CHANGELING;
+        let ch_id = changeling.id;
+        game.state.battlefield.add(Permanent::new(changeling, p1));
+
+        game.apply_continuous_effects();
+
+        assert_eq!(game.get_damage_multiplier(ch_id), 2, "changeling is every creature type");
+    }
+
+    #[test]
+    fn doubling_removed_when_enchantment_leaves() {
+        let (mut game, p1, _p2, ench_id) = setup_with_enchantment(SubType::Goblin);
+
+        let mut goblin = CardData::new(ObjectId::new(), p1, "Goblin");
+        goblin.card_types = vec![CardType::Creature];
+        goblin.subtypes = vec![SubType::Goblin];
+        goblin.power = Some(2);
+        goblin.toughness = Some(2);
+        goblin.keywords = KeywordAbilities::empty();
+        let goblin_id = goblin.id;
+        game.state.battlefield.add(Permanent::new(goblin, p1));
+
+        game.apply_continuous_effects();
+        assert_eq!(game.get_damage_multiplier(goblin_id), 2);
+
+        game.state.battlefield.remove(ench_id);
+        game.state.ability_store.remove_source(ench_id);
+        game.apply_continuous_effects();
+        assert_eq!(game.get_damage_multiplier(goblin_id), 1, "no doubling after enchantment removed");
+    }
+
+    #[test]
+    fn multiple_doublings_stack_multiplicatively() {
+        let (mut game, p1, _p2, _) = setup_with_enchantment(SubType::Goblin);
+
+        let mut ench2 = CardData::new(ObjectId::new(), p1, "Damage Doubler 2");
+        ench2.card_types = vec![CardType::Enchantment];
+        let ench2_id = ench2.id;
+        let ability2 = Ability::static_ability(ench2_id,
+            "Double all damage from chosen type.",
+            vec![StaticEffect::damage_doubling_from_type()]);
+        let mut ench2_perm = Permanent::new(ench2, p1);
+        ench2_perm.chosen_type = Some(SubType::Goblin);
+        game.state.battlefield.add(ench2_perm);
+        game.state.ability_store.add(ability2);
+
+        let mut goblin = CardData::new(ObjectId::new(), p1, "Goblin");
+        goblin.card_types = vec![CardType::Creature];
+        goblin.subtypes = vec![SubType::Goblin];
+        goblin.power = Some(1);
+        goblin.toughness = Some(1);
+        goblin.keywords = KeywordAbilities::empty();
+        let goblin_id = goblin.id;
+        game.state.battlefield.add(Permanent::new(goblin, p1));
+
+        game.apply_continuous_effects();
+
+        assert_eq!(game.get_damage_multiplier(goblin_id), 4, "2 * 2 = 4x damage");
+    }
+
+    #[test]
+    fn no_chosen_type_means_no_doubling() {
+        let (mut game, p1, _p2) = setup();
+
+        let mut ench = CardData::new(ObjectId::new(), p1, "Empty Doubler");
+        ench.card_types = vec![CardType::Enchantment];
+        let ench_id = ench.id;
+        let ability = Ability::static_ability(ench_id,
+            "Double all damage from chosen type.",
+            vec![StaticEffect::damage_doubling_from_type()]);
+        let ench_perm = Permanent::new(ench, p1);
+        game.state.battlefield.add(ench_perm);
+        game.state.ability_store.add(ability);
+
+        let mut goblin = CardData::new(ObjectId::new(), p1, "Goblin");
+        goblin.card_types = vec![CardType::Creature];
+        goblin.subtypes = vec![SubType::Goblin];
+        goblin.power = Some(2);
+        goblin.toughness = Some(2);
+        goblin.keywords = KeywordAbilities::empty();
+        let goblin_id = goblin.id;
+        game.state.battlefield.add(Permanent::new(goblin, p1));
+
+        game.apply_continuous_effects();
+
+        assert!(game.state.damage_doublings.is_empty(), "no chosen type, no doubling entry");
+        assert_eq!(game.get_damage_multiplier(goblin_id), 1);
+    }
+
+    #[test]
+    fn doubles_deal_damage_to_player() {
+        let (mut game, p1, p2, _ench_id) = setup_with_enchantment(SubType::Goblin);
+
+        let mut goblin = CardData::new(ObjectId::new(), p1, "Goblin Shaman");
+        goblin.card_types = vec![CardType::Creature];
+        goblin.subtypes = vec![SubType::Goblin];
+        goblin.power = Some(1);
+        goblin.toughness = Some(1);
+        goblin.keywords = KeywordAbilities::empty();
+        let goblin_id = goblin.id;
+        game.state.battlefield.add(Permanent::new(goblin, p1));
+
+        game.apply_continuous_effects();
+
+        let starting_life = game.state.players.get(&p2).unwrap().life;
+
+        game.execute_effects(
+            &[Effect::DealDamage { amount: 2 }],
+            p1,
+            &[],
+            Some(goblin_id),
+            None,
+        );
+
+        let final_life = game.state.players.get(&p2).unwrap().life;
+        assert_eq!(starting_life - final_life, 4, "2 damage doubled to 4 to opponent");
+    }
+
+    #[test]
+    fn helper_constructor_damage_doubling() {
+        match StaticEffect::damage_doubling_from_type() {
+            StaticEffect::DamageDoublingFromType => {}
+            _ => panic!("wrong variant"),
+        }
+    }
+}
+
