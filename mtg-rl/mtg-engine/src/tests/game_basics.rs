@@ -351,8 +351,8 @@ fn activated_ability_goes_on_stack() {
         creature_id,
         "{T}: Deal 1 damage to any target",
         vec![Cost::tap_self()],
-        vec![Effect::DealDamageAny { amount: 1 }],
-        TargetSpec::AnyTarget,
+        vec![Effect::DealDamage { amount: 1 }],
+        TargetSpec::CreatureOrPlayer,
     );
     let ability_id = activated_ability.id;
     creature.abilities.push(activated_ability);
@@ -428,8 +428,8 @@ fn spell_effects_execute_on_resolve() {
     spell.mana_cost = crate::mana::ManaCost::parse("{R}");
     spell.abilities.push(Ability::spell(
         spell_id,
-        vec![Effect::DealDamageAny { amount: 3 }],
-        TargetSpec::AnyTarget,
+        vec![Effect::DealDamage { amount: 3 }],
+        TargetSpec::CreatureOrPlayer,
     ));
 
     // Add red mana to player 1's pool

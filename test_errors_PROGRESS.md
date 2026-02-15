@@ -82,8 +82,8 @@ Recommendation: **Option A** — add minimal test helpers since these are unit t
 - [x] Task 11: Fix `Effect::gain_control_until_end_of_turn()` → `Effect::gain_control_eot()` in `effects.rs:801`
 - [x] Task 12: Fix `Effect::look_top_and_pick(3, "land card", "hand", "graveyard")` → `Effect::look_top_and_pick(3, "land card")` in `effects.rs:751`
 - [x] Task 13: Fix `perm.entered_this_turn = false` → `perm.summoning_sick = false` in `game_basics.rs:369`
-- [ ] Task 14: Fix `Effect::DealDamageAny { amount: N }` → `Effect::DealDamage { amount: N }` in `game_basics.rs:354,431`
-- [ ] Task 15: Fix `TargetSpec::AnyTarget` → `TargetSpec::CreatureOrPlayer` in `game_basics.rs:355,432`
+- [x] Task 14: Fix `Effect::DealDamageAny { amount: N }` → `Effect::DealDamage { amount: N }` in `game_basics.rs:354,431`
+- [x] Task 15: Fix `TargetSpec::AnyTarget` → `TargetSpec::CreatureOrPlayer` in `game_basics.rs:355,432`
 
 ### Phase 3: Test infrastructure — add test helpers to game.rs
 
@@ -148,3 +148,5 @@ Recommendation: **Option A** — add minimal test helpers since these are unit t
 - Task 11: Changed `Effect::gain_control_until_end_of_turn()` to `Effect::gain_control_eot()` in effects.rs:801
 - Task 12: Changed `Effect::look_top_and_pick(3, "land card", "hand", "graveyard")` to `Effect::look_top_and_pick(3, "land card")` in effects.rs:751
 - Task 13: Changed `perm.entered_this_turn = false` to `perm.summoning_sick = false` in game_basics.rs:369
+- Task 14: Changed `Effect::DealDamageAny { amount: N }` to `Effect::DealDamage { amount: N }` at lines 354 and 431 in game_basics.rs
+- Task 15: Changed `TargetSpec::AnyTarget` to `TargetSpec::CreatureOrPlayer` at lines 355 and 432 in game_basics.rs
