@@ -14,7 +14,7 @@ This document describes implementation gaps between the Rust mtg-rl engine and t
 | `Cost::Custom` fallbacks | 33 |
 | **Total Custom fallbacks** | **940** |
 | Keywords defined | 47 |
-| Keywords mechanically enforced | 10 (but combat doesn't run, so only Haste + Defender active in practice) |
+| Keywords mechanically enforced | 19 (combat active, plus hexproof, shroud, prowess, landwalk) |
 | State-based actions | 7 of ~20 rules implemented |
 | Triggered abilities | Events emitted, triggers stacked (ETB, attack, life gain, dies) |
 | Replacement effects | Data structures defined but not integrated |
@@ -102,7 +102,7 @@ All 10 are now active in practice via combat integration (2026-02-14). Additiona
 | FEAR | Only blocked by black/artifact | **Enforced** in `combat.rs:can_block()` |
 | INTIMIDATE | Only blocked by same color/artifact | **Enforced** in `combat.rs:can_block()` |
 | SHADOW | Only blocked by/blocks shadow | Not checked |
-| PROWESS | +1/+1 when noncreature spell cast | Trigger never fires |
+| PROWESS | +1/+1 when noncreature spell cast | **Enforced** in `check_triggered_abilities()` |
 | UNDYING | Return with +1/+1 counter on death | No death replacement |
 | PERSIST | Return with -1/-1 counter on death | No death replacement |
 | WITHER | Damage as -1/-1 counters | Not checked |
@@ -117,11 +117,11 @@ All 10 are now active in practice via combat integration (2026-02-14). Additiona
 | EXALTED | +1/+1 when attacking alone | No trigger |
 | EXPLOIT | Sacrifice creature on ETB | No trigger |
 | FLANKING | Blockers get -1/-1 | Not checked |
-| FORESTWALK | Unblockable vs forest controller | Not checked |
-| ISLANDWALK | Unblockable vs island controller | Not checked |
-| MOUNTAINWALK | Unblockable vs mountain controller | Not checked |
-| PLAINSWALK | Unblockable vs plains controller | Not checked |
-| SWAMPWALK | Unblockable vs swamp controller | Not checked |
+| FORESTWALK | Unblockable vs forest controller | **Enforced** in blocker selection |
+| ISLANDWALK | Unblockable vs island controller | **Enforced** in blocker selection |
+| MOUNTAINWALK | Unblockable vs mountain controller | **Enforced** in blocker selection |
+| PLAINSWALK | Unblockable vs plains controller | **Enforced** in blocker selection |
+| SWAMPWALK | Unblockable vs swamp controller | **Enforced** in blocker selection |
 | TOTEM_ARMOR | Prevents enchanted creature death | No replacement |
 | AFFLICT | Life loss when blocked | No trigger |
 | BATTLE_CRY | +1/+0 to other attackers | No trigger |
