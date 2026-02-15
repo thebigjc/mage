@@ -4,7 +4,7 @@ Started: Sun Feb 15 06:17:48 PM EST 2026
 
 ## Status
 
-IN_PROGRESS
+RALPH_DONE
 
 ## Analysis
 
@@ -69,14 +69,16 @@ The cleanest approach is to fix file-by-file, starting with game.rs (production 
 - [x] Task 11: Fix 13 warnings in `tests/modal.rs` — remove unused imports (`Ability`, `Cost`, `StaticEffect`, `TargetSpec`, `CombatState`, `Color`, `KeywordAbilities`, `PhaseStep`, `SubType`, `SuperType`, `Zone`, `CounterType`, `EventType`, `GameEvent`, `Mana`, `ManaCost`, `Permanent`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), remove dead `make_deck` function, remove dead `AlwaysPassPlayer` struct + impl
 - [x] Task 12: Fix 13 warnings in `tests/special_mechanics.rs` — remove unused imports (`ModalMode`, `TargetSpec`, `CombatState`, `Color`, `SuperType`, `Zone`, `EventType`, `GameEvent`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`), remove dead `PassivePlayer2` struct + impl, remove dead `PassivePlayer3` struct + impl, remove dead `OptionPicker2` struct + impl, remove dead `AlwaysPassPlayer2` struct + impl, prefix `lib_ids` with `_`
 - [x] Task 13: Fix 11 warnings in `tests/tokens.rs` — remove unused imports (`Ability`, `Cost`, `ModalMode`, `StaticEffect`, `TargetSpec`, `CombatState`, `CardType`, `Color`, `KeywordAbilities`, `Outcome`, `PhaseStep`, `SubType`, `SuperType`, `Zone`, `CounterType`, `AttackerInfo`, `DamageAssignment`, `GameView`, `NamedChoice`, `PlayerAction`, `PlayerDecisionMaker`, `ReplacementEffectChoice`, `TargetRequirement`, `UnpaidMana`, `EventType`, `GameEvent`, `Mana`, `ManaCost`, `Permanent`, `StateBasedActions`, `AbilityId`, `WatcherManager`, `super::*`)
-- [ ] Task 14: Fix 11 warnings in `tests/triggers.rs` — remove unused imports, remove dead `PassivePlayer2` struct + impl, remove dead `PassivePlayer3` struct + impl
+- [x] Task 14: Fix 11 warnings in `tests/triggers.rs` — remove unused imports, remove dead `PassivePlayer2` struct + impl, remove dead `PassivePlayer3` struct + impl
 
 ### Verification
-- [ ] Task 15: Run `cargo test --lib -p mtg-engine --no-run 2>&1` and verify 0 warnings remain
-- [ ] Task 16: Run `cargo test --lib -p mtg-engine` and verify all tests still pass
+- [x] Task 15: Run `cargo test --lib -p mtg-engine --no-run 2>&1` and verify 0 warnings remain
+- [x] Task 16: Run `cargo test --lib -p mtg-engine` and verify all tests still pass
 
 ## Completed This Iteration
-- Task 13: Removed 11 unused import lines and `super::*` from tokens.rs, keeping only `Effect`, `CardData`, `Permanent`, `ObjectId`, `PlayerId`, and `crate::game::*`. All 6 tokens tests pass, 0 warnings from tokens.rs.
+- Task 14: Removed 11 unused imports, dead `PassivePlayer2` struct+impl, dead `PassivePlayer3` struct+impl, and dead `make_deck3` from triggers.rs (replaced calls with existing `make_deck`). 0 warnings from triggers.rs.
+- Task 15: Verified 0 warnings remain across all files.
+- Task 16: Verified all 386 tests pass.
 
 ## Notes
 
