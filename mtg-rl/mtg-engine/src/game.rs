@@ -885,6 +885,19 @@ impl Game {
                 for player in self.state.players.values_mut() {
                     player.mana_pool.clear();
                 }
+                // Clean up expired impulse-playable cards
+                let turn_num = self.state.turn_number;
+                self.state.impulse_playable.retain(|ip| {
+                    match ip.duration {
+                        crate::state::ImpulseDuration::EndOfTurn => false,
+                        crate::state::ImpulseDuration::UntilEndOfNextTurn => {
+                            // Keep unless this is the controller's turn cleanup
+                            // AND it wasn't just created this turn.
+                            !(active_player == ip.player_id
+                              && turn_num > ip.created_turn)
+                        }
+                    }
+                });
             }
             PhaseStep::DeclareAttackers => {
                 self.declare_attackers_step(active_player);
@@ -1330,6 +1343,53 @@ impl Game {
             }
         }
 
+        // Check for impulse-playable cards from exile
+        for impulse in &self.state.impulse_playable {
+            if impulse.player_id != player_id {
+                continue;
+            }
+            // Verify card is still in exile
+            if !self.state.exile.contains(impulse.card_id) {
+                continue;
+            }
+            if let Some(card) = self.state.card_store.get(impulse.card_id) {
+                if card.is_land() {
+                    // Can play lands from exile at sorcery speed
+                    if can_sorcery && player.can_play_land() {
+                        actions.push(crate::decision::PlayerAction::PlayLand {
+                            card_id: impulse.card_id,
+                        });
+                    }
+                } else {
+                    // Can cast spells from exile
+                    let needs_sorcery = !card.is_instant()
+                        && !card.keywords.contains(crate::constants::KeywordAbilities::FLASH);
+                    if needs_sorcery && !can_sorcery {
+                        continue;
+                    }
+                    if impulse.without_mana {
+                        actions.push(crate::decision::PlayerAction::CastSpell {
+                            card_id: impulse.card_id,
+                            targets: vec![],
+                            mode: None,
+                            without_mana: true,
+                        });
+                    } else {
+                        let mana_cost = card.mana_cost.to_mana();
+                        let available = player.mana_pool.available();
+                        if available.can_pay(&mana_cost) {
+                            actions.push(crate::decision::PlayerAction::CastSpell {
+                                card_id: impulse.card_id,
+                                targets: vec![],
+                                mode: None,
+                                without_mana: false,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
         // Check for activatable abilities on permanents the player controls
         let controlled_perms: Vec<(ObjectId, bool)> = self.state.battlefield
             .controlled_by(player_id)
@@ -1380,11 +1440,21 @@ impl Game {
             return;
         }
 
-        if !player.hand.remove(card_id) {
-            return;
+        // Try to remove from hand first, then from exile (impulse play)
+        let from_exile = !player.hand.contains(card_id)
+            && self.state.impulse_playable.iter().any(|ip| ip.card_id == card_id && ip.player_id == player_id);
+        if from_exile {
+            self.state.exile.remove(card_id);
+            self.state.impulse_playable.retain(|ip| ip.card_id != card_id);
+            // Re-borrow player after mutation
+            let player = self.state.players.get_mut(&player_id).unwrap();
+            player.play_land();
+        } else {
+            if !player.hand.remove(card_id) {
+                return;
+            }
+            player.play_land();
         }
-
-        player.play_land();
 
         // Create permanent from card data
         if let Some(card_data) = self.state.card_store.get(card_id).cloned() {
@@ -1431,21 +1501,35 @@ impl Game {
             None
         };
 
-        // Remove from hand
-        if let Some(player) = self.state.players.get_mut(&player_id) {
+        // Check if this is an impulse-play from exile
+        let from_exile = self.state.impulse_playable.iter()
+            .any(|ip| ip.card_id == card_id && ip.player_id == player_id);
+        let without_mana = from_exile && self.state.impulse_playable.iter()
+            .any(|ip| ip.card_id == card_id && ip.without_mana);
+
+        // Remove from hand or exile
+        if from_exile {
+            self.state.exile.remove(card_id);
+            // Remove the impulse-playable entry
+            self.state.impulse_playable.retain(|ip| ip.card_id != card_id);
+        } else if let Some(player) = self.state.players.get_mut(&player_id) {
             if !player.hand.remove(card_id) {
                 return;
             }
+        }
 
-            // Pay mana cost (with X substituted if applicable)
-            let mana_cost = match x_value {
-                Some(x) => card_data.mana_cost.to_mana_with_x(x),
-                None => card_data.mana_cost.to_mana(),
-            };
-            if !player.mana_pool.try_pay(&mana_cost) {
-                // Can't pay — put card back in hand
-                player.hand.add(card_id);
-                return;
+        // Pay mana cost (with X substituted if applicable), unless free cast
+        if !without_mana {
+            if let Some(player) = self.state.players.get_mut(&player_id) {
+                let mana_cost = match x_value {
+                    Some(x) => card_data.mana_cost.to_mana_with_x(x),
+                    None => card_data.mana_cost.to_mana(),
+                };
+                if !player.mana_pool.try_pay(&mana_cost) {
+                    // Can't pay — put card back where it came from
+                    player.hand.add(card_id);
+                    return;
+                }
             }
         }
 
@@ -1471,7 +1555,7 @@ impl Game {
         self.state.set_zone(card_id, crate::constants::Zone::Stack, None);
 
         // Emit spell cast event (for prowess, storm, etc.)
-        self.emit_event(GameEvent::spell_cast(card_id, player_id, crate::constants::Zone::Hand));
+        self.emit_event(GameEvent::spell_cast(card_id, player_id, if from_exile { crate::constants::Zone::Exile } else { crate::constants::Zone::Hand }));
 
         // Ward check: if any target has Ward and the caster is an opponent, enforce ward cost
         self.check_ward_on_targets(card_id, player_id);
@@ -2962,6 +3046,35 @@ impl Game {
                                 creature.add_attachment(source_id);
                             }
                         }
+                    }
+                }
+                Effect::ExileTopAndPlay { count, duration, without_mana } => {
+                    let n = resolve_x(*count) as usize;
+                    let dur = match duration.as_str() {
+                        "until_end_of_next_turn" => crate::state::ImpulseDuration::UntilEndOfNextTurn,
+                        _ => crate::state::ImpulseDuration::EndOfTurn,
+                    };
+                    // Exile top N cards from the controller's library
+                    let mut exiled = Vec::new();
+                    for _ in 0..n {
+                        let card_id = self.state.players.get_mut(&controller)
+                            .and_then(|p| p.library.draw());
+                        if let Some(id) = card_id {
+                            self.state.exile.exile(id);
+                            self.state.set_zone(id, crate::constants::Zone::Exile, None);
+                            exiled.push(id);
+                        }
+                    }
+                    // Register as impulse-playable
+                    let turn = self.state.turn_number;
+                    for id in exiled {
+                        self.state.impulse_playable.push(crate::state::ImpulsePlayable {
+                            card_id: id,
+                            player_id: controller,
+                            duration: dur.clone(),
+                            created_turn: turn,
+                            without_mana: *without_mana,
+                        });
                     }
                 }
                 _ => {
@@ -8483,5 +8596,240 @@ mod x_cost_tests {
         game.resolve_top_of_stack();
         let life_after = game.state.players.get(&p1).unwrap().life;
         assert_eq!(life_after, life_before + 3);
+    }
+}
+
+#[cfg(test)]
+mod impulse_draw_tests {
+    use super::*;
+    use crate::abilities::Effect;
+    use crate::card::CardData;
+    use crate::constants::{CardType, TurnPhase, PhaseStep, Outcome};
+    use crate::mana::{Mana, ManaCost};
+    use crate::types::{ObjectId, PlayerId};
+    use crate::decision::*;
+
+    struct PassivePlayer;
+    impl PlayerDecisionMaker for PassivePlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn setup_impulse_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+
+        let config = GameConfig {
+            starting_life: 20,
+            players: vec![
+                PlayerConfig { name: "P1".into(), deck: vec![] },
+                PlayerConfig { name: "P2".into(), deck: vec![] },
+            ],
+        };
+        let mut game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(PassivePlayer)),
+                (p2, Box::new(PassivePlayer)),
+            ],
+        );
+        game.state.active_player = p1;
+        game.state.current_phase = TurnPhase::PrecombatMain;
+        game.state.current_step = PhaseStep::PrecombatMain;
+        game.state.turn_number = 1;
+        (game, p1, p2)
+    }
+
+    /// Add N cards to a player's library.
+    fn add_library_cards(game: &mut Game, player: PlayerId, n: usize) -> Vec<ObjectId> {
+        let mut ids = Vec::new();
+        for i in 0..n {
+            let id = ObjectId::new();
+            let mut card = CardData::new(id, player, &format!("Library Card {}", i));
+            card.card_types = vec![CardType::Creature];
+            card.power = Some(2);
+            card.toughness = Some(2);
+            card.mana_cost = ManaCost::parse("{1}{R}");
+            game.state.card_store.insert(card);
+            game.state.players.get_mut(&player).unwrap().library.put_on_top(id);
+            ids.push(id);
+        }
+        ids
+    }
+
+    #[test]
+    fn exile_top_and_play_creates_impulse_entries() {
+        let (mut game, p1, _p2) = setup_impulse_game();
+        let lib_ids = add_library_cards(&mut game, p1, 3);
+
+        // Execute ExileTopAndPlay effect
+        game.execute_effects(
+            &[Effect::exile_top_and_play(2)],
+            p1, &[], None, None,
+        );
+
+        // Should have exiled 2 cards and created 2 impulse entries
+        assert_eq!(game.state.impulse_playable.len(), 2);
+        assert_eq!(game.state.players.get(&p1).unwrap().library.len(), 1);
+
+        // Exiled cards should be in exile zone
+        for ip in &game.state.impulse_playable {
+            assert!(game.state.exile.contains(ip.card_id));
+            assert_eq!(ip.player_id, p1);
+        }
+    }
+
+    #[test]
+    fn impulse_cards_appear_in_legal_actions() {
+        let (mut game, p1, _p2) = setup_impulse_game();
+        let _lib_ids = add_library_cards(&mut game, p1, 3);
+
+        // Give P1 mana to cast
+        game.state.players.get_mut(&p1).unwrap()
+            .mana_pool.add(Mana { red: 2, generic: 2, ..Mana::new() }, None, false);
+
+        // Execute ExileTopAndPlay
+        game.execute_effects(
+            &[Effect::exile_top_and_play(1)],
+            p1, &[], None, None,
+        );
+
+        let actions = game.compute_legal_actions(p1);
+        let cast_actions: Vec<_> = actions.iter()
+            .filter(|a| matches!(a, crate::decision::PlayerAction::CastSpell { .. }))
+            .collect();
+        assert!(!cast_actions.is_empty(), "Should be able to cast impulse-exiled card");
+    }
+
+    #[test]
+    fn cast_from_exile_resolves() {
+        let (mut game, p1, _p2) = setup_impulse_game();
+        let _lib_ids = add_library_cards(&mut game, p1, 3);
+
+        // Give P1 mana
+        game.state.players.get_mut(&p1).unwrap()
+            .mana_pool.add(Mana { red: 2, generic: 2, ..Mana::new() }, None, false);
+
+        // Execute ExileTopAndPlay (1 card)
+        game.execute_effects(
+            &[Effect::exile_top_and_play(1)],
+            p1, &[], None, None,
+        );
+
+        let impulse_card_id = game.state.impulse_playable[0].card_id;
+
+        // Cast the exiled card
+        game.cast_spell(p1, impulse_card_id);
+
+        // Card should be on stack (not in exile anymore)
+        assert!(!game.state.exile.contains(impulse_card_id));
+        assert!(!game.state.stack.is_empty());
+
+        // Impulse entry should be removed
+        assert!(game.state.impulse_playable.is_empty());
+
+        // Resolve the spell — it's a creature, should go to battlefield
+        game.resolve_top_of_stack();
+        assert!(game.state.battlefield.contains(impulse_card_id));
+    }
+
+    #[test]
+    fn impulse_expires_at_end_of_turn() {
+        let (mut game, p1, _p2) = setup_impulse_game();
+        let _lib_ids = add_library_cards(&mut game, p1, 3);
+
+        // Execute ExileTopAndPlay
+        game.execute_effects(
+            &[Effect::exile_top_and_play(2)],
+            p1, &[], None, None,
+        );
+        assert_eq!(game.state.impulse_playable.len(), 2);
+
+        // Simulate cleanup step
+        game.turn_based_actions(PhaseStep::Cleanup, p1);
+
+        // All EndOfTurn impulse entries should be removed
+        assert_eq!(game.state.impulse_playable.len(), 0);
+
+        // Cards should still be in exile (just no longer playable)
+        // (we can't track which cards were impulse vs regular exile without
+        // the impulse entries, but they're still there)
+    }
+
+    #[test]
+    fn impulse_next_turn_persists_through_opponent_cleanup() {
+        let (mut game, p1, p2) = setup_impulse_game();
+        let _lib_ids = add_library_cards(&mut game, p1, 3);
+
+        // P1 exiles a card with "until end of next turn"
+        game.execute_effects(
+            &[Effect::exile_top_and_play_next_turn(1)],
+            p1, &[], None, None,
+        );
+        assert_eq!(game.state.impulse_playable.len(), 1);
+
+        // Simulate P1's cleanup (creation turn)
+        game.turn_based_actions(PhaseStep::Cleanup, p1);
+        // Should NOT expire on the creation turn (active_player is p1, but turn_number == created_turn)
+        assert_eq!(game.state.impulse_playable.len(), 1,
+            "UntilEndOfNextTurn should survive creation turn cleanup");
+
+        // Simulate opponent's turn cleanup
+        game.state.active_player = p2;
+        game.state.turn_number = 2;
+        game.turn_based_actions(PhaseStep::Cleanup, p2);
+        assert_eq!(game.state.impulse_playable.len(), 1,
+            "UntilEndOfNextTurn should survive opponent's cleanup");
+
+        // Simulate P1's next turn cleanup (this is when it should expire)
+        game.state.active_player = p1;
+        game.state.turn_number = 3;
+        game.turn_based_actions(PhaseStep::Cleanup, p1);
+        assert_eq!(game.state.impulse_playable.len(), 0,
+            "UntilEndOfNextTurn should expire at controller's next turn cleanup");
+    }
+
+    #[test]
+    fn exile_top_and_play_free_skips_mana() {
+        let (mut game, p1, _p2) = setup_impulse_game();
+        let _lib_ids = add_library_cards(&mut game, p1, 3);
+
+        // NO mana given to P1
+
+        // Execute ExileTopAndPlay with without_mana=true
+        game.execute_effects(
+            &[Effect::exile_top_and_play_free(1)],
+            p1, &[], None, None,
+        );
+
+        let impulse_card_id = game.state.impulse_playable[0].card_id;
+
+        // Should appear in legal actions even without mana
+        let actions = game.compute_legal_actions(p1);
+        let cast_actions: Vec<_> = actions.iter()
+            .filter(|a| matches!(a, crate::decision::PlayerAction::CastSpell { card_id, .. } if *card_id == impulse_card_id))
+            .collect();
+        assert!(!cast_actions.is_empty(), "Should be able to cast free impulse card without mana");
+
+        // Cast the card with no mana
+        game.cast_spell(p1, impulse_card_id);
+
+        // Should be on stack
+        assert!(!game.state.stack.is_empty());
+        // Mana should still be 0
+        assert_eq!(game.state.players.get(&p1).unwrap().mana_pool.available().count(), 0);
     }
 }

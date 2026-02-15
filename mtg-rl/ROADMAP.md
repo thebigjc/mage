@@ -225,12 +225,17 @@ These require new engine architecture beyond adding match arms to existing funct
 - All numeric effect handlers updated: DealDamage, DrawCards, GainLife, LoseLife, LoseLifeOpponents, DealDamageOpponents, DealDamageAll, Mill, AddCounters, AddCountersSelf, DiscardOpponents, CreateToken
 - 4 unit tests: X damage, X draw, X=0, mana payment verification
 
-#### 8. Impulse Draw (Exile-and-Play)
-- "Exile top card, you may play it until end of [next] turn"
-- Track exiled-but-playable cards in game state with expiration
-- Allow casting from exile via `AsThoughEffect` equivalent
-- **Blocked cards:** Equilibrium Adept, Kulrath Zealot, Sizzling Changeling, Burning Curiosity, Etali (~10+ cards)
-- **Java reference:** `PlayFromNotOwnHandZoneTargetEffect.java`
+#### ~~8. Impulse Draw (Exile-and-Play)~~ (DONE)
+
+**Completed 2026-02-14.** Impulse draw is now functional:
+- `ImpulsePlayable` struct tracks exiled cards with player, duration, and without-mana flag
+- `ImpulseDuration::EndOfTurn` and `UntilEndOfNextTurn` with proper per-player turn tracking
+- `Effect::ExileTopAndPlay { count, duration, without_mana }` exiles from library and registers playability
+- `compute_legal_actions()` includes impulse-playable cards as castable/playable
+- `cast_spell()` and `play_land()` handle cards from exile (removing from exile zone and impulse list)
+- Cleanup step expires `EndOfTurn` entries immediately and `UntilEndOfNextTurn` at controller's next turn
+- Convenience builders: `exile_top_and_play(n)`, `exile_top_and_play_next_turn(n)`, `exile_top_and_play_free(n)`
+- 6 unit tests: creation, legal actions, resolve, expiration, next-turn persistence, free cast
 
 #### 9. Graveyard Casting (Flashback/Escape)
 - Cast from graveyard with alternative cost
@@ -416,7 +421,7 @@ Features the Java engine has that the Rust engine lacks entirely:
 | **7-layer continuous effect application** | `ContinuousEffects.apply()` | Layers defined, never applied |
 | **RequirementEffect** (must attack/block) | `mage.abilities.effects.RequirementEffect` | No equivalent |
 | **RestrictionEffect** (can't attack/block) | `mage.abilities.effects.RestrictionEffect` | Partial (CantAttack/CantBlock as data) |
-| **AsThoughEffect** (play from other zones) | `mage.abilities.effects.AsThoughEffect` | No equivalent |
+| **AsThoughEffect** (play from other zones) | `mage.abilities.effects.AsThoughEffect` | **Partial** (`ImpulsePlayable` for exile-and-play) |
 | **CostModificationEffect** | `mage.abilities.effects.CostModificationEffect` | CostReduction stored but not applied |
 | **PreventionEffect** (damage prevention) | `mage.abilities.effects.PreventionEffect` | No equivalent |
 | **Equipment attachment** | `EquipAbility`, `AttachEffect` | No equivalent |
@@ -457,7 +462,7 @@ Priority ordered by cards-unblocked per effort.
 
 7. ~~**X-cost spells**~~ — **DONE (2026-02-14).** `X_VALUE` sentinel, `StackItem.x_value`, `resolve_x()` closure in execute_effects. 4 unit tests.
 
-8. **Impulse draw** — Exile-and-play tracking with expiration. **~10+ cards.**
+8. ~~**Impulse draw**~~ — **DONE (2026-02-14).** `ImpulsePlayable` tracking, `ExileTopAndPlay` effect, cast/play from exile, duration expiration. 6 unit tests.
 
 ### Phase 3: Advanced Systems
 

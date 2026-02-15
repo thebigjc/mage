@@ -245,6 +245,16 @@ pub enum Effect {
     /// Attach source equipment to target creature you control.
     Equip,
 
+    // -- Impulse draw --
+    /// Exile top N cards of your library; you may play them until the specified duration.
+    ExileTopAndPlay {
+        count: u32,
+        /// "end_of_turn" or "until_end_of_next_turn"
+        duration: String,
+        /// If true, may play without paying mana cost.
+        without_mana: bool,
+    },
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -935,6 +945,21 @@ impl Effect {
     /// "Choose a creature type. Draw a card for each permanent you control of that type."
     pub fn choose_type_and_draw_per_permanent() -> Self {
         Effect::ChooseTypeAndDrawPerPermanent
+    }
+
+    /// "Exile the top N cards. You may play them until end of turn."
+    pub fn exile_top_and_play(count: u32) -> Self {
+        Effect::ExileTopAndPlay { count, duration: "end_of_turn".into(), without_mana: false }
+    }
+
+    /// "Exile the top N cards. You may play them until end of your next turn."
+    pub fn exile_top_and_play_next_turn(count: u32) -> Self {
+        Effect::ExileTopAndPlay { count, duration: "until_end_of_next_turn".into(), without_mana: false }
+    }
+
+    /// "Exile the top N cards. You may play them without paying their mana cost until end of turn."
+    pub fn exile_top_and_play_free(count: u32) -> Self {
+        Effect::ExileTopAndPlay { count, duration: "end_of_turn".into(), without_mana: true }
     }
 }
 

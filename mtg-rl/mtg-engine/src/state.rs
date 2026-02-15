@@ -104,6 +104,34 @@ pub struct GameState {
     /// Generic key-value store for effects that need to track state across
     /// turns (e.g. "did a creature die this turn", "total damage dealt").
     pub values: HashMap<String, i64>,
+
+    // ── Impulse draw tracking ────────────────────────────────────────────
+    /// Cards exiled with "you may play until ..." permission.
+    pub impulse_playable: Vec<ImpulsePlayable>,
+}
+
+/// Duration for impulse draw effects (how long the exiled card remains playable).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ImpulseDuration {
+    /// Playable until end of the current turn.
+    EndOfTurn,
+    /// Playable until end of the controller's next turn.
+    UntilEndOfNextTurn,
+}
+
+/// Tracks an exiled card that can be played by a specific player.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ImpulsePlayable {
+    /// The exiled card that can be played.
+    pub card_id: ObjectId,
+    /// Who can play this card.
+    pub player_id: PlayerId,
+    /// When the permission expires.
+    pub duration: ImpulseDuration,
+    /// Turn number when the effect was created (for expiration tracking).
+    pub created_turn: u32,
+    /// Whether to play without paying mana cost.
+    pub without_mana: bool,
 }
 
 /// Describes where a specific game object currently exists.
@@ -153,6 +181,7 @@ impl GameState {
             initiative: None,
             combat: CombatState::new(),
             values: HashMap::new(),
+            impulse_playable: Vec::new(),
         }
     }
 
