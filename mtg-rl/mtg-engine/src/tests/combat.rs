@@ -1,21 +1,12 @@
 // Tests extracted from game.rs
 
 use crate::game::*;
-use crate::abilities::{Ability, Cost, Effect, TargetSpec, StaticEffect, ModalMode};
+use crate::abilities::{Ability, StaticEffect};
 use crate::card::CardData;
-use crate::combat::CombatState;
-use crate::constants::{CardType, Color, KeywordAbilities, Outcome, PhaseStep, SubType, SuperType, Zone};
-use crate::counters::CounterType;
+use crate::constants::{CardType, KeywordAbilities, Outcome, SubType};
 use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
-use crate::events::{EventType, GameEvent};
-use crate::mana::{Mana, ManaCost};
 use crate::permanent::Permanent;
-use crate::state::StateBasedActions;
-use crate::types::{AbilityId, ObjectId, PlayerId};
-use crate::watchers::WatcherManager;
-
-
-use super::*;
+use crate::types::{ObjectId, PlayerId};
 
 #[cfg(test)]
 
@@ -462,32 +453,6 @@ use super::*;
         assert_eq!(game.state.players[&p2].life, 15);
     }
 
-    // Additional combat tests
-
-    /// Decision maker that attacks with all creatures.
-    struct AttackAllPlayer2;
-
-    impl PlayerDecisionMaker for AttackAllPlayer2 {
-        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
-        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
-        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
-        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
-        fn select_attackers(&mut self, _: &GameView<'_>, possible_attackers: &[ObjectId], possible_defenders: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> {
-            let defender = possible_defenders[0];
-            possible_attackers.iter().map(|&a| (a, defender)).collect()
-        }
-        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
-        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
-        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
-        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
-        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
-        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
-        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
-        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
-        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
-        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
-    }
-
     /// Decision maker that assigns ALL available blockers to each attacker.
     struct BlockAllMultiplePlayer;
 
@@ -575,26 +540,6 @@ use super::*;
         };
         let game = Game::new_two_player(config, vec![(p1, p1_dm), (p2, p2_dm)]);
         (game, p1, p2)
-    }
-
-    fn add_creature2(
-        game: &mut Game,
-        owner: PlayerId,
-        name: &str,
-        power: i32,
-        toughness: i32,
-        keywords: KeywordAbilities,
-    ) -> ObjectId {
-        let mut card = CardData::new(ObjectId::new(), owner, name);
-        card.card_types = vec![CardType::Creature];
-        card.power = Some(power);
-        card.toughness = Some(toughness);
-        card.keywords = keywords;
-        let id = card.id;
-        let mut perm = Permanent::new(card, owner);
-        perm.remove_summoning_sickness();
-        game.state.battlefield.add(perm);
-        id
     }
 
     fn add_creature_with_static(
