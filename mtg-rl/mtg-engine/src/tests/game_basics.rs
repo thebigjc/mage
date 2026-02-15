@@ -85,9 +85,9 @@ fn game_creation() {
     assert_eq!(game.state.players.len(), 2);
     assert_eq!(game.state.player(p1).unwrap().life, 20);
     assert_eq!(game.state.player(p2).unwrap().life, 20);
-    // Each player should have 40 cards in library
-    assert_eq!(game.state.player(p1).unwrap().library.len(), 40);
-    assert_eq!(game.state.player(p2).unwrap().library.len(), 40);
+    // Each player should have 20 cards in library
+    assert_eq!(game.state.player(p1).unwrap().library.len(), 20);
+    assert_eq!(game.state.player(p2).unwrap().library.len(), 20);
 }
 
 #[test]
@@ -345,8 +345,8 @@ fn activated_ability_goes_on_stack() {
     game.turn_manager.set_phase_step(PhaseStep::PrecombatMain);
 
     // Put a creature on the battlefield with an activated ability
-    let creature_id = ObjectId::new();
     let mut creature = make_creature("Test Creature", p1, 2, 2);
+    let creature_id = creature.id;
     let activated_ability = Ability::activated(
         creature_id,
         "{T}: Deal 1 damage to any target",

@@ -3124,15 +3124,14 @@ impl Game {
                 Effect::AddCounters { counter_type, count: raw_count } => {
                     let count = resolve_x(*raw_count);
                     let ct = crate::counters::CounterType::from_name(counter_type);
-                    // If no targets, fall back to source (self-targeting counters)
-                    let effective_targets: Vec<ObjectId> = if targets.is_empty() {
-                        source.into_iter().collect()
+                    let target_id = if targets.is_empty() {
+                        source
                     } else {
-                        targets.to_vec()
+                        Some(targets[0])
                     };
-                    for target_id in effective_targets {
-                        if let Some(perm) = self.state.battlefield.get_mut(target_id) {
-                            perm.add_counters(ct.clone(), count);
+                    if let Some(tid) = target_id {
+                        if let Some(perm) = self.state.battlefield.get_mut(tid) {
+                            perm.add_counters(ct, count);
                         }
                     }
                 }

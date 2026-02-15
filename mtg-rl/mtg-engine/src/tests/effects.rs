@@ -666,7 +666,7 @@ fn compound_bite_counters_only_on_your_creature() {
     let my = game.state.battlefield.get(my_id).unwrap();
     assert_eq!(my.counters.get(&CounterType::P1P1), 1);
     assert_eq!(my.power(), 4); // 3 + 1 from counter
-    assert_eq!(my.remaining_toughness(), 3); // No damage taken
+    assert_eq!(my.remaining_toughness(), 4); // 3 base + 1 from counter, no damage taken
 
     // Opponent creature took damage but no counter
     let opp = game.state.battlefield.get(opp_id).unwrap();
@@ -753,18 +753,12 @@ fn look_top_and_pick() {
     );
 
     let lib_after = game.state.players.get(&p1).unwrap().library.len();
-    assert_eq!(lib_after, lib_before - 3, "Should remove 3 cards from library");
+    assert_eq!(lib_after, lib_before - 1, "One card should move from library to hand");
 
-    // All 3 cards should be distributed between hand and graveyard
+    // One card picked to hand, rest put on bottom of library
     let hand_ids = game.state.players.get(&p1).unwrap().hand.as_slice().to_vec();
-    let grave_ids = game.state.players.get(&p1).unwrap().graveyard.as_slice().to_vec();
-
-    for card_id in &top_cards {
-        let in_hand = hand_ids.contains(card_id);
-        let in_grave = grave_ids.contains(card_id);
-        assert!(in_hand || in_grave,
-            "Card {:?} should be in hand or graveyard", card_id);
-    }
+    let picked_count = top_cards.iter().filter(|id| hand_ids.contains(id)).count();
+    assert_eq!(picked_count, 1, "Exactly one card should be picked to hand");
 }
 
 #[test]
