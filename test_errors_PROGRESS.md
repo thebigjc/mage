@@ -75,7 +75,7 @@ Recommendation: **Option A** — add minimal test helpers since these are unit t
 ### Phase 2: Simple API renames in test code (mechanical fixes)
 
 - [x] Task 6: Fix `Hand::push()` → `Hand::add()` in `game_basics.rs:440` and `game_basics.rs:508`
-- [ ] Task 7: Fix `graveyard.contains(&spell_id)` → `graveyard.contains(spell_id)` in `game_basics.rs:467` and `game_basics.rs:532` (remove borrow)
+- [x] Task 7: Fix `graveyard.contains(&spell_id)` → `graveyard.contains(spell_id)` in `game_basics.rs:467` and `game_basics.rs:532` (remove borrow)
 - [ ] Task 8: Fix `Library::top_n(3)` → `Library::peek(3).to_vec()` in `effects.rs:747`
 - [ ] Task 9: Fix `Hand::to_vec()` → `hand.as_slice().to_vec()` in `effects.rs:759`
 - [ ] Task 10: Fix `Graveyard::to_vec()` → `graveyard.as_slice().to_vec()` in `effects.rs:760`
@@ -141,3 +141,4 @@ Recommendation: **Option A** — add minimal test helpers since these are unit t
 - Task 4: Qualified `combat::can_block` as `crate::combat::can_block` in keywords.rs:283 to resolve ambiguity with game::tests::combat module
 - Task 5: Added missing closing `}` for `grant_convoke_via_static_effect` test function in keywords.rs:1625, and removed stray trailing `}` at end of file
 - Task 6: Changed `player.hand.push(spell_id)` to `player.hand.add(spell_id)` in game_basics.rs lines 440 and 508
+- Task 7: Removed `&` from `graveyard.contains(&spell_id)` at lines 467 and 532 in game_basics.rs — `contains()` takes `ObjectId` by value
