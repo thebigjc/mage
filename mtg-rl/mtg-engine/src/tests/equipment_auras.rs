@@ -329,7 +329,7 @@ use super::*;
         let creature_id = ObjectId::new();
         let aura_id = ObjectId::new();
 
-        game.state.battlefield.add(Permanent::new(make_creature(creature_id, p1, 2, 2), p1));
+        game.state.battlefield.add(Permanent::new(make_creature(creature_id, p1, "Creature", 2, 2), p1));
         let aura = make_aura_boost(aura_id, p1, "Ethereal Armor", 2, 2);
         game.state.battlefield.add(Permanent::new(aura, p1));
         register_abilities2(&mut game, aura_id);
@@ -362,7 +362,7 @@ use super::*;
         let creature_id = ObjectId::new();
         let pacifism_id = ObjectId::new();
 
-        game.state.battlefield.add(Permanent::new(make_creature(creature_id, p2, 3, 3), p2));
+        game.state.battlefield.add(Permanent::new(make_creature(creature_id, p2, "Creature", 3, 3), p2));
 
         // Make Pacifism aura
         let mut pacifism = CardData::new(pacifism_id, p1, "Pacifism");

@@ -120,14 +120,14 @@ Recommendation: **Option A** — add minimal test helpers since these are unit t
 
 ### Phase 5b: Fix remaining compilation errors in other test files
 
-- [ ] Task 22a: Fix `make_creature` in effects.rs:28-29 — `power`/`toughness` params are `u32` but `CardData` fields are `Option<i32>`; change fn signature or cast
-- [ ] Task 22b: Fix `has_subtype(SubType::Elf)` in effects.rs:716 — method expects `&SubType`, pass `&SubType::Elf` instead
-- [ ] Task 22c: Fix `make_creature` calls in equipment_auras.rs:332,365 — missing `name: &str` argument (function takes 5 args, calls pass 4)
+- [x] Task 22a: Fix `make_creature` in effects.rs:28-29 — `power`/`toughness` params are `u32` but `CardData` fields are `Option<i32>`; change fn signature or cast
+- [x] Task 22b: Fix `has_subtype(SubType::Elf)` in effects.rs:716 — method expects `&SubType`, pass `&SubType::Elf` instead
+- [x] Task 22c: Fix `make_creature` calls in equipment_auras.rs:332,365 — missing `name: &str` argument (function takes 5 args, calls pass 4)
 
 ### Phase 6: Verify compilation
 
-- [ ] Task 23: Run `cargo check -p mtg-engine --lib --tests` and verify 0 errors
-- [ ] Task 24: Run `cargo test --lib -p mtg-engine` and verify tests pass
+- [x] Task 23: Run `cargo check -p mtg-engine --lib --tests` and verify 0 errors
+- [ ] Task 24: Run `cargo test --lib -p mtg-engine` and verify tests pass (4 pre-existing test logic failures remain: game_creation, activated_ability_goes_on_stack, look_top_and_pick, compound_bite_counters_only_on_your_creature)
 - [ ] Task 25: Address any remaining warnings if they indicate real issues
 
 ## Notes
@@ -163,3 +163,7 @@ Recommendation: **Option A** — add minimal test helpers since these are unit t
 - Task 20: Rewrote `spell_effects_execute_on_resolve` test: replaced 3-arg `cast_spell(p1, spell_id, vec![p2.as_target()])` with 2-arg `cast_spell(p1, spell_id)`, replaced `stack[0]` with `stack.top().unwrap()`, replaced `pass_priority()` x2 with `resolve_top_of_stack()`, fixed `mana_pool.add()` from 1 arg to 3 args `(Mana::red(1), None, false)`
 - Task 21: Fixed `fizzle_when_target_removed` test: replaced 3-arg `cast_spell(p1, spell_id, vec![bear_id])` with 2-arg `cast_spell(p1, spell_id)`, replaced `pass_priority(p1)` + `pass_priority(p2)` with `resolve_top_of_stack()`. Note: `hand.add()` and `graveyard.contains(spell_id)` were already correct from previous fixes.
 - Task 22: Fixed `setup()` calls in triggers.rs at lines 414 and 451 — added `(Box::new(PassivePlayer), Box::new(PassivePlayer))` arguments. Also discovered 5 remaining errors in effects.rs and equipment_auras.rs that weren't in the original task list; added as Tasks 22a-22c.
+- Task 22a: Changed `make_creature` signature in effects.rs from `power: u32, toughness: u32` to `power: i32, toughness: i32` to match `CardData` field types.
+- Task 22b: Changed `p.has_subtype(SubType::Elf)` to `p.has_subtype(&SubType::Elf)` in effects.rs:716 — method takes `&SubType`.
+- Task 22c: Added missing `name: &str` argument to `make_creature` calls in equipment_auras.rs:332,365 — `make_creature(creature_id, p1, 2, 2)` → `make_creature(creature_id, p1, "Creature", 2, 2)`.
+- Task 23: Verified `cargo check -p mtg-engine --lib --tests` produces 0 errors (118 warnings, mostly unused imports).

@@ -22,7 +22,7 @@ fn make_deck(owner: PlayerId) -> Vec<CardData> {
     }).collect()
 }
 
-fn make_creature(name: &str, owner: PlayerId, power: u32, toughness: u32) -> CardData {
+fn make_creature(name: &str, owner: PlayerId, power: i32, toughness: i32) -> CardData {
     let mut card = CardData::new(ObjectId::new(), owner, name);
     card.card_types = vec![CardType::Creature];
     card.power = Some(power);
@@ -713,7 +713,7 @@ fn add_counters_all_effect() {
 
     // Count Elves with counters
     let elves_with_counters = game.state.battlefield.iter()
-        .filter(|p| p.controller == p1 && p.has_subtype(SubType::Elf))
+        .filter(|p| p.controller == p1 && p.has_subtype(&SubType::Elf))
         .filter(|p| p.counters.get(&CounterType::P1P1) == 1)
         .count();
 
