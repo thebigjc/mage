@@ -461,7 +461,7 @@ fn champion_of_the_weird(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::activated(id,
                 "{1}{B}, Put a -1/-1 counter on this creature: Each opponent loses 2 life.",
-                vec![Cost::pay_mana("{1}{B}"), Cost::Custom("Put a -1/-1 counter on this creature".into())],
+                vec![Cost::pay_mana("{1}{B}"), Cost::Blight(1)],
                 vec![Effect::lose_life_opponents(2)],
                 TargetSpec::None),
             Ability::triggered(id,
@@ -470,6 +470,7 @@ fn champion_of_the_weird(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![Effect::Custom("Return exiled card to hand.".into())],
                 TargetSpec::None),
         ],
+        additional_costs: vec![Cost::behold_and_exile("Goblin")],
         ..Default::default() }
 }
 
@@ -490,6 +491,7 @@ fn champions_of_the_perfect(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![Effect::Custom("Return exiled card to hand.".into())],
                 TargetSpec::None),
         ],
+        additional_costs: vec![Cost::behold_and_exile("Elf")],
         ..Default::default() }
 }
 
@@ -1022,6 +1024,7 @@ fn kinsbaile_aspirant(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![Effect::add_counters("+1/+1", 1)],
                 TargetSpec::None),
         ],
+        additional_costs: vec![Cost::behold_or_pay("Kithkin", "{2}")],
         ..Default::default() }
 }
 
@@ -1393,6 +1396,7 @@ fn silvergill_mentor(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![Effect::create_token("1/1 Merfolk", 1)],
                 TargetSpec::None),
         ],
+        additional_costs: vec![Cost::behold_or_pay("Merfolk", "{2}")],
         ..Default::default() }
 }
 
@@ -2299,6 +2303,7 @@ fn champion_of_the_clachan(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![Effect::Custom("Return exiled card to hand.".into())],
                 TargetSpec::None),
         ],
+        additional_costs: vec![Cost::behold_and_exile("Kithkin")],
         ..Default::default() }
 }
 
@@ -2322,6 +2327,7 @@ fn champion_of_the_path(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![Effect::Custom("Return exiled card to hand.".into())],
                 TargetSpec::None),
         ],
+        additional_costs: vec![Cost::behold_and_exile("Elemental")],
         ..Default::default() }
 }
 
@@ -4051,6 +4057,7 @@ fn champions_of_the_shoal(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![Effect::Custom("Whenever this creature enters or becomes tapped, tap up to one target creature and put a stun counter on it.".into())],
                 TargetSpec::None),
         ],
+        additional_costs: vec![Cost::behold_and_exile("Merfolk")],
         ..Default::default() }
 }
 
@@ -4388,6 +4395,7 @@ fn lys_alana_dignitary(id: ObjectId, owner: PlayerId) -> CardData {
         subtypes: vec![SubType::Elf, SubType::Advisor],
         power: Some(2), toughness: Some(3),
         rarity: Rarity::Common,
+        additional_costs: vec![Cost::behold_or_pay("Elf", "{2}")],
         ..Default::default() }
 }
 
@@ -4501,6 +4509,7 @@ fn mudbutton_cursetosser(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![Effect::destroy()],
                 TargetSpec::PermanentFiltered("creature an opponent controls with power 2 or less".into())),
         ],
+        additional_costs: vec![Cost::behold_or_pay("Goblin", "{2}")],
         ..Default::default() }
 }
 
@@ -4611,6 +4620,7 @@ fn soulbright_seeker(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![Effect::gain_keyword_eot("trample"), Effect::Custom("3rd resolution: add RRRR.".into())],
                 TargetSpec::CreatureYouControl),
         ],
+        additional_costs: vec![Cost::behold_or_pay("Elemental", "{2}")],
         ..Default::default() }
 }
 

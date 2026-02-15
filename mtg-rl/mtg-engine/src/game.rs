@@ -23,11 +23,11 @@ use crate::constants::PhaseStep;
 use crate::counters::CounterType;
 use crate::decision::{AttackerInfo, PlayerDecisionMaker};
 use crate::events::{EventLog, EventType, GameEvent};
-use crate::permanent::Permanent;
 use crate::state::{GameState, StateBasedActions};
 use crate::turn::{has_priority, PriorityTracker, TurnManager};
 use crate::types::{AbilityId, ObjectId, PlayerId};
 use crate::watchers::WatcherManager;
+use crate::permanent::Permanent;
 use std::collections::HashMap;
 
 /// Maximum number of SBA iterations before we bail out (safety valve).
@@ -1384,6 +1384,11 @@ impl Game {
                         continue;
                     }
 
+                    // Check additional casting costs (behold, etc.)
+                    if !card.additional_costs.is_empty() && !self.can_pay_additional_costs(player_id, card_id, &card.additional_costs) {
+                        continue;
+                    }
+
                     actions.push(crate::decision::PlayerAction::CastSpell {
                         card_id,
                         targets: vec![],
@@ -1626,6 +1631,25 @@ impl Game {
                     }
                     return;
                 }
+            }
+        }
+
+        // Pay additional casting costs (behold, etc.)
+        if !card_data.additional_costs.is_empty() {
+            if !self.pay_costs(player_id, card_id, &card_data.additional_costs) {
+                // Cannot pay additional costs — put card back
+                if from_graveyard {
+                    if let Some(player) = self.state.players.get_mut(&player_id) {
+                        player.graveyard.add(card_id);
+                    }
+                } else if from_exile {
+                    self.state.exile.exile(card_id);
+                } else {
+                    if let Some(player) = self.state.players.get_mut(&player_id) {
+                        player.hand.add(card_id);
+                    }
+                }
+                return;
             }
         }
 
@@ -2030,6 +2054,63 @@ impl Game {
         colors.len()
     }
     /// Pay the costs for an ability or spell. Returns false if costs can't be paid.
+    /// Check if additional casting costs can be paid (without paying them).
+    fn can_pay_additional_costs(&self, player_id: PlayerId, source_id: ObjectId, costs: &[Cost]) -> bool {
+        for cost in costs {
+            match cost {
+                Cost::Behold(creature_type) | Cost::BeholdAndExile(creature_type) => {
+                    let ct_lower = creature_type.to_lowercase();
+                    let has_match = self.state.battlefield.controlled_by(player_id)
+                        .any(|perm| {
+                            perm.id() != source_id &&
+                            self.state.card_store.get(perm.id()).map_or(false, |card| {
+                                card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
+                                || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING)
+                            })
+                        })
+                        || self.state.players.get(&player_id).map_or(false, |p| {
+                            p.hand.iter().any(|&cid| {
+                                cid != source_id &&
+                                self.state.card_store.get(cid).map_or(false, |card| {
+                                    card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
+                                    || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING)
+                                })
+                            })
+                        });
+                    if !has_match { return false; }
+                }
+                Cost::BeholdOrPay { creature_type, mana } => {
+                    let ct_lower = creature_type.to_lowercase();
+                    let has_match = self.state.battlefield.controlled_by(player_id)
+                        .any(|perm| {
+                            perm.id() != source_id &&
+                            self.state.card_store.get(perm.id()).map_or(false, |card| {
+                                card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
+                                || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING)
+                            })
+                        })
+                        || self.state.players.get(&player_id).map_or(false, |p| {
+                            p.hand.iter().any(|&cid| {
+                                cid != source_id &&
+                                self.state.card_store.get(cid).map_or(false, |card| {
+                                    card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
+                                    || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING)
+                                })
+                            })
+                        });
+                    if !has_match {
+                        // Check if player can pay mana cost plus the additional mana
+                        let available = self.state.players.get(&player_id)
+                            .map(|p| p.mana_pool.available()).unwrap_or_default();
+                        if !available.can_pay(mana) { return false; }
+                    }
+                }
+                _ => {} // Other costs checked elsewhere
+            }
+        }
+        true
+    }
+
     fn pay_costs(&mut self, player_id: PlayerId, source_id: ObjectId, costs: &[Cost]) -> bool {
         for cost in costs {
             match cost {
@@ -2208,6 +2289,113 @@ impl Game {
                         perm.untap();
                     } else {
                         return false;
+                    }
+                }
+                Cost::Behold(creature_type) => {
+                    let ct_lower = creature_type.to_lowercase();
+                    let mut candidates: Vec<ObjectId> = Vec::new();
+                    for perm in self.state.battlefield.controlled_by(player_id) {
+                        if perm.id() != source_id {
+                            if let Some(card) = self.state.card_store.get(perm.id()) {
+                                if card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
+                                    || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING) {
+                                    candidates.push(perm.id());
+                                }
+                            }
+                        }
+                    }
+                    if let Some(player) = self.state.players.get(&player_id) {
+                        for &card_id in player.hand.iter() {
+                            if card_id != source_id {
+                                if let Some(card) = self.state.card_store.get(card_id) {
+                                    if card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
+                                        || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING) {
+                                        candidates.push(card_id);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if candidates.is_empty() {
+                        return false;
+                    }
+                }
+                Cost::BeholdAndExile(creature_type) => {
+                    let ct_lower = creature_type.to_lowercase();
+                    let mut candidates: Vec<ObjectId> = Vec::new();
+                    for perm in self.state.battlefield.controlled_by(player_id) {
+                        if perm.id() != source_id {
+                            if let Some(card) = self.state.card_store.get(perm.id()) {
+                                if card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
+                                    || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING) {
+                                    candidates.push(perm.id());
+                                }
+                            }
+                        }
+                    }
+                    if let Some(player) = self.state.players.get(&player_id) {
+                        for &card_id in player.hand.iter() {
+                            if card_id != source_id {
+                                if let Some(card) = self.state.card_store.get(card_id) {
+                                    if card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
+                                        || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING) {
+                                        candidates.push(card_id);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if candidates.is_empty() {
+                        return false;
+                    }
+                    let chosen = candidates[0];
+                    if self.state.battlefield.get(chosen).is_some() {
+                        if let Some(_perm) = self.state.battlefield.remove(chosen) {
+                            self.state.ability_store.remove_source(chosen);
+                            self.state.exile.exile(chosen);
+                            self.state.set_zone(chosen, crate::constants::Zone::Exile, None);
+                        }
+                    } else if let Some(player) = self.state.players.get_mut(&player_id) {
+                        player.hand.remove(chosen);
+                        self.state.exile.exile(chosen);
+                        self.state.set_zone(chosen, crate::constants::Zone::Exile, None);
+                    }
+                }
+                Cost::BeholdOrPay { creature_type, mana } => {
+                    let ct_lower = creature_type.to_lowercase();
+                    let mut candidates: Vec<ObjectId> = Vec::new();
+                    for perm in self.state.battlefield.controlled_by(player_id) {
+                        if perm.id() != source_id {
+                            if let Some(card) = self.state.card_store.get(perm.id()) {
+                                if card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
+                                    || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING) {
+                                    candidates.push(perm.id());
+                                }
+                            }
+                        }
+                    }
+                    if let Some(player) = self.state.players.get(&player_id) {
+                        for &card_id in player.hand.iter() {
+                            if card_id != source_id {
+                                if let Some(card) = self.state.card_store.get(card_id) {
+                                    if card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
+                                        || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING) {
+                                        candidates.push(card_id);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if !candidates.is_empty() {
+                        // Behold is free; prefer it over paying mana
+                    } else {
+                        if let Some(player) = self.state.players.get_mut(&player_id) {
+                            if !player.mana_pool.try_pay(mana) {
+                                return false;
+                            }
+                        } else {
+                            return false;
+                        }
                     }
                 }
                 Cost::Custom(_) => {
@@ -7914,7 +8102,6 @@ mod prowess_landwalk_tests {
         // Test landwalk evasion — if defender controls a Forest, creature with
         // forestwalk can't be blocked. We test this by checking combat::can_block
         // logic indirectly via the permanent struct.
-        use crate::permanent::Permanent;
 
         let owner = PlayerId::new();
         let id = ObjectId::new();
@@ -8336,7 +8523,6 @@ mod step_trigger_tests {
     use crate::constants::{CardType, Outcome};
     use crate::types::{ObjectId, PlayerId};
     use crate::decision::*;
-    use crate::permanent::Permanent;
 
     struct PassivePlayer;
     impl PlayerDecisionMaker for PassivePlayer {
@@ -8993,7 +9179,6 @@ mod delayed_trigger_tests {
     use crate::constants::{CardType, TurnPhase, PhaseStep, Outcome};
     use crate::events::{EventType, GameEvent};
     use crate::mana::Mana;
-    use crate::permanent::Permanent;
     use crate::types::{ObjectId, PlayerId};
     use crate::decision::*;
 
@@ -9352,5 +9537,222 @@ mod flashback_tests {
             "Normal spell should go to graveyard");
         assert!(!game.state.exile.contains(spell_id),
             "Normal spell should NOT be exiled");
+    }
+}
+
+#[cfg(test)]
+mod behold_tests {
+    use super::*;
+    use crate::abilities::{Ability, Effect, TargetSpec, Cost};
+    use crate::card::CardData;
+    use crate::constants::{CardType, SubType, TurnPhase, PhaseStep, Outcome, KeywordAbilities};
+    use crate::permanent::Permanent;
+    use crate::mana::{Mana, ManaCost};
+    use crate::types::{ObjectId, PlayerId};
+    use crate::decision::*;
+
+    struct PassivePlayer;
+    impl PlayerDecisionMaker for PassivePlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn setup_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            starting_life: 20,
+            players: vec![
+                PlayerConfig { name: "P1".into(), deck: vec![] },
+                PlayerConfig { name: "P2".into(), deck: vec![] },
+            ],
+        };
+        let mut game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(PassivePlayer)),
+                (p2, Box::new(PassivePlayer)),
+            ],
+        );
+        game.state.active_player = p1;
+        game.state.priority_player = p1;
+        game.state.current_phase = TurnPhase::PrecombatMain;
+        game.state.current_step = PhaseStep::PrecombatMain;
+        game.state.turn_number = 1;
+        (game, p1, p2)
+    }
+
+    fn add_creature_to_battlefield(game: &mut Game, owner: PlayerId, name: &str, subtype: SubType) -> ObjectId {
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![subtype];
+        card.power = Some(1);
+        card.toughness = Some(1);
+        game.state.card_store.insert(card);
+        let card_clone = game.state.card_store.get(id).unwrap().clone();
+        let perm = Permanent::new(card_clone, owner);
+        game.state.battlefield.add(perm);
+        id
+    }
+
+    fn add_creature_to_hand(game: &mut Game, owner: PlayerId, name: &str, subtype: SubType) -> ObjectId {
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![subtype];
+        card.power = Some(1);
+        card.toughness = Some(1);
+        game.state.card_store.insert(card);
+        game.state.players.get_mut(&owner).unwrap().hand.add(id);
+        id
+    }
+
+    #[test]
+    fn behold_cost_with_battlefield_creature() {
+        let (mut game, p1, _p2) = setup_game();
+
+        // Put an Elf on the battlefield
+        let elf_id = add_creature_to_battlefield(&mut game, p1, "Llanowar Elves", SubType::Elf);
+
+        // Create a source permanent for the activated ability
+        let source_id = add_creature_to_battlefield(&mut game, p1, "Source", SubType::Warrior);
+
+        // Pay behold cost — should succeed (Elf on battlefield)
+        assert!(game.pay_costs(p1, source_id, &[Cost::behold("Elf")]));
+        // Elf should still be on battlefield (behold doesn't remove)
+        assert!(game.state.battlefield.get(elf_id).is_some());
+    }
+
+    #[test]
+    fn behold_cost_with_hand_creature() {
+        let (mut game, p1, _p2) = setup_game();
+
+        // Put an Elf in hand
+        let elf_id = add_creature_to_hand(&mut game, p1, "Llanowar Elves", SubType::Elf);
+
+        let source_id = add_creature_to_battlefield(&mut game, p1, "Source", SubType::Warrior);
+
+        // Pay behold cost — should succeed (Elf in hand)
+        assert!(game.pay_costs(p1, source_id, &[Cost::behold("Elf")]));
+        // Elf should still be in hand (behold just reveals)
+        assert!(game.state.players.get(&p1).unwrap().hand.contains(elf_id));
+    }
+
+    #[test]
+    fn behold_cost_fails_without_matching_creature() {
+        let (mut game, p1, _p2) = setup_game();
+
+        // Only have a Goblin, need to behold an Elf
+        let _goblin_id = add_creature_to_battlefield(&mut game, p1, "Goblin Piker", SubType::Goblin);
+        let source_id = add_creature_to_battlefield(&mut game, p1, "Source", SubType::Warrior);
+
+        assert!(!game.pay_costs(p1, source_id, &[Cost::behold("Elf")]));
+    }
+
+    #[test]
+    fn behold_and_exile_removes_from_battlefield() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let goblin_id = add_creature_to_battlefield(&mut game, p1, "Goblin Piker", SubType::Goblin);
+        let source_id = add_creature_to_battlefield(&mut game, p1, "Source", SubType::Warrior);
+
+        assert!(game.pay_costs(p1, source_id, &[Cost::behold_and_exile("Goblin")]));
+        // Goblin should be exiled
+        assert!(game.state.battlefield.get(goblin_id).is_none());
+        assert!(game.state.exile.contains(goblin_id));
+    }
+
+    #[test]
+    fn behold_and_exile_removes_from_hand() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let goblin_id = add_creature_to_hand(&mut game, p1, "Goblin Piker", SubType::Goblin);
+        let source_id = add_creature_to_battlefield(&mut game, p1, "Source", SubType::Warrior);
+
+        assert!(game.pay_costs(p1, source_id, &[Cost::behold_and_exile("Goblin")]));
+        // Goblin should be exiled from hand
+        assert!(!game.state.players.get(&p1).unwrap().hand.contains(goblin_id));
+        assert!(game.state.exile.contains(goblin_id));
+    }
+
+    #[test]
+    fn behold_or_pay_prefers_behold() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let kithkin_id = add_creature_to_battlefield(&mut game, p1, "Goldmeadow Harrier", SubType::Kithkin);
+        let source_id = add_creature_to_battlefield(&mut game, p1, "Source", SubType::Warrior);
+
+        // Give mana too
+        game.state.players.get_mut(&p1).unwrap()
+            .mana_pool.add(Mana { white: 2, ..Mana::new() }, None, false);
+
+        // Behold or pay {2} — should succeed via behold (free), mana untouched
+        assert!(game.pay_costs(p1, source_id, &[Cost::behold_or_pay("Kithkin", "{2}")]));
+        // Kithkin still on battlefield (behold doesn't remove)
+        assert!(game.state.battlefield.get(kithkin_id).is_some());
+        // Mana should still be available (behold was free)
+        assert_eq!(game.state.players.get(&p1).unwrap().mana_pool.total_count(), 2);
+    }
+
+    #[test]
+    fn behold_or_pay_falls_back_to_mana() {
+        let (mut game, p1, _p2) = setup_game();
+
+        // No Kithkin available — must pay mana
+        let source_id = add_creature_to_battlefield(&mut game, p1, "Source", SubType::Warrior);
+
+        game.state.players.get_mut(&p1).unwrap()
+            .mana_pool.add(Mana { white: 2, ..Mana::new() }, None, false);
+
+        assert!(game.pay_costs(p1, source_id, &[Cost::behold_or_pay("Kithkin", "{2}")]));
+        // Mana should have been spent
+        assert_eq!(game.state.players.get(&p1).unwrap().mana_pool.total_count(), 0);
+    }
+
+    #[test]
+    fn behold_or_pay_fails_without_either() {
+        let (mut game, p1, _p2) = setup_game();
+
+        // No Kithkin, no mana
+        let source_id = add_creature_to_battlefield(&mut game, p1, "Source", SubType::Warrior);
+
+        assert!(!game.pay_costs(p1, source_id, &[Cost::behold_or_pay("Kithkin", "{2}")]));
+    }
+
+    #[test]
+    fn behold_works_with_changeling() {
+        let (mut game, p1, _p2) = setup_game();
+
+        // Changeling counts as every creature type
+        let changeling_id = ObjectId::new();
+        let mut card = CardData::new(changeling_id, p1, "Mothdust Changeling");
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![SubType::Shapeshifter];
+        card.keywords = KeywordAbilities::CHANGELING;
+        card.power = Some(1);
+        card.toughness = Some(1);
+        game.state.card_store.insert(card);
+        let card_clone = game.state.card_store.get(changeling_id).unwrap().clone();
+        let perm = Permanent::new(card_clone, p1);
+        game.state.battlefield.add(perm);
+
+        let source_id = add_creature_to_battlefield(&mut game, p1, "Source", SubType::Warrior);
+
+        // Changeling should count as an Elf for behold
+        assert!(game.pay_costs(p1, source_id, &[Cost::behold("Elf")]));
     }
 }

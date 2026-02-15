@@ -58,6 +58,9 @@ pub struct CardData {
     /// Flashback cost: if set, this card can be cast from the graveyard for this
     /// cost, then exiled instead of returning to the graveyard.
     pub flashback_cost: Option<ManaCost>,
+    /// Additional costs required when casting this spell (behold, sacrifice, etc.).
+    /// These are paid in addition to the mana cost.
+    pub additional_costs: Vec<crate::abilities::Cost>,
 }
 
 impl CardData {
@@ -81,6 +84,7 @@ impl CardData {
             abilities: Vec::new(),
             is_token: false,
             flashback_cost: None,
+            additional_costs: Vec::new(),
         }
     }
 
@@ -148,6 +152,7 @@ impl Default for CardData {
             abilities: Vec::new(),
             is_token: false,
             flashback_cost: None,
+            additional_costs: Vec::new(),
         }
     }
 }

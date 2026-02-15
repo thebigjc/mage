@@ -50,7 +50,17 @@ pub enum Cost {
     /// (ECL set-specific mechanic.)
     Blight(u32),
     /// Reveal a card of a specific type from hand (used by Behold).
+    /// Reveal a card of a specific type from hand (used by Behold).
     RevealFromHand(String),
+    /// Behold a creature type: choose a permanent of that type on battlefield or reveal
+    /// a card of that type from hand. Mandatory additional cost.
+    Behold(String),
+    /// Behold a creature type and exile the chosen card/permanent.
+    /// Mandatory additional cost used by Champion cards.
+    BeholdAndExile(String),
+    /// Behold a creature type, or pay alternative mana if unable/unwilling.
+    /// Used by cards like "behold a Kithkin or pay {2}".
+    BeholdOrPay { creature_type: String, mana: Mana },
     /// A custom/complex cost (described by text).
 
     Custom(String),
@@ -1144,6 +1154,25 @@ impl Cost {
     /// Reveal a card of a specific type from hand.
     pub fn reveal_from_hand(card_type: &str) -> Self {
         Cost::RevealFromHand(card_type.to_string())
+    }
+
+    /// Behold a creature type (reveal from hand or choose from battlefield).
+    pub fn behold(creature_type: &str) -> Self {
+        Cost::Behold(creature_type.to_string())
+    }
+
+    /// Behold a creature type and exile the chosen card/permanent.
+    pub fn behold_and_exile(creature_type: &str) -> Self {
+        Cost::BeholdAndExile(creature_type.to_string())
+    }
+
+    /// Behold a creature type, or pay alternative mana.
+    pub fn behold_or_pay(creature_type: &str, mana_str: &str) -> Self {
+        use crate::mana::ManaCost;
+        Cost::BeholdOrPay {
+            creature_type: creature_type.to_string(),
+            mana: ManaCost::parse(mana_str).to_mana(),
+        }
     }
 }
 

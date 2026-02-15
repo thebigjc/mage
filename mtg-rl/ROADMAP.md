@@ -304,10 +304,16 @@ These require new engine architecture beyond adding match arms to existing funct
 - Similar to Explore/Impulse — top-of-library selection
 - **Blocked cards:** Badgermole, Badgermole Cub, Ostrich-Horse, Dai Li Agents, many TLA cards (~20+ cards)
 
-#### 17. Behold (ECL)
-- Reveal-and-exile-from-hand as alternative cost or condition
-- Track "beheld" state for triggered abilities
-- **Blocked cards:** Champion of the Weird, Champions of the Perfect, Molten Exhale, Osseous Exhale (~15+ cards)
+#### ~~17. Behold (ECL)~~ (DONE)
+
+**Completed 2026-02-14.** Behold mechanic implemented with 3 cost variants:
+- `Cost::Behold(type)` — Mandatory: choose matching creature on battlefield or reveal from hand
+- `Cost::BeholdAndExile(type)` — Mandatory behold + exile the chosen card/permanent
+- `Cost::BeholdOrPay { creature_type, mana }` — Behold or pay alternative mana cost
+- `can_pay_additional_costs()` validates behold feasibility in legal action computation
+- `additional_costs: Vec<Cost>` field on CardData for spell additional costs
+- Changeling creatures match any behold type requirement
+- 9 unit tests; 10 ECL cards updated to use typed behold costs
 
 #### 18. ~~Vivid (ECL)~~ (DONE)
 Color-count calculation implemented. 6 Vivid effect variants added. 6 cards fixed.
@@ -465,9 +471,9 @@ Priority ordered by cards-unblocked per effort.
 
 4. **Replacement effect pipeline** — Event interception. Enters-tapped enforcement done (2026-02-14). Still needed: damage prevention, death replacement, Undying/Persist, enters-with-counters. **~20+ remaining cards.**
 
-5. **Equipment system** — Attach/detach, equip cost, stat application. **~15+ cards.**
+5. ~~**Equipment system**~~ — **DONE (2026-02-14).** `Effect::Equip`, detachment SBA, card updates.
 
-6. **Aura/enchant system** — Attach on ETB, apply continuous effects while attached, fall-off SBA. **~15+ cards.**
+6. ~~**Aura/enchant system**~~ — **DONE (2026-02-14).** Auto-attach, fall-off SBA, CantAttack/CantBlock.
 
 7. ~~**X-cost spells**~~ — **DONE (2026-02-14).** `X_VALUE` sentinel, `StackItem.x_value`, `resolve_x()` closure in execute_effects. 4 unit tests.
 
@@ -481,7 +487,7 @@ Priority ordered by cards-unblocked per effort.
 
 11. ~~**Delayed triggers**~~ — **DONE (2026-02-14).** `DelayedTrigger` struct, `CreateDelayedTrigger` effect, event-driven firing, duration expiration. 4 unit tests.
 
-12. **Graveyard casting** — Flashback, Escape, cast-from-graveyard. **~6+ cards.**
+12. ~~**Graveyard casting**~~ — **DONE (2026-02-14).** Flashback casting from graveyard, exile after resolution.
 
 13. **Saga enchantments** — Lore counters, chapter abilities. **~6+ cards.**
 
@@ -493,7 +499,7 @@ Priority ordered by cards-unblocked per effort.
 
 16. **Earthbend** (TLA) — Top-N selection, land to hand. **~20+ cards.**
 
-17. **Behold** (ECL) — Reveal-from-hand alternative cost. **~15+ cards.**
+17. ~~**Behold**~~ (ECL) — **DONE (2026-02-14).** 3 behold cost variants, additional_costs field, 10 cards updated.
 
 18. **Renew/Endure** (TDM) — Counter-based death replacement (needs replacement pipeline). **~8+ cards.**
 
