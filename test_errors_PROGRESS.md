@@ -108,7 +108,7 @@ Recommendation: **Option A** — add minimal test helpers since these are unit t
   - Use `stack.top()` instead of `stack[0]`
   - Use `resolve_top_of_stack()` instead of `pass_priority()` x2
   - Fix `graveyard.contains(spell_id)` (remove `&`)
-- [ ] Task 21: Rewrite `fizzle_when_target_removed` test (game_basics.rs:470-533):
+- [x] Task 21: Rewrite `fizzle_when_target_removed` test (game_basics.rs:470-533):
   - Use `hand.add()` instead of `hand.push()`
   - Use `test_cast_spell()` instead of 3-arg `cast_spell()`
   - Use `resolve_top_of_stack()` instead of `pass_priority()` x2
@@ -155,3 +155,4 @@ Recommendation: **Option A** — add minimal test helpers since these are unit t
 - Task 18: `cast_spell` is already accessible from tests (tests are submodules of `game` module) — no changes needed
 - Task 19: Rewrote `activated_ability_goes_on_stack` test: changed `make_creature` params from `u32` to `i32`, replaced `vec![p2.as_target()]` with `&[]` (DealDamage falls back to opponent when targets empty), replaced `stack[0]` with `stack.top().unwrap()`, replaced `pass_priority()` x2 with `resolve_top_of_stack()`
 - Task 20: Rewrote `spell_effects_execute_on_resolve` test: replaced 3-arg `cast_spell(p1, spell_id, vec![p2.as_target()])` with 2-arg `cast_spell(p1, spell_id)`, replaced `stack[0]` with `stack.top().unwrap()`, replaced `pass_priority()` x2 with `resolve_top_of_stack()`, fixed `mana_pool.add()` from 1 arg to 3 args `(Mana::red(1), None, false)`
+- Task 21: Fixed `fizzle_when_target_removed` test: replaced 3-arg `cast_spell(p1, spell_id, vec![bear_id])` with 2-arg `cast_spell(p1, spell_id)`, replaced `pass_priority(p1)` + `pass_priority(p2)` with `resolve_top_of_stack()`. Note: `hand.add()` and `graveyard.contains(spell_id)` were already correct from previous fixes.
