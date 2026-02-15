@@ -761,7 +761,7 @@ fn feisty_spikeling(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "As long as it's your turn, Feisty Spikeling has first strike.",
-                vec![StaticEffect::Custom("As long as it's your turn, has first strike.".into())]),
+                vec![StaticEffect::ConditionalKeyword { keyword: "first strike".into(), condition: "your turn".into() }]),
         ],
         ..Default::default() }
 }
@@ -2243,7 +2243,7 @@ fn bristlebane_outrider(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![StaticEffect::CantBeBlockedByPowerLessOrEqual { power: 2 }]),
             Ability::static_ability(id,
                 "As long as another creature entered the battlefield under your control this turn, this creature gets +2/+0.",
-                vec![StaticEffect::Custom("Conditional +2/+0 if another creature ETB'd this turn.".into())]),
+                vec![StaticEffect::ConditionalBoostSelf { power: 2, toughness: 0, condition: "creature entered this turn".into() }]),
         ],
         ..Default::default() }
 }
@@ -2972,10 +2972,10 @@ fn illusion_spinners(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "You may cast this spell as though it had flash if you control a Faerie.",
-                vec![StaticEffect::Custom("Flash if you control a Faerie.".into())]),
+                vec![StaticEffect::ConditionalKeyword { keyword: "flash".into(), condition: "you control a Faerie".into() }]),
             Ability::static_ability(id,
                 "This creature has hexproof as long as it's untapped.",
-                vec![StaticEffect::Custom("Hexproof as long as untapped.".into())]),
+                vec![StaticEffect::ConditionalKeyword { keyword: "hexproof".into(), condition: "untapped".into() }]),
         ],
         ..Default::default() }
 }

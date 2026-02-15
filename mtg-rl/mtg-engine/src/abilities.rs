@@ -1345,6 +1345,18 @@ pub enum StaticEffect {
     /// "and [type] card in your graveyard").
     /// Grant additional land plays per turn to the controller.
     AdditionalLandPlays { count: u32 },
+    /// Conditional keyword: grant a keyword to self only when a condition is met.
+    /// Conditions: "your turn", "untapped", "you control a {type}", "creature entered this turn"
+    ConditionalKeyword {
+        keyword: String,
+        condition: String,
+    },
+    /// Conditional P/T boost on self when a condition is met.
+    ConditionalBoostSelf {
+        power: i32,
+        toughness: i32,
+        condition: String,
+    },
     BoostPerCount {
         count_filter: String,
         power_per: i32,

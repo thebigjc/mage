@@ -431,6 +431,8 @@ impl Game {
         let mut must_be_blockeds: Vec<ObjectId> = Vec::new();
         let mut boost_per_counts: Vec<(ObjectId, PlayerId, String, i32, i32)> = Vec::new();
         let mut additional_land_plays: Vec<(PlayerId, u32)> = Vec::new();
+        let mut conditional_keywords: Vec<(ObjectId, PlayerId, String, String)> = Vec::new();
+        let mut conditional_boosts: Vec<(ObjectId, PlayerId, i32, i32, String)> = Vec::new();
 
         for perm in self.state.battlefield.iter() {
             let source_id = perm.id();
@@ -468,6 +470,12 @@ impl Game {
                         }
                         crate::abilities::StaticEffect::AdditionalLandPlays { count } => {
                             additional_land_plays.push((controller, *count));
+                        }
+                        crate::abilities::StaticEffect::ConditionalKeyword { keyword, condition } => {
+                            conditional_keywords.push((source_id, controller, keyword.clone(), condition.clone()));
+                        }
+                        crate::abilities::StaticEffect::ConditionalBoostSelf { power, toughness, condition } => {
+                            conditional_boosts.push((source_id, controller, *power, *toughness, condition.clone()));
                         }
                         _ => {}
                     }
@@ -591,6 +599,75 @@ impl Game {
                 player.lands_per_turn += count;
             }
         }
+
+        // Step 6: Apply conditional keywords
+        for (source_id, controller, keyword_str, condition) in conditional_keywords {
+            let met = self.evaluate_condition(source_id, controller, &condition);
+            if met {
+                let keywords: Vec<&str> = keyword_str.split(',').map(|s| s.trim()).collect();
+                let mut combined = KeywordAbilities::empty();
+                for kw_name in &keywords {
+                    if let Some(kw) = KeywordAbilities::keyword_from_name(kw_name) {
+                        combined |= kw;
+                    }
+                }
+                if let Some(perm) = self.state.battlefield.get_mut(source_id) {
+                    perm.continuous_keywords |= combined;
+                }
+            }
+        }
+
+        // Step 7: Apply conditional boosts
+        for (source_id, controller, power, toughness, condition) in conditional_boosts {
+            let met = self.evaluate_condition(source_id, controller, &condition);
+            if met {
+                if let Some(perm) = self.state.battlefield.get_mut(source_id) {
+                    perm.continuous_boost_power += power;
+                    perm.continuous_boost_toughness += toughness;
+                }
+            }
+        }
+    }
+
+    /// Evaluate a condition string for conditional static effects.
+    /// Returns true if the condition is currently met.
+    fn evaluate_condition(&self, source_id: ObjectId, controller: PlayerId, condition: &str) -> bool {
+        let cond_lower = condition.to_lowercase();
+
+        // "your turn" — controller is the active player
+        if cond_lower.contains("your turn") {
+            return self.state.active_player == controller;
+        }
+
+        // "untapped" — source permanent is untapped
+        if cond_lower == "untapped" || cond_lower == "source untapped" {
+            return self.state.battlefield.get(source_id)
+                .map(|p| !p.tapped)
+                .unwrap_or(false);
+        }
+
+        // "you control a {Type}" — controller has a permanent of that type
+        if cond_lower.starts_with("you control a ") || cond_lower.starts_with("you control an ") {
+            let type_str = if cond_lower.starts_with("you control an ") {
+                &condition[15..]
+            } else {
+                &condition[14..]
+            };
+            let subtype = crate::constants::SubType::by_description(type_str);
+            return self.state.battlefield.iter().any(|p| {
+                p.controller == controller && p.id() != source_id &&
+                p.has_subtype(&subtype)
+            });
+        }
+
+        // "creature entered this turn" — check event log for ETB creature events
+        if cond_lower.contains("creature entered this turn") || cond_lower.contains("creature etb this turn") {
+            return self.event_log.iter().any(|e| {
+                e.event_type == crate::events::EventType::EnteredTheBattlefield
+            });
+        }
+
+        false // unknown condition
     }
 
     /// Find permanents matching a filter string, relative to a source permanent.
@@ -10945,5 +11022,185 @@ mod flicker_tests {
             .filter(|&&id| game.state.exile.contains(id))
             .count();
         assert_eq!(exile_count, 2, "2 cards should be in exile");
+    }
+}
+
+#[cfg(test)]
+mod conditional_static_tests {
+    use super::*;
+    use crate::abilities::*;
+    use crate::types::*;
+    use uuid::Uuid;
+
+    struct PassPlayer;
+    impl crate::decision::PlayerDecisionMaker for PassPlayer {
+        fn priority(&mut self, _: &crate::decision::GameView, actions: &[crate::decision::PlayerAction]) -> crate::decision::PlayerAction { actions[0].clone() }
+        fn choose_targets(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &crate::decision::TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &crate::decision::GameView, _: &[crate::decision::NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &crate::decision::GameView, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &crate::decision::GameView, _: &[crate::decision::AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &crate::decision::GameView, _: &crate::decision::DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &crate::decision::GameView, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &crate::decision::GameView, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &crate::decision::GameView, hand: &[ObjectId], count: usize) -> Vec<ObjectId> { hand.iter().take(count).copied().collect() }
+        fn choose_amount(&mut self, _: &crate::decision::GameView, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &crate::decision::GameView, _: &crate::decision::UnpaidMana, _: &[crate::decision::PlayerAction]) -> Option<crate::decision::PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &crate::decision::GameView, _: &[crate::decision::ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &str, _: &[crate::decision::NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_test_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId(Uuid::new_v4());
+        let p2 = PlayerId(Uuid::new_v4());
+        let config = GameConfig { players: vec![PlayerConfig { name: "P1".to_string(), deck: vec![] }, PlayerConfig { name: "P2".to_string(), deck: vec![] }], starting_life: 20 };
+        let game = Game::new_two_player(config, vec![
+            (p1, Box::new(PassPlayer)),
+            (p2, Box::new(PassPlayer)),
+        ]);
+        (game, p1, p2)
+    }
+
+    #[test]
+    fn conditional_keyword_your_turn() {
+        let (mut game, p1, _p2) = make_test_game();
+
+        // Create creature with "first strike on your turn"
+        let card_id = ObjectId(Uuid::new_v4());
+        let card = CardData {
+            id: card_id, owner: p1, name: "First Strike Guy".into(),
+            card_types: vec![crate::constants::CardType::Creature],
+            power: Some(2), toughness: Some(1),
+            abilities: vec![Ability::static_ability(card_id, "First strike on your turn.",
+                vec![StaticEffect::ConditionalKeyword { keyword: "first strike".into(), condition: "your turn".into() }])],
+            ..Default::default()
+        };
+        let perm = crate::permanent::Permanent::new(card.clone(), p1);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(card.clone());
+        for ab in &card.abilities { game.state.ability_store.add(ab.clone()); }
+
+        // Set active player to p1 (their turn)
+        game.state.active_player = p1;
+        game.apply_continuous_effects();
+        let perm = game.state.battlefield.get(card_id).unwrap();
+        assert!(perm.has_keyword(crate::constants::KeywordAbilities::FIRST_STRIKE),
+            "should have first strike on own turn");
+
+        // Set active player to p2 (opponent's turn)
+        game.state.active_player = _p2;
+        game.apply_continuous_effects();
+        let perm = game.state.battlefield.get(card_id).unwrap();
+        assert!(!perm.has_keyword(crate::constants::KeywordAbilities::FIRST_STRIKE),
+            "should NOT have first strike on opponent's turn");
+    }
+
+    #[test]
+    fn conditional_keyword_untapped() {
+        let (mut game, p1, _p2) = make_test_game();
+
+        let card_id = ObjectId(Uuid::new_v4());
+        let card = CardData {
+            id: card_id, owner: p1, name: "Hexproof Untapped".into(),
+            card_types: vec![crate::constants::CardType::Creature],
+            power: Some(3), toughness: Some(3),
+            abilities: vec![Ability::static_ability(card_id, "Hexproof as long as untapped.",
+                vec![StaticEffect::ConditionalKeyword { keyword: "hexproof".into(), condition: "untapped".into() }])],
+            ..Default::default()
+        };
+        let perm = crate::permanent::Permanent::new(card.clone(), p1);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(card.clone());
+        for ab in &card.abilities { game.state.ability_store.add(ab.clone()); }
+
+        // Untapped: should have hexproof
+        game.apply_continuous_effects();
+        let perm = game.state.battlefield.get(card_id).unwrap();
+        assert!(perm.has_keyword(crate::constants::KeywordAbilities::HEXPROOF),
+            "should have hexproof when untapped");
+
+        // Tap it
+        if let Some(perm) = game.state.battlefield.get_mut(card_id) {
+            perm.tap();
+        }
+        game.apply_continuous_effects();
+        let perm = game.state.battlefield.get(card_id).unwrap();
+        assert!(!perm.has_keyword(crate::constants::KeywordAbilities::HEXPROOF),
+            "should NOT have hexproof when tapped");
+    }
+
+    #[test]
+    fn conditional_keyword_control_type() {
+        let (mut game, p1, _p2) = make_test_game();
+
+        // Create creature with "flash if you control a Faerie"
+        let card_id = ObjectId(Uuid::new_v4());
+        let card = CardData {
+            id: card_id, owner: p1, name: "Faerie Pal".into(),
+            card_types: vec![crate::constants::CardType::Creature],
+            power: Some(2), toughness: Some(2),
+            abilities: vec![Ability::static_ability(card_id, "Flash if you control a Faerie.",
+                vec![StaticEffect::ConditionalKeyword { keyword: "flash".into(), condition: "you control a Faerie".into() }])],
+            ..Default::default()
+        };
+        let perm = crate::permanent::Permanent::new(card.clone(), p1);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(card.clone());
+        for ab in &card.abilities { game.state.ability_store.add(ab.clone()); }
+
+        // No Faerie: no flash
+        game.apply_continuous_effects();
+        let perm = game.state.battlefield.get(card_id).unwrap();
+        assert!(!perm.has_keyword(crate::constants::KeywordAbilities::FLASH),
+            "should NOT have flash without a Faerie");
+
+        // Add a Faerie
+        let faerie_id = ObjectId(Uuid::new_v4());
+        let faerie = CardData {
+            id: faerie_id, owner: p1, name: "Faerie Token".into(),
+            card_types: vec![crate::constants::CardType::Creature],
+            subtypes: vec![crate::constants::SubType::Faerie],
+            power: Some(1), toughness: Some(1),
+            ..Default::default()
+        };
+        let faerie_perm = crate::permanent::Permanent::new(faerie.clone(), p1);
+        game.state.battlefield.add(faerie_perm);
+        game.state.card_store.insert(faerie);
+
+        game.apply_continuous_effects();
+        let perm = game.state.battlefield.get(card_id).unwrap();
+        assert!(perm.has_keyword(crate::constants::KeywordAbilities::FLASH),
+            "should have flash with a Faerie on BF");
+    }
+
+    #[test]
+    fn conditional_boost_creature_etb() {
+        let (mut game, p1, _p2) = make_test_game();
+
+        let card_id = ObjectId(Uuid::new_v4());
+        let card = CardData {
+            id: card_id, owner: p1, name: "Boost on ETB".into(),
+            card_types: vec![crate::constants::CardType::Creature],
+            power: Some(3), toughness: Some(3),
+            abilities: vec![Ability::static_ability(card_id, "+2/+0 if creature entered this turn.",
+                vec![StaticEffect::ConditionalBoostSelf { power: 2, toughness: 0, condition: "creature entered this turn".into() }])],
+            ..Default::default()
+        };
+        let perm = crate::permanent::Permanent::new(card.clone(), p1);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(card.clone());
+        for ab in &card.abilities { game.state.ability_store.add(ab.clone()); }
+
+        // No ETB event: no boost
+        game.apply_continuous_effects();
+        let perm = game.state.battlefield.get(card_id).unwrap();
+        assert_eq!(perm.power(), 3, "should be base power without ETB event");
+
+        // Add ETB event
+        game.emit_event(crate::events::GameEvent::enters_battlefield(ObjectId(Uuid::new_v4()), p1));
+        game.apply_continuous_effects();
+        let perm = game.state.battlefield.get(card_id).unwrap();
+        assert_eq!(perm.power(), 5, "should be 3+2 with ETB event this turn");
     }
 }
