@@ -18,7 +18,7 @@ This document describes implementation gaps between the Rust mtg-rl engine and t
 | State-based actions | 7 of ~20 rules implemented |
 | Triggered abilities | Events emitted but abilities never put on stack |
 | Replacement effects | Data structures defined but not integrated |
-| Continuous effect layers | 7 layers defined but never applied |
+| Continuous effect layers | Layer 6 (keywords) + Layer 7 (P/T) applied; others pending |
 
 ---
 
@@ -46,19 +46,16 @@ These are structural deficiencies in `game.rs` that affect ALL cards, not just s
 - `process_sba_and_triggers()` implements MTG rules 117.5 SBA+trigger loop until stable
 - 5 unit tests covering ETB triggers, attack triggers, life gain triggers, optional triggers, ownership validation
 
-### C. Continuous Effect Layers Not Applied
+### ~~C. Continuous Effect Layers Not Applied~~ (DONE)
 
-The `effects.rs` file defines a full 7-layer system matching MTG rules 613:
-
-1. Copy → 2. Control → 3. Text → 4. Type → 5. Color → 6. Ability → 7. P/T (with sub-layers for CDA, Set, Modify, Counters, Switch)
-
-`ContinuousEffect`, `EffectModification`, and `Layer`/`SubLayer` enums are all defined. But the game loop **never recalculates characteristics** using these layers. P/T boosts from lords, keyword grants, type changes — none of these are applied.
-
-In Java XMage, `ContinuousEffects.apply()` runs after every game action, recalculating all permanent characteristics in layer order. This is what makes lord effects, anthem effects, and ability-granting cards work.
-
-**Impact:** All cards with `StaticEffect::Boost`, `StaticEffect::GrantKeyword`, and other continuous effects are non-functional. ~50+ lord/anthem cards across all sets.
-
-**Fix:** Add a `apply_continuous_effects()` method to `Game` that iterates battlefield permanents' `static_effects` and applies them in layer order. Call it after every state-based action check.
+**Completed 2026-02-14.** Continuous effects (Layer 6 + Layer 7) are now recalculated on every SBA iteration:
+- `apply_continuous_effects()` clears and recalculates `continuous_boost_power`, `continuous_boost_toughness`, and `continuous_keywords` on all permanents
+- Handles `StaticEffect::Boost` (Layer 7c — P/T modify) and `StaticEffect::GrantKeyword` (Layer 6 — ability adding)
+- `find_matching_permanents()` handles filter patterns: "other X you control" (excludes self), "X you control" (controller check), "self" (source only), "enchanted/equipped creature" (attached target), "token" (token-only), "attacking" (combat state check), plus type/subtype matching
+- Handles comma-separated keyword strings (e.g. "deathtouch, lifelink")
+- Added `is_token` field to `CardData` for token identification
+- Called in `process_sba_and_triggers()` before each SBA check
+- 11 unit tests: lord boost, anthem, keyword grant, comma keywords, recalculation, stacking lords, mutual lords, self filter, token filter, opponent isolation, boost+keyword combo
 
 ### D. Replacement Effects Not Integrated
 
@@ -440,7 +437,7 @@ Priority ordered by cards-unblocked per effort.
 
 2. ~~**Triggered ability stacking**~~ — **DONE (2026-02-14).** Events emitted at game actions, triggered abilities detected and stacked in APNAP order. ETB, attack, and life gain triggers functional. 5 unit tests.
 
-3. **Continuous effect layer application** — Recalculate permanent characteristics (P/T, keywords, types) by applying StaticEffect variants in layer order. Makes lord/anthem effects functional. **~50+ cards affected.**
+3. ~~**Continuous effect layer application**~~ — **DONE (2026-02-14).** `apply_continuous_effects()` recalculates P/T boosts and keyword grants from static abilities. `find_matching_permanents()` handles "other", "you control", "self", "enchanted/equipped creature", "token", "attacking" filter patterns. Added `is_token` to `CardData`. 11 unit tests.
 
 ### Phase 2: Core Missing Mechanics
 

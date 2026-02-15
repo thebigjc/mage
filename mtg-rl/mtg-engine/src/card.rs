@@ -53,6 +53,8 @@ pub struct CardData {
     pub rules_text: String,
     /// Abilities on this card (activated, triggered, static, spell, mana).
     pub abilities: Vec<Ability>,
+    /// Whether this card is a token (created during the game, not from a deck).
+    pub is_token: bool,
 }
 
 impl CardData {
@@ -74,6 +76,7 @@ impl CardData {
             loyalty: None,
             rules_text: String::new(),
             abilities: Vec::new(),
+            is_token: false,
         }
     }
 
@@ -139,6 +142,7 @@ impl Default for CardData {
             loyalty: None,
             rules_text: String::new(),
             abilities: Vec::new(),
+            is_token: false,
         }
     }
 }

@@ -368,6 +368,10 @@ impl Game {
     /// produces any changes.
     fn process_sba_and_triggers(&mut self) {
         for _ in 0..MAX_SBA_ITERATIONS {
+            // Recalculate continuous effects before each SBA check
+            // so that P/T from lords, granted keywords, etc. are current.
+            self.apply_continuous_effects();
+
             // Check and apply SBAs
             let sba = self.state.check_state_based_actions();
             let had_sba = sba.has_actions();
@@ -383,6 +387,152 @@ impl Game {
                 break;
             }
         }
+    }
+
+    /// Recalculate continuous effects from static abilities on all permanents.
+    /// This implements MTG rules 613 (layer system) for the currently-supported
+    /// layers: Layer 6 (Ability Adding/Removing) and Layer 7 (P/T Changing).
+    ///
+    /// Clears and recalculates `continuous_boost_power`, `continuous_boost_toughness`,
+    /// and `continuous_keywords` on every permanent based on StaticEffect::Boost
+    /// and StaticEffect::GrantKeyword from static abilities of all battlefield permanents.
+    fn apply_continuous_effects(&mut self) {
+        use crate::constants::KeywordAbilities;
+
+        // Step 1: Clear all continuous effects
+        for perm in self.state.battlefield.iter_mut() {
+            perm.continuous_boost_power = 0;
+            perm.continuous_boost_toughness = 0;
+            perm.continuous_keywords = KeywordAbilities::empty();
+        }
+
+        // Step 2: Collect static effects from all battlefield permanents.
+        // We must collect first to avoid borrow conflicts.
+        let mut boosts: Vec<(ObjectId, PlayerId, String, i32, i32)> = Vec::new();
+        let mut keyword_grants: Vec<(ObjectId, PlayerId, String, String)> = Vec::new();
+
+        for perm in self.state.battlefield.iter() {
+            let source_id = perm.id();
+            let controller = perm.controller;
+            let abilities = self.state.ability_store.for_source(source_id);
+            for ability in abilities {
+                if ability.ability_type != AbilityType::Static {
+                    continue;
+                }
+                for effect in &ability.static_effects {
+                    match effect {
+                        crate::abilities::StaticEffect::Boost { filter, power, toughness } => {
+                            boosts.push((source_id, controller, filter.clone(), *power, *toughness));
+                        }
+                        crate::abilities::StaticEffect::GrantKeyword { filter, keyword } => {
+                            keyword_grants.push((source_id, controller, filter.clone(), keyword.clone()));
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+
+        // Step 3: Apply P/T boosts (Layer 7c — Modify)
+        for (source_id, controller, filter, power, toughness) in boosts {
+            let matching = self.find_matching_permanents(source_id, controller, &filter);
+            for target_id in matching {
+                if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                    perm.continuous_boost_power += power;
+                    perm.continuous_boost_toughness += toughness;
+                }
+            }
+        }
+
+        // Step 4: Apply keyword grants (Layer 6)
+        for (source_id, controller, filter, keyword_str) in keyword_grants {
+            // Handle comma-separated keywords like "deathtouch, lifelink"
+            let keywords: Vec<&str> = keyword_str.split(',').map(|s| s.trim()).collect();
+            let mut combined = KeywordAbilities::empty();
+            for kw_name in &keywords {
+                if let Some(kw) = KeywordAbilities::keyword_from_name(kw_name) {
+                    combined |= kw;
+                }
+            }
+            if !combined.is_empty() {
+                let matching = self.find_matching_permanents(source_id, controller, &filter);
+                for target_id in matching {
+                    if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                        perm.continuous_keywords |= combined;
+                    }
+                }
+            }
+        }
+    }
+
+    /// Find permanents matching a filter string, relative to a source permanent.
+    ///
+    /// Handles common filter patterns:
+    /// - `"self"` — only the source permanent
+    /// - `"enchanted creature"` / `"equipped creature"` — the permanent this is attached to
+    /// - `"other X you control"` — excludes source, controller must match
+    /// - `"X you control"` — controller must match
+    /// - `"attacking X you control"` — must be currently attacking
+    /// - `"creature token you control"` — must be a token creature
+    /// - `"creature"` / `"Elf"` / etc. — type/subtype matching
+    fn find_matching_permanents(
+        &self,
+        source_id: ObjectId,
+        controller: PlayerId,
+        filter: &str,
+    ) -> Vec<ObjectId> {
+        let f = filter.to_lowercase();
+
+        // "self" — only the source permanent
+        if f == "self" {
+            return vec![source_id];
+        }
+
+        // "enchanted creature" / "equipped creature" — attached target
+        if f.contains("enchanted") || f.contains("equipped") {
+            if let Some(source_perm) = self.state.battlefield.get(source_id) {
+                if let Some(attached_to) = source_perm.attached_to {
+                    return vec![attached_to];
+                }
+            }
+            return vec![];
+        }
+
+        let exclude_self = f.contains("other");
+        let you_control = f.contains("you control");
+        let is_attacking = f.contains("attacking");
+        let is_token = f.contains("token");
+
+        // Strip modifiers to get the core type filter
+        let type_filter = f
+            .replace("other ", "")
+            .replace("attacking ", "")
+            .replace("you control", "")
+            .replace("token ", "")
+            .replace("token", "")
+            .trim()
+            .to_string();
+
+        let mut results = Vec::new();
+        for perm in self.state.battlefield.iter() {
+            if exclude_self && perm.id() == source_id {
+                continue;
+            }
+            if you_control && perm.controller != controller {
+                continue;
+            }
+            if is_token && !perm.card.is_token {
+                continue;
+            }
+            if is_attacking && !self.state.combat.is_attacking(perm.id()) {
+                continue;
+            }
+            if !type_filter.is_empty() && !Self::matches_filter(perm, &type_filter) {
+                continue;
+            }
+            results.push(perm.id());
+        }
+        results
     }
 
     /// Check for triggered abilities that should fire from recent events.
@@ -1767,6 +1917,7 @@ impl Game {
                         card.power = Some(p);
                         card.toughness = Some(t);
                         card.keywords = kw;
+                        card.is_token = true;
                         let perm = Permanent::new(card, controller);
                         self.state.battlefield.add(perm);
                         self.state.set_zone(token_id, crate::constants::Zone::Battlefield, None);
@@ -2001,6 +2152,7 @@ impl Game {
                         card.power = Some(p);
                         card.toughness = Some(t);
                         card.keywords = kw;
+                        card.is_token = true;
                         let mut perm = Permanent::new(card, controller);
                         perm.tapped = true;
                         perm.summoning_sick = false; // Can attack since entering tapped and attacking
@@ -2295,6 +2447,7 @@ impl Game {
                         card.power = Some(p);
                         card.toughness = Some(t);
                         card.keywords = kw;
+                        card.is_token = true;
                         let perm = Permanent::new(card, controller);
                         self.state.battlefield.add(perm);
                         self.state.set_zone(token_id, crate::constants::Zone::Battlefield, None);
@@ -5631,5 +5784,454 @@ mod trigger_tests {
 
         // No trigger should have fired (the attacker was a different creature)
         assert!(game.state.stack.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod continuous_effect_tests {
+    use super::*;
+    use crate::abilities::{Ability, StaticEffect};
+    use crate::card::CardData;
+    use crate::constants::{CardType, KeywordAbilities, Outcome, SubType};
+    use crate::decision::{
+        AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
+        ReplacementEffectChoice, TargetRequirement, UnpaidMana,
+    };
+
+    /// Passive decision maker — always passes.
+    struct PassivePlayer;
+
+    impl PlayerDecisionMaker for PassivePlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_deck(owner: PlayerId) -> Vec<CardData> {
+        (0..40).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), owner, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect()
+    }
+
+    fn setup() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Player1".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "Player2".into(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(
+            config,
+            vec![(p1, Box::new(PassivePlayer)), (p2, Box::new(PassivePlayer))],
+        );
+        (game, p1, p2)
+    }
+
+    fn add_creature(
+        game: &mut Game,
+        owner: PlayerId,
+        name: &str,
+        power: i32,
+        toughness: i32,
+        keywords: KeywordAbilities,
+    ) -> ObjectId {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        card.keywords = keywords;
+        let id = card.id;
+        let perm = Permanent::new(card, owner);
+        game.state.battlefield.add(perm);
+        id
+    }
+
+    fn add_creature_with_subtype(
+        game: &mut Game,
+        owner: PlayerId,
+        name: &str,
+        power: i32,
+        toughness: i32,
+        subtype: SubType,
+    ) -> ObjectId {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![subtype];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        let id = card.id;
+        let perm = Permanent::new(card, owner);
+        game.state.battlefield.add(perm);
+        id
+    }
+
+    fn add_lord_with_boost(
+        game: &mut Game,
+        owner: PlayerId,
+        name: &str,
+        power: i32,
+        toughness: i32,
+        subtype: SubType,
+        filter: &str,
+        boost_p: i32,
+        boost_t: i32,
+    ) -> ObjectId {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![subtype];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        let id = card.id;
+        card.abilities = vec![
+            Ability::static_ability(id, &format!("Other creatures get +{boost_p}/+{boost_t}"),
+                vec![StaticEffect::Boost { filter: filter.into(), power: boost_p, toughness: boost_t }]),
+        ];
+        let perm = Permanent::new(card, owner);
+        game.state.battlefield.add(perm);
+        // Register abilities
+        let abilities: Vec<Ability> = game.state.battlefield.get(id).unwrap().card.abilities.clone();
+        for ability in abilities {
+            game.state.ability_store.add(ability);
+        }
+        id
+    }
+
+    fn add_keyword_lord(
+        game: &mut Game,
+        owner: PlayerId,
+        name: &str,
+        power: i32,
+        toughness: i32,
+        filter: &str,
+        keyword: &str,
+    ) -> ObjectId {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        let id = card.id;
+        card.abilities = vec![
+            Ability::static_ability(id, &format!("Creatures have {keyword}"),
+                vec![StaticEffect::GrantKeyword { filter: filter.into(), keyword: keyword.into() }]),
+        ];
+        let perm = Permanent::new(card, owner);
+        game.state.battlefield.add(perm);
+        let abilities: Vec<Ability> = game.state.battlefield.get(id).unwrap().card.abilities.clone();
+        for ability in abilities {
+            game.state.ability_store.add(ability);
+        }
+        id
+    }
+
+    // ── Test: Lord boosts other creatures of same type ──────────────
+
+    #[test]
+    fn lord_boosts_other_creatures_of_same_type() {
+        let (mut game, p1, _p2) = setup();
+
+        // Add an Elf lord: "Other Elf you control get +1/+1"
+        let lord_id = add_lord_with_boost(&mut game, p1, "Elvish Archdruid", 2, 2,
+            SubType::Elf, "other Elf you control", 1, 1);
+
+        // Add two Elf creatures
+        let elf1_id = add_creature_with_subtype(&mut game, p1, "Llanowar Elves", 1, 1, SubType::Elf);
+        let elf2_id = add_creature_with_subtype(&mut game, p1, "Elvish Mystic", 1, 1, SubType::Elf);
+
+        // Add a non-Elf creature
+        let bear_id = add_creature(&mut game, p1, "Grizzly Bears", 2, 2, KeywordAbilities::empty());
+
+        // Apply continuous effects
+        game.apply_continuous_effects();
+
+        // Lord itself should NOT be boosted (filter says "other")
+        let lord = game.state.battlefield.get(lord_id).unwrap();
+        assert_eq!(lord.power(), 2);
+        assert_eq!(lord.toughness(), 2);
+
+        // Elves should be boosted
+        let elf1 = game.state.battlefield.get(elf1_id).unwrap();
+        assert_eq!(elf1.power(), 2);
+        assert_eq!(elf1.toughness(), 2);
+
+        let elf2 = game.state.battlefield.get(elf2_id).unwrap();
+        assert_eq!(elf2.power(), 2);
+        assert_eq!(elf2.toughness(), 2);
+
+        // Bear should NOT be boosted (not an Elf)
+        let bear = game.state.battlefield.get(bear_id).unwrap();
+        assert_eq!(bear.power(), 2);
+        assert_eq!(bear.toughness(), 2);
+    }
+
+    // ── Test: Anthem boosts all creatures you control ──────────────
+
+    #[test]
+    fn anthem_boosts_all_creatures_you_control() {
+        let (mut game, p1, p2) = setup();
+
+        // Add anthem: "creature you control get +1/+1"
+        let anthem_id = add_lord_with_boost(&mut game, p1, "Glorious Anthem", 0, 0,
+            SubType::Custom("Enchantment".into()), "creature you control", 1, 1);
+
+        // P1's creature
+        let bear1_id = add_creature(&mut game, p1, "Bear", 2, 2, KeywordAbilities::empty());
+
+        // P2's creature should NOT be boosted
+        let bear2_id = add_creature(&mut game, p2, "Enemy Bear", 2, 2, KeywordAbilities::empty());
+
+        game.apply_continuous_effects();
+
+        // Anthem itself is a 0/0 creature, so it gets +1/+1 too
+        // (filter is "creature you control", not "other creature")
+        let anthem = game.state.battlefield.get(anthem_id).unwrap();
+        assert_eq!(anthem.power(), 1);
+        assert_eq!(anthem.toughness(), 1);
+
+        let bear1 = game.state.battlefield.get(bear1_id).unwrap();
+        assert_eq!(bear1.power(), 3);
+        assert_eq!(bear1.toughness(), 3);
+
+        let bear2 = game.state.battlefield.get(bear2_id).unwrap();
+        assert_eq!(bear2.power(), 2);
+        assert_eq!(bear2.toughness(), 2);
+    }
+
+    // ── Test: Keyword grant ────────────────────────────────────────
+
+    #[test]
+    fn keyword_grant_gives_keyword_to_matching_creatures() {
+        let (mut game, p1, _p2) = setup();
+
+        // "Creatures you control have flying"
+        add_keyword_lord(&mut game, p1, "Archetype of Imagination", 3, 2,
+            "creature you control", "flying");
+
+        let bear_id = add_creature(&mut game, p1, "Bear", 2, 2, KeywordAbilities::empty());
+
+        game.apply_continuous_effects();
+
+        let bear = game.state.battlefield.get(bear_id).unwrap();
+        assert!(bear.has_flying());
+    }
+
+    // ── Test: Multiple keywords in comma-separated string ──────────
+
+    #[test]
+    fn comma_separated_keywords_granted() {
+        let (mut game, p1, _p2) = setup();
+
+        // "Equipped creature has deathtouch, lifelink"
+        add_keyword_lord(&mut game, p1, "Basilisk Collar", 0, 0,
+            "creature you control", "deathtouch, lifelink");
+
+        let bear_id = add_creature(&mut game, p1, "Bear", 2, 2, KeywordAbilities::empty());
+
+        game.apply_continuous_effects();
+
+        let bear = game.state.battlefield.get(bear_id).unwrap();
+        assert!(bear.has_deathtouch());
+        assert!(bear.has_lifelink());
+    }
+
+    // ── Test: Effects cleared on recalculation ─────────────────────
+
+    #[test]
+    fn effects_cleared_and_recalculated() {
+        let (mut game, p1, _p2) = setup();
+
+        let lord_id = add_lord_with_boost(&mut game, p1, "Elvish Archdruid", 2, 2,
+            SubType::Elf, "other Elf you control", 1, 1);
+
+        let elf_id = add_creature_with_subtype(&mut game, p1, "Llanowar Elves", 1, 1, SubType::Elf);
+
+        // Apply once
+        game.apply_continuous_effects();
+        assert_eq!(game.state.battlefield.get(elf_id).unwrap().power(), 2);
+
+        // Remove lord from battlefield
+        game.state.battlefield.remove(lord_id);
+        game.state.ability_store.remove_source(lord_id);
+
+        // Apply again — boost should be gone
+        game.apply_continuous_effects();
+        assert_eq!(game.state.battlefield.get(elf_id).unwrap().power(), 1);
+    }
+
+    // ── Test: Multiple lords stack ─────────────────────────────────
+
+    #[test]
+    fn multiple_lords_stack() {
+        let (mut game, p1, _p2) = setup();
+
+        // Two Elf lords
+        add_lord_with_boost(&mut game, p1, "Lord 1", 2, 2,
+            SubType::Elf, "other Elf you control", 1, 1);
+        add_lord_with_boost(&mut game, p1, "Lord 2", 2, 2,
+            SubType::Elf, "other Elf you control", 1, 1);
+
+        let elf_id = add_creature_with_subtype(&mut game, p1, "Llanowar Elves", 1, 1, SubType::Elf);
+
+        game.apply_continuous_effects();
+
+        // Elf should get +1/+1 from each lord = +2/+2 total
+        let elf = game.state.battlefield.get(elf_id).unwrap();
+        assert_eq!(elf.power(), 3);
+        assert_eq!(elf.toughness(), 3);
+    }
+
+    // ── Test: Lord boosts each other ───────────────────────────────
+
+    #[test]
+    fn lords_boost_each_other() {
+        let (mut game, p1, _p2) = setup();
+
+        // Two Elf lords with "other Elf you control get +1/+1"
+        let lord1_id = add_lord_with_boost(&mut game, p1, "Lord 1", 2, 2,
+            SubType::Elf, "other Elf you control", 1, 1);
+        let lord2_id = add_lord_with_boost(&mut game, p1, "Lord 2", 2, 2,
+            SubType::Elf, "other Elf you control", 1, 1);
+
+        game.apply_continuous_effects();
+
+        // Each lord should get +1/+1 from the other
+        let lord1 = game.state.battlefield.get(lord1_id).unwrap();
+        assert_eq!(lord1.power(), 3);
+        assert_eq!(lord1.toughness(), 3);
+
+        let lord2 = game.state.battlefield.get(lord2_id).unwrap();
+        assert_eq!(lord2.power(), 3);
+        assert_eq!(lord2.toughness(), 3);
+    }
+
+    // ── Test: "self" filter applies only to source ─────────────────
+
+    #[test]
+    fn self_filter_applies_only_to_source() {
+        let (mut game, p1, _p2) = setup();
+
+        // A creature with a static effect targeting "self"
+        let mut card = CardData::new(ObjectId::new(), p1, "Self-Booster");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(1);
+        card.toughness = Some(1);
+        let id = card.id;
+        card.abilities = vec![
+            Ability::static_ability(id, "+2/+2 to self",
+                vec![StaticEffect::Boost { filter: "self".into(), power: 2, toughness: 2 }]),
+        ];
+        let perm = Permanent::new(card, p1);
+        game.state.battlefield.add(perm);
+        let abilities: Vec<Ability> = game.state.battlefield.get(id).unwrap().card.abilities.clone();
+        for a in abilities { game.state.ability_store.add(a); }
+
+        let other_id = add_creature(&mut game, p1, "Other", 1, 1, KeywordAbilities::empty());
+
+        game.apply_continuous_effects();
+
+        assert_eq!(game.state.battlefield.get(id).unwrap().power(), 3);
+        assert_eq!(game.state.battlefield.get(other_id).unwrap().power(), 1);
+    }
+
+    // ── Test: Token filter ─────────────────────────────────────────
+
+    #[test]
+    fn token_filter_only_matches_tokens() {
+        let (mut game, p1, _p2) = setup();
+
+        // "Creature token you control get +1/+1"
+        add_lord_with_boost(&mut game, p1, "Token Lord", 2, 2,
+            SubType::Custom("Lord".into()), "creature token you control", 1, 1);
+
+        // Regular creature
+        let regular_id = add_creature(&mut game, p1, "Regular Bear", 2, 2, KeywordAbilities::empty());
+
+        // Token creature
+        let token_id = ObjectId::new();
+        let mut token_card = CardData::new(token_id, p1, "Bear Token");
+        token_card.card_types = vec![CardType::Creature];
+        token_card.power = Some(2);
+        token_card.toughness = Some(2);
+        token_card.is_token = true;
+        let token_perm = Permanent::new(token_card, p1);
+        game.state.battlefield.add(token_perm);
+
+        game.apply_continuous_effects();
+
+        // Regular creature should NOT be boosted
+        assert_eq!(game.state.battlefield.get(regular_id).unwrap().power(), 2);
+
+        // Token should be boosted
+        assert_eq!(game.state.battlefield.get(token_id).unwrap().power(), 3);
+    }
+
+    // ── Test: Opponent's lord doesn't boost your creatures ─────────
+
+    #[test]
+    fn opponent_lord_doesnt_boost_your_creatures() {
+        let (mut game, p1, p2) = setup();
+
+        // P2 has Elf lord
+        add_lord_with_boost(&mut game, p2, "Enemy Lord", 2, 2,
+            SubType::Elf, "other Elf you control", 1, 1);
+
+        // P1 has Elf
+        let elf_id = add_creature_with_subtype(&mut game, p1, "My Elf", 1, 1, SubType::Elf);
+
+        game.apply_continuous_effects();
+
+        // P1's Elf should NOT be boosted by P2's lord
+        assert_eq!(game.state.battlefield.get(elf_id).unwrap().power(), 1);
+    }
+
+    // ── Test: Boost + keyword grant combo ──────────────────────────
+
+    #[test]
+    fn boost_and_keyword_combo() {
+        let (mut game, p1, _p2) = setup();
+
+        // A lord with both boost and keyword grant
+        let mut card = CardData::new(ObjectId::new(), p1, "Drogskol Captain");
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![SubType::Spirit];
+        card.power = Some(2);
+        card.toughness = Some(2);
+        let id = card.id;
+        card.abilities = vec![
+            Ability::static_ability(id, "Other Spirit creatures you control get +1/+1 and have hexproof",
+                vec![
+                    StaticEffect::Boost { filter: "other Spirit you control".into(), power: 1, toughness: 1 },
+                    StaticEffect::GrantKeyword { filter: "other Spirit you control".into(), keyword: "hexproof".into() },
+                ]),
+        ];
+        let perm = Permanent::new(card, p1);
+        game.state.battlefield.add(perm);
+        let abilities: Vec<Ability> = game.state.battlefield.get(id).unwrap().card.abilities.clone();
+        for a in abilities { game.state.ability_store.add(a); }
+
+        let spirit_id = add_creature_with_subtype(&mut game, p1, "Mausoleum Wanderer", 1, 1, SubType::Spirit);
+
+        game.apply_continuous_effects();
+
+        let spirit = game.state.battlefield.get(spirit_id).unwrap();
+        assert_eq!(spirit.power(), 2);
+        assert_eq!(spirit.toughness(), 2);
+        assert!(spirit.has_hexproof());
     }
 }

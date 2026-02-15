@@ -44,6 +44,13 @@ pub struct Permanent {
     pub original_controller: Option<PlayerId>,
     /// Creature type chosen via "As ~ enters, choose a creature type" effects.
     pub chosen_type: Option<SubType>,
+    /// P/T boost from continuous effects (recalculated each time effects are applied).
+    pub continuous_boost_power: i32,
+    /// Toughness boost from continuous effects (recalculated each time effects are applied).
+    pub continuous_boost_toughness: i32,
+    /// Keywords granted by continuous effects from other permanents (static abilities).
+    /// Distinct from `granted_keywords` which tracks one-shot until-end-of-turn effects.
+    pub continuous_keywords: KeywordAbilities,
 }
 
 impl Permanent {
@@ -65,6 +72,9 @@ impl Permanent {
             removed_keywords: KeywordAbilities::empty(),
             original_controller: None,
             chosen_type: None,
+            continuous_boost_power: 0,
+            continuous_boost_toughness: 0,
+            continuous_keywords: KeywordAbilities::empty(),
             card,
         }
     }
@@ -126,9 +136,9 @@ impl Permanent {
 
     // ── Keyword abilities ──────────────────────────────────────────────
 
-    /// Current effective keyword abilities (base + granted - removed).
+    /// Current effective keyword abilities (base + granted + continuous - removed).
     pub fn keywords(&self) -> KeywordAbilities {
-        (self.card.keywords | self.granted_keywords) & !self.removed_keywords
+        (self.card.keywords | self.granted_keywords | self.continuous_keywords) & !self.removed_keywords
     }
 
     pub fn has_keyword(&self, kw: KeywordAbilities) -> bool {
@@ -193,18 +203,18 @@ impl Permanent {
 
     // ── Power/Toughness ────────────────────────────────────────────────
 
-    /// Get the current power, including counter modifications.
+    /// Get the current power, including counter and continuous effect modifications.
     pub fn power(&self) -> i32 {
         let base = self.card.power.unwrap_or(0);
         let (counter_p, _) = self.counters.pt_modification();
-        base + counter_p
+        base + counter_p + self.continuous_boost_power
     }
 
-    /// Get the current toughness, including counter modifications.
+    /// Get the current toughness, including counter and continuous effect modifications.
     pub fn toughness(&self) -> i32 {
         let base = self.card.toughness.unwrap_or(0);
         let (_, counter_t) = self.counters.pt_modification();
-        base + counter_t
+        base + counter_t + self.continuous_boost_toughness
     }
 
     /// Remaining toughness after damage (used for SBA lethal damage check).
