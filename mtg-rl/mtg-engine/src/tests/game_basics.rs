@@ -4,14 +4,14 @@ use super::*;
 use crate::game::{Game, GameConfig, PlayerConfig};
 use crate::permanent::Permanent;
 use crate::counters::CounterType;
-use crate::constants::{SuperType, PhaseStep, TurnPhase};
+use crate::constants::{SuperType, PhaseStep, TurnPhase, Outcome};
 use crate::abilities::{Ability, Cost, TargetSpec};
 use crate::mana::Mana;
 use crate::types::PlayerId;
 use crate::abilities::Effect;
 use crate::card::CardData;
 use crate::constants::{CardType, KeywordAbilities};
-use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, Outcome, PlayerAction, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
+use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
 use crate::types::ObjectId;
 
 fn make_deck(owner: PlayerId) -> Vec<CardData> {
