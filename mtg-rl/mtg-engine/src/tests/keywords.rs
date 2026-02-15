@@ -280,7 +280,7 @@ use super::*;
         let blocker = Permanent::new(blocker_card, blocker_owner);
 
         // Without landwalk check, normal blocking is fine
-        assert!(combat::can_block(&blocker, &attacker));
+        assert!(crate::combat::can_block(&blocker, &attacker));
     }
 
 
