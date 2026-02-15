@@ -66,7 +66,7 @@ Complete ECL set by implementing missing engine capabilities and updating card f
 Replace generic Custom placeholders with compositions of existing typed effects. Each sub-task is one card or small batch of related cards. Analyze each card's Oracle text (check Java reference if needed), then replace Custom with the correct combination of existing Effect variants.
 
 - [x] Task 1.1: Audit all generic-placeholder ECL cards and all 88 Custom fallbacks
-- [ ] Task 1.2: Replace generic placeholders on 14 cards with descriptive Custom strings matching Oracle text (so they're no longer bare stubs but describe the actual card effect). These all need complex new engine features so can't use typed variants yet.
+- [x] Task 1.2: Replace generic placeholders on 14 cards with descriptive Custom strings matching Oracle text. Also added missing card data and typed variants where possible.
 - [ ] Task 1.3: Replace simple Custom strings with existing Effect variants where possible (approx 3-5 cards)
 
 ### Phase 2: New Engine Features (Ordered by Dependency + Impact)
@@ -159,3 +159,4 @@ Each task: add engine feature, add tests, update ECL cards to use it, commit.
 
 - Task 0.1: Committed cost reduction system (game.rs + mana.rs) — Mana::reduce_generic(), Game::calculate_cost_reduction(), integration into legal actions and spell payment. 3 tests.
 - Task 1.1: Audited all 88 ECL Custom fallbacks. Found: 18 generic placeholders (14 unique cards), ~3 simple replacements, ~8 partial replacements, ~22 need new engine features. Key finding: ALL 14 generic-placeholder cards need complex new engine features (replacement effects, transform, delayed triggers, watcher patterns, etc.), not simple stub replacement.
+- Task 1.2: Replaced all 18 generic placeholders across 14 ECL cards with descriptive Oracle-text Custom strings. Added missing card data for Grub and Spinerock. Replaced some effects with typed variants (Mill, ChooseCreatureType, AddCountersSelf, RemoveCounters, BlightOpponents, Equip). 0 generic placeholders remain.
