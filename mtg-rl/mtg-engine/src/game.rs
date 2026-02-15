@@ -429,6 +429,7 @@ impl Game {
         let mut max_blocked_bys: Vec<(ObjectId, u32)> = Vec::new();
         let mut cant_blocked_by_power: Vec<(ObjectId, i32)> = Vec::new();
         let mut must_be_blockeds: Vec<ObjectId> = Vec::new();
+        let mut boost_per_counts: Vec<(ObjectId, PlayerId, String, i32, i32)> = Vec::new();
 
         for perm in self.state.battlefield.iter() {
             let source_id = perm.id();
@@ -460,6 +461,9 @@ impl Game {
                         }
                         crate::abilities::StaticEffect::MustBeBlocked => {
                             must_be_blockeds.push(source_id);
+                        }
+                        crate::abilities::StaticEffect::BoostPerCount { count_filter, power_per, toughness_per } => {
+                            boost_per_counts.push((source_id, controller, count_filter.clone(), *power_per, *toughness_per));
                         }
                         _ => {}
                     }
@@ -512,6 +516,44 @@ impl Game {
         for source_id in must_be_blockeds {
             if let Some(perm) = self.state.battlefield.get_mut(source_id) {
                 perm.must_be_blocked = true;
+            }
+        }
+
+        // Step 3e: Apply dynamic P/T boosts (BoostPerCount)
+        for (source_id, controller, count_filter, power_per, toughness_per) in boost_per_counts {
+            // Count matching permanents on the battlefield
+            let bf_count = self.find_matching_permanents(source_id, controller, &count_filter).len() as i32;
+
+            // Also count matching cards in the controller's graveyard if the filter mentions it
+            let gy_count = if count_filter.contains("graveyard") {
+                // Extract the type from "and creature card in your graveyard" or similar
+                if let Some(player) = self.state.players.get(&controller) {
+                    let filter_lower = count_filter.to_lowercase();
+                    let mut count = 0i32;
+                    for &card_id in player.graveyard.iter() {
+                        if let Some(card) = self.state.card_store.get(card_id) {
+                            // If "creature card in your graveyard", check creature type
+                            if filter_lower.contains("creature") && card.is_creature() {
+                                count += 1;
+                            } else if filter_lower.contains("card") {
+                                count += 1;
+                            }
+                        }
+                    }
+                    count
+                } else {
+                    0
+                }
+            } else {
+                0
+            };
+
+            let total = bf_count + gy_count;
+            if total > 0 {
+                if let Some(perm) = self.state.battlefield.get_mut(source_id) {
+                    perm.continuous_boost_power += total * power_per;
+                    perm.continuous_boost_toughness += total * toughness_per;
+                }
             }
         }
 
@@ -10429,5 +10471,175 @@ mod simple_effect_tests {
 
         // Creature should be tapped
         assert!(game.state.battlefield.get(creature_id).unwrap().tapped);
+    }
+}
+
+#[cfg(test)]
+mod boost_per_count_tests {
+    use super::*;
+    use crate::card::CardData;
+    use crate::constants::{CardType, KeywordAbilities, Outcome, SubType, AbilityType};
+    use crate::decision::{
+        AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
+        ReplacementEffectChoice, TargetRequirement, UnpaidMana,
+    };
+    use crate::abilities::{Ability, StaticEffect};
+
+    struct PassPlayer;
+    impl PlayerDecisionMaker for PassPlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let deck: Vec<CardData> = (0..40).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), p1, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect();
+        let deck2: Vec<CardData> = (0..40).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), p2, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "P1".to_string(), deck },
+                PlayerConfig { name: "P2".to_string(), deck: deck2 },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(config, vec![(p1, Box::new(PassPlayer)), (p2, Box::new(PassPlayer))]);
+        (game, p1, p2)
+    }
+
+    fn add_goblin(game: &mut Game, owner: PlayerId, name: &str) -> ObjectId {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![SubType::Goblin];
+        card.power = Some(1);
+        card.toughness = Some(1);
+        let id = card.id;
+        game.state.battlefield.add(Permanent::new(card, owner));
+        id
+    }
+
+    #[test]
+    fn boost_per_count_two_goblins() {
+        let (mut game, p1, _p2) = make_game();
+
+        // Add a creature with "+2/+0 for each other Goblin you control"
+        let mut card = CardData::new(ObjectId::new(), p1, "Goblin Lord");
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![SubType::Goblin, SubType::Berserker];
+        card.power = Some(2);
+        card.toughness = Some(4);
+        let lord_id = card.id;
+        let ability = Ability::static_ability(lord_id, "Gets +2/+0 per Goblin",
+            vec![StaticEffect::BoostPerCount { count_filter: "other Goblin you control".into(), power_per: 2, toughness_per: 0 }]);
+        card.abilities.push(ability.clone());
+        game.state.card_store.insert(card.clone());
+        game.state.battlefield.add(Permanent::new(card, p1));
+        game.state.ability_store.add(ability);
+
+        // Add 2 other goblins
+        let _g1 = add_goblin(&mut game, p1, "Goblin A");
+        let _g2 = add_goblin(&mut game, p1, "Goblin B");
+
+        game.apply_continuous_effects();
+
+        let lord = game.state.battlefield.get(lord_id).unwrap();
+        // Base 2/4, +2*2/+0*2 = 6/4
+        assert_eq!(lord.power(), 6, "power should be 2 + 2*2 = 6");
+        assert_eq!(lord.toughness(), 4, "toughness should be 4 + 0*2 = 4");
+    }
+
+    #[test]
+    fn boost_per_count_no_others() {
+        let (mut game, p1, _p2) = make_game();
+
+        let mut card = CardData::new(ObjectId::new(), p1, "Lonely Goblin Lord");
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![SubType::Goblin];
+        card.power = Some(2);
+        card.toughness = Some(4);
+        let lord_id = card.id;
+        let ability = Ability::static_ability(lord_id, "", 
+            vec![StaticEffect::BoostPerCount { count_filter: "other Goblin you control".into(), power_per: 2, toughness_per: 0 }]);
+        card.abilities.push(ability.clone());
+        game.state.card_store.insert(card.clone());
+        game.state.battlefield.add(Permanent::new(card, p1));
+        game.state.ability_store.add(ability);
+
+        game.apply_continuous_effects();
+
+        let lord = game.state.battlefield.get(lord_id).unwrap();
+        assert_eq!(lord.power(), 2, "no other goblins, power should be base 2");
+    }
+
+    #[test]
+    fn boost_per_count_with_graveyard() {
+        let (mut game, p1, _p2) = make_game();
+
+        // Create a creature with "+1/+1 for each creature you control and creature card in graveyard"
+        let mut card = CardData::new(ObjectId::new(), p1, "Graveyard Counter");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(0);
+        card.toughness = Some(0);
+        let id = card.id;
+        let ability = Ability::static_ability(id, "",
+            vec![StaticEffect::BoostPerCount {
+                count_filter: "creature you control and creature card in your graveyard".into(),
+                power_per: 1,
+                toughness_per: 1,
+            }]);
+        card.abilities.push(ability.clone());
+        game.state.card_store.insert(card.clone());
+        game.state.battlefield.add(Permanent::new(card, p1));
+        game.state.ability_store.add(ability);
+
+        // Add 1 other creature on BF
+        let mut c2 = CardData::new(ObjectId::new(), p1, "BF Creature");
+        c2.card_types = vec![CardType::Creature];
+        c2.power = Some(1);
+        c2.toughness = Some(1);
+        let c2_id = c2.id;
+        game.state.battlefield.add(Permanent::new(c2.clone(), p1));
+        game.state.card_store.insert(c2);
+
+        // Add 2 creature cards in graveyard
+        for i in 0..2 {
+            let mut gc = CardData::new(ObjectId::new(), p1, &format!("GY Creature {i}"));
+            gc.card_types = vec![CardType::Creature];
+            gc.power = Some(1);
+            gc.toughness = Some(1);
+            let gc_id = gc.id;
+            game.state.card_store.insert(gc);
+            if let Some(player) = game.state.players.get_mut(&p1) {
+                player.graveyard.add(gc_id);
+            }
+        }
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(id).unwrap();
+        // 2 creatures on BF (self + other) + 2 in graveyard = 4 total
+        assert_eq!(perm.power(), 4, "0 + 1*(2 BF + 2 GY) = 4");
+        assert_eq!(perm.toughness(), 4);
     }
 }

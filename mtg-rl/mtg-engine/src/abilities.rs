@@ -1313,6 +1313,15 @@ pub enum StaticEffect {
     MustBeBlocked,
     /// Spells you control can't be countered.
     SpellsCantBeCountered,
+    /// Dynamic P/T boost: "gets +P/+T for each [count_filter]".
+    /// Counts matching permanents on the battlefield, optionally also counts
+    /// matching cards in controller's graveyard (when count_filter contains
+    /// "and [type] card in your graveyard").
+    BoostPerCount {
+        count_filter: String,
+        power_per: i32,
+        toughness_per: i32,
+    },
     /// Custom continuous effect.
 
     Custom(String),

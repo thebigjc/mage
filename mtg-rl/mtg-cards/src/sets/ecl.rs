@@ -4025,7 +4025,7 @@ fn boneclub_berserker(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::static_ability(id, "This creature gets +2/+0 for each other Goblin you control.",
-                vec![StaticEffect::Custom("This creature gets +2/+0 for each other Goblin you control.".into())]),
+                vec![StaticEffect::BoostPerCount { count_filter: "other Goblin you control".into(), power_per: 2, toughness_per: 0 }]),
         ],
         ..Default::default() }
 }
@@ -4453,7 +4453,7 @@ fn moon_vigil_adherents(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::static_ability(id, "This creature gets +1/+1 for each creature you control and each creature card in your graveyard.",
-                vec![StaticEffect::Custom("This creature gets +1/+1 for each creature you control and each creature card in your graveyard.".into())]),
+                vec![StaticEffect::BoostPerCount { count_filter: "creature you control and creature card in your graveyard".into(), power_per: 1, toughness_per: 1 }]),
         ],
         ..Default::default() }
 }
