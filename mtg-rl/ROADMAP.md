@@ -147,7 +147,7 @@ Checked in `state.rs:check_state_based_actions()`:
 | 704.5g | Lethal damage → destroy (if not indestructible) | **Implemented** |
 | 704.5i | Planeswalker with 0 loyalty → graveyard | **Implemented** |
 | 704.5j | Legend rule (same name) | **Implemented** |
-| 704.5n | Aura not attached → graveyard | **Not implemented** |
+| 704.5n | Aura not attached → graveyard | **Implemented** |
 | 704.5p | Equipment/Fortification illegal attach → unattach | **Implemented** |
 | 704.5r | +1/+1 and -1/-1 counter annihilation | **Implemented** |
 | 704.5s | Saga with lore counters ≥ chapters → sacrifice | **Not implemented** |
@@ -195,13 +195,16 @@ These require new engine architecture beyond adding match arms to existing funct
 - 12 card factories updated from `Effect::Custom` to `Effect::equip()`
 - 5 unit tests: attach, stat boost, detach on death, re-equip, keyword grant
 
-#### 5. Aura/Enchant System
-- Auras target on cast, attach on ETB
-- Apply continuous effects while attached (P/T boosts, keyword grants, restrictions)
-- Fall off when enchanted permanent leaves (SBA)
-- Enchant validation (enchant creature, enchant permanent, etc.)
-- **Blocked cards:** Pacifism, Obsessive Pursuit, Eaten by Piranhas, Angelic Destiny (~15+ cards)
-- **Java reference:** `AuraReplacementEffect.java`, `AttachEffect.java`
+#### ~~5. Aura/Enchant System~~ (DONE)
+
+**Completed 2026-02-14.** Aura enchantments are now functional:
+- Auras auto-attach to their target on spell resolution (ETB)
+- Continuous effects ("enchanted creature" filter) handle P/T boosts and keyword grants
+- `CantAttack`/`CantBlock` static effects now enforced via continuous effects layer
+  (added `cant_attack` and `cant_block_from_effect` flags to Permanent)
+- SBA 704.5n: Auras go to graveyard when enchanted permanent leaves
+- SBA 704.5p: Equipment just detaches (stays on battlefield)
+- 3 unit tests: boost, fall-off, Pacifism can't-attack
 
 #### 6. Replacement Effect Pipeline
 - Before each event, check registered replacement effects

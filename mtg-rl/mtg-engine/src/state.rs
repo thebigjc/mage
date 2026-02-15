@@ -352,12 +352,16 @@ impl GameState {
             }
         }
 
-        // Rule 704.5p: Equipment/Fortification attached to an illegal or missing permanent
-        // becomes unattached but stays on the battlefield.
+        // Rule 704.5n: Aura attached to illegal/missing permanent → graveyard.
+        // Rule 704.5p: Equipment attached to illegal/missing permanent → unattach.
         for perm in self.battlefield.iter() {
             if let Some(attached_to) = perm.attached_to {
                 if !self.battlefield.contains(attached_to) {
-                    sba.attachments_to_detach.push(perm.id());
+                    if perm.is_aura() {
+                        sba.auras_to_graveyard.push(perm.id());
+                    } else {
+                        sba.attachments_to_detach.push(perm.id());
+                    }
                 }
             }
         }
@@ -386,8 +390,10 @@ pub struct StateBasedActions {
     pub permanents_to_destroy: Vec<ObjectId>,
     /// Permanents with +1/+1 and -1/-1 counters that need annihilation.
     pub counters_to_annihilate: Vec<ObjectId>,
-    /// Equipment/Auras that need to be detached (attached target left battlefield).
+    /// Equipment that needs to be detached (attached target left battlefield).
     pub attachments_to_detach: Vec<ObjectId>,
+    /// Auras that need to go to graveyard (enchanted permanent left battlefield).
+    pub auras_to_graveyard: Vec<ObjectId>,
 }
 
 impl StateBasedActions {
@@ -400,6 +406,7 @@ impl StateBasedActions {
         !self.players_losing.is_empty()
             || !self.permanents_to_graveyard.is_empty()
             || !self.attachments_to_detach.is_empty()
+            || !self.auras_to_graveyard.is_empty()
             || !self.permanents_to_destroy.is_empty()
             || !self.counters_to_annihilate.is_empty()
     }

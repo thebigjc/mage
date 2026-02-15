@@ -51,6 +51,10 @@ pub struct Permanent {
     /// Keywords granted by continuous effects from other permanents (static abilities).
     /// Distinct from `granted_keywords` which tracks one-shot until-end-of-turn effects.
     pub continuous_keywords: KeywordAbilities,
+    /// Whether this permanent can't attack (set by continuous effects like Pacifism).
+    pub cant_attack: bool,
+    /// Whether this permanent can't block (set by continuous effects like Pacifism).
+    pub cant_block_from_effect: bool,
 }
 
 impl Permanent {
@@ -75,6 +79,8 @@ impl Permanent {
             continuous_boost_power: 0,
             continuous_boost_toughness: 0,
             continuous_keywords: KeywordAbilities::empty(),
+            cant_attack: false,
+            cant_block_from_effect: false,
             card,
         }
     }
@@ -261,12 +267,13 @@ impl Permanent {
         self.is_creature()
             && !self.tapped
             && !self.has_defender()
+            && !self.cant_attack
             && (!self.summoning_sick || self.has_haste())
     }
 
     /// Whether this creature can block.
     pub fn can_block(&self) -> bool {
-        self.is_creature() && !self.tapped
+        self.is_creature() && !self.tapped && !self.cant_block_from_effect
     }
 
     // ── Damage ─────────────────────────────────────────────────────────
