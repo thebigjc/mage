@@ -262,6 +262,9 @@ pub enum Effect {
     /// "Choose a creature type. Draw a card for each permanent you control of that type."
     ChooseTypeAndDrawPerPermanent,
 
+    /// "Choose a creature type. Return all creature cards of the chosen type from your graveyard to the battlefield."
+    ChooseTypeAndReturnFromGraveyard,
+
     // -- Equipment --
     /// Attach source equipment to target creature you control.
     Equip,
@@ -1085,6 +1088,11 @@ impl Effect {
     /// "Choose a creature type. Draw a card for each permanent you control of that type."
     pub fn choose_type_and_draw_per_permanent() -> Self {
         Effect::ChooseTypeAndDrawPerPermanent
+    }
+
+    /// "Choose a creature type. Return all creature cards of the chosen type from your graveyard to the battlefield."
+    pub fn choose_type_and_return_from_graveyard() -> Self {
+        Effect::ChooseTypeAndReturnFromGraveyard
     }
 
     /// "When [target/source] dies this turn, [effects]."

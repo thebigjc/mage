@@ -3785,6 +3785,50 @@ impl Game {
                         }
                     }
                 }
+                Effect::ChooseTypeAndReturnFromGraveyard => {
+                    let options: Vec<crate::decision::NamedChoice> =
+                        vec!["Elemental", "Elf", "Faerie", "Giant", "Goblin", "Kithkin", "Merfolk", "Treefolk",
+                             "Human", "Warrior", "Wizard", "Rogue", "Cleric", "Shaman", "Soldier", "Knight"]
+                            .into_iter().enumerate()
+                            .map(|(i, s)| crate::decision::NamedChoice { index: i, description: s.to_string() })
+                            .collect();
+                    let view = crate::decision::GameView::placeholder();
+                    let choice_idx = if let Some(dm) = self.decision_makers.get_mut(&controller) {
+                        dm.choose_option(&view, crate::constants::Outcome::Benefit, "Choose a creature type", &options)
+                    } else {
+                        0
+                    };
+                    if let Some(chosen) = options.get(choice_idx) {
+                        let type_name = &chosen.description;
+                        let target_subtype = crate::constants::SubType::by_description(type_name);
+                        if let Some(player) = self.state.players.get(&controller) {
+                            let matching_ids: Vec<ObjectId> = player.graveyard.iter()
+                                .filter(|&&card_id| {
+                                    if let Some(card) = self.state.card_store.get(card_id) {
+                                        card.is_creature() && card.subtypes.contains(&target_subtype)
+                                    } else {
+                                        false
+                                    }
+                                })
+                                .copied()
+                                .collect();
+                            for card_id in matching_ids {
+                                if let Some(player) = self.state.players.get_mut(&controller) {
+                                    player.graveyard.remove(card_id);
+                                }
+                                if let Some(card_data) = self.state.card_store.remove(card_id) {
+                                    for ability in &card_data.abilities {
+                                        self.state.ability_store.add(ability.clone());
+                                    }
+                                    let perm = Permanent::new(card_data, controller);
+                                    self.state.battlefield.add(perm);
+                                    self.state.set_zone(card_id, crate::constants::Zone::Battlefield, None);
+                                    self.emit_event(GameEvent::enters_battlefield(card_id, controller));
+                                }
+                            }
+                        }
+                    }
+                }
                 Effect::Equip => {
                     // Attach this equipment to target creature.
                     if let Some(source_id) = source {
@@ -13584,6 +13628,201 @@ mod cant_untap_tests {
                 assert_eq!(filter, "enchanted creature");
             }
             _ => panic!("wrong variant"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod choose_type_reanimate_tests {
+    use super::*;
+    use crate::abilities::Effect;
+    use crate::card::CardData;
+    use crate::constants::{CardType, Outcome, SubType};
+    use crate::decision::{
+        AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction,
+        ReplacementEffectChoice, TargetRequirement, UnpaidMana,
+    };
+
+    struct OptionPicker(usize);
+
+    impl PlayerDecisionMaker for OptionPicker {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction {
+            PlayerAction::Pass
+        }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize {
+            self.0
+        }
+    }
+
+    fn make_deck(owner: PlayerId) -> Vec<CardData> {
+        (0..20).map(|i| {
+            let mut c = CardData::new(ObjectId::new(), owner, &format!("Card {i}"));
+            c.card_types = vec![CardType::Land];
+            c
+        }).collect()
+    }
+
+    fn setup_game_with_picker(pick_index: usize) -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+                PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+            ],
+            starting_life: 20,
+        };
+        let game = Game::new_two_player(
+            config,
+            vec![
+                (p1, Box::new(OptionPicker(pick_index))),
+                (p2, Box::new(OptionPicker(0))),
+            ],
+        );
+        (game, p1, p2)
+    }
+
+    fn make_creature_with_type(name: &str, owner: PlayerId, subtype: &str, power: i32, toughness: i32) -> CardData {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![SubType::by_description(subtype)];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        card
+    }
+
+    fn put_in_graveyard(game: &mut Game, card: CardData, owner: PlayerId) -> ObjectId {
+        let id = card.id;
+        game.state.card_store.insert(card);
+        if let Some(player) = game.state.players.get_mut(&owner) {
+            player.graveyard.add(id);
+        }
+        game.state.set_zone(id, crate::constants::Zone::Graveyard, Some(owner));
+        id
+    }
+
+    #[test]
+    fn returns_all_matching_creatures_from_graveyard() {
+        let (mut game, p1, _p2) = setup_game_with_picker(0);
+
+        let elf1 = make_creature_with_type("Elf Warrior", p1, "Elemental", 2, 2);
+        let elf1_id = put_in_graveyard(&mut game, elf1, p1);
+        let elf2 = make_creature_with_type("Elf Shaman", p1, "Elemental", 1, 1);
+        let elf2_id = put_in_graveyard(&mut game, elf2, p1);
+
+        let effects = vec![Effect::choose_type_and_return_from_graveyard()];
+        game.execute_effects(&effects, p1, &[], None, None);
+
+        assert!(game.state.battlefield.get(elf1_id).is_some(), "First Elemental should be on battlefield");
+        assert!(game.state.battlefield.get(elf2_id).is_some(), "Second Elemental should be on battlefield");
+        if let Some(player) = game.state.players.get(&p1) {
+            assert_eq!(player.graveyard.len(), 0, "Graveyard should be empty");
+        }
+    }
+
+    #[test]
+    fn ignores_non_matching_types() {
+        let (mut game, p1, _p2) = setup_game_with_picker(0);
+
+        let elemental = make_creature_with_type("Fire Elemental", p1, "Elemental", 3, 3);
+        let elemental_id = put_in_graveyard(&mut game, elemental, p1);
+        let goblin = make_creature_with_type("Goblin Piker", p1, "Goblin", 2, 1);
+        let goblin_id = put_in_graveyard(&mut game, goblin, p1);
+
+        let effects = vec![Effect::choose_type_and_return_from_graveyard()];
+        game.execute_effects(&effects, p1, &[], None, None);
+
+        assert!(game.state.battlefield.get(elemental_id).is_some(), "Elemental should be on battlefield");
+        assert!(game.state.battlefield.get(goblin_id).is_none(), "Goblin should NOT be on battlefield");
+        if let Some(player) = game.state.players.get(&p1) {
+            assert_eq!(player.graveyard.len(), 1, "Goblin should remain in graveyard");
+        }
+    }
+
+    #[test]
+    fn ignores_non_creature_cards() {
+        let (mut game, p1, _p2) = setup_game_with_picker(0);
+
+        let creature = make_creature_with_type("Air Elemental", p1, "Elemental", 4, 4);
+        let creature_id = put_in_graveyard(&mut game, creature, p1);
+
+        let mut artifact = CardData::new(ObjectId::new(), p1, "Elemental Artifact");
+        artifact.card_types = vec![CardType::Artifact];
+        artifact.subtypes = vec![SubType::by_description("Elemental")];
+        let artifact_id = put_in_graveyard(&mut game, artifact, p1);
+
+        let effects = vec![Effect::choose_type_and_return_from_graveyard()];
+        game.execute_effects(&effects, p1, &[], None, None);
+
+        assert!(game.state.battlefield.get(creature_id).is_some(), "Creature should be on battlefield");
+        assert!(game.state.battlefield.get(artifact_id).is_none(), "Non-creature should NOT be on battlefield");
+    }
+
+    #[test]
+    fn empty_graveyard_does_nothing() {
+        let (mut game, p1, _p2) = setup_game_with_picker(0);
+
+        let bf_before = game.state.battlefield.iter().count();
+        let effects = vec![Effect::choose_type_and_return_from_graveyard()];
+        game.execute_effects(&effects, p1, &[], None, None);
+        let bf_after = game.state.battlefield.iter().count();
+
+        assert_eq!(bf_before, bf_after, "No new permanents should enter battlefield");
+    }
+
+    #[test]
+    fn picks_different_type_index() {
+        let (mut game, p1, _p2) = setup_game_with_picker(4);
+
+        let goblin = make_creature_with_type("Goblin Lackey", p1, "Goblin", 1, 1);
+        let goblin_id = put_in_graveyard(&mut game, goblin, p1);
+        let elf = make_creature_with_type("Llanowar Elves", p1, "Elf", 1, 1);
+        let elf_id = put_in_graveyard(&mut game, elf, p1);
+
+        let effects = vec![Effect::choose_type_and_return_from_graveyard()];
+        game.execute_effects(&effects, p1, &[], None, None);
+
+        assert!(game.state.battlefield.get(goblin_id).is_some(), "Goblin should be on battlefield");
+        assert!(game.state.battlefield.get(elf_id).is_none(), "Elf should NOT be on battlefield");
+    }
+
+    #[test]
+    fn helper_constructor_returns_correct_variant() {
+        match Effect::choose_type_and_return_from_graveyard() {
+            Effect::ChooseTypeAndReturnFromGraveyard => {}
+            other => panic!("Expected ChooseTypeAndReturnFromGraveyard, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn only_returns_controllers_creatures() {
+        let (mut game, p1, p2) = setup_game_with_picker(0);
+
+        let p1_elemental = make_creature_with_type("Fire Elemental", p1, "Elemental", 3, 3);
+        let p1_id = put_in_graveyard(&mut game, p1_elemental, p1);
+        let p2_elemental = make_creature_with_type("Water Elemental", p2, "Elemental", 2, 4);
+        let p2_id = put_in_graveyard(&mut game, p2_elemental, p2);
+
+        let effects = vec![Effect::choose_type_and_return_from_graveyard()];
+        game.execute_effects(&effects, p1, &[], None, None);
+
+        assert!(game.state.battlefield.get(p1_id).is_some(), "P1's creature should be on battlefield");
+        assert!(game.state.battlefield.get(p2_id).is_none(), "P2's creature should NOT be on battlefield");
+        if let Some(player) = game.state.players.get(&p2) {
+            assert_eq!(player.graveyard.len(), 1, "P2's graveyard should be unchanged");
         }
     }
 }

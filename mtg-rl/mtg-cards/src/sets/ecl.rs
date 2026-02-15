@@ -2139,7 +2139,7 @@ fn bloodline_bidding(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Sorcery], keywords: KeywordAbilities::CONVOKE,
         rarity: Rarity::Rare,
         abilities: vec![Ability::spell(id,
-            vec![Effect::choose_creature_type(), Effect::Custom("Return all creature cards of the chosen type from your graveyard to the battlefield.".into())],
+            vec![Effect::choose_type_and_return_from_graveyard()],
             TargetSpec::None)],
         ..Default::default() }
 }
