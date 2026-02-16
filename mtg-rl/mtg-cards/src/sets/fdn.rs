@@ -1640,7 +1640,7 @@ fn empyrean_eagle(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Other creatures you control with flying get +1/+1.",
-                vec![StaticEffect::boost_controlled("creatures with flying".into(), 1, 1)]),
+                vec![StaticEffect::boost_controlled("creatures with flying", 1, 1)]),
         ],
         ..Default::default() }
 }
