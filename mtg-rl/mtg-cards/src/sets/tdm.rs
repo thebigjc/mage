@@ -1320,7 +1320,7 @@ fn gain_land(id: ObjectId, owner: PlayerId, name: &str, mana1: Mana, mana2: Mana
         card_types: vec![CardType::Land], rarity: Rarity::Common,
         abilities: vec![
             Ability::static_ability(id, "This land enters the battlefield tapped.",
-                vec![StaticEffect::EntersTapped { filter: "self".into() }]),
+                vec![StaticEffect::EntersTapped { filter: Filter::parse("self") }]),
             Ability::enters_battlefield_triggered(id, "When this land enters, you gain 1 life.",
                 vec![Effect::gain_life(1)], TargetSpec::None),
             Ability::mana_ability(id, "{T}: Add mana.", mana1),
@@ -1376,7 +1376,7 @@ fn tri_land(id: ObjectId, owner: PlayerId, name: &str, m1: Mana, m2: Mana, m3: M
         card_types: vec![CardType::Land], rarity: Rarity::Uncommon,
         abilities: vec![
             Ability::static_ability(id, "This land enters the battlefield tapped.",
-                vec![StaticEffect::EntersTapped { filter: "self".into() }]),
+                vec![StaticEffect::EntersTapped { filter: Filter::parse("self") }]),
             Ability::mana_ability(id, "{T}: Add mana.", m1),
             Ability::mana_ability(id, "{T}: Add mana.", m2),
             Ability::mana_ability(id, "{T}: Add mana.", m3),
@@ -2395,7 +2395,7 @@ fn great_arashin_city(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Land], rarity: Rarity::Uncommon,
         abilities: vec![
             Ability::static_ability(id, "Great Arashin City enters tapped.",
-                vec![StaticEffect::EntersTapped { filter: "self".into() }]),
+                vec![StaticEffect::EntersTapped { filter: Filter::parse("self") }]),
             Ability::mana_ability(id, "{T}: Add one mana of any color.", Mana::colorless(1)),
             Ability::activated(id, "{5}, {T}: You gain 5 life.",
                 vec![Cost::pay_mana("{5}"), Cost::tap_self()],
@@ -2719,7 +2719,7 @@ fn stormbeacon_blade(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Equipped creature gets +3/+0.",
-                vec![StaticEffect::Boost { filter: "equipped creature".into(), power: 3, toughness: 0 }]),
+                vec![StaticEffect::Boost { filter: Filter::parse("equipped creature"), power: 3, toughness: 0 }]),
             Ability::triggered(id,
                 "Whenever equipped creature attacks, draw a card if you control three or more attacking creatures.",
                 vec![EventType::DeclareAttackers],
@@ -2866,8 +2866,8 @@ fn wingspan_stride(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Enchanted creature gets +1/+1 and has flying.",
-                vec![StaticEffect::Boost { filter: "enchanted creature".into(), power: 1, toughness: 1 },
-                     StaticEffect::GrantKeyword { filter: "enchanted creature".into(), keyword: "flying".into() }]),
+                vec![StaticEffect::Boost { filter: Filter::parse("enchanted creature"), power: 1, toughness: 1 },
+                     StaticEffect::GrantKeyword { filter: Filter::parse("enchanted creature"), keyword: "flying".into() }]),
             Ability::activated(id,
                 "{2}{U}: Return this Aura to its owner's hand.",
                 vec![Cost::pay_mana("{2}{U}")],
@@ -3125,8 +3125,8 @@ fn neriv_heart_of_the_storm(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Creature tokens you control get +1/+1 and have haste.",
-                    vec![StaticEffect::Boost { filter: "creature token you control".into(), power: 1, toughness: 1 },
-                         StaticEffect::GrantKeyword { filter: "creature token you control".into(), keyword: "haste".into() }]),
+                    vec![StaticEffect::Boost { filter: Filter::parse("creature token you control"), power: 1, toughness: 1 },
+                         StaticEffect::GrantKeyword { filter: Filter::parse("creature token you control"), keyword: "haste".into() }]),
             Ability::attacks_triggered(id,
                     "Whenever Neriv attacks, create a tapped and attacking token that's a copy of another target creature you control, except it's 1/1.",
                     vec![Effect::Custom("Create a tapped and attacking token copy of another target creature you control (1/1).".into())],
@@ -3197,7 +3197,7 @@ fn ringing_strike_mastery(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Enchanted creature gets +1/+1 and has ward {1}.",
-                    vec![StaticEffect::Boost { filter: "enchanted creature".into(), power: 1, toughness: 1 }]),
+                    vec![StaticEffect::Boost { filter: Filter::parse("enchanted creature"), power: 1, toughness: 1 }]),
             Ability::activated(id,
                     "{5}: Return this Aura to its owner's hand.",
                     vec![Cost::pay_mana("{5}")],
@@ -3367,7 +3367,7 @@ fn starry_eyed_skyrider(id: ObjectId, owner: PlayerId) -> CardData {
                     TargetSpec::PermanentFiltered(Filter::parse("another creature you control"))),
             Ability::static_ability(id,
                     "Attacking tokens you control have flying.",
-                    vec![StaticEffect::GrantKeyword { filter: "attacking token you control".into(), keyword: "flying".into() }]),
+                    vec![StaticEffect::GrantKeyword { filter: Filter::parse("attacking token you control"), keyword: "flying".into() }]),
         ],
         ..Default::default() }
 }
@@ -3401,7 +3401,7 @@ fn stormscale_scion(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Other Dragons you control get +1/+1.",
-                    vec![StaticEffect::Boost { filter: "other Dragon you control".into(), power: 1, toughness: 1 }]),
+                    vec![StaticEffect::Boost { filter: Filter::parse("other Dragon you control"), power: 1, toughness: 1 }]),
         ],
         ..Default::default() }
 }
@@ -3489,7 +3489,7 @@ fn temur_battlecrier(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Other creatures you control have trample.",
-                    vec![StaticEffect::GrantKeyword { filter: "other creature you control".into(), keyword: "trample".into() }]),
+                    vec![StaticEffect::GrantKeyword { filter: Filter::parse("other creature you control"), keyword: "trample".into() }]),
             Ability::attacks_triggered(id,
                     "Whenever this creature attacks, you may draw a card. If you do, discard a card.",
                     vec![Effect::DrawCards { count: 1 }, Effect::DiscardCards { count: 1 }],
@@ -3584,7 +3584,7 @@ fn war_effort(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Creatures you control get +1/+0.",
-                    vec![StaticEffect::Boost { filter: "creature you control".into(), power: 1, toughness: 0 }]),
+                    vec![StaticEffect::Boost { filter: Filter::parse("creature you control"), power: 1, toughness: 0 }]),
             Ability::triggered(id,
                     "Whenever you attack, create a 1/1 red Warrior creature token that's tapped and attacking. Sacrifice it at the beginning of the next end step.",
                     vec![EventType::DeclareAttackers],

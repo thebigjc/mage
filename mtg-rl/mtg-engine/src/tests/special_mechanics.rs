@@ -7,6 +7,7 @@ use crate::constants::{CardType, KeywordAbilities, Outcome, PhaseStep, SubType, 
 use crate::events::{EventType, GameEvent};
 use crate::counters::CounterType;
 use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
+use crate::filters::Filter;
 use crate::mana::{Mana, ManaCost};
 use crate::permanent::Permanent;
 use crate::types::{ObjectId, PlayerId};
@@ -607,7 +608,7 @@ use crate::types::{ObjectId, PlayerId};
         let id = card.id;
         card.abilities = vec![
             Ability::static_ability(id, "Azorius Guildgate enters tapped.",
-                vec![StaticEffect::EntersTapped { filter: "self".into() }]),
+                vec![StaticEffect::EntersTapped { filter: Filter::parse("self") }]),
             Ability::mana_ability(id, "{T}: Add {W}.", Mana::white(1)),
         ];
         // Register abilities first
@@ -1848,7 +1849,7 @@ use crate::types::{ObjectId, PlayerId};
         front.toughness = Some(2);
         front.abilities = vec![
             Ability::static_ability(id, "Flying.",
-                vec![StaticEffect::GrantKeyword { filter: "self".into(), keyword: "flying".into() }]),
+                vec![StaticEffect::GrantKeyword { filter: Filter::parse("self"), keyword: "flying".into() }]),
         ];
 
         let mut back = CardData::new(id, p1, "Back");
@@ -1857,7 +1858,7 @@ use crate::types::{ObjectId, PlayerId};
         back.toughness = Some(4);
         back.abilities = vec![
             Ability::static_ability(id, "Deathtouch.",
-                vec![StaticEffect::GrantKeyword { filter: "self".into(), keyword: "deathtouch".into() }]),
+                vec![StaticEffect::GrantKeyword { filter: Filter::parse("self"), keyword: "deathtouch".into() }]),
         ];
 
         front.back_face = Some(Box::new(back));

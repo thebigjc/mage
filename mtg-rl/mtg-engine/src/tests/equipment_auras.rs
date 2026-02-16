@@ -5,6 +5,7 @@ use crate::abilities::{Ability, Cost, Effect, TargetSpec, StaticEffect};
 use crate::card::CardData;
 use crate::constants::{CardType, Outcome, SubType};
 use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
+use crate::filters::Filter;
 use crate::mana::ManaCost;
 use crate::permanent::Permanent;
 use crate::types::{ObjectId, PlayerId};
@@ -67,7 +68,7 @@ use crate::types::{ObjectId, PlayerId};
             Ability::static_ability(id,
                 "Equipped creature gets boost.",
                 vec![StaticEffect::Boost {
-                    filter: "equipped creature".into(),
+                    filter: Filter::parse("equipped creature"),
                     power: power_boost,
                     toughness: toughness_boost,
                 }]),
@@ -189,7 +190,7 @@ use crate::types::{ObjectId, PlayerId};
             Ability::static_ability(equip_id,
                 "Equipped creature has hexproof and haste.",
                 vec![StaticEffect::GrantKeyword {
-                    filter: "equipped creature".into(),
+                    filter: Filter::parse("equipped creature"),
                     keyword: "hexproof, haste".into(),
                 }]),
             Ability::activated(equip_id,
@@ -234,7 +235,7 @@ use crate::types::{ObjectId, PlayerId};
             Ability::static_ability(id,
                 &format!("Enchanted creature gets +{power}/+{toughness}."),
                 vec![StaticEffect::Boost {
-                    filter: "enchanted creature".into(),
+                    filter: Filter::parse("enchanted creature"),
                     power,
                     toughness,
                 }]),
@@ -324,8 +325,8 @@ use crate::types::{ObjectId, PlayerId};
             Ability::static_ability(pacifism_id,
                 "Enchanted creature can't attack or block.",
                 vec![
-                    StaticEffect::CantAttack { filter: "enchanted creature".into() },
-                    StaticEffect::CantBlock { filter: "enchanted creature".into() },
+                    StaticEffect::CantAttack { filter: Filter::parse("enchanted creature") },
+                    StaticEffect::CantBlock { filter: Filter::parse("enchanted creature") },
                 ]),
         ];
         game.state.battlefield.add(Permanent::new(pacifism, p1));

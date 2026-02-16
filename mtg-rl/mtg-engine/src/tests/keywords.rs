@@ -1792,7 +1792,7 @@ use crate::types::{ObjectId, PlayerId};
             Ability::static_ability(lord_id,
                 "Other creatures you control have persist.",
                 vec![StaticEffect::GrantKeyword {
-                    filter: "other creatures you control".to_string(),
+                    filter: crate::filters::Filter::parse("other creatures you control"),
                     keyword: "persist".to_string(),
                 }]),
         ];

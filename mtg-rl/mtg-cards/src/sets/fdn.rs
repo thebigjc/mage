@@ -1342,7 +1342,7 @@ fn basilisk_collar(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Equipped creature has deathtouch and lifelink.",
-                vec![StaticEffect::GrantKeyword { filter: "equipped creature".into(), keyword: "deathtouch, lifelink".into() }]),
+                vec![StaticEffect::GrantKeyword { filter: Filter::parse("equipped creature"), keyword: "deathtouch, lifelink".into() }]),
             Ability::activated(id,
                 "Equip {2}",
                 vec![Cost::pay_mana("{2}")],
@@ -1424,7 +1424,7 @@ fn swiftfoot_boots(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Equipped creature has hexproof and haste.",
-                vec![StaticEffect::GrantKeyword { filter: "equipped creature".into(), keyword: "hexproof, haste".into() }]),
+                vec![StaticEffect::GrantKeyword { filter: Filter::parse("equipped creature"), keyword: "hexproof, haste".into() }]),
             Ability::activated(id,
                 "Equip {1}",
                 vec![Cost::pay_mana("{1}")],
@@ -1480,7 +1480,7 @@ fn vampire_interloper(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Vampire Interloper can't block.",
-                vec![StaticEffect::CantBlock { filter: "self".into() }]),
+                vec![StaticEffect::CantBlock { filter: Filter::parse("self") }]),
         ],
         ..Default::default() }
 }
@@ -2479,8 +2479,8 @@ fn pacifism(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Enchanted creature can't attack or block.",
-                vec![StaticEffect::CantAttack { filter: "enchanted creature".into() },
-                     StaticEffect::CantBlock { filter: "enchanted creature".into() }]),
+                vec![StaticEffect::CantAttack { filter: Filter::parse("enchanted creature") },
+                     StaticEffect::CantBlock { filter: Filter::parse("enchanted creature") }]),
         ],
         ..Default::default() }
 }
@@ -2587,10 +2587,10 @@ fn death_baron(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Skeletons you control and other Zombies you control get +1/+1 and have deathtouch.",
-                vec![StaticEffect::Boost { filter: "Skeleton you control".into(), power: 1, toughness: 1 },
-                     StaticEffect::GrantKeyword { filter: "Skeleton you control".into(), keyword: "deathtouch".into() },
-                     StaticEffect::Boost { filter: "other Zombie you control".into(), power: 1, toughness: 1 },
-                     StaticEffect::GrantKeyword { filter: "other Zombie you control".into(), keyword: "deathtouch".into() }]),
+                vec![StaticEffect::Boost { filter: Filter::parse("Skeleton you control"), power: 1, toughness: 1 },
+                     StaticEffect::GrantKeyword { filter: Filter::parse("Skeleton you control"), keyword: "deathtouch".into() },
+                     StaticEffect::Boost { filter: Filter::parse("other Zombie you control"), power: 1, toughness: 1 },
+                     StaticEffect::GrantKeyword { filter: Filter::parse("other Zombie you control"), keyword: "deathtouch".into() }]),
         ],
         ..Default::default() }
 }
@@ -2603,7 +2603,7 @@ fn elvish_archdruid(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Other Elf creatures you control get +1/+1.",
-                vec![StaticEffect::Boost { filter: "other Elf you control".into(), power: 1, toughness: 1 }]),
+                vec![StaticEffect::Boost { filter: Filter::parse("other Elf you control"), power: 1, toughness: 1 }]),
             Ability::mana_ability(id,
                 "{T}: Add {G} for each Elf you control.",
                 Mana::green(1)),
@@ -2629,7 +2629,7 @@ fn goblin_oriflamme(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Attacking creatures you control get +1/+0.",
-                vec![StaticEffect::Boost { filter: "attacking creature you control".into(), power: 1, toughness: 0 }]),
+                vec![StaticEffect::Boost { filter: Filter::parse("attacking creature you control"), power: 1, toughness: 0 }]),
         ],
         ..Default::default() }
 }
@@ -2858,7 +2858,7 @@ fn azorius_guildgate(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::static_ability(id, "Azorius Guildgate enters tapped.",
-                vec![StaticEffect::EntersTapped { filter: "self".into() }]),
+                vec![StaticEffect::EntersTapped { filter: Filter::parse("self") }]),
             Ability::mana_ability(id, "{T}: Add {W}.", Mana::white(1)),
             Ability::mana_ability(id, "{T}: Add {U}.", Mana::blue(1)),
         ],
@@ -2941,7 +2941,7 @@ fn fdn_bloodfell_caves(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Land], rarity: Rarity::Common,
         abilities: vec![
             Ability::static_ability(id, "Bloodfell Caves enters tapped.",
-                vec![StaticEffect::EntersTapped { filter: "self".into() }]),
+                vec![StaticEffect::EntersTapped { filter: Filter::parse("self") }]),
             Ability::enters_battlefield_triggered(id,
                 "When Bloodfell Caves enters, you gain 1 life.",
                 vec![Effect::gain_life(1)],
@@ -2975,7 +2975,7 @@ fn fdn_blossoming_sands(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Land], rarity: Rarity::Common,
         abilities: vec![
             Ability::static_ability(id, "Blossoming Sands enters tapped.",
-                vec![StaticEffect::EntersTapped { filter: "self".into() }]),
+                vec![StaticEffect::EntersTapped { filter: Filter::parse("self") }]),
             Ability::enters_battlefield_triggered(id,
                 "When Blossoming Sands enters, you gain 1 life.",
                 vec![Effect::gain_life(1)],
@@ -2993,7 +2993,7 @@ fn boros_guildgate(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::static_ability(id, "Boros Guildgate enters tapped.",
-                vec![StaticEffect::EntersTapped { filter: "self".into() }]),
+                vec![StaticEffect::EntersTapped { filter: Filter::parse("self") }]),
             Ability::mana_ability(id, "{T}: Add {R}.", Mana::red(1)),
             Ability::mana_ability(id, "{T}: Add {W}.", Mana::white(1)),
         ],

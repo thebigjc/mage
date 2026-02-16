@@ -124,7 +124,7 @@ pub enum Effect {
     /// Return target permanent to hand.
     Bounce,
     /// Return all permanents matching filter to their owners' hands.
-    BounceAll { filter: String },
+    BounceAll { filter: Filter },
     /// Exile the top N cards of target opponent's library.
     ExileFromOpponentLibrary { count: u32 },
     /// Exile the top N cards of target opponent's library into the source permanent's exile zone.
@@ -147,9 +147,9 @@ pub enum Effect {
     Mill { count: u32 },
     /// Mill N cards, then you may put a card matching filter from among them
     /// on top of your library (destination = "top") or into your hand (destination = "hand").
-    MillAndSelect { count: u32, filter: String, destination: String },
+    MillAndSelect { count: u32, filter: Filter, destination: String },
     /// Mill N cards, then return ALL cards matching filter from among the milled to hand.
-    MillAndReturnAll { count: u32, filter: String },
+    MillAndReturnAll { count: u32, filter: Filter },
     /// Scry N (look at top N, put any on bottom in any order).
     Scry { count: u32 },
     /// Search library for a card.
@@ -158,7 +158,7 @@ pub enum Effect {
     /// the filter from among them and put it into your hand. Put the rest on
     /// the bottom of your library in a random order.
     /// (Used by Eclipsed cycle, Earthbend, and similar "impulse look" effects.)
-    LookTopAndPick { count: u32, filter: String },
+    LookTopAndPick { count: u32, filter: Filter },
 
     // -- Counters --
     /// Put counters on target.
@@ -167,7 +167,7 @@ pub enum Effect {
     /// Used in compound effects where other effects target a different permanent.
     AddCountersSelf { counter_type: String, count: u32 },
     /// Put counters on all permanents matching filter.
-    AddCountersAll { counter_type: String, count: u32, filter: String },
+    AddCountersAll { counter_type: String, count: u32, filter: Filter },
     /// Remove counters from target.
     RemoveCounters { counter_type: String, count: u32 },
 
@@ -212,7 +212,7 @@ pub enum Effect {
     /// Grant a keyword ability until end of turn.
     GainKeywordUntilEndOfTurn { keyword: String },
     /// Grant a keyword to all matching creatures until end of turn.
-    GrantKeywordAllUntilEndOfTurn { filter: String, keyword: String },
+    GrantKeywordAllUntilEndOfTurn { filter: Filter, keyword: String },
     /// Grant a keyword ability permanently.
     GainKeyword { keyword: String },
     /// Remove a keyword ability.
@@ -221,11 +221,11 @@ pub enum Effect {
     LoseAllAbilities,
     /// Set base power and toughness of all creatures matching filter.
     /// Used for mass P/T setting effects like "each creature target opponent controls has base power and toughness 1/1".
-    SetBasePowerToughnessAll { power: i32, toughness: i32, filter: String },
+    SetBasePowerToughnessAll { power: i32, toughness: i32, filter: Filter },
     /// Remove all abilities from all creatures matching filter.
-    LoseAllAbilitiesAll { filter: String },
+    LoseAllAbilitiesAll { filter: Filter },
     /// Add a subtype to all creatures matching filter ("becomes X in addition to its other types").
-    AddSubtypeAll { subtype: String, filter: String },
+    AddSubtypeAll { subtype: String, filter: Filter },
     /// Replace the source permanent's subtypes with the given list (for level-up / figure cards).
     SetSubtypesSelf { subtypes: Vec<String> },
 
@@ -344,7 +344,7 @@ pub enum Effect {
     ReturnExiledToHand,
 
     /// Untap all permanents matching a filter.
-    UntapAll { filter: String },
+    UntapAll { filter: Filter },
 
     /// Give target "can't be blocked this turn" until end of turn.
     CantBeBlockedUntilEot,
@@ -405,7 +405,7 @@ pub enum Effect {
 
     /// Create X tokens where X is dynamically computed from count_filter.
     /// count_filter examples: "Elf cards in your graveyard", "Goblins you control"
-    CreateTokenDynamic { token_name: String, count_filter: String },
+    CreateTokenDynamic { token_name: String, count_filter: Filter },
 
     /// Gain life equal to a dynamically computed value.
     /// value_source examples: "greatest power among Giants you control"
@@ -487,7 +487,7 @@ pub enum Effect {
         /// Event type name (e.g. "damaged_player").
         event_type: String,
         /// Filter for permanents that can trigger this (e.g. "creatures you control").
-        filter: String,
+        filter: Filter,
         /// Effects to execute each time the trigger fires.
         trigger_effects: Vec<Effect>,
     },
@@ -1119,11 +1119,11 @@ impl Effect {
     }
 
     pub fn mill_and_select(count: u32, filter: &str, destination: &str) -> Self {
-        Effect::MillAndSelect { count, filter: filter.to_string(), destination: destination.to_string() }
+        Effect::MillAndSelect { count, filter: Filter::parse(filter), destination: destination.to_string() }
     }
 
     pub fn mill_and_return_all(count: u32, filter: &str) -> Self {
-        Effect::MillAndReturnAll { count, filter: filter.to_string() }
+        Effect::MillAndReturnAll { count, filter: Filter::parse(filter) }
     }
 
     /// "Discard N cards."
@@ -1186,7 +1186,7 @@ impl Effect {
         Effect::AddCountersAll {
             counter_type: counter_type.to_string(),
             count,
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
         }
     }
 
@@ -1215,7 +1215,7 @@ impl Effect {
     /// "Creatures [matching filter] gain [keyword] until end of turn."
     pub fn grant_keyword_all_eot(filter: &str, keyword: &str) -> Self {
         Effect::GrantKeywordAllUntilEndOfTurn {
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
             keyword: keyword.to_string(),
         }
     }
@@ -1270,7 +1270,7 @@ impl Effect {
     pub fn look_top_and_pick(count: u32, filter: &str) -> Self {
         Effect::LookTopAndPick {
             count,
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
         }
     }
 
@@ -1409,7 +1409,7 @@ impl Effect {
 
     /// Untap all permanents matching a filter.
     pub fn untap_all(filter: &str) -> Self {
-        Effect::UntapAll { filter: filter.to_string() }
+        Effect::UntapAll { filter: Filter::parse(filter) }
     }
 
     /// "This creature can't be blocked this turn."
@@ -1462,7 +1462,7 @@ impl Effect {
     }
 
     pub fn bounce_all(filter: &str) -> Self {
-        Effect::BounceAll { filter: filter.to_string() }
+        Effect::BounceAll { filter: Filter::parse(filter) }
     }
 
     pub fn exile_from_opponent_library(count: u32) -> Self {
@@ -1523,7 +1523,7 @@ impl Effect {
     pub fn create_token_dynamic(token_name: &str, count_filter: &str) -> Self {
         Effect::CreateTokenDynamic {
             token_name: token_name.to_string(),
-            count_filter: count_filter.to_string(),
+            count_filter: Filter::parse(count_filter),
         }
     }
 
@@ -1562,21 +1562,21 @@ impl Effect {
         Effect::SetBasePowerToughnessAll {
             power,
             toughness,
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
         }
     }
 
     /// Remove all abilities from all creatures matching a filter.
     pub fn lose_all_abilities_all(filter: &str) -> Self {
         Effect::LoseAllAbilitiesAll {
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
         }
     }
 
     pub fn add_subtype_all(subtype: &str, filter: &str) -> Self {
         Effect::AddSubtypeAll {
             subtype: subtype.to_string(),
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
         }
     }
 
@@ -1649,7 +1649,7 @@ impl Effect {
     pub fn grant_triggered_ability_eot(event_type: &str, filter: &str, trigger_effects: Vec<Effect>) -> Self {
         Effect::GrantTriggeredAbilityUntilEOT {
             event_type: event_type.to_string(),
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
             trigger_effects,
         }
     }
@@ -1711,7 +1711,7 @@ impl StaticEffect {
     /// "Other creatures you control get +N/+M." (Lord effect)
     pub fn boost_controlled(filter: &str, power: i32, toughness: i32) -> Self {
         StaticEffect::Boost {
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
             power,
             toughness,
         }
@@ -1720,7 +1720,7 @@ impl StaticEffect {
     /// "Creatures you control have [keyword]."
     pub fn grant_keyword_controlled(filter: &str, keyword: &str) -> Self {
         StaticEffect::GrantKeyword {
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
             keyword: keyword.to_string(),
         }
     }
@@ -1728,14 +1728,14 @@ impl StaticEffect {
     /// "Creatures you control can't be blocked" (or specific CantBlock variant).
     pub fn cant_block(filter: &str) -> Self {
         StaticEffect::CantBlock {
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
         }
     }
 
     /// "Creatures you control can't attack."
     pub fn cant_attack(filter: &str) -> Self {
         StaticEffect::CantAttack {
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
         }
     }
 
@@ -1786,14 +1786,14 @@ impl StaticEffect {
     /// Enchanted/matching creature loses all abilities (continuous).
     pub fn lose_all_abilities(filter: &str) -> Self {
         StaticEffect::LoseAllAbilities {
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
         }
     }
 
     /// Set base P/T of matching permanents (continuous Layer 7b).
     pub fn set_base_pt(filter: &str, power: i32, toughness: i32) -> Self {
         StaticEffect::SetBasePowerToughness {
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
             power,
             toughness,
         }
@@ -1809,7 +1809,7 @@ impl StaticEffect {
     /// Matching permanents can't untap during their controller's untap step.
     pub fn cant_untap(filter: &str) -> Self {
         StaticEffect::CantUntap {
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
         }
     }
 
@@ -1821,7 +1821,7 @@ impl StaticEffect {
     /// Matching creature assigns combat damage equal to toughness (unconditional).
     pub fn assign_damage_with_toughness(filter: &str) -> Self {
         StaticEffect::AssignDamageWithToughness {
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
             condition: None,
         }
     }
@@ -1829,7 +1829,7 @@ impl StaticEffect {
     /// Matching creature assigns combat damage equal to toughness, but only when toughness > power.
     pub fn assign_damage_with_toughness_if_greater(filter: &str) -> Self {
         StaticEffect::AssignDamageWithToughness {
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
             condition: Some("toughness_greater_than_power".to_string()),
         }
     }
@@ -1854,7 +1854,7 @@ impl StaticEffect {
 
     pub fn trigger_doubling(filter: &str) -> Self {
         StaticEffect::TriggerDoubling {
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
         }
     }
 
@@ -1873,7 +1873,7 @@ impl StaticEffect {
 
     pub fn enter_as_a_copy(filter: &str, add_keywords: &[&str]) -> Self {
         StaticEffect::EnterAsACopy {
-            filter: filter.to_string(),
+            filter: crate::filters::Filter::parse(filter),
             add_keywords: add_keywords.iter().map(|s| s.to_string()).collect(),
         }
     }
@@ -1884,7 +1884,7 @@ impl StaticEffect {
 
     pub fn boost_per_turn_event(filter: &str, event: &str, power_per: i32, toughness_per: i32) -> Self {
         StaticEffect::BoostPerTurnEvent {
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
             event: event.to_string(),
             power_per,
             toughness_per,
@@ -1893,7 +1893,7 @@ impl StaticEffect {
 
     pub fn cast_exiled_once_per_turn(mv_count_filter: &str) -> Self {
         StaticEffect::CastExiledOncePerTurn {
-            mv_count_filter: mv_count_filter.to_string(),
+            mv_count_filter: Filter::parse(mv_count_filter),
         }
     }
 
@@ -2023,27 +2023,27 @@ impl Cost {
 pub enum StaticEffect {
     /// Boost P/T of matching permanents.
     Boost {
-        filter: String,
+        filter: Filter,
         power: i32,
         toughness: i32,
     },
     /// Grant a keyword to matching permanents.
     GrantKeyword {
-        filter: String,
+        filter: Filter,
         keyword: String,
     },
     /// Remove a keyword from matching permanents.
     RemoveKeyword {
-        filter: String,
+        filter: Filter,
         keyword: String,
     },
     /// Prevent matching permanents from attacking.
     CantAttack {
-        filter: String,
+        filter: Filter,
     },
     /// Prevent matching permanents from blocking.
     CantBlock {
-        filter: String,
+        filter: Filter,
     },
     /// Reduce cost of matching spells.
     CostReduction {
@@ -2058,7 +2058,7 @@ pub enum StaticEffect {
     },
     /// Matching permanents enter the battlefield tapped.
     EntersTapped {
-        filter: String,
+        filter: Filter,
     },
     /// Other players can't gain life.
     CantGainLife,
@@ -2110,30 +2110,30 @@ pub enum StaticEffect {
         condition: String,
     },
     BoostPerCount {
-        count_filter: String,
+        count_filter: Filter,
         power_per: i32,
         toughness_per: i32,
     },
     /// Target/enchanted creature loses all abilities (continuous version for auras).
     LoseAllAbilities {
-        filter: String,
+        filter: Filter,
     },
     /// Set base power and toughness of matching permanents (Layer 7b continuous override).
     SetBasePowerToughness {
-        filter: String,
+        filter: Filter,
         power: i32,
         toughness: i32,
     },
     /// Prevent matching permanents from untapping during their controller's untap step.
     CantUntap {
-        filter: String,
+        filter: Filter,
     },
     /// Set this creature's base power to the number of colors among permanents you control (Vivid).
     SetPowerToColorCount,
     /// Matching creature assigns combat damage equal to its toughness rather than its power.
     /// If `condition` is set (e.g. "toughness_greater_than_power"), only applies when condition is met.
     AssignDamageWithToughness {
-        filter: String,
+        filter: Filter,
         condition: Option<String>,
     },
     /// Grant convoke to matching spells the controller casts.
@@ -2148,7 +2148,7 @@ pub enum StaticEffect {
     EnhancedManaProduction,
     /// Triggered abilities of matching permanents the controller controls trigger an additional time.
     TriggerDoubling {
-        filter: String,
+        filter: Filter,
     },
     /// Grant conspire to matching spells the controller casts.
     GrantConspire {
@@ -2160,7 +2160,7 @@ pub enum StaticEffect {
         count: u32,
     },
     EnterAsACopy {
-        filter: String,
+        filter: Filter,
         add_keywords: Vec<String>,
     },
     /// During your turn, you may cast creature spells from cards exiled with this source
@@ -2169,7 +2169,7 @@ pub enum StaticEffect {
         counter_count: u32,
     },
     BoostPerTurnEvent {
-        filter: String,
+        filter: Filter,
         event: String,
         power_per: i32,
         toughness_per: i32,
@@ -2177,7 +2177,7 @@ pub enum StaticEffect {
     /// Once each turn, you may cast a spell from this source's exile zone without paying
     /// its mana cost if its mana value is <= the count of permanents matching the filter.
     CastExiledOncePerTurn {
-        mv_count_filter: String,
+        mv_count_filter: Filter,
     },
     ReplaceTokenCreation,
     BecomesCreatureAttached {
@@ -2330,7 +2330,7 @@ mod tests {
             source,
             "Other creatures you control get +1/+1.",
             vec![StaticEffect::Boost {
-                filter: "other creatures you control".to_string(),
+                filter: crate::filters::Filter::parse("other creatures you control"),
                 power: 1,
                 toughness: 1,
             }],

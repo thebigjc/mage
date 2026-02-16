@@ -476,16 +476,16 @@ impl Game {
                 for effect in &ability.static_effects {
                     match effect {
                         crate::abilities::StaticEffect::Boost { filter, power, toughness } => {
-                            boosts.push((source_id, controller, filter.clone(), *power, *toughness));
+                            boosts.push((source_id, controller, filter.message.clone(), *power, *toughness));
                         }
                         crate::abilities::StaticEffect::GrantKeyword { filter, keyword } => {
-                            keyword_grants.push((source_id, controller, filter.clone(), keyword.clone()));
+                            keyword_grants.push((source_id, controller, filter.message.clone(), keyword.clone()));
                         }
                         crate::abilities::StaticEffect::CantAttack { filter } => {
-                            cant_attacks.push((source_id, controller, filter.clone()));
+                            cant_attacks.push((source_id, controller, filter.message.clone()));
                         }
                         crate::abilities::StaticEffect::CantBlock { filter } => {
-                            cant_blocks.push((source_id, controller, filter.clone()));
+                            cant_blocks.push((source_id, controller, filter.message.clone()));
                         }
                         crate::abilities::StaticEffect::CantBeBlockedByMoreThan { count } => {
                             max_blocked_bys.push((source_id, *count));
@@ -497,7 +497,7 @@ impl Game {
                             must_be_blockeds.push(source_id);
                         }
                         crate::abilities::StaticEffect::BoostPerCount { count_filter, power_per, toughness_per } => {
-                            boost_per_counts.push((source_id, controller, count_filter.clone(), *power_per, *toughness_per));
+                            boost_per_counts.push((source_id, controller, count_filter.message.clone(), *power_per, *toughness_per));
                         }
                         crate::abilities::StaticEffect::AdditionalLandPlays { count } => {
                             additional_land_plays.push((controller, *count));
@@ -509,19 +509,19 @@ impl Game {
                             conditional_boosts.push((source_id, controller, *power, *toughness, condition.clone()));
                         }
                         crate::abilities::StaticEffect::LoseAllAbilities { filter } => {
-                            lose_all_abilities.push((source_id, controller, filter.clone()));
+                            lose_all_abilities.push((source_id, controller, filter.message.clone()));
                         }
                         crate::abilities::StaticEffect::SetBasePowerToughness { filter, power, toughness } => {
-                            set_base_pts.push((source_id, controller, filter.clone(), *power, *toughness));
+                            set_base_pts.push((source_id, controller, filter.message.clone(), *power, *toughness));
                         }
                         crate::abilities::StaticEffect::CantUntap { filter } => {
-                            cant_untaps.push((source_id, controller, filter.clone()));
+                            cant_untaps.push((source_id, controller, filter.message.clone()));
                         }
                         crate::abilities::StaticEffect::SetPowerToColorCount => {
                             set_power_color_counts.push((source_id, controller));
                         }
                         crate::abilities::StaticEffect::AssignDamageWithToughness { filter, condition } => {
-                            assign_damage_toughness.push((source_id, controller, filter.clone(), condition.clone()));
+                            assign_damage_toughness.push((source_id, controller, filter.message.clone(), condition.clone()));
                         }
                         crate::abilities::StaticEffect::DamageDoublingFromType => {
                             damage_doublings.push((source_id, controller));
@@ -537,10 +537,10 @@ impl Game {
                             }
                         }
                         crate::abilities::StaticEffect::TriggerDoubling { filter } => {
-                            self.state.trigger_doublings.push((source_id, controller, filter.clone()));
+                            self.state.trigger_doublings.push((source_id, controller, filter.message.clone()));
                         }
                         crate::abilities::StaticEffect::BoostPerTurnEvent { filter, event, power_per, toughness_per } => {
-                            boost_per_turn_events.push((source_id, controller, filter.clone(), event.clone(), *power_per, *toughness_per));
+                            boost_per_turn_events.push((source_id, controller, filter.message.clone(), event.clone(), *power_per, *toughness_per));
                         }
                         crate::abilities::StaticEffect::BecomesCreatureAttached { subtypes, colorless } => {
                             if let Some(perm) = self.state.battlefield.get(source_id) {
@@ -1430,7 +1430,7 @@ impl Game {
             abilities.iter().any(|a| {
                 a.ability_type == AbilityType::Static
                     && a.static_effects.iter().any(|e| {
-                        matches!(e, crate::abilities::StaticEffect::EntersTapped { filter } if filter == "self")
+                        matches!(e, crate::abilities::StaticEffect::EntersTapped { filter } if filter.message == "self")
                     })
             })
         };
@@ -1472,7 +1472,7 @@ impl Game {
                 .flat_map(|a| a.static_effects.iter())
                 .find_map(|e| {
                     if let crate::abilities::StaticEffect::EnterAsACopy { filter, add_keywords } = e {
-                        Some((filter.clone(), add_keywords.clone()))
+                        Some((filter.message.clone(), add_keywords.clone()))
                     } else {
                         None
                     }
@@ -2736,7 +2736,7 @@ impl Game {
                         if let crate::abilities::StaticEffect::CastExiledOncePerTurn { mv_count_filter } = effect {
                             if let Some(zone) = self.state.exile.get_zone(source_id) {
                                 for &card_id in &zone.cards {
-                                    once_castable.push((card_id, source_id, mv_count_filter.clone()));
+                                    once_castable.push((card_id, source_id, mv_count_filter.message.clone()));
                                 }
                             }
                         }
@@ -4091,7 +4091,7 @@ impl Game {
                 }
                 Effect::BounceAll { filter } => {
                     let to_bounce: Vec<(ObjectId, PlayerId)> = self.state.battlefield.iter()
-                        .filter(|p| Self::matches_filter(p, filter))
+                        .filter(|p| Self::matches_filter(p, &filter.message))
                         .map(|p| (p.id(), p.owner()))
                         .collect();
                     for (id, owner) in &to_bounce {
@@ -4455,7 +4455,7 @@ impl Game {
                     }
                     let picked = milled.iter().find(|&&card_id| {
                         self.state.card_store.get(card_id)
-                            .map(|c| Self::card_matches_filter(c, filter))
+                            .map(|c| Self::card_matches_filter(c, &filter.message))
                             .unwrap_or(false)
                     }).copied();
                     if let Some(card_id) = picked {
@@ -4487,7 +4487,7 @@ impl Game {
                     }
                     let matched: Vec<ObjectId> = milled.iter().filter(|&&card_id| {
                         self.state.card_store.get(card_id)
-                            .map(|c| Self::card_matches_filter(c, filter))
+                            .map(|c| Self::card_matches_filter(c, &filter.message))
                             .unwrap_or(false)
                     }).copied().collect();
                     for card_id in matched {
@@ -4731,7 +4731,7 @@ impl Game {
                         let top_cards: Vec<ObjectId> = player.library.peek(look_count).to_vec();
                         let picked = top_cards.iter().find(|&&card_id| {
                             self.state.card_store.get(card_id)
-                                .map(|c| Self::card_matches_filter(c, filter))
+                                .map(|c| Self::card_matches_filter(c, &filter.message))
                                 .unwrap_or(false)
                         }).copied();
                         (top_cards, picked)
@@ -4819,8 +4819,8 @@ impl Game {
                 Effect::LoseAllAbilitiesAll { filter } => {
                     let matching: Vec<ObjectId> = self.state.battlefield.iter()
                         .filter(|p| p.is_creature()
-                            && (filter.to_lowercase().contains("opponent") && p.controller != controller
-                                || !filter.to_lowercase().contains("opponent") && Self::matches_filter(p, filter)))
+                            && (filter.message.to_lowercase().contains("opponent") && p.controller != controller
+                                || !filter.message.to_lowercase().contains("opponent") && Self::matches_filter(p, &filter.message)))
                         .map(|p| p.id())
                         .collect();
                     for id in matching {
@@ -4835,8 +4835,8 @@ impl Game {
                     let st = crate::constants::SubType::by_description(subtype);
                     let matching: Vec<ObjectId> = self.state.battlefield.iter()
                         .filter(|p| p.is_creature()
-                            && (filter.to_lowercase().contains("opponent") && p.controller != controller
-                                || !filter.to_lowercase().contains("opponent") && Self::matches_filter(p, filter)))
+                            && (filter.message.to_lowercase().contains("opponent") && p.controller != controller
+                                || !filter.message.to_lowercase().contains("opponent") && Self::matches_filter(p, &filter.message)))
                         .map(|p| p.id())
                         .collect();
                     for id in matching {
@@ -4859,8 +4859,8 @@ impl Game {
                 Effect::SetBasePowerToughnessAll { power, toughness, filter } => {
                     let matching: Vec<ObjectId> = self.state.battlefield.iter()
                         .filter(|p| p.is_creature()
-                            && (filter.to_lowercase().contains("opponent") && p.controller != controller
-                                || !filter.to_lowercase().contains("opponent") && Self::matches_filter(p, filter)))
+                            && (filter.message.to_lowercase().contains("opponent") && p.controller != controller
+                                || !filter.message.to_lowercase().contains("opponent") && Self::matches_filter(p, &filter.message)))
                         .map(|p| p.id())
                         .collect();
                     for id in matching {
@@ -4888,11 +4888,11 @@ impl Game {
                 Effect::GrantKeywordAllUntilEndOfTurn { filter, keyword } => {
                     // Grant keyword to all matching creatures controlled by the effect's controller until EOT
                     if let Some(kw) = crate::constants::KeywordAbilities::keyword_from_name(keyword) {
-                        let you_control = filter.to_lowercase().contains("you control");
+                        let you_control = filter.message.to_lowercase().contains("you control");
                         let matching: Vec<ObjectId> = self.state.battlefield.iter()
                             .filter(|p| p.is_creature()
                                 && (!you_control || p.controller == controller)
-                                && Self::matches_filter(p, filter))
+                                && Self::matches_filter(p, &filter.message))
                             .map(|p| p.id())
                             .collect();
                         for id in matching {
@@ -4948,11 +4948,11 @@ impl Game {
                 }
                 Effect::AddCountersAll { counter_type, count, filter } => {
                     let ct = crate::counters::CounterType::from_name(counter_type);
-                    let you_control = filter.to_lowercase().contains("you control");
+                    let you_control = filter.message.to_lowercase().contains("you control");
                     let matching: Vec<ObjectId> = self.state.battlefield.iter()
                         .filter(|p| p.is_creature()
                             && (!you_control || p.controller == controller)
-                            && Self::matches_filter(p, filter))
+                            && Self::matches_filter(p, &filter.message))
                         .map(|p| p.id())
                         .collect();
                     for id in matching {
@@ -5476,7 +5476,7 @@ impl Game {
                         duration: crate::state::DelayedDuration::EndOfTurn,
                         trigger_only_once: false,
                         created_turn: self.state.turn_number,
-                        controller_filter: Some(filter.clone()),
+                        controller_filter: Some(filter.message.clone()),
                         copy_spell: false,
                         stored_value: None,
                     });
@@ -5679,7 +5679,7 @@ impl Game {
                 }
                 Effect::UntapAll { filter } => {
                     let src_id = source.unwrap_or_default();
-                    let matching = self.find_matching_permanents(src_id, controller, filter);
+                    let matching = self.find_matching_permanents(src_id, controller, &filter.message);
                     for perm_id in matching {
                         if let Some(perm) = self.state.battlefield.get_mut(perm_id) {
                             perm.untap();
@@ -6135,7 +6135,7 @@ impl Game {
                     }
                 }
                 Effect::CreateTokenDynamic { token_name, count_filter } => {
-                    let count = self.evaluate_count_filter(count_filter, controller);
+                    let count = self.evaluate_count_filter(&count_filter.message, controller);
                     if !self.try_replace_token_creation(controller, count) {
                         self.mark_tokens_created(controller);
                         for _ in 0..count {

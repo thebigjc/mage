@@ -318,7 +318,7 @@ mod tests {
         assert!(ml.abilities.len() >= 2);
         // First ability: static boost to other Elves
         assert!(matches!(&ml.abilities[0].static_effects[..],
-            [StaticEffect::Boost { ref filter, power: 1, toughness: 1 }] if filter.contains("Elf")));
+            [StaticEffect::Boost { ref filter, power: 1, toughness: 1 }] if filter.message.contains("Elf")));
         // Second ability: dies trigger returns from GY
         assert!(matches!(ml.abilities[1].effects[..], [Effect::ReturnFromGraveyard]));
 
@@ -327,7 +327,7 @@ mod tests {
         assert_eq!(gf.power, Some(3));
         assert_eq!(gf.abilities[0].effects.len(), 2);
         assert!(matches!(gf.abilities[0].effects[0], Effect::BoostAllUntilEndOfTurn { ref filter, power: 1, toughness: 0 } if filter.message.contains("creature")));
-        assert!(matches!(gf.abilities[0].effects[1], Effect::GrantKeywordAllUntilEndOfTurn { ref filter, ref keyword } if filter.contains("Kithkin") && keyword == "first_strike"));
+        assert!(matches!(gf.abilities[0].effects[1], Effect::GrantKeywordAllUntilEndOfTurn { ref filter, ref keyword } if filter.message.contains("Kithkin") && keyword == "first_strike"));
     }
 
     #[test]

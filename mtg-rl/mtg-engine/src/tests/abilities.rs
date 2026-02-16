@@ -5,6 +5,7 @@ use crate::abilities::{Ability, Cost, Effect, TargetSpec};
 use crate::card::CardData;
 use crate::constants::{CardType, SubType};
 use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
+use crate::filters::Filter;
 use crate::types::{ObjectId, PlayerId};
 
 #[cfg(test)]
@@ -161,7 +162,7 @@ use crate::types::{ObjectId, PlayerId};
         game.execute_effects(
             &[Effect::CreateTokenDynamic {
                 token_name: "2/2 green Elf Warrior creature token".into(),
-                count_filter: "Elf cards in your graveyard".into(),
+                count_filter: Filter::parse("Elf cards in your graveyard"),
             }],
             p1,
             &[],

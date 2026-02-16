@@ -81,7 +81,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - [x] Task 1.11: Migrate `Sacrifice`, `SearchLibrary`, `TapCreatures` filter fields from `String` to `Filter`
 - [x] Task 1.12: Migrate `TargetSpec::PermanentFiltered(String)` to `TargetSpec::PermanentFiltered(Filter)` (~62 usages)
 - [x] Task 1.13: Migrate `CostReduction { filter: String }` to use `Filter` enum (~14 usages)
-- [ ] Task 1.14: Update card implementations in all 4 set files to use `Filter` enum instead of strings
+- [x] Task 1.14: Update card implementations in all 4 set files to use `Filter` enum instead of strings
 - [ ] Task 1.15: Remove `matches_filter()` string parsing function once all callers migrated
 
 #### 1C: Reduce Custom Effect Fallbacks
@@ -205,13 +205,16 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - All 576 engine tests passing, zero clippy warnings
 
 ## Completed This Iteration
-- Task 1.13: Migrated `CostReduction { filter: String }`, `CostReductionDynamic { filter: String }`, `GrantConvoke { filter: String }`, and `GrantConspire { filter: String }` to use `Filter` enum
-  - Changed `filter: String` → `filter: Filter` in 4 `StaticEffect` variants (abilities.rs)
-  - Updated helper constructors (`cost_reduction`, `cost_reduction_dynamic`, `cost_reduction_if_toughness_greater`, `grant_convoke`, `grant_conspire`) to use `Filter::parse()`
-  - Updated `calculate_cost_reduction()` and `spell_has_convoke()` in game.rs to use `filter.matches_card_ignore_controller(card)` instead of the string-based `spell_matches_cost_filter()`
-  - Removed `spell_matches_cost_filter()` method entirely — no longer needed
-  - Enhanced `parse_filter_string` in filters.rs to handle "noncreature" and "instants/sorceries" patterns
-  - Updated 12 card implementations across 3 set files (ecl.rs: 4, fdn.rs: 3, tdm.rs: 5)
-  - Updated 4 test files (abilities.rs, costs.rs, keywords.rs) to use `filter.message` for assertions
-  - All 584 engine tests passing, 20 mtg-cards tests passing, 19 integration tests passing, zero clippy warnings
+- Task 1.14: Migrated ALL remaining `filter: String` and `count_filter: String` fields in Effect and StaticEffect enums to use typed `Filter`
+  - Changed `filter: String` → `filter: Filter` in 11 Effect variants: `BounceAll`, `MillAndSelect`, `MillAndReturnAll`, `LookTopAndPick`, `AddCountersAll`, `GrantKeywordAllUntilEndOfTurn`, `SetBasePowerToughnessAll`, `LoseAllAbilitiesAll`, `AddSubtypeAll`, `UntapAll`, `GrantTriggeredAbilityUntilEOT`
+  - Changed `count_filter: String` → `count_filter: Filter` in `CreateTokenDynamic`
+  - Changed `filter: String` → `filter: Filter` in 13 StaticEffect variants: `Boost`, `GrantKeyword`, `RemoveKeyword`, `CantAttack`, `CantBlock`, `EntersTapped`, `BoostPerCount`, `LoseAllAbilities`, `SetBasePowerToughness`, `CantUntap`, `AssignDamageWithToughness`, `TriggerDoubling`, `EnterAsACopy`, `BoostPerTurnEvent`, `CastExiledOncePerTurn`
+  - Updated ~24 helper constructors in abilities.rs to use `Filter::parse()` instead of `.to_string()`
+  - Updated game.rs continuous effects collection and effect resolution to use `filter.message` for string operations
+  - Updated 45 direct `.into()` usages across 3 set files (ecl.rs: 17, fdn.rs: 15, tdm.rs: 13) to `Filter::parse()`
+  - Updated 20 test file usages across 4 test files to `Filter::parse()`
+  - Added `PartialEq<&str>` and `PartialEq<str>` impls for `Filter` to support test assertions
+  - Updated 2 assertions in registry.rs tests to use `filter.message`
+  - All 584 engine tests, 20 mtg-cards tests, 19 integration tests passing; zero clippy warnings
+  - **Zero `filter: String` fields remain in Effect or StaticEffect enums** — all filter fields are now typed `Filter`
 

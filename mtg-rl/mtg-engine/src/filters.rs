@@ -279,6 +279,18 @@ impl Filter {
     }
 }
 
+impl PartialEq<&str> for Filter {
+    fn eq(&self, other: &&str) -> bool {
+        self.message == *other
+    }
+}
+
+impl PartialEq<str> for Filter {
+    fn eq(&self, other: &str) -> bool {
+        self.message == other
+    }
+}
+
 fn depluralize(s: &str) -> &str {
     s.strip_suffix('s').unwrap_or(s)
 }

@@ -2626,8 +2626,8 @@ fn evershrikes_gift(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Enchanted creature gets +1/+0 and has flying.",
-                vec![StaticEffect::Boost { filter: "enchanted creature".into(), power: 1, toughness: 0 },
-                     StaticEffect::GrantKeyword { filter: "enchanted creature".into(), keyword: "flying".into() }]),
+                vec![StaticEffect::Boost { filter: Filter::parse("enchanted creature"), power: 1, toughness: 0 },
+                     StaticEffect::GrantKeyword { filter: Filter::parse("enchanted creature"), keyword: "flying".into() }]),
             Ability::activated(id,
                 "{1}{W}, Blight 2: Return this card from your graveyard to your hand. Activate only as a sorcery.",
                 vec![Cost::pay_mana("{1}{W}"), Cost::Blight(2)],
@@ -2789,7 +2789,7 @@ fn gilt_leafs_embrace(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::static_ability(id,
                 "Enchanted creature gets +2/+0.",
-                vec![StaticEffect::Boost { filter: "enchanted creature".into(), power: 2, toughness: 0 }]),
+                vec![StaticEffect::Boost { filter: Filter::parse("enchanted creature"), power: 2, toughness: 0 }]),
         ],
         ..Default::default() }
 }
@@ -2960,7 +2960,7 @@ fn hexing_squelcher(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![StaticEffect::SpellsCantBeCountered]),
             Ability::static_ability(id,
                 "Other creatures you control have ward--pay 2 life.",
-                vec![StaticEffect::GrantKeyword { filter: "other creature you control".into(), keyword: "ward".into() }]),
+                vec![StaticEffect::GrantKeyword { filter: Filter::parse("other creature you control"), keyword: "ward".into() }]),
         ],
         ..Default::default() }
 }
@@ -3104,7 +3104,7 @@ fn lluwen_imperfect_naturalist(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                     "{2}{B/G}{B/G}{B/G}, {T}, Discard a land card: Create X 1/1 black and green Worm creature tokens, where X is the number of land cards in your graveyard.",
                     vec![Cost::pay_mana("{2}{B/G}{B/G}{B/G}"), Cost::tap_self()],
-                    vec![Effect::CreateTokenDynamic { token_name: "1/1 Worm".into(), count_filter: "land cards in your graveyard".into() }],
+                    vec![Effect::CreateTokenDynamic { token_name: "1/1 Worm".into(), count_filter: Filter::parse("land cards in your graveyard") }],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -3152,8 +3152,8 @@ fn lofty_dreams(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::static_ability(id,
                 "Enchanted creature gets +2/+2 and has flying.",
-                vec![StaticEffect::Boost { filter: "enchanted creature".into(), power: 2, toughness: 2 },
-                     StaticEffect::GrantKeyword { filter: "enchanted creature".into(), keyword: "flying".into() }]),
+                vec![StaticEffect::Boost { filter: Filter::parse("enchanted creature"), power: 2, toughness: 2 },
+                     StaticEffect::GrantKeyword { filter: Filter::parse("enchanted creature"), keyword: "flying".into() }]),
         ],
         ..Default::default() }
 }
@@ -3232,7 +3232,7 @@ fn morcants_loyalist(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Other Elves you control get +1/+1.",
-                    vec![StaticEffect::Boost { filter: "other Elf you control".into(), power: 1, toughness: 1 }]),
+                    vec![StaticEffect::Boost { filter: Filter::parse("other Elf you control"), power: 1, toughness: 1 }]),
             Ability::dies_triggered(id,
                     "When Morcant's Loyalist dies, return target Elf card from your graveyard to your hand.",
                     vec![Effect::return_from_graveyard()],
@@ -3350,7 +3350,7 @@ fn pitiless_fists(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::OpponentCreature),
             Ability::static_ability(id,
                 "Enchanted creature gets +2/+2.",
-                vec![StaticEffect::Boost { filter: "enchanted creature".into(), power: 2, toughness: 2 }]),
+                vec![StaticEffect::Boost { filter: Filter::parse("enchanted creature"), power: 2, toughness: 2 }]),
         ],
         ..Default::default() }
 }
@@ -3549,7 +3549,7 @@ fn sapling_nursery(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "{1}{G}, Exile this enchantment: Treefolk and Forests you control gain indestructible until end of turn.",
                 vec![Cost::pay_mana("{1}{G}"), Cost::ExileSelf],
-                vec![Effect::GrantKeywordAllUntilEndOfTurn { filter: "Treefolk you control".into(), keyword: "indestructible".into() }],
+                vec![Effect::GrantKeywordAllUntilEndOfTurn { filter: Filter::parse("Treefolk you control"), keyword: "indestructible".into() }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -3647,8 +3647,8 @@ fn spiral_into_solitude(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Enchanted creature can't attack or block.",
-                vec![StaticEffect::CantAttack { filter: "enchanted creature".into() },
-                     StaticEffect::CantBlock { filter: "enchanted creature".into() }]),
+                vec![StaticEffect::CantAttack { filter: Filter::parse("enchanted creature") },
+                     StaticEffect::CantBlock { filter: Filter::parse("enchanted creature") }]),
             Ability::activated(id,
                 "{1}{W}, Blight 1, Sacrifice this Aura: Exile enchanted creature.",
                 vec![Cost::pay_mana("{1}{W}"), Cost::Blight(1), Cost::sacrifice_self()],
@@ -3685,7 +3685,7 @@ fn stalactite_dagger(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::static_ability(id,
                 "Equipped creature gets +1/+1 and is all creature types.",
-                vec![StaticEffect::Boost { filter: "equipped creature".into(), power: 1, toughness: 1 }]),
+                vec![StaticEffect::Boost { filter: Filter::parse("equipped creature"), power: 1, toughness: 1 }]),
             Ability::activated(id,
                 "Equip {2}",
                 vec![Cost::pay_mana("{2}")],
@@ -4075,7 +4075,7 @@ fn boneclub_berserker(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::static_ability(id, "This creature gets +2/+0 for each other Goblin you control.",
-                vec![StaticEffect::BoostPerCount { count_filter: "other Goblin you control".into(), power_per: 2, toughness_per: 0 }]),
+                vec![StaticEffect::BoostPerCount { count_filter: Filter::parse("other Goblin you control"), power_per: 2, toughness_per: 0 }]),
         ],
         ..Default::default() }
 }
@@ -4429,7 +4429,7 @@ fn lavaleaper(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "All creatures have haste.",
-                vec![StaticEffect::GrantKeyword { filter: "creature".into(), keyword: "haste".into() }]),
+                vec![StaticEffect::GrantKeyword { filter: Filter::parse("creature"), keyword: "haste".into() }]),
             Ability::static_ability(id,
                 "Whenever a player taps a basic land for mana, that player adds one mana of any type that land produced.",
                 vec![StaticEffect::mana_doubling_basic_lands()]),
@@ -4502,7 +4502,7 @@ fn moon_vigil_adherents(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::static_ability(id, "This creature gets +1/+1 for each creature you control and each creature card in your graveyard.",
-                vec![StaticEffect::BoostPerCount { count_filter: "creature you control and creature card in your graveyard".into(), power_per: 1, toughness_per: 1 }]),
+                vec![StaticEffect::BoostPerCount { count_filter: Filter::parse("creature you control and creature card in your graveyard"), power_per: 1, toughness_per: 1 }]),
         ],
         ..Default::default() }
 }
@@ -4552,7 +4552,7 @@ fn mudbutton_cursetosser(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "This creature can't block.",
-                vec![StaticEffect::CantBlock { filter: "self".into() }]),
+                vec![StaticEffect::CantBlock { filter: Filter::parse("self") }]),
             Ability::dies_triggered(id,
                 "When this creature dies, destroy target creature an opponent controls with power 2 or less.",
                 vec![Effect::destroy()],
