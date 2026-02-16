@@ -728,7 +728,7 @@ use crate::abilities::X_VALUE;
     fn conditional_cost_reduction_helper_constructor() {
         match StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1) {
             StaticEffect::CostReduction { filter, amount, condition } => {
-                assert_eq!(filter.message, "creature spells");
+                assert_eq!(&*filter.message, "creature spells");
                 assert_eq!(amount, 1);
                 assert_eq!(condition.as_deref(), Some("toughness_greater_than_power"));
             }

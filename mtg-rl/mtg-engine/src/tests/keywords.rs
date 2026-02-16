@@ -1539,7 +1539,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
     fn convoke_helper_constructor() {
         match StaticEffect::grant_convoke("creature spells") {
             StaticEffect::GrantConvoke { filter } => {
-                assert_eq!(filter.message, "creature spells");
+                assert_eq!(&*filter.message, "creature spells");
             }
             _ => panic!("Expected GrantConvoke variant"),
         }
@@ -1695,7 +1695,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
     fn conspire_helper_constructor() {
         match StaticEffect::grant_conspire("noncreature spells") {
             StaticEffect::GrantConspire { filter } => {
-                assert_eq!(filter.message, "noncreature spells");
+                assert_eq!(&*filter.message, "noncreature spells");
             }
             _ => panic!("Expected GrantConspire variant"),
         }

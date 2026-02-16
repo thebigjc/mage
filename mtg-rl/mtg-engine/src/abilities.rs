@@ -2768,7 +2768,7 @@ mod tests {
 
         match StaticEffect::cost_reduction("creature spells", 1) {
             StaticEffect::CostReduction { filter, amount, condition } => {
-                assert_eq!(filter.message, "creature spells");
+                assert_eq!(&*filter.message, "creature spells");
                 assert_eq!(amount, 1);
                 assert!(condition.is_none());
             }
@@ -2777,7 +2777,7 @@ mod tests {
 
         match StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1) {
             StaticEffect::CostReduction { filter, amount, condition } => {
-                assert_eq!(filter.message, "creature spells");
+                assert_eq!(&*filter.message, "creature spells");
                 assert_eq!(amount, 1);
                 assert_eq!(condition.as_deref(), Some("toughness_greater_than_power"));
             }

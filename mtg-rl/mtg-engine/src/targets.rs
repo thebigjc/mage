@@ -39,7 +39,7 @@ impl TargetDefinition {
     /// Create a new target definition.
     pub fn new(zone: Zone, filter: Filter, is_targeted: bool, outcome: Outcome) -> Self {
         TargetDefinition {
-            description: filter.message.clone(),
+            description: filter.message.to_string(),
             zone,
             filter,
             min_targets: 1,

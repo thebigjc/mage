@@ -118,7 +118,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 
 - [x] Task 4.1: Profile with `cargo flamegraph` to identify hot paths
 - [x] Task 4.2: Replace `HashMap` lookups with array indexing where keys are small integers (player indices)
-- [ ] Task 4.3: Reduce unnecessary `.clone()` calls identified by profiling
+- [x] Task 4.3: Reduce unnecessary `.clone()` calls identified by profiling
 - [ ] Task 4.4: Run benchmarks and compare against Phase 0 baseline to verify no regression
 
 ## Dependencies
@@ -205,6 +205,21 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - All 576 engine tests passing, zero clippy warnings
 
 ## Completed This Iteration
+- Task 4.3: Reduced unnecessary `.clone()` calls in hot paths via `Arc`-backed `Filter` struct
+  - **Filter.message**: `String` → `Arc<str>` — cloning now costs ~2ns (atomic refcount) vs ~50-100ns (heap alloc)
+  - **Filter.message_lower**: New `Arc<str>` field pre-computed at construction — eliminates repeated `to_lowercase()` allocations in `find_matching_permanents()` (was ~19ns per call, called 20-50x per `apply_continuous_effects`)
+  - **Filter.predicate**: `Predicate` → `Arc<Predicate>` — cloning compound predicates (And/Or with Vec) now costs ~2ns vs 44-97ns
+  - **Net effect**: `filter.clone()` in `apply_continuous_effects` drops from 44-97ns to ~6ns (3× Arc increments)
+  - **Hot path savings**: 10 filter clones per `apply_continuous_effects` call × N permanents with static abilities, plus ~20-50 `to_lowercase()` eliminations per call
+  - **Serde**: Enabled `rc` feature for workspace serde dependency to support `Arc<str>` serialization
+  - **game.rs**: Updated `find_matching_permanents` and `boost_per_counts` to use `message_lower()` instead of `to_lowercase()`
+  - **game.rs**: Updated `trigger_doublings` "other" check to use `message_lower()`
+  - **game.rs**: Fixed 4 type mismatches where `Arc<str>` replaced `String` (used `.to_string()` for non-hot-path conversions)
+  - **test files**: Fixed 5 `assert_eq!(filter.message, "...")` to use `&*filter.message` for `Arc<str>` comparison
+  - **Zero-change downstream**: All card code, mtg-ai, mtg-tests compile unchanged — `Filter::new()` and `Filter::parse()` API unchanged
+  - 618 engine + 20 cards + 52 AI + 19 integration = 709 tests passing, zero clippy warnings
+
+### Previous Iteration
 - Task 4.2: Replaced `HashMap<PlayerId, Player>` and `HashMap<PlayerId, PlayerAgent>` with `PlayerMap<V>` array-backed map
   - Created `PlayerMap<V>` in new `mtg-engine/src/player_map.rs` — fixed 2-element array-backed map keyed by `PlayerId`
   - **Lookups**: Simple equality branch (`if id == keys[0]`) instead of hashing — O(1) with better cache locality

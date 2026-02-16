@@ -680,7 +680,7 @@ impl Game {
 
             let gy_count = if count_filter.message.contains("graveyard") {
                 if let Some(player) = self.state.players.get(&controller) {
-                    let filter_lower = count_filter.message.to_lowercase();
+                    let filter_lower = count_filter.message_lower();
                     player.graveyard.iter()
                         .filter_map(|&card_id| self.state.card_store.get(card_id))
                         .filter(|card| !filter_lower.contains("creature") || card.is_creature())
@@ -1317,7 +1317,7 @@ impl Game {
         controller: PlayerId,
         filter: &Filter,
     ) -> Vec<ObjectId> {
-        let msg = filter.message.to_lowercase();
+        let msg = filter.message_lower();
 
         if msg == "self" {
             return vec![source_id];
@@ -1348,7 +1348,7 @@ impl Game {
             abilities.iter().any(|a| {
                 a.ability_type == AbilityType::Static
                     && a.static_effects.iter().any(|e| {
-                        matches!(e, crate::abilities::StaticEffect::EntersTapped { filter } if filter.message == "self")
+                        matches!(e, crate::abilities::StaticEffect::EntersTapped { filter } if &*filter.message == "self")
                     })
             })
         };
@@ -1395,7 +1395,7 @@ impl Game {
     }
 
     fn check_enter_as_copy(&mut self, permanent_id: ObjectId) {
-        let copy_info: Option<(String, Vec<String>)> = {
+        let copy_info: Option<(std::sync::Arc<str>, Vec<String>)> = {
             let abilities = self.state.ability_store.for_source(permanent_id);
             abilities.iter()
                 .filter(|a| a.ability_type == AbilityType::Static)
@@ -1842,8 +1842,7 @@ impl Game {
                         continue;
                     }
                     if let Some(source_perm) = self.state.battlefield.get(source_id) {
-                        let msg = filter.message.to_lowercase();
-                        let exclude_doubler = msg.contains("other");
+                        let exclude_doubler = filter.message_lower().contains("other");
                         if exclude_doubler && source_id == doubler_source {
                             continue;
                         }
@@ -2708,7 +2707,7 @@ impl Game {
                         if let crate::abilities::StaticEffect::CastExiledOncePerTurn { mv_count_filter } = effect {
                             if let Some(zone) = self.state.exile.get_zone(source_id) {
                                 for &card_id in &zone.cards {
-                                    once_castable.push((card_id, source_id, mv_count_filter.message.clone()));
+                                    once_castable.push((card_id, source_id, mv_count_filter.message.to_string()));
                                 }
                             }
                         }
@@ -5588,7 +5587,7 @@ impl Game {
                         duration: crate::state::DelayedDuration::EndOfTurn,
                         trigger_only_once: false,
                         created_turn: self.state.turn_number,
-                        controller_filter: Some(filter.message.clone()),
+                        controller_filter: Some(filter.message.to_string()),
                         copy_spell: false,
                         stored_value: None,
                     });
