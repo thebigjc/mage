@@ -4375,11 +4375,9 @@ impl Game {
                             continue; // Can't counter this spell
                         }
                         if let Some(stack_item) = self.state.stack.remove(target_id) {
-                            match &stack_item.kind {
-                                crate::zones::StackItemKind::Spell { .. } => {
-                                    self.move_card_to_graveyard_inner(stack_item.id, stack_item.controller);
-                                }
-                                _ => {} // Countered abilities just vanish
+                            // Countered abilities just vanish (only spells go to graveyard)
+                            if let crate::zones::StackItemKind::Spell { .. } = &stack_item.kind {
+                                self.move_card_to_graveyard_inner(stack_item.id, stack_item.controller);
                             }
                         }
                     }
@@ -4423,11 +4421,8 @@ impl Game {
                             continue;
                         }
                         if let Some(stack_item) = self.state.stack.remove(stack_id) {
-                            match &stack_item.kind {
-                                crate::zones::StackItemKind::Spell { .. } => {
-                                    self.move_card_to_graveyard_inner(stack_item.id, stack_item.controller);
-                                }
-                                _ => {}
+                            if let crate::zones::StackItemKind::Spell { .. } = &stack_item.kind {
+                                self.move_card_to_graveyard_inner(stack_item.id, stack_item.controller);
                             }
                             countered_count += 1;
                         }

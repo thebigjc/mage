@@ -25,10 +25,10 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 ### Phase 2: mtg-engine/src/game.rs (53 warnings — biggest file)
 - [x] Task 2: Fix ~20 `uninlined_format_args` warnings in game.rs — inline variables into format strings
 - [x] Task 3: Fix ~13 `map_or(false, ...)` → `is_some_and(...)` warnings in game.rs
-- [ ] Task 4: Fix ~5 `unwrap_or_default` warnings in game.rs
-- [ ] Task 5: Fix 4 `unnecessary_cast` warnings in game.rs (u32→u32, usize→usize)
-- [ ] Task 6: Fix 2 `collapsible_if` + 2 `collapsible_else_if` warnings in game.rs
-- [ ] Task 7: Fix 2 `single_match` → `if let` warnings in game.rs
+- [x] Task 4: Fix ~5 `unwrap_or_default` warnings in game.rs
+- [x] Task 5: Fix 4 `unnecessary_cast` warnings in game.rs (u32→u32, usize→usize)
+- [x] Task 6: Fix 2 `collapsible_if` + 2 `collapsible_else_if` warnings in game.rs
+- [x] Task 7: Fix 2 `single_match` → `if let` warnings in game.rs
 - [ ] Task 8: Fix 2 `assign_op_pattern` → `+=` warnings in game.rs
 - [ ] Task 9: Fix remaining one-off warnings in game.rs: needless_borrow, len_zero, needless_range_loop, let_and_return, manual_map, iter_cloned_collect, useless_format, useless_conversion, manual_pattern_char_comparison, unnecessary_lazy_evaluations
 - [ ] Task 10: Review `if_same_then_else` at game.rs:684 — determine if it's a logic bug or just duplicate code, fix accordingly
@@ -60,7 +60,7 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 - [ ] Task 28: Run `cargo test --lib` and `cargo test --release` to confirm all tests still pass
 
 ## Completed This Iteration
-- Task 3: Fixed 11 `map_or(false, ...)` → `is_some_and(...)` in game.rs. All 576 tests still pass.
+- Task 7: Converted 2 `match` with single arm + `_ => {}` to `if let` in game.rs (CounterSpell at ~line 4378 and CounterAllOpponentSpellsAndAbilities at ~line 4426). Both handle StackItemKind::Spell. All 576 tests pass.
 
 ## Notes
 
