@@ -21,8 +21,8 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 
 | Metric | Count |
 |--------|-------|
-| `Effect::Custom` | 886 |
-| `StaticEffect::Custom` | 188 |
+| `Effect::Custom` | 496 (was 886 before Filter migration) |
+| `StaticEffect::Custom` | 126 (was 188 before Filter migration) |
 | `SubType::Custom` | 15 |
 | String filter fields | 39 definitions, ~250 unique values |
 | `TargetSpec::PermanentFiltered` | 62 unique targets |
@@ -85,10 +85,10 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - [x] Task 1.15: Remove `matches_filter()` string parsing function once all callers migrated
 
 #### 1C: Reduce Custom Effect Fallbacks
-- [ ] Task 1.16: Audit `Effect::Custom` usages — categorize the 886 occurrences into groups (e.g., "counter manipulation", "zone movement", "conditional effects", "combat effects")
+- [x] Task 1.16: Audit `Effect::Custom` usages — categorize 496 Effect::Custom + 126 StaticEffect::Custom into groups (see audit below)
 - [ ] Task 1.17: Add new `Effect` variants for the top 5-10 most common Custom patterns
 - [ ] Task 1.18: Migrate card implementations to use new Effect variants, reducing Custom count
-- [ ] Task 1.19: Audit `StaticEffect::Custom` usages (188) — categorize and add specific variants for top patterns
+- [ ] Task 1.19: Audit `StaticEffect::Custom` usages (126) — categorize and add specific variants for top patterns
 - [ ] Task 1.20: Migrate card implementations to use new StaticEffect variants
 
 ### Phase 2: Ownership & Patterns
@@ -205,14 +205,87 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - All 576 engine tests passing, zero clippy warnings
 
 ## Completed This Iteration
-- Task 1.15: Removed `matches_filter()` and `card_matches_filter()` string-parsing wrapper functions; migrated all callers to use typed `Filter` directly
-  - Removed `matches_filter(perm: &Permanent, filter: &str)` and `card_matches_filter(card: &CardData, filter: &str)` from game.rs
-  - Removed old string-based `find_matching_permanents(&self, ..., filter: &str)` and replaced with typed `find_matching_permanents(&self, ..., filter: &Filter)` using `filter.matches_permanent(perm, controller)` for predicate evaluation
-  - Migrated 10 collection tuples in `apply_continuous_effects` from `String` to `Filter` (boosts, keyword_grants, cant_attacks, cant_blocks, boost_per_counts, lose_all_abilities, set_base_pts, cant_untaps, assign_damage_toughness, boost_per_turn_events)
-  - Migrated `trigger_doublings` field in `GameState` from `Vec<(ObjectId, PlayerId, String)>` to `Vec<(ObjectId, PlayerId, Filter)>`
-  - Replaced ad-hoc `filter.message.to_lowercase().contains("opponent")` / `"you control"` checks in 5 effect handlers with `filter.matches_permanent(p, controller)` — the typed Filter predicate system handles controller-based matching natively
-  - Replaced 4 `card_matches_filter(c, &filter.message)` calls with `filter.matches_card_ignore_controller(c)`
-  - Replaced 2 hard-coded `card_matches_filter(c, "basic land")`/`"permanent"` calls with `Filter::parse("...").matches_card_ignore_controller(c)`
-  - All 584 engine tests, 20 mtg-cards tests, 19 integration tests passing; zero clippy warnings
-  - **Phase 1B (Typed Filter System) is now complete** — zero string-based filter functions remain in game.rs
+- Task 1.16: Audited and categorized all Effect::Custom (496) and StaticEffect::Custom (126) usages
+
+### Effect::Custom Audit Results (496 usages, 323 unique messages)
+
+**Per-set breakdown:**
+| Set | Effect::Custom | StaticEffect::Custom |
+|-----|---------------|---------------------|
+| FDN | 258 | 57 |
+| TLA | 143 | 54 |
+| TDM | 92 | 15 |
+| ECL | 3 | 0 |
+
+**Categorized groups (by total usages):**
+
+| Category | Usages | Unique | Priority for new variants |
+|----------|--------|--------|--------------------------|
+| **PLACEHOLDER (no-op descriptions)** | 294 | 10 | HIGHEST — these are stub text like "ETB effect.", "Static effect.", "Activated effect." that carry zero semantic info. Should be eliminated by implementing the actual effect or removing them. |
+| **DRAW/DISCARD/MILL/SURVEIL** | 27 | 26 | Medium — many are complex multi-step (surveil, loot, wheel), but some are simple (e.g., "each opponent discards a card") |
+| **TOKEN CREATION (complex)** | 25 | 25 | Medium — complex conditions (X tokens, conditional creation), but many could use existing `CreateToken` with compound effects |
+| **DEAL DAMAGE (complex)** | 22 | 22 | Medium — many involve conditional amounts or unusual targets |
+| **LIFE GAIN/LOSS (complex)** | 19 | 18 | Low — most are compound effects (damage + life gain) |
+| **COUNTER MANIPULATION** | 19 | 19 | Medium — distribute counters, conditional counters |
+| **EXILE (complex)** | 18 | 18 | Low — most involve temporary exile, or exile-until-leaves |
+| **MODAL (choose one/both)** | 15 | 15 | HIGH — already has `Effect::Modal` variant; these should be migrated to use it |
+| **LOOK AT TOP / LIBRARY** | 13 | 13 | Low — complex library manipulation |
+| **COPY SPELL/TOKEN** | 11 | 11 | Low — very complex game mechanics |
+| **DESTROY (complex)** | 10 | 10 | Low — multi-target or conditional destroy |
+| **P/T BOOST (team/conditional)** | 8 | 8 | Medium — `BoostAllUntilEndOfTurn` exists but some need "+X/+X where X = count" |
+| **RETURN FROM GRAVEYARD** | 8 | 8 | Medium — `Reanimate`/`ReturnFromGraveyard` exist but some need filtering |
+| **EVASION / BLOCKING** | 8 | 8 | HIGH — simple variants like "can't be blocked this turn" are easy to add |
+| **BOUNCE / RETURN TO HAND** | 7 | 7 | Low — `Bounce`/`BounceAll` exist; complex cases need conditional targeting |
+| **SAGA mechanics** | 7 | 2 | Medium — could be a first-class mechanic |
+| **GAIN CONTROL** | 7 | 7 | Low — most are complex compound effects |
+| **SEARCH LIBRARY (complex)** | 6 | 6 | Low — `SearchLibrary` exists; complex cases involve specific battlefield placement |
+| **THRESHOLD condition** | 6 | 6 | Medium — recurring conditional pattern |
+| **TAP/UNTAP effects** | 6 | 6 | Low — `TapTarget`/`UntapTarget` exist; complex cases involve "doesn't untap" |
+| **CHOOSE CLAN** | 5 | 5 | Low — TDM-specific mechanic |
+| **EARTHBEND** | 5 | 2 | Low — TLA-specific mechanic |
+| **CAST FROM GRAVEYARD** | 5 | 2 | Medium — flashback-like, recurring pattern |
+| **KEYWORD GRANT (team)** | 5 | 4 | HIGH — `GrantKeywordAllUntilEndOfTurn` exists; simple migration |
+| **COST REDUCTION** | 5 | 5 | Low — `CostReduction` StaticEffect exists |
+| **ENDURE mechanic** | 4 | 4 | Medium — TDM keyword, could be first-class |
+| **CHOOSE TYPE** | 4 | 4 | Low — `ChooseCreatureType` exists |
+| **ENCHANT / AURA** | 4 | 3 | Low — targeting constraint, not really an effect |
+| **COMBAT effects** | 4 | 4 | Low — extra combat phases, complex |
+| **KICKER** | 3 | 3 | Low — alternative cost mechanic |
+| **MORBID condition** | 3 | 3 | Medium — recurring conditional pattern |
+| **PROTECTION** | 2 | 2 | Low — `GainProtection` exists |
+| **RAID condition** | 2 | 2 | Low — TLA-specific |
+| **SACRIFICE** | 2 | 2 | Low — `Sacrifice` exists |
+| **UNCATEGORIZED** | 27 | 27 | Varies — unique one-off effects |
+
+### StaticEffect::Custom Audit Results (126 usages, 39 unique messages)
+
+| Category | Usages | Notes |
+|----------|--------|-------|
+| **"Static effect." placeholder** | 86 | No-op stub text |
+| **"Conditional continuous effect." placeholder** | 4 | No-op stub text |
+| **Specific static effects** | 36 | 37 unique messages, 1 usage each — protection, P/T setting, cost reduction, etc. |
+
+### Recommended New Effect Variants for Task 1.17 (highest impact)
+
+1. **Remove placeholders** (294 Effect::Custom + 90 StaticEffect::Custom = 384 total) — These "ETB effect.", "Static effect.", etc. carry no semantic information. The card implementations that use them are essentially stubs. Either:
+   - Remove the Custom entirely (if the card is meant to be a stub)
+   - Or implement the actual effect using existing variants
+
+2. **`Effect::CantBeBlockedThisTurn`** — 8 usages of "can't be blocked" variants, easy to implement
+
+3. **Migrate 15 modal spells to `Effect::Modal`** — Already has the variant, just needs card-by-card migration
+
+4. **`Effect::BoostAllUntilEndOfTurnDynamic { filter, power_source, toughness_source }`** — For "+X/+X where X = count of something" patterns (~8 usages)
+
+5. **`Effect::EachOpponentDiscards { count }`** — Simple variant, ~5 usages
+
+6. **`Effect::EachOpponentSacrifices { filter }`** — ~3 usages
+
+7. **`Effect::Surveil { count }`** — ~3 usages
+
+8. **`Effect::CantBeBlockedByFilter { filter }`** — For "can't be blocked by Humans" etc.
+
+9. **`Effect::ExileUntilLeaves`** — For Oblivion Ring / Stasis Snare pattern (~5 usages)
+
+10. **`Effect::ReturnFromGraveyardFiltered { filter }`** — For "return creature card with MV <= 3" (~5 usages)
 
