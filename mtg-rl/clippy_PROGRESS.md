@@ -56,7 +56,7 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 
 ### Phase 5b: Newly discovered warnings (mtg-cards tests, mtg-ai, mtg-python, mtg-tests)
 - [x] Task 29: Fix 6 `uninlined_format_args` in mtg-cards test code (behold.rs, blight.rs, mobilize.rs) — inlined `other` variable in panic! format strings
-- [ ] Task 30: Fix 3 `manual_repeat_n` warnings in mtg-ai (repeat().take() → repeat_n())
+- [x] Task 30: Fix 3 `manual_repeat_n` warnings in mtg-ai (repeat().take() → repeat_n()) — observation.rs lines 199, 208, 245
 - [ ] Task 31: Fix 2 `redundant_closure` warnings in mtg-tests
 - [ ] Task 32: Fix `type_complexity` warning in mtg-python
 - [ ] Task 33: Fix `useless_conversion` warning in mtg-python
@@ -67,7 +67,7 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 - [ ] Task 28: Run `cargo test --lib` and `cargo test --release` to confirm all tests still pass
 
 ## Completed This Iteration
-- Task 29: Inlined 6 `uninlined_format_args` in mtg-cards test code (behold.rs, blight.rs, mobilize.rs) — changed `{:?}", other` to `{other:?}"`. All 20 mtg-cards tests pass.
+- Task 30: Fixed 3 `manual_repeat_n` warnings in mtg-ai/src/observation.rs — replaced `std::iter::repeat(0.0).take(N)` with `std::iter::repeat_n(0.0, N)` at lines 199, 208, 245. Clippy clean, all 52 mtg-ai tests pass.
 
 ## Notes
 

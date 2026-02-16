@@ -196,7 +196,7 @@ impl Observation {
             if i < snapshot.hand.len() {
                 encode_hand_card(&mut features, &snapshot.hand[i]);
             } else {
-                features.extend(std::iter::repeat(0.0).take(HAND_CARD_FEATURES));
+                features.extend(std::iter::repeat_n(0.0, HAND_CARD_FEATURES));
             }
         }
 
@@ -205,7 +205,7 @@ impl Observation {
             if i < snapshot.stack.len() {
                 encode_stack_item(&mut features, &snapshot.stack[i]);
             } else {
-                features.extend(std::iter::repeat(0.0).take(STACK_ITEM_FEATURES));
+                features.extend(std::iter::repeat_n(0.0, STACK_ITEM_FEATURES));
             }
         }
 
@@ -242,7 +242,7 @@ fn encode_permanents(out: &mut Vec<f32>, permanents: &[PermanentSnapshot]) {
         if i < permanents.len() {
             encode_permanent(out, &permanents[i]);
         } else {
-            out.extend(std::iter::repeat(0.0).take(PERMANENT_FEATURES));
+            out.extend(std::iter::repeat_n(0.0, PERMANENT_FEATURES));
         }
     }
 }
