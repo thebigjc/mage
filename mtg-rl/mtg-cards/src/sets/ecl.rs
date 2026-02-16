@@ -2684,7 +2684,6 @@ fn firdoch_core(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [COST+DELAYED] ETB with -1/-1 counter, remove counter cost, delayed trigger (combat damage draw)
 fn flitterwing_nuisance(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Flitterwing Nuisance".into(),
         mana_cost: ManaCost::parse("{U}"),
@@ -2694,11 +2693,17 @@ fn flitterwing_nuisance(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Rare,
         keywords: KeywordAbilities::FLYING,
         abilities: vec![
+            Ability::static_ability(id,
+                "This creature enters with a -1/-1 counter on it.",
+                vec![StaticEffect::enters_with_counters("-1/-1", 1)]),
             Ability::activated(id,
-                    "{2}{U}, Remove a counter from this creature: Whenever a creature you control deals combat damage to a player this turn, you draw a card.",
-                    vec![Cost::pay_mana("{2}{U}")],
-                    vec![Effect::Custom("Remove a counter, grant combat-damage-draw to your creatures this turn.".into())],
-                    TargetSpec::None),
+                "{2}{U}, Remove a counter from this creature: Whenever a creature you control deals combat damage to a player or planeswalker this turn, draw a card.",
+                vec![Cost::pay_mana("{2}{U}"), Cost::remove_counters("any", 1)],
+                vec![Effect::grant_triggered_ability_eot(
+                    "damaged_player",
+                    "creatures you control",
+                    vec![Effect::draw_cards(1)])],
+                TargetSpec::None),
         ],
         ..Default::default() }
 }

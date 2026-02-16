@@ -1738,6 +1738,22 @@ impl Game {
                         }
                     }
                 }
+                if let Some(ref _filter) = dt.controller_filter {
+                    if let Some(source_id) = event.target_id {
+                        if let Some(perm) = self.state.battlefield.get(source_id) {
+                            if perm.controller != dt.controller {
+                                continue;
+                            }
+                            if !perm.is_creature() {
+                                continue;
+                            }
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        continue;
+                    }
+                }
                 delayed_fired.push((idx, dt.clone()));
             }
         }
@@ -3344,15 +3360,37 @@ impl Game {
                     }
                 }
                 Cost::RemoveCounters(counter_type_name, count) => {
-                    let ct = crate::counters::CounterType::from_name(counter_type_name);
-                    if let Some(perm) = self.state.battlefield.get_mut(source_id) {
-                        let current = perm.counters.get(&ct);
-                        if current < *count {
-                            return false; // Not enough counters
+                    if counter_type_name == "any" {
+                        if let Some(perm) = self.state.battlefield.get_mut(source_id) {
+                            if perm.counters.total_count() < *count {
+                                return false;
+                            }
+                            let mut remaining = *count;
+                            let types: Vec<_> = perm.counters.iter()
+                                .filter(|(_, &c)| c > 0)
+                                .map(|(ct, _)| ct.clone())
+                                .collect();
+                            for ct in types {
+                                if remaining == 0 { break; }
+                                let available = perm.counters.get(&ct);
+                                let to_remove = remaining.min(available);
+                                perm.counters.remove(&ct, to_remove);
+                                remaining -= to_remove;
+                            }
+                        } else {
+                            return false;
                         }
-                        perm.counters.remove(&ct, *count);
                     } else {
-                        return false;
+                        let ct = crate::counters::CounterType::from_name(counter_type_name);
+                        if let Some(perm) = self.state.battlefield.get_mut(source_id) {
+                            let current = perm.counters.get(&ct);
+                            if current < *count {
+                                return false;
+                            }
+                            perm.counters.remove(&ct, *count);
+                        } else {
+                            return false;
+                        }
                     }
                 }
                 Cost::Blight(count) => {
@@ -4939,6 +4977,22 @@ impl Game {
                         duration: dur,
                         trigger_only_once: true,
                         created_turn: self.state.turn_number,
+                        controller_filter: None,
+                    });
+                }
+                Effect::GrantTriggeredAbilityUntilEOT { event_type, filter, trigger_effects } => {
+                    let evt = crate::events::EventType::from_name(event_type);
+                    self.state.delayed_triggers.push(crate::state::DelayedTrigger {
+                        event_type: evt,
+                        watching: None,
+                        effects: trigger_effects.clone(),
+                        controller,
+                        source,
+                        targets: vec![],
+                        duration: crate::state::DelayedDuration::EndOfTurn,
+                        trigger_only_once: false,
+                        created_turn: self.state.turn_number,
+                        controller_filter: Some(filter.clone()),
                     });
                 }
                 Effect::ExileTopAndPlay { count, duration, without_mana } => {
@@ -5127,6 +5181,7 @@ impl Game {
                             duration: crate::state::DelayedDuration::UntilTriggered,
                             trigger_only_once: true,
                             created_turn: self.state.turn_number,
+                            controller_filter: None,
                         });
                     }
                 }
@@ -5344,6 +5399,7 @@ impl Game {
                                         duration: crate::state::DelayedDuration::UntilTriggered,
                                         trigger_only_once: true,
                                         created_turn: self.state.turn_number,
+                                        controller_filter: None,
                                     });
                                 }
                             }
@@ -5583,6 +5639,7 @@ impl Game {
                                             duration: crate::state::DelayedDuration::UntilTriggered,
                                             trigger_only_once: true,
                                             created_turn: self.state.turn_number,
+                                            controller_filter: None,
                                         });
                                     }
                                 }

@@ -463,6 +463,19 @@ pub enum Effect {
         effects: Vec<Effect>,
     },
 
+    /// Grant a triggered ability to permanents matching a filter until end of turn.
+    /// Creates a delayed trigger that fires each time the specified event occurs
+    /// for a permanent the controller controls matching the filter.
+    /// Unlike CreateDelayedTrigger, this can fire multiple times (once per matching event).
+    GrantTriggeredAbilityUntilEOT {
+        /// Event type name (e.g. "damaged_player").
+        event_type: String,
+        /// Filter for permanents that can trigger this (e.g. "creatures you control").
+        filter: String,
+        /// Effects to execute each time the trigger fires.
+        trigger_effects: Vec<Effect>,
+    },
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1534,6 +1547,14 @@ impl Effect {
         Effect::IfAbilityResolvedNTimes {
             resolution_number: n,
             effects,
+        }
+    }
+
+    pub fn grant_triggered_ability_eot(event_type: &str, filter: &str, trigger_effects: Vec<Effect>) -> Self {
+        Effect::GrantTriggeredAbilityUntilEOT {
+            event_type: event_type.to_string(),
+            filter: filter.to_string(),
+            trigger_effects,
         }
     }
 }

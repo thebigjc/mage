@@ -1404,3 +1404,137 @@ use crate::types::{ObjectId, PlayerId};
         assert!(ab.trigger_events.contains(&EventType::BlockerDeclared));
         assert_eq!(ab.trigger_scope, TriggerScope::Any);
     }
+
+    #[test]
+    fn grant_triggered_ability_eot_draws_on_combat_damage() {
+        let (mut game, p1, _p2) = setup_delayed_game();
+
+        let draw_card_id = ObjectId::new();
+        let draw_card = CardData::new(draw_card_id, p1, "Prize");
+        game.state.card_store.insert(draw_card);
+        game.state.players.get_mut(&p1).unwrap().library.put_on_top(draw_card_id);
+
+        let creature_id = ObjectId::new();
+        let mut card = CardData::new(creature_id, p1, "Attacker");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(2);
+        card.toughness = Some(2);
+        let perm = Permanent::new(card.clone(), p1);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(card);
+
+        let effects = vec![Effect::grant_triggered_ability_eot(
+            "damaged_player",
+            "creatures you control",
+            vec![Effect::DrawCards { count: 1 }],
+        )];
+        game.execute_effects(&effects, p1, &[], None, None);
+
+        assert_eq!(game.state.delayed_triggers.len(), 1);
+        assert!(!game.state.delayed_triggers[0].trigger_only_once);
+
+        let hand_before = game.state.players.get(&p1).unwrap().hand.len();
+
+        let mut dmg_event = GameEvent::new(EventType::DamagedPlayer);
+        dmg_event.target_id = Some(creature_id);
+        dmg_event.player_id = Some(_p2);
+        dmg_event.amount = 2;
+        game.emit_event(dmg_event);
+        game.check_triggered_abilities();
+
+        let hand_after = game.state.players.get(&p1).unwrap().hand.len();
+        assert_eq!(hand_after, hand_before + 1,
+            "Should draw a card when creature deals combat damage");
+    }
+
+    #[test]
+    fn grant_triggered_ability_eot_fires_for_each_creature() {
+        let (mut game, p1, p2) = setup_delayed_game();
+
+        for i in 0..3 {
+            let cid = ObjectId::new();
+            let mut card = CardData::new(cid, p1, &format!("Prize {i}"));
+            card.card_types = vec![CardType::Land];
+            game.state.card_store.insert(card);
+            game.state.players.get_mut(&p1).unwrap().library.put_on_top(cid);
+        }
+
+        let creature1_id = ObjectId::new();
+        let mut c1 = CardData::new(creature1_id, p1, "Attacker A");
+        c1.card_types = vec![CardType::Creature];
+        c1.power = Some(2);
+        c1.toughness = Some(2);
+        game.state.battlefield.add(Permanent::new(c1.clone(), p1));
+        game.state.card_store.insert(c1);
+
+        let creature2_id = ObjectId::new();
+        let mut c2 = CardData::new(creature2_id, p1, "Attacker B");
+        c2.card_types = vec![CardType::Creature];
+        c2.power = Some(3);
+        c2.toughness = Some(3);
+        game.state.battlefield.add(Permanent::new(c2.clone(), p1));
+        game.state.card_store.insert(c2);
+
+        let effects = vec![Effect::grant_triggered_ability_eot(
+            "damaged_player",
+            "creatures you control",
+            vec![Effect::DrawCards { count: 1 }],
+        )];
+        game.execute_effects(&effects, p1, &[], None, None);
+
+        let hand_before = game.state.players.get(&p1).unwrap().hand.len();
+
+        let mut dmg1 = GameEvent::new(EventType::DamagedPlayer);
+        dmg1.target_id = Some(creature1_id);
+        dmg1.player_id = Some(p2);
+        dmg1.amount = 2;
+        game.emit_event(dmg1);
+
+        let mut dmg2 = GameEvent::new(EventType::DamagedPlayer);
+        dmg2.target_id = Some(creature2_id);
+        dmg2.player_id = Some(p2);
+        dmg2.amount = 3;
+        game.emit_event(dmg2);
+
+        game.check_triggered_abilities();
+
+        let hand_after = game.state.players.get(&p1).unwrap().hand.len();
+        assert_eq!(hand_after, hand_before + 2,
+            "Should draw 2 cards (one per attacking creature)");
+
+        assert_eq!(game.state.delayed_triggers.len(), 1,
+            "Trigger should still be active (not once-only)");
+    }
+
+    #[test]
+    fn grant_triggered_ability_eot_ignores_opponent_creatures() {
+        let (mut game, p1, p2) = setup_delayed_game();
+
+        let opp_creature = ObjectId::new();
+        let mut oc = CardData::new(opp_creature, p2, "Enemy");
+        oc.card_types = vec![CardType::Creature];
+        oc.power = Some(4);
+        oc.toughness = Some(4);
+        game.state.battlefield.add(Permanent::new(oc.clone(), p2));
+        game.state.card_store.insert(oc);
+
+        let effects = vec![Effect::grant_triggered_ability_eot(
+            "damaged_player",
+            "creatures you control",
+            vec![Effect::DrawCards { count: 1 }],
+        )];
+        game.execute_effects(&effects, p1, &[], None, None);
+
+        let hand_before = game.state.players.get(&p1).unwrap().hand.len();
+
+        let mut dmg = GameEvent::new(EventType::DamagedPlayer);
+        dmg.target_id = Some(opp_creature);
+        dmg.player_id = Some(p1);
+        dmg.amount = 4;
+        game.emit_event(dmg);
+        game.check_triggered_abilities();
+
+        let hand_after = game.state.players.get(&p1).unwrap().hand.len();
+        assert_eq!(hand_after, hand_before,
+            "Should NOT draw when opponent's creature deals damage");
+    }

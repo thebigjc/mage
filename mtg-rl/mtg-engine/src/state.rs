@@ -199,6 +199,9 @@ pub struct DelayedTrigger {
     pub trigger_only_once: bool,
     /// Turn number when created (for expiration).
     pub created_turn: u32,
+    /// If set, the event's source (target_id) must be a permanent controlled
+    /// by this trigger's controller matching the given filter (e.g. "creatures you control").
+    pub controller_filter: Option<String>,
 }
 
 /// Describes where a specific game object currently exists.
