@@ -2398,3 +2398,138 @@ fn counter_all_opponent_ignores_own_spells() {
         .filter(|p| p.card.is_token).collect();
     assert_eq!(tokens.len(), 1, "1 token for the 1 opponent spell countered");
 }
+
+#[cfg(test)]
+#[test]
+fn mass_become_copy_basic() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let mut game = Game::new_two_player(
+        config,
+        vec![
+            (p1, Box::new(AlwaysPassPlayer)),
+            (p2, Box::new(AlwaysPassPlayer)),
+        ],
+    );
+
+    let mut dragon = make_creature("Shivan Dragon", p2, 5, 5);
+    dragon.keywords = KeywordAbilities::FLYING;
+    let dragon_id = dragon.id;
+    game.state.battlefield.add(Permanent::new(dragon, p2));
+
+    let bear1 = make_creature("Grizzly Bears", p1, 2, 2);
+    let bear1_id = bear1.id;
+    game.state.battlefield.add(Permanent::new(bear1, p1));
+
+    let bear2 = make_creature("Runeclaw Bear", p1, 2, 2);
+    let bear2_id = bear2.id;
+    game.state.battlefield.add(Permanent::new(bear2, p1));
+
+    game.execute_effects(
+        &[Effect::mass_become_copy()],
+        p1, &[dragon_id], None, None,
+    );
+
+    let b1 = game.state.battlefield.get(bear1_id).unwrap();
+    assert_eq!(b1.name(), "Shivan Dragon");
+    assert_eq!(b1.card.power, Some(5));
+    assert_eq!(b1.card.toughness, Some(5));
+    assert!(b1.has_keyword(KeywordAbilities::FLYING));
+
+    let b2 = game.state.battlefield.get(bear2_id).unwrap();
+    assert_eq!(b2.name(), "Shivan Dragon");
+    assert_eq!(b2.card.power, Some(5));
+}
+
+#[cfg(test)]
+#[test]
+fn mass_become_copy_skips_lands() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let mut game = Game::new_two_player(
+        config,
+        vec![
+            (p1, Box::new(AlwaysPassPlayer)),
+            (p2, Box::new(AlwaysPassPlayer)),
+        ],
+    );
+
+    let dragon = make_creature("Shivan Dragon", p1, 5, 5);
+    let dragon_id = dragon.id;
+    game.state.battlefield.add(Permanent::new(dragon, p1));
+
+    let mut land = CardData::new(ObjectId::new(), p1, "Forest");
+    land.card_types = vec![CardType::Land];
+    let land_id = land.id;
+    game.state.battlefield.add(Permanent::new(land, p1));
+
+    let bear = make_creature("Grizzly Bears", p1, 2, 2);
+    let bear_id = bear.id;
+    game.state.battlefield.add(Permanent::new(bear, p1));
+
+    game.execute_effects(
+        &[Effect::mass_become_copy()],
+        p1, &[dragon_id], None, None,
+    );
+
+    let l = game.state.battlefield.get(land_id).unwrap();
+    assert_eq!(l.name(), "Forest", "Land should not become a copy");
+
+    let b = game.state.battlefield.get(bear_id).unwrap();
+    assert_eq!(b.name(), "Shivan Dragon", "Creature should become a copy");
+}
+
+#[cfg(test)]
+#[test]
+fn mass_become_copy_preserves_identity() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let mut game = Game::new_two_player(
+        config,
+        vec![
+            (p1, Box::new(AlwaysPassPlayer)),
+            (p2, Box::new(AlwaysPassPlayer)),
+        ],
+    );
+
+    let dragon = make_creature("Shivan Dragon", p2, 5, 5);
+    let dragon_id = dragon.id;
+    game.state.battlefield.add(Permanent::new(dragon, p2));
+
+    let mut token = make_creature("Soldier", p1, 1, 1);
+    token.is_token = true;
+    let token_id = token.id;
+    game.state.battlefield.add(Permanent::new(token, p1));
+
+    game.execute_effects(
+        &[Effect::mass_become_copy()],
+        p1, &[dragon_id], None, None,
+    );
+
+    let t = game.state.battlefield.get(token_id).unwrap();
+    assert_eq!(t.name(), "Shivan Dragon");
+    assert_eq!(t.card.id, token_id, "Object ID should be preserved");
+    assert_eq!(t.card.owner, p1, "Owner should be preserved");
+    assert!(t.card.is_token, "Token status should be preserved");
+}

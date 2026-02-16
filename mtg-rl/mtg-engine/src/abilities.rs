@@ -534,6 +534,8 @@ pub enum Effect {
     /// a creature type with the chosen creature they control.
     Winnowing,
 
+    MassBecomeCopy,
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1658,6 +1660,10 @@ impl Effect {
 
     pub fn winnowing() -> Self {
         Effect::Winnowing
+    }
+
+    pub fn mass_become_copy() -> Self {
+        Effect::MassBecomeCopy
     }
 }
 

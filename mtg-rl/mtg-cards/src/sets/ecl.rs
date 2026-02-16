@@ -4470,11 +4470,11 @@ fn meanders_guide(id: ObjectId, owner: PlayerId) -> CardData {
 fn mirrorform(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Mirrorform".into(), mana_cost: ManaCost::parse("{4}{U}{U}"),
         card_types: vec![CardType::Instant],
-        rarity: Rarity::Common,
+        rarity: Rarity::Rare,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::Custom("Each nonland permanent you control becomes a copy of target non-Aura permanent.".into())],
-                TargetSpec::None),
+                vec![Effect::mass_become_copy()],
+                TargetSpec::PermanentFiltered("non-Aura permanent".into())),
         ],
         ..Default::default() }
 }

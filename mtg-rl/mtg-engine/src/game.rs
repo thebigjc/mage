@@ -6135,6 +6135,44 @@ impl Game {
                         }
                     }
                 }
+                Effect::MassBecomeCopy => {
+                    for &target_id in targets {
+                        let source_card = match self.state.battlefield.get(target_id) {
+                            Some(p) => p.card.clone(),
+                            None => continue,
+                        };
+                        let my_nonland_ids: Vec<ObjectId> = self.state.battlefield.iter()
+                            .filter(|p| p.controller == controller
+                                && !p.card.card_types.contains(&crate::constants::CardType::Land)
+                                && p.id() != target_id)
+                            .map(|p| p.id())
+                            .collect();
+                        for perm_id in my_nonland_ids {
+                            self.state.ability_store.remove_source(perm_id);
+                            if let Some(perm) = self.state.battlefield.get_mut(perm_id) {
+                                let original_id = perm.card.id;
+                                let original_owner = perm.card.owner;
+                                let was_token = perm.card.is_token;
+                                perm.card = source_card.clone();
+                                perm.card.id = original_id;
+                                perm.card.owner = original_owner;
+                                perm.card.is_token = was_token;
+                                perm.card.abilities = perm.card.abilities.iter().map(|ab| {
+                                    let mut new_ab = ab.clone();
+                                    new_ab.id = crate::types::AbilityId::new();
+                                    new_ab.source_id = original_id;
+                                    new_ab
+                                }).collect();
+                                perm.summoning_sick = perm.card.is_creature();
+                            }
+                            if let Some(perm) = self.state.battlefield.get(perm_id) {
+                                for ab in &perm.card.abilities {
+                                    self.state.ability_store.add(ab.clone());
+                                }
+                            }
+                        }
+                    }
+                }
                 _ => {
                     // Remaining effects not yet implemented (protection, etc.)
                 }
