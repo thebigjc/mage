@@ -3590,9 +3590,13 @@ fn shimmerwilds_growth(id: ObjectId, owner: PlayerId) -> CardData {
         subtypes: vec![SubType::Aura],
         rarity: Rarity::Uncommon,
         abilities: vec![
+            Ability::enters_battlefield_triggered(id,
+                "As this Aura enters, choose a color.",
+                vec![Effect::choose_color()],
+                TargetSpec::None),
             Ability::static_ability(id,
-                "As this Aura enters, choose a color. Whenever enchanted land is tapped for mana, its controller adds one additional mana of the chosen color.",
-                vec![StaticEffect::Custom("Choose color, enchanted land produces additional mana of chosen color.".into())]),
+                "Whenever enchanted land is tapped for mana, its controller adds one additional mana of the chosen color.",
+                vec![StaticEffect::enhanced_mana_production()]),
         ],
         ..Default::default() }
 }

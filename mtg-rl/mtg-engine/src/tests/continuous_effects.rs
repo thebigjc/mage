@@ -1702,3 +1702,167 @@ mod mana_doubling_basic_lands_tests {
     }
 }
 
+mod enhanced_mana_production_tests {
+    use super::*;
+    use crate::constants::ManaColor;
+
+    fn add_land(game: &mut Game, owner: PlayerId, name: &str, mana: Mana, basic: bool) -> (ObjectId, crate::types::AbilityId) {
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, owner, name);
+        card.card_types = vec![CardType::Land];
+        if basic {
+            card.supertypes = vec![SuperType::Basic];
+        }
+        let mana_ability = Ability::mana_ability(id, &format!("{{T}}: Add {mana}."), mana);
+        let ability_id = mana_ability.id;
+        card.abilities.push(mana_ability.clone());
+        let perm = Permanent::new(card, owner);
+        game.state.battlefield.add(perm);
+        game.state.ability_store.add(mana_ability);
+        (id, ability_id)
+    }
+
+    fn add_aura_enhancer(game: &mut Game, owner: PlayerId, land_id: ObjectId, color: ManaColor) -> ObjectId {
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, owner, "Shimmerwilds Growth");
+        card.card_types = vec![CardType::Enchantment];
+        card.subtypes = vec![SubType::Aura];
+        let ability = Ability::static_ability(id,
+            "Enchanted land produces additional mana of chosen color.",
+            vec![StaticEffect::enhanced_mana_production()]);
+        card.abilities.push(ability.clone());
+        let mut perm = Permanent::new(card, owner);
+        perm.attached_to = Some(land_id);
+        perm.chosen_color = Some(color);
+        game.state.battlefield.add(perm);
+        game.state.ability_store.add(ability);
+        if let Some(land) = game.state.battlefield.get_mut(land_id) {
+            land.add_attachment(id);
+        }
+        id
+    }
+
+    #[test]
+    fn enchanted_land_produces_additional_mana() {
+        let (mut game, p1, _p2) = setup();
+        let (forest_id, ability_id) = add_land(&mut game, p1, "Forest", Mana::green(1), true);
+        add_aura_enhancer(&mut game, p1, forest_id, ManaColor::Red);
+        game.apply_continuous_effects();
+
+        assert_eq!(game.state.enhanced_mana_productions.len(), 1);
+
+        game.activate_mana_ability(p1, forest_id, ability_id);
+        let available = game.state.players.get(&p1).unwrap().mana_pool.available();
+        assert_eq!(available.green, 1, "Forest still produces 1G");
+        assert_eq!(available.red, 1, "additionally produces 1R from aura");
+    }
+
+    #[test]
+    fn non_enchanted_land_not_affected() {
+        let (mut game, p1, _p2) = setup();
+        let (forest_id, ability_id) = add_land(&mut game, p1, "Forest", Mana::green(1), true);
+        let (other_forest_id, _) = add_land(&mut game, p1, "Forest2", Mana::green(1), true);
+        add_aura_enhancer(&mut game, p1, other_forest_id, ManaColor::Blue);
+        game.apply_continuous_effects();
+
+        game.activate_mana_ability(p1, forest_id, ability_id);
+        let available = game.state.players.get(&p1).unwrap().mana_pool.available();
+        assert_eq!(available.green, 1, "non-enchanted Forest produces only 1G");
+        assert_eq!(available.blue, 0, "no bonus blue from non-enchanted land");
+    }
+
+    #[test]
+    fn works_on_nonbasic_lands() {
+        let (mut game, p1, _p2) = setup();
+        let (land_id, ability_id) = add_land(&mut game, p1, "Mystic Gate", Mana::white(1), false);
+        add_aura_enhancer(&mut game, p1, land_id, ManaColor::Green);
+        game.apply_continuous_effects();
+
+        game.activate_mana_ability(p1, land_id, ability_id);
+        let available = game.state.players.get(&p1).unwrap().mana_pool.available();
+        assert_eq!(available.white, 1, "nonbasic still produces 1W");
+        assert_eq!(available.green, 1, "additionally produces 1G from aura");
+    }
+
+    #[test]
+    fn removal_reverts_effect() {
+        let (mut game, p1, _p2) = setup();
+        let (forest_id, _ability_id) = add_land(&mut game, p1, "Forest", Mana::green(1), true);
+        let aura_id = add_aura_enhancer(&mut game, p1, forest_id, ManaColor::Blue);
+        game.apply_continuous_effects();
+        assert_eq!(game.state.enhanced_mana_productions.len(), 1);
+
+        game.state.battlefield.remove(aura_id);
+        game.state.ability_store.remove_source(aura_id);
+        game.apply_continuous_effects();
+        assert_eq!(game.state.enhanced_mana_productions.len(), 0);
+    }
+
+    #[test]
+    fn multiple_auras_on_same_land() {
+        let (mut game, p1, _p2) = setup();
+        let (forest_id, ability_id) = add_land(&mut game, p1, "Forest", Mana::green(1), true);
+        add_aura_enhancer(&mut game, p1, forest_id, ManaColor::Red);
+        add_aura_enhancer(&mut game, p1, forest_id, ManaColor::Blue);
+        game.apply_continuous_effects();
+
+        assert_eq!(game.state.enhanced_mana_productions.len(), 2);
+
+        game.activate_mana_ability(p1, forest_id, ability_id);
+        let available = game.state.players.get(&p1).unwrap().mana_pool.available();
+        assert_eq!(available.green, 1, "base 1G");
+        assert_eq!(available.red, 1, "bonus 1R from first aura");
+        assert_eq!(available.blue, 1, "bonus 1U from second aura");
+    }
+
+    #[test]
+    fn same_color_as_land_stacks() {
+        let (mut game, p1, _p2) = setup();
+        let (forest_id, ability_id) = add_land(&mut game, p1, "Forest", Mana::green(1), true);
+        add_aura_enhancer(&mut game, p1, forest_id, ManaColor::Green);
+        game.apply_continuous_effects();
+
+        game.activate_mana_ability(p1, forest_id, ability_id);
+        let available = game.state.players.get(&p1).unwrap().mana_pool.available();
+        assert_eq!(available.green, 2, "1G base + 1G from aura = 2G total");
+    }
+
+    #[test]
+    fn no_effect_without_aura() {
+        let (mut game, p1, _p2) = setup();
+        let (forest_id, ability_id) = add_land(&mut game, p1, "Forest", Mana::green(1), true);
+        game.apply_continuous_effects();
+
+        assert_eq!(game.state.enhanced_mana_productions.len(), 0);
+
+        game.activate_mana_ability(p1, forest_id, ability_id);
+        let available = game.state.players.get(&p1).unwrap().mana_pool.available();
+        assert_eq!(available.green, 1, "no aura, only 1G");
+    }
+
+    #[test]
+    fn helper_constructor() {
+        match StaticEffect::enhanced_mana_production() {
+            StaticEffect::EnhancedManaProduction => {}
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn choose_color_helper() {
+        match Effect::choose_color() {
+            Effect::ChooseColor => {}
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn mana_of_color_helper() {
+        let m = Mana::of_color(ManaColor::Red, 1);
+        assert_eq!(m.red, 1);
+        assert_eq!(m.green, 0);
+        let m2 = Mana::of_color(ManaColor::Blue, 3);
+        assert_eq!(m2.blue, 3);
+    }
+}
+

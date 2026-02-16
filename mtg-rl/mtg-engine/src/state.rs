@@ -10,7 +10,7 @@
 
 use crate::abilities::AbilityStore;
 use crate::combat::CombatState;
-use crate::constants::{PhaseStep, SubType, TurnPhase, Zone};
+use crate::constants::{ManaColor, PhaseStep, SubType, TurnPhase, Zone};
 use crate::player::Player;
 use crate::types::{ObjectId, PlayerId};
 use crate::zones::{Battlefield, CardStore, Exile, Stack};
@@ -125,6 +125,12 @@ pub struct GameState {
     /// Rebuilt each apply_continuous_effects call.
     #[serde(skip)]
     pub mana_doubling_basic_lands: u32,
+
+    // ── Enhanced mana production ──────────────────────────────────
+    /// Auras with EnhancedManaProduction: (aura_source_id, attached_to_land_id, chosen_color).
+    /// Rebuilt each apply_continuous_effects call.
+    #[serde(skip)]
+    pub enhanced_mana_productions: Vec<(ObjectId, ObjectId, ManaColor)>,
 }
 
 /// Duration for impulse draw effects (how long the exiled card remains playable).
@@ -236,6 +242,7 @@ impl GameState {
             delayed_triggers: Vec::new(),
             damage_doublings: Vec::new(),
             mana_doubling_basic_lands: 0,
+            enhanced_mana_productions: Vec::new(),
         }
     }
 

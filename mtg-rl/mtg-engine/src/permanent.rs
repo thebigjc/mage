@@ -2,7 +2,7 @@
 // Ported from Mage/src/main/java/mage/game/permanent/PermanentImpl.java.
 
 use crate::card::CardData;
-use crate::constants::{CardType, KeywordAbilities, SubType, SuperType};
+use crate::constants::{CardType, KeywordAbilities, ManaColor, SubType, SuperType};
 use crate::counters::{CounterType, Counters};
 use crate::types::{ObjectId, PlayerId};
 use serde::{Deserialize, Serialize};
@@ -44,6 +44,8 @@ pub struct Permanent {
     pub original_controller: Option<PlayerId>,
     /// Creature type chosen via "As ~ enters, choose a creature type" effects.
     pub chosen_type: Option<SubType>,
+    /// Color chosen via "As ~ enters, choose a color" effects.
+    pub chosen_color: Option<ManaColor>,
     /// P/T boost from continuous effects (recalculated each time effects are applied).
     pub continuous_boost_power: i32,
     /// Toughness boost from continuous effects (recalculated each time effects are applied).
@@ -104,6 +106,7 @@ impl Permanent {
             removed_keywords: KeywordAbilities::empty(),
             original_controller: None,
             chosen_type: None,
+            chosen_color: None,
             continuous_boost_power: 0,
             continuous_boost_toughness: 0,
             continuous_keywords: KeywordAbilities::empty(),

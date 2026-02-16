@@ -426,6 +426,7 @@ impl Game {
         }
         self.state.damage_doublings.clear();
         self.state.mana_doubling_basic_lands = 0;
+        self.state.enhanced_mana_productions.clear();
 
         // Step 2: Collect static effects from all battlefield permanents.
         // We must collect first to avoid borrow conflicts.
@@ -510,6 +511,13 @@ impl Game {
                         }
                         crate::abilities::StaticEffect::ManaDoublingBasicLands => {
                             self.state.mana_doubling_basic_lands += 1;
+                        }
+                        crate::abilities::StaticEffect::EnhancedManaProduction => {
+                            if let Some(perm) = self.state.battlefield.get(source_id) {
+                                if let (Some(attached_to), Some(color)) = (perm.attached_to, perm.chosen_color) {
+                                    self.state.enhanced_mana_productions.push((source_id, attached_to, color));
+                                }
+                            }
                         }
                         _ => {}
                     }
@@ -2631,6 +2639,12 @@ impl Game {
                     }
                 }
             }
+            for &(_aura_id, land_id, color) in &self.state.enhanced_mana_productions {
+                if land_id == source_id {
+                    let bonus = crate::mana::Mana::of_color(color, 1);
+                    produced = produced + bonus;
+                }
+            }
             if let Some(player) = self.state.players.get_mut(&player_id) {
                 player.mana_pool.add(produced, None, false);
             }
@@ -3965,6 +3979,30 @@ impl Game {
                             if let Some(perm) = self.state.battlefield.get_mut(source_id) {
                                 perm.chosen_type = Some(subtype);
                             }
+                        }
+                    }
+                }
+                Effect::ChooseColor => {
+                    let color_names = ["White", "Blue", "Black", "Red", "Green"];
+                    let options: Vec<crate::decision::NamedChoice> = color_names.iter().enumerate()
+                        .map(|(i, s)| crate::decision::NamedChoice { index: i, description: s.to_string() })
+                        .collect();
+                    let view = crate::decision::GameView::placeholder();
+                    let choice_idx = if let Some(dm) = self.decision_makers.get_mut(&controller) {
+                        dm.choose_option(&view, crate::constants::Outcome::Benefit, "Choose a color", &options)
+                    } else {
+                        0
+                    };
+                    let color = match choice_idx {
+                        0 => crate::constants::ManaColor::White,
+                        1 => crate::constants::ManaColor::Blue,
+                        2 => crate::constants::ManaColor::Black,
+                        3 => crate::constants::ManaColor::Red,
+                        _ => crate::constants::ManaColor::Green,
+                    };
+                    if let Some(source_id) = source {
+                        if let Some(perm) = self.state.battlefield.get_mut(source_id) {
+                            perm.chosen_color = Some(color);
                         }
                     }
                 }

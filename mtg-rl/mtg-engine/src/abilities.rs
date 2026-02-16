@@ -259,6 +259,10 @@ pub enum Effect {
     /// `restricted` limits the available types (empty = any type).
     ChooseCreatureType { restricted: Vec<String> },
 
+    /// "As this permanent enters, choose a color." Stores the choice
+    /// on the source permanent's `chosen_color` field.
+    ChooseColor,
+
     /// "Choose a creature type. Draw a card for each permanent you control of that type."
     ChooseTypeAndDrawPerPermanent,
 
@@ -1086,6 +1090,11 @@ impl Effect {
         Effect::ChooseCreatureType { restricted: vec![] }
     }
 
+    /// "As this permanent enters, choose a color."
+    pub fn choose_color() -> Self {
+        Effect::ChooseColor
+    }
+
     /// "As this permanent enters, choose [list of types]."
     pub fn choose_creature_type_restricted(types: Vec<&str>) -> Self {
         Effect::ChooseCreatureType { restricted: types.into_iter().map(|s| s.to_string()).collect() }
@@ -1459,6 +1468,10 @@ impl StaticEffect {
     pub fn mana_doubling_basic_lands() -> Self {
         StaticEffect::ManaDoublingBasicLands
     }
+
+    pub fn enhanced_mana_production() -> Self {
+        StaticEffect::EnhancedManaProduction
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1688,6 +1701,8 @@ pub enum StaticEffect {
     DamageDoublingFromType,
     /// Basic lands tapped for mana produce one additional mana of the same type (all players).
     ManaDoublingBasicLands,
+    /// Enchanted land tapped for mana produces additional mana of the aura's chosen color.
+    EnhancedManaProduction,
     /// Custom continuous effect.
 
     Custom(String),

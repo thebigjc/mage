@@ -89,6 +89,12 @@ impl Mana {
         }
     }
 
+    pub fn of_color(color: ManaColor, amount: u32) -> Self {
+        let mut m = Mana::default();
+        m.add_color(color, amount);
+        m
+    }
+
     /// Add mana of a specific color.
     pub fn add_color(&mut self, color: ManaColor, amount: u32) {
         match color {
