@@ -49,7 +49,7 @@ Group the 44 fallbacks by what engine feature they need. Implement the engine fe
 
 - [x] Task 1: Add `ConditionalEffect` variant — `Effect::Conditional { condition, if_true, if_false }` for cards that do "if X, then Y". Updated: **requiting_hex** (DoIfCostPaid with Blight), **goatnap** (target is a Goat), **tend_the_sprigs** (7+ lands/Treefolk), **wanderwine_farewell** (you control a Merfolk). Added evaluate_condition_with_targets, count_permanents_matching, permanent_matches_filter_part. 6 new tests, 499 engine total. 4 Effect::Custom eliminated.
 
-- [ ] Task 2: Add `AddSubtype` effect — `Effect::AddSubtype { subtype: String, filter: String, duration: String }` for type-adding effects. Update: **curious_colossus** (add Coward subtype to opponent creatures). Java uses `AddCardSubTypeTargetEffect`. Add engine test. ~1 card fixed.
+- [x] Task 2: Add `AddSubtypeAll` effect — `Effect::AddSubtypeAll { subtype: String, filter: String }` for type-adding effects. Updated: **curious_colossus** (add Coward subtype to opponent creatures). Added engine effect variant, builder method, game.rs resolution handler. 1 test added, 500 engine total. 1 Effect::Custom eliminated.
 
 - [ ] Task 3: Add `SearchLibraryVivid` effect — Vivid variant of SearchLibrary that searches for X basic lands where X = colors among permanents. Update: **prismatic_undercurrents**. Java uses `ColorsAmongControlledPermanentsCount` with `TargetCardInLibrary`. Add engine test. ~1 card fixed.
 
@@ -152,6 +152,9 @@ Task 31 depends on all others
 16. Tasks 19-23 (hard engine work) — significant new subsystems
 17. Tasks 24-30 (StaticEffect::Custom) — each needs unique engine feature
 18. Task 31 (verification)
+
+## Completed This Iteration
+- Task 2: Added `Effect::AddSubtypeAll { subtype, filter }` variant, builder method `Effect::add_subtype_all()`, game.rs resolution handler. Updated `curious_colossus` to use it instead of `Effect::Custom`. 1 new engine test (500 total).
 
 ## Notes
 

@@ -2077,5 +2077,50 @@ mod trigger_doubling_tests {
     }
 
     fn owner_placeholder(p: PlayerId) -> PlayerId { p }
+
+    #[test]
+    fn add_subtype_all_opponents_creatures() {
+        let (mut game, p1, p2) = setup_game2();
+
+        let bear1 = ObjectId::new();
+        let mut bear_card1 = CardData::new(bear1, p2, "Grizzly Bears");
+        bear_card1.card_types = vec![CardType::Creature];
+        bear_card1.subtypes = vec![SubType::Bear];
+        bear_card1.power = Some(2);
+        bear_card1.toughness = Some(2);
+        game.state.battlefield.add(Permanent::new(bear_card1, p2));
+
+        let bear2 = ObjectId::new();
+        let mut bear_card2 = CardData::new(bear2, p2, "Another Bear");
+        bear_card2.card_types = vec![CardType::Creature];
+        bear_card2.subtypes = vec![SubType::Bear];
+        bear_card2.power = Some(3);
+        bear_card2.toughness = Some(3);
+        game.state.battlefield.add(Permanent::new(bear_card2, p2));
+
+        let own_id = ObjectId::new();
+        let mut own = CardData::new(own_id, p1, "Own Creature");
+        own.card_types = vec![CardType::Creature];
+        own.subtypes = vec![SubType::Human];
+        own.power = Some(1);
+        own.toughness = Some(1);
+        game.state.battlefield.add(Permanent::new(own, p1));
+
+        game.execute_effects(
+            &[Effect::add_subtype_all("Coward", "creatures opponents control")],
+            p1, &[], None, None,
+        );
+
+        let b1 = game.state.battlefield.get(bear1).unwrap();
+        assert!(b1.has_subtype(&SubType::Coward));
+        assert!(b1.has_subtype(&SubType::Bear));
+
+        let b2 = game.state.battlefield.get(bear2).unwrap();
+        assert!(b2.has_subtype(&SubType::Coward));
+        assert!(b2.has_subtype(&SubType::Bear));
+
+        let mine = game.state.battlefield.get(own_id).unwrap();
+        assert!(!mine.has_subtype(&SubType::Coward));
+    }
 }
 

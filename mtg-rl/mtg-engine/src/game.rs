@@ -4219,6 +4219,22 @@ impl Game {
                         self.state.ability_store.remove_source(id);
                     }
                 }
+                Effect::AddSubtypeAll { subtype, filter } => {
+                    let st = crate::constants::SubType::by_description(subtype);
+                    let matching: Vec<ObjectId> = self.state.battlefield.iter()
+                        .filter(|p| p.is_creature()
+                            && (filter.to_lowercase().contains("opponent") && p.controller != controller
+                                || !filter.to_lowercase().contains("opponent") && Self::matches_filter(p, filter)))
+                        .map(|p| p.id())
+                        .collect();
+                    for id in matching {
+                        if let Some(perm) = self.state.battlefield.get_mut(id) {
+                            if !perm.card.subtypes.contains(&st) {
+                                perm.card.subtypes.push(st.clone());
+                            }
+                        }
+                    }
+                }
                 Effect::SetBasePowerToughnessAll { power, toughness, filter } => {
                     let matching: Vec<ObjectId> = self.state.battlefield.iter()
                         .filter(|p| p.is_creature()

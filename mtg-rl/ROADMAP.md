@@ -548,4 +548,6 @@ After the above systems are in place, systematically replace remaining `Custom(S
 - **Tests:** 493 engine tests (from ~318), 584 total across all crates
 - **ECL Custom fallbacks:** 88 → 44 (37 Effect::Custom + 7 StaticEffect::Custom)
 
+**Session 2026-02-16 (ECL parity continued):** Added Effect::Conditional variant (4 cards fixed), Effect::AddSubtypeAll (curious_colossus fixed). 500 engine tests, 43 ECL Custom fallbacks remaining.
+
 See `docs/work-queue.md` for the batch-fix loop and per-set remediation docs for card-level details.

@@ -211,6 +211,8 @@ pub enum Effect {
     SetBasePowerToughnessAll { power: i32, toughness: i32, filter: String },
     /// Remove all abilities from all creatures matching filter.
     LoseAllAbilitiesAll { filter: String },
+    /// Add a subtype to all creatures matching filter ("becomes X in addition to its other types").
+    AddSubtypeAll { subtype: String, filter: String },
 
     // -- Control --
     /// Gain control of target.
@@ -1415,6 +1417,13 @@ impl Effect {
     /// Remove all abilities from all creatures matching a filter.
     pub fn lose_all_abilities_all(filter: &str) -> Self {
         Effect::LoseAllAbilitiesAll {
+            filter: filter.to_string(),
+        }
+    }
+
+    pub fn add_subtype_all(subtype: &str, filter: &str) -> Self {
+        Effect::AddSubtypeAll {
+            subtype: subtype.to_string(),
             filter: filter.to_string(),
         }
     }

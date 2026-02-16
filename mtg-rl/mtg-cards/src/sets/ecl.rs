@@ -2378,7 +2378,7 @@ fn curious_colossus(id: ObjectId, owner: PlayerId) -> CardData {
                 "When this creature enters, each creature target opponent controls loses all abilities, becomes a Coward in addition to its other types, and has base power and toughness 1/1.",
                 vec![Effect::lose_all_abilities_all("creatures opponents control"),
                      Effect::set_base_pt_all(1, 1, "creatures opponents control"),
-                     Effect::Custom("Each creature target opponent controls becomes a Coward in addition to its other types.".into())],
+                     Effect::add_subtype_all("Coward", "creatures opponents control")],
                 TargetSpec::None),
         ],
         ..Default::default() }
