@@ -88,12 +88,12 @@ fn make_populated_state() -> Game {
 
     // Populate the battlefield with permanents to make clone/SBA more realistic
     for i in 0..5 {
-        let card = make_creature(&format!("Bear_{}", i), p1, 2, 2);
+        let card = make_creature(&format!("Bear_{i}"), p1, 2, 2);
         let perm = Permanent::new(card, p1);
         game.state.battlefield.add(perm);
     }
     for i in 0..5 {
-        let card = make_creature(&format!("Bear_{}", i), p2, 2, 2);
+        let card = make_creature(&format!("Bear_{i}"), p2, 2, 2);
         let perm = Permanent::new(card, p2);
         game.state.battlefield.add(perm);
     }
@@ -134,7 +134,7 @@ fn bench_sba_check(c: &mut Criterion) {
 fn bench_full_game_simulation(c: &mut Criterion) {
     c.bench_function("full_game_simulation", |b| {
         b.iter_batched(
-            || make_game(),
+            make_game,
             |mut game| {
                 let result = game.run();
                 black_box(result);
