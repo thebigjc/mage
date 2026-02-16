@@ -62,6 +62,9 @@ pub enum Cost {
     /// Variable Blight X — choose X, put X -1/-1 counters on a creature you control.
     /// Sets the spell's X value for subsequent effects.
     VariableBlight,
+    /// Loyalty cost: positive adds loyalty counters, negative removes them.
+    /// Used by planeswalker loyalty abilities.
+    Loyalty(i32),
     /// Reveal a card of a specific type from hand (used by Behold).
     /// Reveal a card of a specific type from hand (used by Behold).
     RevealFromHand(String),
@@ -804,6 +807,33 @@ impl Ability {
             rules_text: String::new(),
             active_zones: vec![Zone::Stack],
             costs: vec![], // mana cost is on the card, not the ability
+            effects,
+            targets,
+            trigger_events: vec![],
+            optional_trigger: false,
+            trigger_scope: TriggerScope::SelfOnly,
+            triggers_per_turn: 0,
+            trigger_from_zone: None,
+            mana_produced: None,
+            static_effects: vec![],
+        }
+    }
+    /// Create a planeswalker loyalty ability.
+    /// `loyalty_cost` is positive for +N, negative for -N.
+    pub fn loyalty_ability(
+        source_id: ObjectId,
+        rules_text: &str,
+        loyalty_cost: i32,
+        effects: Vec<Effect>,
+        targets: TargetSpec,
+    ) -> Self {
+        Ability {
+            id: AbilityId::new(),
+            source_id,
+            ability_type: AbilityType::LoyaltyAbility,
+            rules_text: rules_text.to_string(),
+            active_zones: vec![Zone::Battlefield],
+            costs: vec![Cost::Loyalty(loyalty_cost)],
             effects,
             targets,
             trigger_events: vec![],

@@ -3367,3 +3367,175 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
             .count();
         assert_eq!(token_count_after, 0, "token should be sacrificed at end of combat");
     }
+
+    // ─── Planeswalker loyalty tests ───────────────────────────────────
+
+    #[test]
+    fn planeswalker_enters_with_loyalty_counters() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".into(), deck: make_deck2(p1) },
+                PlayerConfig { name: "B".into(), deck: make_deck2(p2) },
+            ],
+            starting_life: Life::new(20),
+        };
+        let mut game = Game::new_two_player(config, vec![
+            (p1, PlayerAgent::new(AlwaysPassPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
+        ]);
+
+        let pw_id = ObjectId::new();
+        let mut pw_card = CardData::new(pw_id, p1, "Test Planeswalker");
+        pw_card.card_types = vec![CardType::Planeswalker];
+        pw_card.loyalty = Some(3);
+
+        game.state.card_store.insert(pw_card.clone());
+        let perm = Permanent::new(pw_card, p1);
+        game.state.battlefield.add(perm);
+        game.check_planeswalker_entry(pw_id);
+
+        let pw = game.state.battlefield.get(pw_id).unwrap();
+        assert_eq!(pw.counters.get(&CounterType::Loyalty), 3, "should enter with 3 loyalty");
+    }
+
+    #[test]
+    fn loyalty_ability_plus_adds_counters() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".into(), deck: make_deck2(p1) },
+                PlayerConfig { name: "B".into(), deck: make_deck2(p2) },
+            ],
+            starting_life: Life::new(20),
+        };
+        let mut game = Game::new_two_player(config, vec![
+            (p1, PlayerAgent::new(AlwaysPassPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
+        ]);
+
+        let pw_id = ObjectId::new();
+        let mut pw_card = CardData::new(pw_id, p1, "Ajani Test");
+        pw_card.card_types = vec![CardType::Planeswalker];
+        pw_card.loyalty = Some(3);
+        pw_card.abilities.push(Ability::loyalty_ability(
+            pw_id,
+            "+1: Create a 1/1 token.",
+            1, // +1 loyalty
+            vec![Effect::create_token("1/1 Kithkin", 1)],
+            crate::abilities::TargetSpec::None,
+        ));
+
+        game.state.card_store.insert(pw_card.clone());
+        for ab in &pw_card.abilities { game.state.ability_store.add(ab.clone()); }
+        let perm = Permanent::new(pw_card, p1);
+        game.state.battlefield.add(perm);
+        game.check_planeswalker_entry(pw_id);
+
+        // Pay +1 loyalty cost
+        assert!(game.pay_costs(p1, pw_id, &[Cost::Loyalty(1)]));
+        let pw = game.state.battlefield.get(pw_id).unwrap();
+        assert_eq!(pw.counters.get(&CounterType::Loyalty), 4, "loyalty should be 3+1=4");
+        assert_eq!(pw.loyalty_activations_this_turn, 1);
+    }
+
+    #[test]
+    fn loyalty_ability_minus_removes_counters() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".into(), deck: make_deck2(p1) },
+                PlayerConfig { name: "B".into(), deck: make_deck2(p2) },
+            ],
+            starting_life: Life::new(20),
+        };
+        let mut game = Game::new_two_player(config, vec![
+            (p1, PlayerAgent::new(AlwaysPassPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
+        ]);
+
+        let pw_id = ObjectId::new();
+        let mut pw_card = CardData::new(pw_id, p1, "Ajani Test");
+        pw_card.card_types = vec![CardType::Planeswalker];
+        pw_card.loyalty = Some(5);
+
+        game.state.card_store.insert(pw_card.clone());
+        let perm = Permanent::new(pw_card, p1);
+        game.state.battlefield.add(perm);
+        game.check_planeswalker_entry(pw_id);
+
+        // Pay -2 loyalty cost
+        assert!(game.pay_costs(p1, pw_id, &[Cost::Loyalty(-2)]));
+        let pw = game.state.battlefield.get(pw_id).unwrap();
+        assert_eq!(pw.counters.get(&CounterType::Loyalty), 3, "loyalty should be 5-2=3");
+    }
+
+    #[test]
+    fn loyalty_ability_fails_if_not_enough_loyalty() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".into(), deck: make_deck2(p1) },
+                PlayerConfig { name: "B".into(), deck: make_deck2(p2) },
+            ],
+            starting_life: Life::new(20),
+        };
+        let mut game = Game::new_two_player(config, vec![
+            (p1, PlayerAgent::new(AlwaysPassPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
+        ]);
+
+        let pw_id = ObjectId::new();
+        let mut pw_card = CardData::new(pw_id, p1, "Ajani Test");
+        pw_card.card_types = vec![CardType::Planeswalker];
+        pw_card.loyalty = Some(3);
+
+        game.state.card_store.insert(pw_card.clone());
+        let perm = Permanent::new(pw_card, p1);
+        game.state.battlefield.add(perm);
+        game.check_planeswalker_entry(pw_id);
+
+        // Can't pay -8 with only 3 loyalty
+        assert!(!game.pay_costs(p1, pw_id, &[Cost::Loyalty(-8)]));
+        // Loyalty should be unchanged
+        let pw = game.state.battlefield.get(pw_id).unwrap();
+        assert_eq!(pw.counters.get(&CounterType::Loyalty), 3);
+    }
+
+    #[test]
+    fn planeswalker_zero_loyalty_sba() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".into(), deck: make_deck2(p1) },
+                PlayerConfig { name: "B".into(), deck: make_deck2(p2) },
+            ],
+            starting_life: Life::new(20),
+        };
+        let mut game = Game::new_two_player(config, vec![
+            (p1, PlayerAgent::new(AlwaysPassPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
+        ]);
+
+        let pw_id = ObjectId::new();
+        let mut pw_card = CardData::new(pw_id, p1, "Ajani Test");
+        pw_card.card_types = vec![CardType::Planeswalker];
+        pw_card.loyalty = Some(2);
+
+        game.state.card_store.insert(pw_card.clone());
+        let perm = Permanent::new(pw_card, p1);
+        game.state.battlefield.add(perm);
+        game.check_planeswalker_entry(pw_id);
+
+        // Pay -2 loyalty → 0 loyalty
+        assert!(game.pay_costs(p1, pw_id, &[Cost::Loyalty(-2)]));
+
+        // SBA should destroy it
+        game.process_state_based_actions();
+        assert!(game.state.battlefield.get(pw_id).is_none(), "planeswalker with 0 loyalty should be gone");
+    }

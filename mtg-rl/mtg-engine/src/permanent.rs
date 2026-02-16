@@ -93,6 +93,8 @@ pub struct Permanent {
     pub colorless_override: bool,
     pub subtypes_override: Option<Vec<SubType>>,
     pub hexproof_from_colors: Vec<Color>,
+    /// How many loyalty abilities have been activated this turn (typically max 1).
+    pub loyalty_activations_this_turn: u32,
 }
 
 impl Permanent {
@@ -136,6 +138,7 @@ impl Permanent {
             colorless_override: false,
             subtypes_override: None,
             hexproof_from_colors: Vec::new(),
+            loyalty_activations_this_turn: 0,
             card,
         }
     }

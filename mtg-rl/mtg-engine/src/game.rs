@@ -1379,6 +1379,18 @@ impl Game {
             }
         }
     }
+    /// Add starting loyalty counters when a planeswalker enters the battlefield.
+    fn check_planeswalker_entry(&mut self, permanent_id: ObjectId) {
+        let loyalty = self.state.battlefield.get(permanent_id)
+            .and_then(|p| p.card.loyalty);
+        if let Some(starting_loyalty) = loyalty {
+            if starting_loyalty > 0 {
+                if let Some(perm) = self.state.battlefield.get_mut(permanent_id) {
+                    perm.counters.add(crate::counters::CounterType::Loyalty, starting_loyalty as u32);
+                }
+            }
+        }
+    }
 
     fn check_enter_as_copy(&mut self, permanent_id: ObjectId) {
         let copy_info: Option<(String, Vec<String>)> = {
@@ -1925,6 +1937,7 @@ impl Game {
                             perm.untap();
                         }
                         perm.remove_summoning_sickness();
+                        perm.loyalty_activations_this_turn = 0;
                     }
                 }
                 // Empty mana pool (normally happens at end of each step, but
@@ -2710,27 +2723,37 @@ impl Game {
             .collect();
 
         for (perm_id, is_tapped) in controlled_perms {
-            let abilities: Vec<(AbilityId, bool, bool)> = self.state.ability_store
+            let abilities: Vec<(AbilityId, bool, bool, bool)> = self.state.ability_store
                 .for_source(perm_id)
                 .iter()
                 .filter(|a| {
-                    a.ability_type == AbilityType::ActivatedNonMana
+                    (a.ability_type == AbilityType::ActivatedNonMana || a.ability_type == AbilityType::LoyaltyAbility)
                         && a.can_activate_in_zone(crate::constants::Zone::Battlefield)
                 })
                 .map(|a| {
                     let needs_tap = a.costs.iter().any(|c| matches!(c, Cost::TapSelf));
                     let needs_mana = a.costs.iter().any(|c| matches!(c, Cost::Mana(_)));
-                    (a.id, needs_tap, needs_mana)
+                    let is_loyalty = a.ability_type == AbilityType::LoyaltyAbility;
+                    (a.id, needs_tap, needs_mana, is_loyalty)
                 })
                 .collect();
 
-            for (ability_id, needs_tap, _needs_mana) in abilities {
+            for (ability_id, needs_tap, _needs_mana, is_loyalty) in abilities {
                 // Can't activate if it requires tap and the permanent is already tapped
                 if needs_tap && is_tapped {
                     continue;
                 }
-                // Sorcery-speed activated abilities need sorcery timing
-                // (Simplification: all activated abilities can be used at instant speed)
+                // Loyalty abilities: sorcery speed, one per turn, enough loyalty
+                if is_loyalty {
+                    // Sorcery speed: empty stack, main phase, active player
+                    if !self.state.stack.is_empty() { continue; }
+                    let in_main = matches!(self.state.current_step, PhaseStep::PrecombatMain | PhaseStep::PostcombatMain);
+                    if !in_main || player_id != self.state.active_player { continue; }
+                    // One loyalty activation per turn
+                    if let Some(perm) = self.state.battlefield.get(perm_id) {
+                        if perm.loyalty_activations_this_turn >= 1 { continue; }
+                    }
+                }
                 actions.push(crate::decision::PlayerAction::ActivateAbility {
                     source_id: perm_id,
                     ability_id,
@@ -3198,6 +3221,7 @@ impl Game {
                     self.check_enter_as_copy(item.id);
                     self.check_enters_tapped(item.id);
                     self.check_enters_with_counters(item.id);
+                    self.check_planeswalker_entry(item.id);
 
                     // Aura attachment: attach to target on ETB
                     if card.subtypes.contains(&crate::constants::SubType::Aura) {
@@ -3533,6 +3557,14 @@ impl Game {
                     let has_creature = self.state.battlefield.controlled_by(player_id)
                         .any(|p| p.is_creature());
                     if !has_creature { return false; }
+                }
+                Cost::Loyalty(amount) => {
+                    if *amount < 0 {
+                        let current = self.state.battlefield.get(source_id)
+                            .map(|p| p.counters.get(&crate::counters::CounterType::Loyalty))
+                            .unwrap_or(0);
+                        if current < amount.unsigned_abs() { return false; }
+                    }
                 }
                 _ => {} // Other costs checked elsewhere
             }
@@ -3907,6 +3939,24 @@ impl Game {
                         if let Some(perm) = self.state.battlefield.get_mut(*candidate) {
                             perm.tap();
                         }
+                    }
+                }
+                Cost::Loyalty(amount) => {
+                    // Loyalty cost: positive adds, negative removes loyalty counters.
+                    if let Some(perm) = self.state.battlefield.get_mut(source_id) {
+                        if *amount >= 0 {
+                            perm.counters.add(crate::counters::CounterType::Loyalty, *amount as u32);
+                        } else {
+                            let to_remove = amount.unsigned_abs();
+                            let current = perm.counters.get(&crate::counters::CounterType::Loyalty);
+                            if current < to_remove {
+                                return false; // Not enough loyalty
+                            }
+                            perm.counters.remove(&crate::counters::CounterType::Loyalty, to_remove);
+                        }
+                        perm.loyalty_activations_this_turn += 1;
+                    } else {
+                        return false;
                     }
                 }
                 Cost::Custom(_) => {

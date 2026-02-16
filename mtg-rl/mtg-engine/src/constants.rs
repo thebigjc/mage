@@ -796,11 +796,12 @@ pub enum AbilityType {
     TriggeredNonMana,
     TriggeredMana,
     SpecialAction,
+    LoyaltyAbility,
 }
 
 impl AbilityType {
     pub fn is_activated(self) -> bool {
-        matches!(self, AbilityType::ActivatedNonMana | AbilityType::ActivatedMana)
+        matches!(self, AbilityType::ActivatedNonMana | AbilityType::ActivatedMana | AbilityType::LoyaltyAbility)
     }
 
     pub fn is_triggered(self) -> bool {
