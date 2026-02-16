@@ -2046,6 +2046,10 @@ impl Game {
             }
             PhaseStep::EndCombat => {
                 self.state.combat.clear();
+                // Emit end of combat event for delayed triggers (e.g., sacrifice at end of combat)
+                let mut eoc_event = GameEvent::new(EventType::EndCombat);
+                eoc_event.player_id = Some(active_player);
+                self.emit_event(eoc_event);
             }
             PhaseStep::EndStep => {
                 // Emit end step event for "at the beginning of your end step" triggers
@@ -4567,6 +4571,23 @@ impl Game {
                         }
                     }
                 }
+                Effect::SacrificeTargets => {
+                    for &target_id in targets {
+                        let was_creature = self.state.battlefield.get(target_id)
+                            .map(|p| p.is_creature()).unwrap_or(false);
+                        let ctr_count = self.state.battlefield.get(target_id)
+                            .map(|p| p.counters.total_count()).unwrap_or(0);
+                        let owner = self.state.battlefield.get(target_id)
+                            .map(|p| p.owner()).unwrap_or(controller);
+                        if let Some(_perm) = self.state.battlefield.remove(target_id) {
+                            self.move_card_to_graveyard_inner(target_id, owner);
+                            if was_creature {
+                                self.emit_event(GameEvent::dies(target_id, controller, ctr_count));
+                            }
+                            self.state.ability_store.remove_source(target_id);
+                        }
+                    }
+                }
                 Effect::DestroyAll { filter } => {
                     let to_destroy: Vec<(ObjectId, PlayerId, bool, u32)> = self.state.battlefield.iter()
                         .filter(|p| filter.matches_permanent(p, controller) && !p.has_indestructible())
@@ -5925,7 +5946,12 @@ impl Game {
                 Effect::CreateTokenCopy { count, modifications } => {
                     self.mark_tokens_created(controller);
                     let count = resolve_x(*count);
-                    for &target_id in targets {
+                    let copy_targets: Vec<ObjectId> = if targets.is_empty() {
+                        source.into_iter().collect()
+                    } else {
+                        targets.to_vec()
+                    };
+                    for target_id in copy_targets {
                         // Get the source permanent's card data to copy
                         let source_card = self.state.battlefield.get(target_id).map(|perm| perm.card.clone());
                         if let Some(source) = source_card {
@@ -5947,6 +5973,7 @@ impl Game {
                                 // Apply modifications
                                 let mut sacrifice_eot = false;
                                 let mut enter_tapped_attacking = false;
+                                let mut sacrifice_eoc = false;
                                 for m in modifications {
                                     match m {
                                         crate::abilities::TokenModification::AddKeyword(kw) => {
@@ -5962,6 +5989,9 @@ impl Game {
                                         }
                                         crate::abilities::TokenModification::EnterTappedAttacking => {
                                             enter_tapped_attacking = true;
+                                        }
+                                        crate::abilities::TokenModification::SacrificeAtEndOfCombat => {
+                                            sacrifice_eoc = true;
                                         }
                                     }
                                 }
@@ -5985,7 +6015,24 @@ impl Game {
                                     self.state.delayed_triggers.push(crate::state::DelayedTrigger {
                                         event_type: EventType::EndStep,
                                         watching: None,
-                                        effects: vec![Effect::Sacrifice { filter: crate::filters::Filter::parse("self") }],
+                                        effects: vec![Effect::SacrificeTargets],
+                                        controller,
+                                        source: Some(token_id),
+                                        targets: vec![token_id],
+                                        duration: crate::state::DelayedDuration::UntilTriggered,
+                                        trigger_only_once: true,
+                                        created_turn: self.state.turn_number,
+                                        controller_filter: None,
+                                        copy_spell: false,
+                                        stored_value: None,
+                                    });
+                                }
+                                // Create delayed trigger to sacrifice at end of combat
+                                if sacrifice_eoc {
+                                    self.state.delayed_triggers.push(crate::state::DelayedTrigger {
+                                        event_type: EventType::EndCombat,
+                                        watching: None,
+                                        effects: vec![Effect::SacrificeTargets],
                                         controller,
                                         source: Some(token_id),
                                         targets: vec![token_id],
@@ -6226,7 +6273,7 @@ impl Game {
                                         self.state.delayed_triggers.push(crate::state::DelayedTrigger {
                                             event_type: crate::events::EventType::EndStep,
                                             watching: None,
-                                            effects: vec![Effect::Sacrifice { filter: crate::filters::Filter::parse("self") }],
+                                            effects: vec![Effect::SacrificeTargets],
                                             controller,
                                             source: Some(card_id),
                                             targets: vec![card_id],

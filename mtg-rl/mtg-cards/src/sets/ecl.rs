@@ -2876,7 +2876,7 @@ fn grub_storied_matriarch(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                     "Whenever Grub attacks, you may blight 1. If you do, create a tapped and attacking token copy of it. Sacrifice that token at end of combat.",
                     vec![EventType::AttackerDeclared],
-                    vec![Effect::Custom("Blight 1, create tapped+attacking token copy, sacrifice at end of combat.".into())],
+                    vec![Effect::do_if_cost_paid(Cost::Blight(1), vec![Effect::create_token_copy_tapped_attacking_sac_eoc(1)], vec![])],
                     TargetSpec::None),
         ],
         ..Default::default() }

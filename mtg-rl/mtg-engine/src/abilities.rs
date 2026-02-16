@@ -121,6 +121,8 @@ pub enum Effect {
     Exile,
     /// Sacrifice a permanent (owner chooses).
     Sacrifice { filter: Filter },
+    /// Sacrifice specific permanents (from targets list). Used by delayed triggers.
+    SacrificeTargets,
     /// Return target permanent to hand.
     Bounce,
     /// Return all permanents matching filter to their owners' hands.
@@ -596,6 +598,8 @@ pub enum TokenModification {
     SacrificeAtEndStep,
     /// The token enters tapped and attacking.
     EnterTappedAttacking,
+    /// Sacrifice the token at the next end of combat step.
+    SacrificeAtEndOfCombat,
 }
 
 /// One mode of a modal spell. Each mode has a description and a set of
@@ -1538,6 +1542,17 @@ impl Effect {
             modifications: vec![
                 TokenModification::AddKeyword("haste".into()),
                 TokenModification::SacrificeAtEndStep,
+            ],
+        }
+    }
+
+    /// Create a tapped and attacking token copy, sacrificed at end of combat.
+    pub fn create_token_copy_tapped_attacking_sac_eoc(count: u32) -> Self {
+        Effect::CreateTokenCopy {
+            count,
+            modifications: vec![
+                TokenModification::EnterTappedAttacking,
+                TokenModification::SacrificeAtEndOfCombat,
             ],
         }
     }

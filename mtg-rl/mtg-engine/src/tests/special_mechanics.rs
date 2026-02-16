@@ -3103,3 +3103,267 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         assert_eq!(*player.library.peek(1).first().unwrap(), goblin_id,
             "Goblin should still be on top of library");
     }
+
+    /// Decision maker that attacks with everything and says yes to all optional costs/uses.
+    struct AttackAndPayPlayer;
+    impl PlayerDecisionMaker for AttackAndPayPlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, req: &TargetRequirement) -> Vec<ObjectId> { req.legal_targets.iter().take(1).copied().collect() }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { true }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, possible_attackers: &[ObjectId], possible_defenders: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> {
+            if !possible_defenders.is_empty() {
+                let defender = possible_defenders[0];
+                possible_attackers.iter().map(|&a| (a, defender)).collect()
+            } else { vec![] }
+        }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    #[test]
+    fn grub_attack_blight_creates_tapped_token_copy() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".into(), deck: make_deck2(p1) },
+                PlayerConfig { name: "B".into(), deck: make_deck2(p2) },
+            ],
+            starting_life: Life::new(20),
+        };
+        let mut game = Game::new_two_player(config, vec![
+            (p1, PlayerAgent::new(AttackAndPayPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
+        ]);
+
+        // Create Grub (3/2 so it survives blight 1)
+        let grub_id = ObjectId::new();
+        let mut grub = CardData::new(grub_id, p1, "Grub");
+        grub.card_types = vec![CardType::Creature];
+        grub.subtypes = vec![SubType::Goblin];
+        grub.power = Some(Power::new(3));
+        grub.toughness = Some(Toughness::new(2));
+        grub.abilities.push(Ability::triggered(
+            grub_id,
+            "Whenever Grub attacks, you may blight 1. If you do, create a tapped and attacking token copy.",
+            vec![EventType::AttackerDeclared],
+            vec![Effect::do_if_cost_paid(
+                Cost::Blight(1),
+                vec![Effect::create_token_copy_tapped_attacking_sac_eoc(1)],
+                vec![],
+            )],
+            crate::abilities::TargetSpec::None,
+        ));
+
+        game.state.card_store.insert(grub.clone());
+        for ab in &grub.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+        let mut perm = Permanent::new(grub, p1);
+        perm.remove_summoning_sickness();
+        game.state.battlefield.add(perm);
+        game.state.set_zone(grub_id, crate::constants::Zone::Battlefield, None);
+
+        // Declare attackers
+        game.state.active_player = p1;
+        game.state.priority_player = p1;
+        game.declare_attackers_step(p1);
+
+        // Process triggers — attack trigger should fire
+        game.process_sba_and_triggers();
+
+        // Resolve the trigger on the stack
+        while !game.state.stack.is_empty() {
+            game.resolve_top_of_stack();
+            game.process_sba_and_triggers();
+        }
+
+        // Grub should have gotten -1/-1 from blight
+        let grub_perm = game.state.battlefield.get(grub_id).unwrap();
+        assert_eq!(grub_perm.power(), 2, "Grub should be 2 power after blight");
+        assert_eq!(grub_perm.toughness(), 1, "Grub should be 1 toughness after blight");
+
+        // Token copy should exist (tapped, same stats as Grub base)
+        let tokens: Vec<_> = game.state.battlefield.iter()
+            .filter(|p| p.card.is_token && p.controller == p1 && p.card.name == "Grub")
+            .collect();
+        assert_eq!(tokens.len(), 1, "should have 1 token copy of Grub");
+        let token = &tokens[0];
+        assert!(token.tapped, "token should be tapped (entered tapped+attacking)");
+        assert_eq!(token.card.power, Some(Power::new(3)), "token copies base P/T");
+        assert_eq!(token.card.toughness, Some(Toughness::new(2)), "token copies base P/T");
+
+        // Should have a delayed trigger for end of combat sacrifice
+        assert!(!game.state.delayed_triggers.is_empty(), "should have delayed sacrifice trigger");
+    }
+
+    #[test]
+    fn grub_attack_decline_blight_no_token() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".into(), deck: make_deck2(p1) },
+                PlayerConfig { name: "B".into(), deck: make_deck2(p2) },
+            ],
+            starting_life: Life::new(20),
+        };
+        // NeverPayPlayer attacks with nothing, so use a custom one that attacks but never pays
+        struct AttackButNeverPayPlayer;
+        impl PlayerDecisionMaker for AttackButNeverPayPlayer {
+            fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+            fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+            fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+            fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+            fn select_attackers(&mut self, _: &GameView<'_>, possible_attackers: &[ObjectId], possible_defenders: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> {
+                if !possible_defenders.is_empty() {
+                    let defender = possible_defenders[0];
+                    possible_attackers.iter().map(|&a| (a, defender)).collect()
+                } else { vec![] }
+            }
+            fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+            fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+            fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+            fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+            fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+            fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+            fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+            fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+            fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+            fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+        }
+
+        let mut game = Game::new_two_player(config, vec![
+            (p1, PlayerAgent::new(AttackButNeverPayPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
+        ]);
+
+        // Create Grub
+        let grub_id = ObjectId::new();
+        let mut grub = CardData::new(grub_id, p1, "Grub");
+        grub.card_types = vec![CardType::Creature];
+        grub.power = Some(Power::new(3));
+        grub.toughness = Some(Toughness::new(2));
+        grub.abilities.push(Ability::triggered(
+            grub_id,
+            "Whenever Grub attacks, you may blight 1.",
+            vec![EventType::AttackerDeclared],
+            vec![Effect::do_if_cost_paid(
+                Cost::Blight(1),
+                vec![Effect::create_token_copy_tapped_attacking_sac_eoc(1)],
+                vec![],
+            )],
+            crate::abilities::TargetSpec::None,
+        ));
+
+        game.state.card_store.insert(grub.clone());
+        for ab in &grub.abilities { game.state.ability_store.add(ab.clone()); }
+        let mut perm = Permanent::new(grub, p1);
+        perm.remove_summoning_sickness();
+        game.state.battlefield.add(perm);
+        game.state.set_zone(grub_id, crate::constants::Zone::Battlefield, None);
+
+        game.state.active_player = p1;
+        game.state.priority_player = p1;
+        game.declare_attackers_step(p1);
+        game.process_sba_and_triggers();
+        while !game.state.stack.is_empty() {
+            game.resolve_top_of_stack();
+            game.process_sba_and_triggers();
+        }
+
+        // No blight: Grub should still be 3/2
+        let grub_perm = game.state.battlefield.get(grub_id).unwrap();
+        assert_eq!(grub_perm.power(), 3);
+        assert_eq!(grub_perm.toughness(), 2);
+
+        // No token
+        let tokens: Vec<_> = game.state.battlefield.iter()
+            .filter(|p| p.card.is_token && p.controller == p1)
+            .collect();
+        assert_eq!(tokens.len(), 0, "should have no tokens when declining blight");
+    }
+
+    #[test]
+    fn token_copy_sacrificed_at_end_of_combat() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".into(), deck: make_deck2(p1) },
+                PlayerConfig { name: "B".into(), deck: make_deck2(p2) },
+            ],
+            starting_life: Life::new(20),
+        };
+        let mut game = Game::new_two_player(config, vec![
+            (p1, PlayerAgent::new(AttackAndPayPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
+        ]);
+
+        // Create Grub (3/2)
+        let grub_id = ObjectId::new();
+        let mut grub = CardData::new(grub_id, p1, "Grub");
+        grub.card_types = vec![CardType::Creature];
+        grub.power = Some(Power::new(3));
+        grub.toughness = Some(Toughness::new(2));
+        grub.abilities.push(Ability::triggered(
+            grub_id,
+            "Whenever Grub attacks, you may blight 1.",
+            vec![EventType::AttackerDeclared],
+            vec![Effect::do_if_cost_paid(
+                Cost::Blight(1),
+                vec![Effect::create_token_copy_tapped_attacking_sac_eoc(1)],
+                vec![],
+            )],
+            crate::abilities::TargetSpec::None,
+        ));
+
+        game.state.card_store.insert(grub.clone());
+        for ab in &grub.abilities { game.state.ability_store.add(ab.clone()); }
+        let mut perm = Permanent::new(grub, p1);
+        perm.remove_summoning_sickness();
+        game.state.battlefield.add(perm);
+        game.state.set_zone(grub_id, crate::constants::Zone::Battlefield, None);
+
+        // Attack phase → trigger → blight → token copy created
+        game.state.active_player = p1;
+        game.state.priority_player = p1;
+        game.declare_attackers_step(p1);
+        game.process_sba_and_triggers();
+        while !game.state.stack.is_empty() {
+            game.resolve_top_of_stack();
+            game.process_sba_and_triggers();
+        }
+
+        // Confirm token exists
+        let token_count = game.state.battlefield.iter()
+            .filter(|p| p.card.is_token && p.controller == p1)
+            .count();
+        assert_eq!(token_count, 1, "token should be on battlefield before end of combat");
+
+        // Now simulate end of combat step — emit EndCombat event
+        game.event_log.clear();
+        let mut eoc_event = GameEvent::new(EventType::EndCombat);
+        eoc_event.player_id = Some(p1);
+        game.emit_event(eoc_event);
+        game.process_sba_and_triggers();
+        while !game.state.stack.is_empty() {
+            game.resolve_top_of_stack();
+            game.process_sba_and_triggers();
+        }
+
+        // Token should be sacrificed
+        let token_count_after = game.state.battlefield.iter()
+            .filter(|p| p.card.is_token && p.controller == p1)
+            .count();
+        assert_eq!(token_count_after, 0, "token should be sacrificed at end of combat");
+    }

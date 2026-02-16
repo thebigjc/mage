@@ -344,13 +344,13 @@ Color-count calculation implemented. 6 Vivid effect variants added. 6 cards fixe
 
 ## V. Effect System Gaps
 
-### Implemented Effect Variants (~56 of 63)
+### Implemented Effect Variants (~57 of 64)
 
 The following Effect variants have working `execute_effects()` match arms:
 
 **Damage:** DealDamage, DealDamageAll, DealDamageOpponents, DealDamageVivid
 **Life:** GainLife, GainLifeVivid, LoseLife, LoseLifeOpponents, LoseLifeOpponentsVivid, SetLife
-**Removal:** Destroy, DestroyAll, Exile, Sacrifice, PutOnLibrary
+**Removal:** Destroy, DestroyAll, Exile, Sacrifice, SacrificeTargets, PutOnLibrary
 **Card Movement:** Bounce, ReturnFromGraveyard, Reanimate, DrawCards, DrawCardsVivid, DiscardCards, DiscardOpponents, Mill, SearchLibrary, LookTopAndPick, LookTopChosenType
 **Counters:** AddCounters, AddCountersSelf, AddCountersAll, RemoveCounters
 **Tokens:** CreateToken, CreateTokenTappedAttacking, CreateTokenVivid
@@ -430,10 +430,10 @@ These are effects where no typed variant exists. Grouped by what engine feature 
 | FDN (Foundations) | 315 | 57 | 21 | 393 |
 | TLA (Avatar: TLA) | 197 | 54 | 2 | 253 |
 | TDM (Tarkir: Dragonstorm) | 107 | 15 | 3 | 125 |
-| ECL (Lorwyn Eclipsed) | 2 | 0 | 0 | 2 |
-| **Total** | **621** | **126** | **26** | **773** |
+| ECL (Lorwyn Eclipsed) | 1 | 0 | 0 | 1 |
+| **Total** | **620** | **126** | **26** | **772** |
 
-**ECL reduction: 88 → 2 (97.7% reduction)** through 30+ new engine features and per-card updates. The 2 remaining ECL Effect::Custom are truly complex unique effects (blight+token-copy attack trigger, planeswalker ultimate).
+**ECL reduction: 88 → 1 (98.9% reduction)** through 30+ new engine features and per-card updates. The 1 remaining ECL Effect::Custom is the planeswalker ultimate (requires planeswalker system).
 
 Detailed per-card breakdowns in `docs/{fdn,tla,tdm,ecl}-remediation.md`.
 
