@@ -9,8 +9,8 @@ IN_PROGRESS
 ## Analysis
 
 ### Current State
-- **Engine tests**: 540 (mtg-engine), all passing
-- **ECL Custom fallbacks**: 28 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 35 total
+- **Engine tests**: 543 (mtg-engine), all passing
+- **ECL Custom fallbacks**: 28 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 35 total (now 8 Effect::Custom + 7 StaticEffect::Custom remaining)
 - **Other sets**: FDN 336, TLA 199, TDM 110 (these are out of scope per the plan)
 
 ### Goal
@@ -89,7 +89,7 @@ Group the 44 fallbacks by what engine feature they need. Implement the engine fe
 
 ### Tier 4: Hard — requires new engine subsystems
 
-- [ ] Task 19: Add `FigureOfFableTransform` / `LevelUp` effect — Conditional self-transformation: check current types, change types/P/T/keywords. Update: **figure_of_fable** (Scout->Soldier 4/5, Soldier->Avatar 7/8 with protection). Java uses class-level system. Add engine test. ~1 card (2 Custom instances) fixed.
+- [x] Task 19: Add `FigureOfFableTransform` / `LevelUp` effect — Added `Effect::SetSubtypesSelf { subtypes }` to replace source's subtypes. Added `"source is a {Type}"` condition to `evaluate_condition_with_targets`. Fixed `SetPowerToughness` and `GainKeyword` to fall back to source when targets empty. Updated **figure_of_fable**: replaced 2 Effect::Custom with `Effect::conditional("source is a Scout/Soldier", ...)` + `Effect::set_subtypes_self()` + `Effect::set_pt()` + `Effect::GainKeyword`. Also fixed first ability to set subtypes. 3 new tests (543 engine total). 2 Effect::Custom eliminated.
 
 - [ ] Task 20: Add `WinnowingEffect` — For each player, choose one creature, sacrifice all others that don't share a creature type. Update: **winnowing**. Java uses `SharesCreatureTypePredicate`. Add engine test. ~1 card fixed.
 
@@ -154,7 +154,7 @@ Task 31 depends on all others
 18. Task 31 (verification)
 
 ## Completed This Iteration
-- Task 18: Added `Effect::DealDamageWithDelayedExile` and `Effect::ExileTopChooseOneAndPlay` for damage-with-delayed-exile-on-death effects. Added `stored_value: Option<i32>` field to `DelayedTrigger` to pass last-known creature power through trigger firing. Updated end_blaze_epiphany (replaced Effect::Custom, fixed rarity Common→Rare, added TargetSpec::Creature). 3 new tests (540 engine total). 1 Effect::Custom eliminated.
+- Task 19: Added `Effect::SetSubtypesSelf` variant to replace source permanent's subtypes (for level-up / figure cards). Added "source is a {Type}" condition to evaluate_condition_with_targets. Fixed SetPowerToughness and GainKeyword to fall back to source permanent when targets are empty. Updated figure_of_fable: replaced 2 Effect::Custom with conditional + set_subtypes_self + set_pt + GainKeyword. 3 new tests (543 engine total). 2 Effect::Custom eliminated.
 
 ## Notes
 
