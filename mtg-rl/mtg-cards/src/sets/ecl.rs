@@ -2531,10 +2531,27 @@ fn eclipsed_realms(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [TRANSFORM] Transform/DFC, creature spells have convoke, other creatures have persist
 fn eirdu_carrier_of_dawn(id: ObjectId, owner: PlayerId) -> CardData {
-    // Legendary 5/5 Elemental God for {3}{W}{W}. Flying, lifelink.
-    // Creature spells you cast have convoke. Transforms.
+    let mut back = CardData { id, owner, name: "Isilu, Carrier of Twilight".into(),
+        card_types: vec![CardType::Creature],
+        subtypes: vec![SubType::Elemental, SubType::God],
+        supertypes: vec![SuperType::Legendary],
+        power: Some(5), toughness: Some(5),
+        keywords: KeywordAbilities::FLYING | KeywordAbilities::LIFELINK,
+        color_identity: vec![Color::Black],
+        rarity: Rarity::Mythic,
+        abilities: vec![
+            Ability::static_ability(id,
+                "Each other nontoken creature you control has persist.",
+                vec![StaticEffect::Custom("Each other nontoken creature you control has persist.".into())]),
+            Ability::triggered(id,
+                "At the beginning of your first main phase, you may pay {W}. If you do, transform Isilu.",
+                vec![EventType::PrecombatMainPre],
+                vec![Effect::do_if_cost_paid(Cost::pay_mana("{W}"), vec![Effect::transform_self()], vec![])],
+                TargetSpec::None),
+        ],
+        ..Default::default() };
+    back.back_face = None;
     CardData { id, owner, name: "Eirdu, Carrier of Dawn".into(), mana_cost: ManaCost::parse("{3}{W}{W}"),
         card_types: vec![CardType::Creature],
         subtypes: vec![SubType::Elemental, SubType::God],
@@ -2546,10 +2563,13 @@ fn eirdu_carrier_of_dawn(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::static_ability(id,
                 "Creature spells you cast have convoke.",
                 vec![StaticEffect::grant_convoke("creature spells")]),
-            Ability::static_ability(id,
-                "Transforms with {B} payment at beginning of first main phase.",
-                vec![StaticEffect::Custom("Transforms into Isilu, Carrier of Twilight.".into())]),
+            Ability::triggered(id,
+                "At the beginning of your first main phase, you may pay {B}. If you do, transform Eirdu.",
+                vec![EventType::PrecombatMainPre],
+                vec![Effect::do_if_cost_paid(Cost::pay_mana("{B}"), vec![Effect::transform_self()], vec![])],
+                TargetSpec::None),
         ],
+        back_face: Some(Box::new(back)),
         ..Default::default() }
 }
 

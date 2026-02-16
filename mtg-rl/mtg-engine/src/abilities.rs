@@ -400,6 +400,11 @@ pub enum Effect {
         toughness: i32,
     },
 
+    // -- Transform (DFC) --
+    /// Transform the source permanent (toggle between front and back face).
+    /// Requires the card to have a back_face defined in CardData.
+    TransformSelf,
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1335,6 +1340,10 @@ impl Effect {
             haste: false,
             sacrifice_eot: false,
         }
+    }
+
+    pub fn transform_self() -> Self {
+        Effect::TransformSelf
     }
 }
 

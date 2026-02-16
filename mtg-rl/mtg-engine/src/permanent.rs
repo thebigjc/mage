@@ -85,6 +85,10 @@ pub struct Permanent {
     pub base_power_eot: Option<i32>,
     /// Temporary base toughness set until end of turn (from BecomesCreature).
     pub base_toughness_eot: Option<i32>,
+    /// Stored front face data for DFC cards when transformed.
+    /// When transformed=true, card holds back face data and front_face stores original.
+    /// When transformed=false, this is None.
+    pub front_face: Option<Box<CardData>>,
 }
 
 impl Permanent {
@@ -123,6 +127,7 @@ impl Permanent {
             added_card_types: Vec::new(),
             base_power_eot: None,
             base_toughness_eot: None,
+            front_face: None,
             card,
         }
     }
@@ -380,6 +385,36 @@ impl Permanent {
     /// for permanents they've controlled since the start of the turn).
     pub fn remove_summoning_sickness(&mut self) {
         self.summoning_sick = false;
+    }
+
+    // ── Transform (DFC) ─────────────────────────────────────────────────
+
+    pub fn can_transform(&self) -> bool {
+        if self.transformed {
+            self.front_face.is_some()
+        } else {
+            self.card.back_face.is_some()
+        }
+    }
+
+    pub fn transform(&mut self) -> bool {
+        if self.transformed {
+            if let Some(front) = self.front_face.take() {
+                let back = std::mem::replace(&mut self.card, *front);
+                self.card.back_face = Some(Box::new(back));
+                self.transformed = false;
+                return true;
+            }
+        } else if let Some(back_face) = self.card.back_face.take() {
+            let front = self.card.clone();
+            self.card = *back_face;
+            self.card.id = front.id;
+            self.card.owner = front.owner;
+            self.front_face = Some(Box::new(front));
+            self.transformed = true;
+            return true;
+        }
+        false
     }
 
     // ── Equipment/Aura checks ──────────────────────────────────────────

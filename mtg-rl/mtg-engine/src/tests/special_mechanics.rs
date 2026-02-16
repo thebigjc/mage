@@ -1556,3 +1556,205 @@ use crate::types::{ObjectId, PlayerId};
         let perm = game.state.battlefield.get(id).unwrap();
         assert_eq!(perm.counters.get(&CounterType::Stun), 2);
     }
+
+    fn make_dfc_creature(owner: PlayerId) -> CardData {
+        let id = ObjectId::new();
+        let mut front = CardData::new(id, owner, "Front Face");
+        front.card_types = vec![CardType::Creature];
+        front.subtypes = vec![SubType::Elf];
+        front.power = Some(3);
+        front.toughness = Some(3);
+        front.keywords = KeywordAbilities::FLYING;
+
+        let mut back = CardData::new(id, owner, "Back Face");
+        back.card_types = vec![CardType::Creature];
+        back.subtypes = vec![SubType::Goblin];
+        back.power = Some(5);
+        back.toughness = Some(5);
+        back.keywords = KeywordAbilities::DEATHTOUCH;
+
+        front.back_face = Some(Box::new(back));
+        front
+    }
+
+    #[test]
+    fn transform_self_swaps_characteristics() {
+        let (mut game, p1, _p2) = setup_game2();
+
+        let card = make_dfc_creature(p1);
+        let card_id = card.id;
+        game.state.battlefield.add(Permanent::new(card, p1));
+
+        let perm = game.state.battlefield.get(card_id).unwrap();
+        assert_eq!(perm.name(), "Front Face");
+        assert_eq!(perm.power(), 3);
+        assert_eq!(perm.toughness(), 3);
+        assert!(perm.has_flying());
+        assert!(!perm.has_deathtouch());
+        assert!(perm.has_subtype(&SubType::Elf));
+        assert!(!perm.transformed);
+
+        game.execute_effects(
+            &[Effect::transform_self()],
+            p1, &[], Some(card_id), None,
+        );
+
+        let perm = game.state.battlefield.get(card_id).unwrap();
+        assert_eq!(perm.name(), "Back Face");
+        assert_eq!(perm.power(), 5);
+        assert_eq!(perm.toughness(), 5);
+        assert!(perm.has_deathtouch());
+        assert!(!perm.has_flying());
+        assert!(perm.has_subtype(&SubType::Goblin));
+        assert!(perm.transformed);
+    }
+
+    #[test]
+    fn transform_back_restores_front_face() {
+        let (mut game, p1, _p2) = setup_game2();
+
+        let card = make_dfc_creature(p1);
+        let card_id = card.id;
+        game.state.battlefield.add(Permanent::new(card, p1));
+
+        game.execute_effects(&[Effect::transform_self()], p1, &[], Some(card_id), None);
+        assert_eq!(game.state.battlefield.get(card_id).unwrap().name(), "Back Face");
+
+        game.execute_effects(&[Effect::transform_self()], p1, &[], Some(card_id), None);
+
+        let perm = game.state.battlefield.get(card_id).unwrap();
+        assert_eq!(perm.name(), "Front Face");
+        assert_eq!(perm.power(), 3);
+        assert_eq!(perm.toughness(), 3);
+        assert!(perm.has_flying());
+        assert!(!perm.transformed);
+    }
+
+    #[test]
+    fn transform_preserves_counters() {
+        let (mut game, p1, _p2) = setup_game2();
+
+        let card = make_dfc_creature(p1);
+        let card_id = card.id;
+        game.state.battlefield.add(Permanent::new(card, p1));
+        game.state.battlefield.get_mut(card_id).unwrap().add_counters(CounterType::P1P1, 2);
+
+        assert_eq!(game.state.battlefield.get(card_id).unwrap().power(), 5);
+
+        game.execute_effects(&[Effect::transform_self()], p1, &[], Some(card_id), None);
+
+        let perm = game.state.battlefield.get(card_id).unwrap();
+        assert_eq!(perm.counters.get(&CounterType::P1P1), 2);
+        assert_eq!(perm.power(), 7);
+        assert_eq!(perm.toughness(), 7);
+    }
+
+    #[test]
+    fn transform_preserves_tapped_state() {
+        let (mut game, p1, _p2) = setup_game2();
+
+        let card = make_dfc_creature(p1);
+        let card_id = card.id;
+        game.state.battlefield.add(Permanent::new(card, p1));
+        game.state.battlefield.get_mut(card_id).unwrap().tap();
+
+        game.execute_effects(&[Effect::transform_self()], p1, &[], Some(card_id), None);
+
+        assert!(game.state.battlefield.get(card_id).unwrap().tapped);
+    }
+
+    #[test]
+    fn transform_no_back_face_does_nothing() {
+        let (mut game, p1, _p2) = setup_game2();
+
+        let mut card = CardData::new(ObjectId::new(), p1, "Regular Creature");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(2);
+        card.toughness = Some(2);
+        let card_id = card.id;
+        game.state.battlefield.add(Permanent::new(card, p1));
+
+        game.execute_effects(&[Effect::transform_self()], p1, &[], Some(card_id), None);
+
+        let perm = game.state.battlefield.get(card_id).unwrap();
+        assert_eq!(perm.name(), "Regular Creature");
+        assert!(!perm.transformed);
+    }
+
+    #[test]
+    fn transform_preserves_object_id() {
+        let (mut game, p1, _p2) = setup_game2();
+
+        let card = make_dfc_creature(p1);
+        let card_id = card.id;
+        game.state.battlefield.add(Permanent::new(card, p1));
+
+        game.execute_effects(&[Effect::transform_self()], p1, &[], Some(card_id), None);
+
+        assert!(game.state.battlefield.get(card_id).is_some());
+        assert_eq!(game.state.battlefield.get(card_id).unwrap().id(), card_id);
+    }
+
+    #[test]
+    fn transform_back_face_abilities_registered() {
+        let (mut game, p1, _p2) = setup_game2();
+
+        let id = ObjectId::new();
+        let mut front = CardData::new(id, p1, "Front");
+        front.card_types = vec![CardType::Creature];
+        front.power = Some(2);
+        front.toughness = Some(2);
+        front.abilities = vec![
+            Ability::static_ability(id, "Flying.",
+                vec![StaticEffect::GrantKeyword { filter: "self".into(), keyword: "flying".into() }]),
+        ];
+
+        let mut back = CardData::new(id, p1, "Back");
+        back.card_types = vec![CardType::Creature];
+        back.power = Some(4);
+        back.toughness = Some(4);
+        back.abilities = vec![
+            Ability::static_ability(id, "Deathtouch.",
+                vec![StaticEffect::GrantKeyword { filter: "self".into(), keyword: "deathtouch".into() }]),
+        ];
+
+        front.back_face = Some(Box::new(back));
+        for ability in &front.abilities {
+            game.state.ability_store.add(ability.clone());
+        }
+        game.state.battlefield.add(Permanent::new(front, p1));
+
+        let abilities_before = game.state.ability_store.for_source(id);
+        assert_eq!(abilities_before.len(), 1);
+        assert!(abilities_before[0].rules_text.contains("Flying"));
+
+        game.execute_effects(&[Effect::transform_self()], p1, &[], Some(id), None);
+
+        let abilities_after = game.state.ability_store.for_source(id);
+        assert_eq!(abilities_after.len(), 1);
+        assert!(abilities_after[0].rules_text.contains("Deathtouch"));
+    }
+
+    #[test]
+    fn transform_helper_constructor() {
+        let effect = Effect::transform_self();
+        match effect {
+            Effect::TransformSelf => {}
+            _ => panic!("Expected TransformSelf"),
+        }
+    }
+
+    #[test]
+    fn permanent_can_transform_check() {
+        let owner = PlayerId::new();
+        let card = make_dfc_creature(owner);
+        let perm = Permanent::new(card, owner);
+        assert!(perm.can_transform());
+
+        let mut card2 = CardData::new(ObjectId::new(), owner, "No DFC");
+        card2.card_types = vec![CardType::Creature];
+        card2.power = Some(1);
+        card2.toughness = Some(1);
+        let perm2 = Permanent::new(card2, owner);
+        assert!(!perm2.can_transform());
+    }

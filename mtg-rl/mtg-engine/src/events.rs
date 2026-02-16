@@ -310,6 +310,8 @@ impl EventType {
             "created_token" => EventType::CreatedToken,
             "land_played" => EventType::LandPlayed,
             "counters_added" => EventType::CountersAdded,
+            "precombat_main" | "first_main_phase" => EventType::PrecombatMainPre,
+            "transformed" => EventType::Transformed,
             _ => EventType::EnteredTheBattlefield, // fallback
         }
     }

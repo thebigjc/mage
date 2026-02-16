@@ -61,6 +61,9 @@ pub struct CardData {
     /// Additional costs required when casting this spell (behold, sacrifice, etc.).
     /// These are paid in addition to the mana cost.
     pub additional_costs: Vec<crate::abilities::Cost>,
+    /// Back face data for double-faced cards (DFC/Transform).
+    /// When a DFC permanent transforms, its characteristics swap to the back face.
+    pub back_face: Option<Box<CardData>>,
 }
 
 impl CardData {
@@ -85,6 +88,7 @@ impl CardData {
             is_token: false,
             flashback_cost: None,
             additional_costs: Vec::new(),
+            back_face: None,
         }
     }
 
@@ -153,6 +157,7 @@ impl Default for CardData {
             is_token: false,
             flashback_cost: None,
             additional_costs: Vec::new(),
+            back_face: None,
         }
     }
 }

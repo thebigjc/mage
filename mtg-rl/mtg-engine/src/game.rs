@@ -1315,8 +1315,8 @@ impl Game {
                     }
                 }
 
-                // For UpkeepStep/EndStep, only trigger for the controller whose step it is
-                if event.event_type == EventType::UpkeepStep || event.event_type == EventType::EndStep {
+                // For UpkeepStep/EndStep/PrecombatMainPre, only trigger for the controller whose step it is
+                if event.event_type == EventType::UpkeepStep || event.event_type == EventType::EndStep || event.event_type == EventType::PrecombatMainPre {
                     if let Some(player_id) = event.player_id {
                         if player_id != controller {
                             continue;
@@ -1546,6 +1546,11 @@ impl Game {
                 if self.turn_manager.turn_number > 1 || self.state.turn_order[0] != active_player {
                     self.draw_cards(active_player, 1);
                 }
+            }
+            PhaseStep::PrecombatMain => {
+                let mut main_event = GameEvent::new(EventType::PrecombatMainPre);
+                main_event.player_id = Some(active_player);
+                self.emit_event(main_event);
             }
             PhaseStep::Cleanup => {
                 // Discard down to max hand size
@@ -4633,6 +4638,40 @@ impl Game {
                             }
                             perm.base_power_eot = Some(*power);
                             perm.base_toughness_eot = Some(*toughness);
+                        }
+                    }
+                }
+                Effect::TransformSelf => {
+                    if let Some(source_id) = source {
+                        let did_transform = if let Some(perm) = self.state.battlefield.get_mut(source_id) {
+                            if perm.can_transform() {
+                                let old_name = perm.name().to_string();
+                                if perm.transform() {
+                                    let new_name = perm.name().to_string();
+                                    self.state.ability_store.remove_source(source_id);
+                                    let abilities = perm.card.abilities.clone();
+                                    Some((old_name, new_name, abilities))
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        };
+                        if let Some((_old_name, _new_name, abilities)) = did_transform {
+                            for ability in &abilities {
+                                let mut ab = ability.clone();
+                                ab.source_id = source_id;
+                                ab.id = crate::types::AbilityId::new();
+                                self.state.ability_store.add(ab);
+                            }
+                            self.emit_event(
+                                crate::events::GameEvent::new(crate::events::EventType::Transformed)
+                                    .target(source_id)
+                                    .player(controller),
+                            );
                         }
                     }
                 }
