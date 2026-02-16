@@ -1212,6 +1212,29 @@ impl Game {
         }
     }
 
+    fn check_enters_with_counters(&mut self, permanent_id: ObjectId) {
+        let counters_to_add: Vec<(String, u32)> = {
+            let abilities = self.state.ability_store.for_source(permanent_id);
+            abilities.iter()
+                .filter(|a| a.ability_type == AbilityType::Static)
+                .flat_map(|a| a.static_effects.iter())
+                .filter_map(|e| {
+                    if let crate::abilities::StaticEffect::EntersWithCounters { counter_type, count } = e {
+                        Some((counter_type.clone(), *count))
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        };
+        for (counter_type, count) in counters_to_add {
+            let ct = crate::counters::CounterType::from_name(&counter_type);
+            if let Some(perm) = self.state.battlefield.get_mut(permanent_id) {
+                perm.add_counters(ct, count);
+            }
+        }
+    }
+
     /// Check for triggered abilities that should fire from recent events.
     /// Pushes matching triggered abilities onto the stack in APNAP order.
     /// Returns true if any triggers were placed on the stack.
@@ -2252,6 +2275,7 @@ impl Game {
             self.state.battlefield.add(perm);
             self.state.set_zone(card_id, crate::constants::Zone::Battlefield, None);
             self.check_enters_tapped(card_id);
+            self.check_enters_with_counters(card_id);
 
             // Emit ETB event
             self.emit_event(GameEvent::enters_battlefield(card_id, player_id));
@@ -2572,6 +2596,7 @@ impl Game {
                     self.state.battlefield.add(perm);
                     self.state.set_zone(item.id, crate::constants::Zone::Battlefield, None);
                     self.check_enters_tapped(item.id);
+                    self.check_enters_with_counters(item.id);
 
                     // Aura attachment: attach to target on ETB
                     if card.subtypes.contains(&crate::constants::SubType::Aura) {
@@ -3556,6 +3581,7 @@ impl Game {
                                 self.state.battlefield.add(perm);
                                 self.state.set_zone(target_id, crate::constants::Zone::Battlefield, None);
                                 self.check_enters_tapped(target_id);
+                                self.check_enters_with_counters(target_id);
                             }
                         }
                     }
@@ -4226,6 +4252,7 @@ impl Game {
                                     let perm = Permanent::new(card_data, controller);
                                     self.state.battlefield.add(perm);
                                     self.state.set_zone(card_id, crate::constants::Zone::Battlefield, None);
+                                    self.check_enters_with_counters(card_id);
                                     self.emit_event(GameEvent::enters_battlefield(card_id, controller));
                                 }
                             }
@@ -4476,6 +4503,7 @@ impl Game {
                                 self.state.battlefield.add(new_perm);
                                 self.state.set_zone(target_id, crate::constants::Zone::Battlefield, None);
                                 self.check_enters_tapped(target_id);
+                                self.check_enters_with_counters(target_id);
                                 self.emit_event(GameEvent::enters_battlefield(target_id, owner_id));
                             }
                         }
@@ -4520,6 +4548,7 @@ impl Game {
                                 new_perm.tap();
                                 self.state.battlefield.add(new_perm);
                                 self.state.set_zone(target_id, crate::constants::Zone::Battlefield, None);
+                                self.check_enters_with_counters(target_id);
                                 self.emit_event(GameEvent::enters_battlefield(target_id, owner_id));
                             }
                         }
@@ -4720,6 +4749,7 @@ impl Game {
                                 let perm = Permanent::new(card_data, controller);
                                 self.state.battlefield.add(perm);
                                 self.state.set_zone(card_id, crate::constants::Zone::Battlefield, None);
+                                self.check_enters_with_counters(card_id);
                                 self.emit_event(GameEvent::enters_battlefield(card_id, controller));
                             }
                         }
@@ -4844,6 +4874,7 @@ impl Game {
                                     }
                                     self.state.battlefield.add(perm);
                                     self.state.set_zone(card_id, crate::constants::Zone::Battlefield, None);
+                                    self.check_enters_with_counters(card_id);
                                     self.emit_event(GameEvent::enters_battlefield(card_id, controller));
                                     if *sacrifice_eot {
                                         self.state.delayed_triggers.push(crate::state::DelayedTrigger {

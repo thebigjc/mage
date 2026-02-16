@@ -1395,3 +1395,164 @@ use crate::types::{ObjectId, PlayerId};
         assert_eq!(perm.toughness(), 5, "EOT base should take priority over continuous override");
 
 }
+
+    #[test]
+    fn enters_with_counters_adds_counters_on_etb() {
+        let (mut game, p1, _p2) = setup2();
+        let mut card = CardData::new(ObjectId::new(), p1, "Brambleback Brute");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(4);
+        card.toughness = Some(5);
+        let id = card.id;
+        card.abilities = vec![
+            Ability::static_ability(id,
+                "Brambleback Brute enters with two -1/-1 counters on it.",
+                vec![StaticEffect::EntersWithCounters {
+                    counter_type: "-1/-1".into(), count: 2,
+                }]),
+        ];
+        for ability in &card.abilities {
+            game.state.ability_store.add(ability.clone());
+        }
+        let perm = Permanent::new(card, p1);
+        game.state.battlefield.add(perm);
+        game.check_enters_with_counters(id);
+
+        let perm = game.state.battlefield.get(id).unwrap();
+        assert_eq!(perm.counters.get(&CounterType::M1M1), 2);
+        assert_eq!(perm.power(), 2);
+        assert_eq!(perm.toughness(), 3);
+    }
+
+    #[test]
+    fn enters_with_counters_p1p1() {
+        let (mut game, p1, _p2) = setup2();
+        let mut card = CardData::new(ObjectId::new(), p1, "Workhorse");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(0);
+        card.toughness = Some(0);
+        let id = card.id;
+        card.abilities = vec![
+            Ability::static_ability(id,
+                "Workhorse enters with four +1/+1 counters on it.",
+                vec![StaticEffect::enters_with_counters("+1/+1", 4)]),
+        ];
+        for ability in &card.abilities {
+            game.state.ability_store.add(ability.clone());
+        }
+        let perm = Permanent::new(card, p1);
+        game.state.battlefield.add(perm);
+        game.check_enters_with_counters(id);
+
+        let perm = game.state.battlefield.get(id).unwrap();
+        assert_eq!(perm.counters.get(&CounterType::P1P1), 4);
+        assert_eq!(perm.power(), 4);
+        assert_eq!(perm.toughness(), 4);
+    }
+
+    #[test]
+    fn enters_with_counters_no_effect_without_ability() {
+        let (mut game, p1, _p2) = setup2();
+        let mut card = CardData::new(ObjectId::new(), p1, "Grizzly Bears");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(2);
+        card.toughness = Some(2);
+        let id = card.id;
+        let perm = Permanent::new(card, p1);
+        game.state.battlefield.add(perm);
+        game.check_enters_with_counters(id);
+
+        let perm = game.state.battlefield.get(id).unwrap();
+        assert_eq!(perm.counters.get(&CounterType::M1M1), 0);
+        assert_eq!(perm.counters.get(&CounterType::P1P1), 0);
+        assert_eq!(perm.power(), 2);
+        assert_eq!(perm.toughness(), 2);
+    }
+
+    #[test]
+    fn enters_with_counters_multiple_counter_types() {
+        let (mut game, p1, _p2) = setup2();
+        let mut card = CardData::new(ObjectId::new(), p1, "Multi Counter");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(3);
+        card.toughness = Some(3);
+        let id = card.id;
+        card.abilities = vec![
+            Ability::static_ability(id, "Enters with counters.",
+                vec![
+                    StaticEffect::enters_with_counters("-1/-1", 2),
+                    StaticEffect::enters_with_counters("+1/+1", 1),
+                ]),
+        ];
+        for ability in &card.abilities {
+            game.state.ability_store.add(ability.clone());
+        }
+        let perm = Permanent::new(card, p1);
+        game.state.battlefield.add(perm);
+        game.check_enters_with_counters(id);
+
+        let perm = game.state.battlefield.get(id).unwrap();
+        assert_eq!(perm.counters.get(&CounterType::M1M1), 2);
+        assert_eq!(perm.counters.get(&CounterType::P1P1), 1);
+    }
+
+    #[test]
+    fn enters_with_counters_helper_constructor() {
+        match StaticEffect::enters_with_counters("-1/-1", 3) {
+            StaticEffect::EntersWithCounters { counter_type, count } => {
+                assert_eq!(counter_type, "-1/-1");
+                assert_eq!(count, 3);
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn enters_with_counters_six_m1m1_on_big_creature() {
+        let (mut game, p1, _p2) = setup2();
+        let mut card = CardData::new(ObjectId::new(), p1, "Moonshadow");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(7);
+        card.toughness = Some(7);
+        let id = card.id;
+        card.abilities = vec![
+            Ability::static_ability(id,
+                "Moonshadow enters with six -1/-1 counters on it.",
+                vec![StaticEffect::enters_with_counters("-1/-1", 6)]),
+        ];
+        for ability in &card.abilities {
+            game.state.ability_store.add(ability.clone());
+        }
+        let perm = Permanent::new(card, p1);
+        game.state.battlefield.add(perm);
+        game.check_enters_with_counters(id);
+
+        let perm = game.state.battlefield.get(id).unwrap();
+        assert_eq!(perm.counters.get(&CounterType::M1M1), 6);
+        assert_eq!(perm.power(), 1);
+        assert_eq!(perm.toughness(), 1);
+    }
+
+    #[test]
+    fn enters_with_counters_stun_counters() {
+        let (mut game, p1, _p2) = setup2();
+        let mut card = CardData::new(ObjectId::new(), p1, "Stunned Creature");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(3);
+        card.toughness = Some(3);
+        let id = card.id;
+        card.abilities = vec![
+            Ability::static_ability(id,
+                "Stunned Creature enters with two stun counters on it.",
+                vec![StaticEffect::enters_with_counters("stun", 2)]),
+        ];
+        for ability in &card.abilities {
+            game.state.ability_store.add(ability.clone());
+        }
+        let perm = Permanent::new(card, p1);
+        game.state.battlefield.add(perm);
+        game.check_enters_with_counters(id);
+
+        let perm = game.state.battlefield.get(id).unwrap();
+        assert_eq!(perm.counters.get(&CounterType::Stun), 2);
+    }

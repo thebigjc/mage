@@ -1484,6 +1484,13 @@ impl StaticEffect {
             filter: filter.to_string(),
         }
     }
+
+    pub fn enters_with_counters(counter_type: &str, count: u32) -> Self {
+        StaticEffect::EntersWithCounters {
+            counter_type: counter_type.to_string(),
+            count,
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1722,6 +1729,11 @@ pub enum StaticEffect {
     /// Grant conspire to matching spells the controller casts.
     GrantConspire {
         filter: String,
+    },
+    /// This permanent enters the battlefield with counters on it (replacement effect).
+    EntersWithCounters {
+        counter_type: String,
+        count: u32,
     },
     /// Custom continuous effect.
 

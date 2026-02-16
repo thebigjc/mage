@@ -335,16 +335,16 @@ mod tests {
         let registry = CardRegistry::with_all_sets();
         let id = ObjectId::new();
         let owner = PlayerId::new();
-        use mtg_engine::abilities::{Cost, Effect, TargetSpec};
+        use mtg_engine::abilities::{Cost, Effect, StaticEffect, TargetSpec};
 
         // Hovel Hurler — 6/7 Giant, ETB with 2 -1/-1 counters, activated remove counter + boost+fly
         let hh = registry.create("Hovel Hurler", id, owner).unwrap();
         assert_eq!(hh.power, Some(6));
         assert_eq!(hh.toughness, Some(7));
         assert_eq!(hh.abilities.len(), 2);
-        // ETB: add 2 -1/-1 counters
-        assert!(matches!(hh.abilities[0].effects[..],
-            [Effect::AddCounters { ref counter_type, count: 2 }] if counter_type == "-1/-1"));
+        // ETB: enters with 2 -1/-1 counters (replacement effect via static ability)
+        assert!(matches!(hh.abilities[0].static_effects[..],
+            [StaticEffect::EntersWithCounters { ref counter_type, count: 2 }] if counter_type == "-1/-1"));
         // Activated: remove counter cost, +1/+0 + flying EOT
         assert!(matches!(&hh.abilities[1].costs[1], Cost::RemoveCounters(ref ct, 1) if ct == "-1/-1"));
         assert!(matches!(hh.abilities[1].effects[0], Effect::BoostUntilEndOfTurn { power: 1, toughness: 0 }));
@@ -358,8 +358,8 @@ mod tests {
         assert!(ge.keywords.contains(KeywordAbilities::FLASH));
         assert!(ge.keywords.contains(KeywordAbilities::FLYING));
         assert_eq!(ge.abilities.len(), 2);
-        assert!(matches!(ge.abilities[0].effects[..],
-            [Effect::AddCounters { ref counter_type, count: 1 }] if counter_type == "-1/-1"));
+        assert!(matches!(ge.abilities[0].static_effects[..],
+            [StaticEffect::EntersWithCounters { ref counter_type, count: 1 }] if counter_type == "-1/-1"));
         assert!(matches!(ge.abilities[1].effects[0], Effect::CounterSpell));
         assert!(matches!(ge.abilities[1].targets, TargetSpec::Spell));
 
@@ -368,9 +368,9 @@ mod tests {
         assert_eq!(lm.power, Some(4));
         assert_eq!(lm.toughness, Some(5));
         assert_eq!(lm.abilities.len(), 3);
-        // ETB: 3 -1/-1 counters
-        assert!(matches!(lm.abilities[0].effects[..],
-            [Effect::AddCounters { ref counter_type, count: 3 }] if counter_type == "-1/-1"));
+        // ETB: enters with 3 -1/-1 counters (replacement effect via static ability)
+        assert!(matches!(lm.abilities[0].static_effects[..],
+            [StaticEffect::EntersWithCounters { ref counter_type, count: 3 }] if counter_type == "-1/-1"));
         // Activated 1: remove 1, draw
         assert!(matches!(&lm.abilities[1].costs[1], Cost::RemoveCounters(ref ct, 1) if ct == "-1/-1"));
         assert!(matches!(lm.abilities[1].effects[..], [Effect::DrawCards { count: 1 }]));
@@ -385,8 +385,8 @@ mod tests {
         assert_eq!(rw.toughness, Some(6));
         assert!(rw.keywords.contains(KeywordAbilities::LIFELINK));
         assert_eq!(rw.abilities.len(), 2);
-        assert!(matches!(rw.abilities[0].effects[..],
-            [Effect::AddCounters { ref counter_type, count: 2 }] if counter_type == "-1/-1"));
+        assert!(matches!(rw.abilities[0].static_effects[..],
+            [StaticEffect::EntersWithCounters { ref counter_type, count: 2 }] if counter_type == "-1/-1"));
         assert!(matches!(&rw.abilities[1].costs[1], Cost::RemoveCounters(ref ct, 2) if ct == "-1/-1"));
         assert!(matches!(rw.abilities[1].effects[..], [Effect::Reanimate]));
         assert!(matches!(rw.abilities[1].targets, TargetSpec::CardInYourGraveyard));
@@ -396,8 +396,8 @@ mod tests {
         assert_eq!(cs.power, Some(5));
         assert_eq!(cs.toughness, Some(5));
         assert_eq!(cs.abilities.len(), 2);
-        assert!(matches!(cs.abilities[0].effects[..],
-            [Effect::AddCounters { ref counter_type, count: 3 }] if counter_type == "-1/-1"));
+        assert!(matches!(cs.abilities[0].static_effects[..],
+            [StaticEffect::EntersWithCounters { ref counter_type, count: 3 }] if counter_type == "-1/-1"));
         assert!(matches!(cs.abilities[1].effects[..],
             [Effect::RemoveCounters { ref counter_type, count: 1 }] if counter_type == "-1/-1"));
 
