@@ -694,7 +694,7 @@ fn add_counters_all_effect() {
 
     // Create three creatures for p1, one for p2
     for i in 0..3 {
-        let mut creature = make_creature(&format!("Elf {}", i), p1, 2, 2);
+        let mut creature = make_creature(&format!("Elf {i}"), p1, 2, 2);
         creature.subtypes = vec![SubType::Elf];
         game.state.battlefield.add(Permanent::new(creature, p1));
     }

@@ -269,8 +269,7 @@ mod tests {
         // We expect at least 1 game/second even on slow hardware
         assert!(
             games_per_sec > 1.0,
-            "Throughput too low: {:.1} games/sec",
-            games_per_sec
+            "Throughput too low: {games_per_sec:.1} games/sec"
         );
     }
 }

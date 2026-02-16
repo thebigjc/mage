@@ -149,7 +149,7 @@ use crate::types::{ObjectId, PlayerId};
         // Put 3 Elf cards in graveyard
         for i in 0..3 {
             let elf_id = ObjectId::new();
-            let mut elf = CardData::new(elf_id, p1, &format!("Dead Elf {}", i));
+            let mut elf = CardData::new(elf_id, p1, &format!("Dead Elf {i}"));
             elf.card_types = vec![CardType::Creature];
             elf.subtypes = vec![SubType::Elf];
             elf.power = Some(1);

@@ -112,7 +112,7 @@ impl GameTest {
                 };
                 let mana_ability = Ability::mana_ability(
                     id,
-                    &format!("{{T}}: Add {{{}}}", color_str),
+                    &format!("{{T}}: Add {{{color_str}}}"),
                     mana,
                 );
                 card.abilities.push(mana_ability);
@@ -515,8 +515,7 @@ impl GameTest {
         let actual = self.game().state.player(pid).unwrap().life;
         assert_eq!(
             actual, expected,
-            "Player {:?} life: expected {}, got {}",
-            player, expected, actual
+            "Player {player:?} life: expected {expected}, got {actual}"
         );
     }
 
@@ -529,8 +528,7 @@ impl GameTest {
             .count();
         assert_eq!(
             count, expected,
-            "Player {:?} permanent count for '{}': expected {}, got {}",
-            player, name, expected, count
+            "Player {player:?} permanent count for '{name}': expected {expected}, got {count}"
         );
     }
 
@@ -547,8 +545,7 @@ impl GameTest {
             .count();
         assert_eq!(
             count, expected,
-            "Player {:?} graveyard count for '{}': expected {}, got {}",
-            player, name, expected, count
+            "Player {player:?} graveyard count for '{name}': expected {expected}, got {count}"
         );
     }
 
@@ -558,8 +555,7 @@ impl GameTest {
         let actual = self.game().state.player(pid).unwrap().hand.len();
         assert_eq!(
             actual, expected,
-            "Player {:?} hand count: expected {}, got {}",
-            player, expected, actual
+            "Player {player:?} hand count: expected {expected}, got {actual}"
         );
     }
 
@@ -568,8 +564,7 @@ impl GameTest {
         let actual = self.game().state.battlefield.len();
         assert_eq!(
             actual, expected,
-            "Battlefield count: expected {}, got {}",
-            expected, actual
+            "Battlefield count: expected {expected}, got {actual}"
         );
     }
 
@@ -585,16 +580,16 @@ impl GameTest {
         let perm = self.game().state.battlefield
             .controlled_by(pid)
             .find(|p| p.name() == name)
-            .unwrap_or_else(|| panic!("No permanent named '{}' controlled by {:?}", name, player));
+            .unwrap_or_else(|| panic!("No permanent named '{name}' controlled by {player:?}"));
         assert_eq!(
             perm.power(), expected_power,
-            "'{}' power: expected {}, got {}",
-            name, expected_power, perm.power()
+            "'{name}' power: expected {expected_power}, got {}",
+            perm.power()
         );
         assert_eq!(
             perm.toughness(), expected_toughness,
-            "'{}' toughness: expected {}, got {}",
-            name, expected_toughness, perm.toughness()
+            "'{name}' toughness: expected {expected_toughness}, got {}",
+            perm.toughness()
         );
     }
 
@@ -604,11 +599,11 @@ impl GameTest {
         let perm = self.game().state.battlefield
             .controlled_by(pid)
             .find(|p| p.name() == name)
-            .unwrap_or_else(|| panic!("No permanent named '{}' controlled by {:?}", name, player));
+            .unwrap_or_else(|| panic!("No permanent named '{name}' controlled by {player:?}"));
         assert_eq!(
             perm.tapped, expected,
-            "'{}' tapped: expected {}, got {}",
-            name, expected, perm.tapped
+            "'{name}' tapped: expected {expected}, got {}",
+            perm.tapped
         );
     }
 
@@ -624,12 +619,11 @@ impl GameTest {
         let perm = self.game().state.battlefield
             .controlled_by(pid)
             .find(|p| p.name() == name)
-            .unwrap_or_else(|| panic!("No permanent named '{}' controlled by {:?}", name, player));
+            .unwrap_or_else(|| panic!("No permanent named '{name}' controlled by {player:?}"));
         let actual = perm.counters.get(&counter_type);
         assert_eq!(
             actual, expected,
-            "'{}' {} counters: expected {}, got {}",
-            name, counter_type, expected, actual
+            "'{name}' {counter_type} counters: expected {expected}, got {actual}"
         );
     }
 
@@ -644,8 +638,7 @@ impl GameTest {
             .count();
         assert_eq!(
             count, expected,
-            "Exile count for '{}': expected {}, got {}",
-            name, expected, count
+            "Exile count for '{name}': expected {expected}, got {count}"
         );
     }
 
@@ -654,8 +647,7 @@ impl GameTest {
         let actual = self.game().state.stack.len();
         assert_eq!(
             actual, expected,
-            "Stack size: expected {}, got {}",
-            expected, actual
+            "Stack size: expected {expected}, got {actual}"
         );
     }
 
@@ -664,8 +656,7 @@ impl GameTest {
         let actual = self.game().state.should_end();
         assert_eq!(
             actual, expected,
-            "Game over: expected {}, got {}",
-            expected, actual
+            "Game over: expected {expected}, got {actual}"
         );
     }
 }

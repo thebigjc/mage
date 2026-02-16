@@ -495,7 +495,7 @@ use crate::types::{ObjectId, PlayerId};
         assert!(perm.chosen_type.is_some());
         match &perm.chosen_type {
             Some(SubType::Custom(s)) => assert_eq!(s.as_str(), "Elemental"),
-            other => panic!("Expected SubType::Custom(\"Elemental\"), got {:?}", other),
+            other => panic!("Expected SubType::Custom(\"Elemental\"), got {other:?}"),
         }
     }
 
@@ -516,7 +516,7 @@ use crate::types::{ObjectId, PlayerId};
         let perm = game.state.battlefield.get(src_id).unwrap();
         match &perm.chosen_type {
             Some(SubType::Custom(s)) => assert_eq!(s.as_str(), "Elf"),
-            other => panic!("Expected SubType::Custom(\"Elf\"), got {:?}", other),
+            other => panic!("Expected SubType::Custom(\"Elf\"), got {other:?}"),
         }
     }
 
@@ -528,7 +528,7 @@ use crate::types::{ObjectId, PlayerId};
         // Place 3 Goblins and 1 Elf on battlefield
         for i in 0..3 {
             let cid = ObjectId::new();
-            let mut card = CardData::new(cid, p1, &format!("Goblin #{}", i));
+            let mut card = CardData::new(cid, p1, &format!("Goblin #{i}"));
             card.card_types = vec![CardType::Creature];
             card.subtypes = vec![SubType::Custom("Goblin".into())];
             game.state.battlefield.add(Permanent::new(card, p1));
@@ -688,7 +688,7 @@ use crate::types::{ObjectId, PlayerId};
         let mut ids = Vec::new();
         for i in 0..n {
             let id = ObjectId::new();
-            let mut card = CardData::new(id, player, &format!("Library Card {}", i));
+            let mut card = CardData::new(id, player, &format!("Library Card {i}"));
             card.card_types = vec![CardType::Creature];
             card.power = Some(2);
             card.toughness = Some(2);
@@ -1285,7 +1285,7 @@ use crate::types::{ObjectId, PlayerId};
     fn helper_constructor_returns_correct_variant() {
         match Effect::choose_type_and_return_from_graveyard() {
             Effect::ChooseTypeAndReturnFromGraveyard => {}
-            other => panic!("Expected ChooseTypeAndReturnFromGraveyard, got {:?}", other),
+            other => panic!("Expected ChooseTypeAndReturnFromGraveyard, got {other:?}"),
         }
     }
 

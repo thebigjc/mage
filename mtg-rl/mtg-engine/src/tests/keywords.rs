@@ -1226,7 +1226,7 @@ use crate::types::{ObjectId, PlayerId};
                 assert_eq!(keywords, vec!["hexproof", "indestructible"]);
                 assert!(other_only);
             }
-            other => panic!("Expected ChooseTypeAndGrantKeywords, got {:?}", other),
+            other => panic!("Expected ChooseTypeAndGrantKeywords, got {other:?}"),
         }
     }
 
@@ -1917,6 +1917,6 @@ use crate::types::{ObjectId, PlayerId};
 
         for color in &[Color::White, Color::Blue, Color::Black, Color::Red, Color::Green] {
             let targets = game.legal_targets_for_spec(&TargetSpec::Creature, p2, &[*color]);
-            assert!(!targets.contains(&rainbow_id), "Rainbow creature should be untargetable by {:?} spells", color);
+            assert!(!targets.contains(&rainbow_id), "Rainbow creature should be untargetable by {color:?} spells");
         }
     }
