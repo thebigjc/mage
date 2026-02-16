@@ -84,7 +84,7 @@ impl CardRegistry {
     pub fn cards_in_set(&self, set_code: &str) -> Vec<&str> {
         self.cards
             .iter()
-            .filter(|(_, info)| info.sets.iter().any(|s| *s == set_code))
+            .filter(|(_, info)| info.sets.contains(&set_code))
             .map(|(name, _)| name.as_str())
             .collect()
     }
