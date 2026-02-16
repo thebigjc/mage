@@ -325,10 +325,10 @@ pub fn predicate_matches_card(pred: &Predicate, card: &CardData, _you: PlayerId)
         Predicate::IsMonocolored => card.colors().len() == 1,
         Predicate::HasKeyword(kw) => card.keywords.contains(*kw),
         Predicate::PowerCompare(cmp, val) => {
-            card.power.map_or(false, |p| cmp.compare(p, *val))
+            card.power.is_some_and(|p| cmp.compare(p, *val))
         }
         Predicate::ToughnessCompare(cmp, val) => {
-            card.toughness.map_or(false, |t| cmp.compare(t, *val))
+            card.toughness.is_some_and(|t| cmp.compare(t, *val))
         }
         Predicate::ManaValueCompare(cmp, val) => {
             cmp.compare(card.mana_value() as i32, *val)

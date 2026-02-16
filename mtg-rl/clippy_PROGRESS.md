@@ -38,8 +38,8 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 ### Phase 3: Other mtg-engine files (10 warnings)
 - [x] Task 13: Fix `large_enum_variant` in zones.rs:451 — boxed CardData in StackItemKind::Spell (320→~8 bytes)
 - [x] Task 14: Fix `uninlined_format_args` in constants.rs, mana.rs, events.rs
-- [ ] Task 15: Fix `should_implement_trait` in filters.rs:178 — rename `not()` or add `#[allow]` with justification
-- [ ] Task 16: Fix remaining filters.rs warnings (map_or → is_some_and)
+- [x] Task 15: Fix `should_implement_trait` in filters.rs:178 — implemented `std::ops::Not` trait for `Predicate`, replaced `.not()` call with `!` operator
+- [x] Task 16: Fix remaining filters.rs warnings (map_or → is_some_and)
 - [ ] Task 17: Fix `unnecessary_lazy_evaluations` in watchers.rs:181
 
 ### Phase 4: mtg-cards crate (13 warnings)
@@ -60,7 +60,7 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 - [ ] Task 28: Run `cargo test --lib` and `cargo test --release` to confirm all tests still pass
 
 ## Completed This Iteration
-- Task 14: Inlined format args in 3 files: constants.rs:41 (`write!(f, "{s}")`), mana.rs:396 (`write!(f, "{{{n}}}")`), events.rs:514 (`format!("{from_zone} -> {to_zone}")`). All 576 tests pass. 4 mtg-engine warnings remain (Tasks 15-17).
+- Task 16: Changed `map_or(false, ...)` to `is_some_and(...)` in filters.rs for power and toughness comparison predicates (lines 328, 331). All 576 tests pass. 1 mtg-engine warning remains (Task 17).
 
 ## Notes
 
