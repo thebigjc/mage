@@ -112,7 +112,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - [x] Task 3.1: Replace `SubType::Custom(String)` with concrete enum variants for all 15 usages
 - [x] Task 3.2: Add `#[must_use]` annotations to functions returning important values
 - [x] Task 3.3: Use `const` for compile-time card data where possible (mana costs, static strings)
-- [ ] Task 3.4: Convert string-based card name lookups in registry to use `&'static str` or interned strings
+- [x] Task 3.4: Convert string-based card name lookups in registry to use `&'static str` or interned strings
 
 ### Phase 4: Performance
 
@@ -205,6 +205,17 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - All 576 engine tests passing, zero clippy warnings
 
 ## Completed This Iteration
+- Task 3.4: Converted CardRegistry from `HashMap<String, CardInfo>` to `HashMap<&'static str, CardInfo>`
+  - **CardInfo.name**: Changed from `String` to `&'static str` — eliminates duplicate heap allocation per card
+  - **CardRegistry.cards**: HashMap key changed from `String` to `&'static str` — eliminates 1,333 String allocations at registry init
+  - **register()**: Parameter changed from `name: &str` to `name: &'static str` — all 1,333+ call sites already pass string literals, so no caller changes needed
+  - **card_names()**: Simplified from `.map(|s| s.as_str())` to `.copied()` since keys are already `&str`
+  - **cards_in_set()**: Simplified from `.map(|(name, _)| name.as_str())` to `.map(|(name, _)| *name)`
+  - **Lookup methods** (`create`, `contains`, `get_info`) unchanged — `HashMap<&'static str, V>::get(&str)` works via `Borrow<str>` impl
+  - Eliminates ~2,666 unnecessary `.to_string()` heap allocations during registry initialization (2 per card × 1,333 cards)
+  - 705 tests passing (614 engine + 20 cards + 52 AI + 19 integration), zero clippy warnings
+
+### Previous Iteration
 - Task 3.3: Added `const fn` annotations across mtg-engine for compile-time evaluation
   - **Mana constructors** (9 methods): `new()`, `white()`, `blue()`, `black()`, `red()`, `green()`, `colorless()`, `generic()`, `any()` — replaced `..Default::default()` with explicit zero-field initialization to enable const
   - **Mana query methods** (6 methods): `count()`, `colored_count()`, `mana_value()`, `get_color()`, `is_empty()`, `can_pay()`, `reduce_generic()` — pure arithmetic, now const-evaluable

@@ -12,7 +12,7 @@ use std::collections::HashMap;
 #[derive(Clone, Debug)]
 pub struct CardInfo {
     /// Canonical card name (as printed on the card).
-    pub name: String,
+    pub name: &'static str,
     /// Factory function to create the card.
     pub factory: CardFactory,
     /// Which sets this card appears in (set codes like "FDN", "TLA").
@@ -27,7 +27,7 @@ pub struct CardInfo {
 /// let card = registry.create("Lightning Bolt", id, owner).unwrap();
 /// ```
 pub struct CardRegistry {
-    cards: HashMap<String, CardInfo>,
+    cards: HashMap<&'static str, CardInfo>,
 }
 
 impl CardRegistry {
@@ -49,9 +49,9 @@ impl CardRegistry {
     }
 
     /// Register a card factory.
-    pub fn register(&mut self, name: &str, factory: CardFactory, set_code: &'static str) {
-        let entry = self.cards.entry(name.to_string()).or_insert_with(|| CardInfo {
-            name: name.to_string(),
+    pub fn register(&mut self, name: &'static str, factory: CardFactory, set_code: &'static str) {
+        let entry = self.cards.entry(name).or_insert_with(|| CardInfo {
+            name,
             factory,
             sets: Vec::new(),
         });
@@ -77,7 +77,7 @@ impl CardRegistry {
 
     /// Get all registered card names.
     pub fn card_names(&self) -> Vec<&str> {
-        self.cards.keys().map(|s| s.as_str()).collect()
+        self.cards.keys().copied().collect()
     }
 
     /// Get card names for a specific set.
@@ -85,7 +85,7 @@ impl CardRegistry {
         self.cards
             .iter()
             .filter(|(_, info)| info.sets.contains(&set_code))
-            .map(|(name, _)| name.as_str())
+            .map(|(name, _)| *name)
             .collect()
     }
 
