@@ -1483,6 +1483,16 @@ impl StaticEffect {
         StaticEffect::CostReduction {
             filter: filter.to_string(),
             amount,
+            condition: None,
+        }
+    }
+
+    /// "Creature spells with toughness > power cost {N} less."
+    pub fn cost_reduction_if_toughness_greater(filter: &str, amount: u32) -> Self {
+        StaticEffect::CostReduction {
+            filter: filter.to_string(),
+            amount,
+            condition: Some("toughness_greater_than_power".into()),
         }
     }
 
@@ -1732,6 +1742,7 @@ pub enum StaticEffect {
     CostReduction {
         filter: String,
         amount: u32,
+        condition: Option<String>,
     },
     /// Matching permanents enter the battlefield tapped.
     EntersTapped {
@@ -2243,9 +2254,19 @@ mod tests {
         }
 
         match StaticEffect::cost_reduction("creature spells", 1) {
-            StaticEffect::CostReduction { filter, amount } => {
+            StaticEffect::CostReduction { filter, amount, condition } => {
                 assert_eq!(filter, "creature spells");
                 assert_eq!(amount, 1);
+                assert!(condition.is_none());
+            }
+            _ => panic!("wrong variant"),
+        }
+
+        match StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1) {
+            StaticEffect::CostReduction { filter, amount, condition } => {
+                assert_eq!(filter, "creature spells");
+                assert_eq!(amount, 1);
+                assert_eq!(condition.as_deref(), Some("toughness_greater_than_power"));
             }
             _ => panic!("wrong variant"),
         }

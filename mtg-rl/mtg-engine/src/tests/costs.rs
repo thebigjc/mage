@@ -452,7 +452,7 @@ use crate::abilities::X_VALUE;
         lord.toughness = Some(1);
         lord.abilities = vec![Ability::static_ability(lord_id,
             "Elf spells you cast cost {1} less.",
-            vec![StaticEffect::CostReduction { filter: "Elf".into(), amount: 1 }])];
+            vec![StaticEffect::CostReduction { filter: "Elf".into(), amount: 1, condition: None }])];
         let perm = crate::permanent::Permanent::new(lord.clone(), p1);
         game.state.card_store.insert(lord.clone());
         game.state.battlefield.add(perm);
@@ -497,12 +497,13 @@ use crate::abilities::X_VALUE;
         lord.toughness = Some(1);
         lord.abilities = vec![Ability::static_ability(lord_id,
             "Elf spells cost {1} less.",
-            vec![StaticEffect::CostReduction { filter: "Elf".into(), amount: 1 }])];
+            vec![StaticEffect::CostReduction { filter: "Elf".into(), amount: 1, condition: None }])];
         let perm = crate::permanent::Permanent::new(lord.clone(), p1);
         game.state.card_store.insert(lord.clone());
         game.state.battlefield.add(perm);
         for ab in &lord.abilities {
             game.state.ability_store.add(ab.clone());
+        }
 
         // Add an Elf spell that costs {2}{G} to hand — normally needs 3 mana, reduced to 2
         let elf_id = ObjectId::new();
@@ -525,4 +526,212 @@ use crate::abilities::X_VALUE;
         assert!(can_cast, "Should be able to cast 2G Elf with 2G mana and 1 reduction");
     }
 
-}
+    #[test]
+    fn conditional_cost_reduction_toughness_greater_than_power() {
+        let (mut game, p1, _p2) = setup_game2();
+
+        let doran_id = ObjectId::new();
+        let mut doran = CardData::new(doran_id, p1, "Doran");
+        doran.card_types = vec![CardType::Creature];
+        doran.power = Some(0);
+        doran.toughness = Some(5);
+        doran.abilities = vec![Ability::static_ability(doran_id,
+            "Creature spells with toughness > power cost {1} less.",
+            vec![StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1)])];
+        let perm = crate::permanent::Permanent::new(doran.clone(), p1);
+        game.state.card_store.insert(doran.clone());
+        game.state.battlefield.add(perm);
+        for ab in &doran.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+
+        let high_tough_id = ObjectId::new();
+        let mut high_tough = CardData::new(high_tough_id, p1, "Wall");
+        high_tough.card_types = vec![CardType::Creature];
+        high_tough.power = Some(0);
+        high_tough.toughness = Some(4);
+        high_tough.mana_cost = ManaCost::parse("{2}{W}");
+
+        let reduction = game.calculate_cost_reduction(p1, &high_tough);
+        assert_eq!(reduction, 1, "Creature with toughness > power should get reduction");
+    }
+
+    #[test]
+    fn conditional_cost_reduction_no_reduction_when_power_greater() {
+        let (mut game, p1, _p2) = setup_game2();
+
+        let doran_id = ObjectId::new();
+        let mut doran = CardData::new(doran_id, p1, "Doran");
+        doran.card_types = vec![CardType::Creature];
+        doran.power = Some(0);
+        doran.toughness = Some(5);
+        doran.abilities = vec![Ability::static_ability(doran_id,
+            "Creature spells with toughness > power cost {1} less.",
+            vec![StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1)])];
+        let perm = crate::permanent::Permanent::new(doran.clone(), p1);
+        game.state.card_store.insert(doran.clone());
+        game.state.battlefield.add(perm);
+        for ab in &doran.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+
+        let aggro_id = ObjectId::new();
+        let mut aggro = CardData::new(aggro_id, p1, "Aggro Creature");
+        aggro.card_types = vec![CardType::Creature];
+        aggro.power = Some(4);
+        aggro.toughness = Some(2);
+        aggro.mana_cost = ManaCost::parse("{2}{R}");
+
+        let reduction = game.calculate_cost_reduction(p1, &aggro);
+        assert_eq!(reduction, 0, "Creature with power > toughness should NOT get reduction");
+    }
+
+    #[test]
+    fn conditional_cost_reduction_no_reduction_when_equal() {
+        let (mut game, p1, _p2) = setup_game2();
+
+        let doran_id = ObjectId::new();
+        let mut doran = CardData::new(doran_id, p1, "Doran");
+        doran.card_types = vec![CardType::Creature];
+        doran.power = Some(0);
+        doran.toughness = Some(5);
+        doran.abilities = vec![Ability::static_ability(doran_id,
+            "Creature spells with toughness > power cost {1} less.",
+            vec![StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1)])];
+        let perm = crate::permanent::Permanent::new(doran.clone(), p1);
+        game.state.card_store.insert(doran.clone());
+        game.state.battlefield.add(perm);
+        for ab in &doran.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+
+        let equal_id = ObjectId::new();
+        let mut equal = CardData::new(equal_id, p1, "Bear");
+        equal.card_types = vec![CardType::Creature];
+        equal.power = Some(2);
+        equal.toughness = Some(2);
+        equal.mana_cost = ManaCost::parse("{1}{G}");
+
+        let reduction = game.calculate_cost_reduction(p1, &equal);
+        assert_eq!(reduction, 0, "Creature with equal power/toughness should NOT get reduction");
+    }
+
+    #[test]
+    fn conditional_cost_reduction_noncreature_not_affected() {
+        let (mut game, p1, _p2) = setup_game2();
+
+        let doran_id = ObjectId::new();
+        let mut doran = CardData::new(doran_id, p1, "Doran");
+        doran.card_types = vec![CardType::Creature];
+        doran.power = Some(0);
+        doran.toughness = Some(5);
+        doran.abilities = vec![Ability::static_ability(doran_id,
+            "Creature spells with toughness > power cost {1} less.",
+            vec![StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1)])];
+        let perm = crate::permanent::Permanent::new(doran.clone(), p1);
+        game.state.card_store.insert(doran.clone());
+        game.state.battlefield.add(perm);
+        for ab in &doran.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+
+        let spell_id = ObjectId::new();
+        let mut spell = CardData::new(spell_id, p1, "Sorcery");
+        spell.card_types = vec![CardType::Sorcery];
+        spell.mana_cost = ManaCost::parse("{2}{G}");
+
+        let reduction = game.calculate_cost_reduction(p1, &spell);
+        assert_eq!(reduction, 0, "Non-creature spell should NOT get reduction from creature-only filter");
+    }
+
+    #[test]
+    fn conditional_cost_reduction_applied_in_legal_actions() {
+        let (mut game, p1, _p2) = setup_game();
+
+        game.state.players.get_mut(&p1).unwrap().mana_pool.add(Mana::white(2), None, false);
+
+        let doran_id = ObjectId::new();
+        let mut doran = CardData::new(doran_id, p1, "Doran");
+        doran.card_types = vec![CardType::Creature];
+        doran.power = Some(0);
+        doran.toughness = Some(5);
+        doran.abilities = vec![Ability::static_ability(doran_id,
+            "Creature spells with toughness > power cost {1} less.",
+            vec![StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1)])];
+        let perm = crate::permanent::Permanent::new(doran.clone(), p1);
+        game.state.card_store.insert(doran.clone());
+        game.state.battlefield.add(perm);
+        for ab in &doran.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+
+        let wall_id = ObjectId::new();
+        let mut wall = CardData::new(wall_id, p1, "Wall of Stone");
+        wall.card_types = vec![CardType::Creature];
+        wall.power = Some(0);
+        wall.toughness = Some(4);
+        wall.mana_cost = ManaCost::parse("{2}{W}");
+        game.state.card_store.insert(wall.clone());
+        game.state.players.get_mut(&p1).unwrap().hand.add(wall_id);
+
+        game.state.current_phase = crate::constants::TurnPhase::PrecombatMain;
+        game.state.current_step = crate::constants::PhaseStep::PrecombatMain;
+        game.state.active_player = p1;
+        game.state.priority_player = p1;
+
+        let actions = game.compute_legal_actions(p1);
+        let can_cast = actions.iter().any(|a| matches!(a, PlayerAction::CastSpell { card_id, .. } if *card_id == wall_id));
+        assert!(can_cast, "Should be able to cast 2W wall with 2W mana and 1 conditional reduction");
+    }
+
+    #[test]
+    fn conditional_cost_reduction_no_reduction_in_legal_actions_for_power_creature() {
+        let (mut game, p1, _p2) = setup_game();
+
+        game.state.players.get_mut(&p1).unwrap().mana_pool.add(Mana::red(2), None, false);
+
+        let doran_id = ObjectId::new();
+        let mut doran = CardData::new(doran_id, p1, "Doran");
+        doran.card_types = vec![CardType::Creature];
+        doran.power = Some(0);
+        doran.toughness = Some(5);
+        doran.abilities = vec![Ability::static_ability(doran_id,
+            "Creature spells with toughness > power cost {1} less.",
+            vec![StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1)])];
+        let perm = crate::permanent::Permanent::new(doran.clone(), p1);
+        game.state.card_store.insert(doran.clone());
+        game.state.battlefield.add(perm);
+        for ab in &doran.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+
+        let aggro_id = ObjectId::new();
+        let mut aggro = CardData::new(aggro_id, p1, "Aggro Creature");
+        aggro.card_types = vec![CardType::Creature];
+        aggro.power = Some(3);
+        aggro.toughness = Some(1);
+        aggro.mana_cost = ManaCost::parse("{2}{R}");
+        game.state.card_store.insert(aggro.clone());
+        game.state.players.get_mut(&p1).unwrap().hand.add(aggro_id);
+
+        game.state.current_phase = crate::constants::TurnPhase::PrecombatMain;
+        game.state.current_step = crate::constants::PhaseStep::PrecombatMain;
+        game.state.active_player = p1;
+        game.state.priority_player = p1;
+
+        let actions = game.compute_legal_actions(p1);
+        let can_cast = actions.iter().any(|a| matches!(a, PlayerAction::CastSpell { card_id, .. } if *card_id == aggro_id));
+        assert!(!can_cast, "Should NOT be able to cast 2R creature (power > toughness) with only 2R mana");
+    }
+
+    #[test]
+    fn conditional_cost_reduction_helper_constructor() {
+        match StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1) {
+            StaticEffect::CostReduction { filter, amount, condition } => {
+                assert_eq!(filter, "creature spells");
+                assert_eq!(amount, 1);
+                assert_eq!(condition.as_deref(), Some("toughness_greater_than_power"));
+            }
+            _ => panic!("wrong variant"),
+        }
+    }

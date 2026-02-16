@@ -868,8 +868,17 @@ impl Game {
                     continue;
                 }
                 for effect in &ability.static_effects {
-                    if let crate::abilities::StaticEffect::CostReduction { filter, amount } = effect {
+                    if let crate::abilities::StaticEffect::CostReduction { filter, amount, condition } = effect {
                         if self.spell_matches_cost_filter(card, filter) {
+                            if let Some(cond) = condition {
+                                if cond == "toughness_greater_than_power" {
+                                    let t = card.toughness.unwrap_or(0);
+                                    let p = card.power.unwrap_or(0);
+                                    if t <= p {
+                                        continue;
+                                    }
+                                }
+                            }
                             total_reduction += amount;
                         }
                     }

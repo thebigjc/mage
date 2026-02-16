@@ -2506,7 +2506,7 @@ fn doran_besieged_by_time(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Each creature spell you cast with toughness greater than its power costs {1} less to cast.",
-                vec![StaticEffect::Custom("Cost reduction for toughness > power creatures.".into())]),
+                vec![StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1)]),
             Ability::controlled_creature_attacks_or_blocks_triggered(id,
                 "Whenever a creature you control attacks or blocks, it gets +X/+X until end of turn, where X is the difference between its toughness and power.",
                 vec![Effect::boost_by_toughness_minus_power()],
@@ -2737,7 +2737,7 @@ fn gathering_stone(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::static_ability(id,
                 "Spells you cast of the chosen type cost {1} less to cast.",
-                vec![StaticEffect::CostReduction { filter: "spells of chosen type".into(), amount: 1 }]),
+                vec![StaticEffect::CostReduction { filter: "spells of chosen type".into(), amount: 1, condition: None }]),
             Ability::triggered(id,
                 "When this artifact enters and at the beginning of your upkeep, look at the top card of your library. If it's a card of the chosen type, you may reveal it and put it into your hand.",
                 vec![EventType::EnteredTheBattlefield, EventType::UpkeepStep],
@@ -3531,7 +3531,7 @@ fn sapling_nursery(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Affinity for Forests.",
-                vec![StaticEffect::CostReduction { filter: "Forest".into(), amount: 1 }]),
+                vec![StaticEffect::CostReduction { filter: "Forest".into(), amount: 1, condition: None }]),
             Ability::triggered(id,
                 "Landfall — Whenever a land you control enters, create a 3/4 green Treefolk creature token with reach.",
                 vec![EventType::EnteredTheBattlefield],
@@ -3979,7 +3979,7 @@ fn wildvine_pummeler(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Vivid -- This spell costs {1} less for each color among permanents you control.",
-                vec![StaticEffect::CostReduction { filter: "self".into(), amount: 1 }]),
+                vec![StaticEffect::CostReduction { filter: "self".into(), amount: 1, condition: None }]),
         ],
         ..Default::default() }
 }
@@ -4673,7 +4673,7 @@ fn swat_away(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "This spell costs {2} less to cast if a creature is attacking you.",
-                vec![StaticEffect::CostReduction { filter: "self if creature attacking you".into(), amount: 2 }]),
+                vec![StaticEffect::CostReduction { filter: "self if creature attacking you".into(), amount: 2, condition: None }]),
             Ability::spell(id,
                 vec![Effect::PutOnLibrary],
                 TargetSpec::PermanentFiltered("spell or creature".into())),

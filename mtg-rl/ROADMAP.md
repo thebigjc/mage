@@ -396,7 +396,7 @@ These are effects where no typed variant exists. Grouped by what engine feature 
 | Damage modification | 4 | Replacement effects |
 | Transform/copy | 3 | Copy layer + transform |
 | Mana/land effects | 3 | Mana ability modification |
-| Cost reduction | 2 | Cost modification system |
+| Cost reduction | 2 | Cost modification system (includes conditional: toughness > power) |
 | Keyword abilities (Kicker, Convoke, Delve) | 4 | Alternative/additional costs |
 | Token doubling | 1 | Replacement effect |
 | Trigger multiplier | 1 | Triggered ability system |

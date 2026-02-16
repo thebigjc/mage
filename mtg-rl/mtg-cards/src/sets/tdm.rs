@@ -2602,7 +2602,7 @@ fn focus_the_mind(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "This spell costs {2} less to cast if you've cast another spell this turn.",
-                vec![StaticEffect::CostReduction { filter: "self".into(), amount: 2 }]),
+                vec![StaticEffect::CostReduction { filter: "self".into(), amount: 2, condition: None }]),
             Ability::spell(id,
                 vec![Effect::draw_cards(3), Effect::discard_cards(1)],
                 TargetSpec::None),
@@ -3160,7 +3160,7 @@ fn rally_the_monastery(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "This spell costs {2} less to cast if you've cast another spell this turn.",
-                    vec![StaticEffect::CostReduction { filter: "self".into(), amount: 2 }]),
+                    vec![StaticEffect::CostReduction { filter: "self".into(), amount: 2, condition: None }]),
             Ability::spell(id,
                     vec![Effect::Custom("Choose one: Create two 1/1 white Monk creature tokens with prowess; or up to two target creatures you control each get +2/+2 until end of turn; or destroy target creature with power 4 or greater.".into())],
                     TargetSpec::Custom("mode-dependent".into())),
@@ -3278,7 +3278,7 @@ fn shiko_paragon_of_the_way(id: ObjectId, owner: PlayerId) -> CardData {
                     TargetSpec::None),
             Ability::static_ability(id,
                     "Noncreature spells you cast cost {1} less to cast.",
-                    vec![StaticEffect::CostReduction { filter: "noncreature spell you cast".into(), amount: 1 }]),
+                    vec![StaticEffect::CostReduction { filter: "noncreature spell you cast".into(), amount: 1, condition: None }]),
         ],
         ..Default::default() }
 }
@@ -3384,7 +3384,7 @@ fn static_snare(id: ObjectId, owner: PlayerId) -> CardData {
                     TargetSpec::PermanentFiltered("artifact or creature an opponent controls".into())),
             Ability::static_ability(id,
                     "This spell costs {1} less to cast for each attacking creature.",
-                    vec![StaticEffect::CostReduction { filter: "self".into(), amount: 1 }]),
+                    vec![StaticEffect::CostReduction { filter: "self".into(), amount: 1, condition: None }]),
         ],
         ..Default::default() }
 }
@@ -4191,7 +4191,7 @@ fn the_sibsig_ceremony(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Creature spells you cast cost {2} less to cast.",
-                vec![StaticEffect::CostReduction { filter: "creature spell you cast".into(), amount: 2 }]),
+                vec![StaticEffect::CostReduction { filter: "creature spell you cast".into(), amount: 2, condition: None }]),
         ],
         ..Default::default() }
 }
