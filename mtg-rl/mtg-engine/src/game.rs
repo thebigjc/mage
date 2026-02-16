@@ -6011,6 +6011,65 @@ impl Game {
                         });
                     }
                 }
+                Effect::Winnowing => {
+                    let all_players: Vec<PlayerId> = self.state.turn_order.iter().copied().collect();
+                    let mut chosen_per_player: Vec<(PlayerId, ObjectId)> = Vec::new();
+                    for &pid in &all_players {
+                        let creatures: Vec<ObjectId> = self.state.battlefield.iter()
+                            .filter(|p| p.controller == pid && p.is_creature())
+                            .map(|p| p.id())
+                            .collect();
+                        if creatures.is_empty() {
+                            continue;
+                        }
+                        let view = crate::decision::GameView::placeholder();
+                        let chosen_id = if let Some(dm) = self.decision_makers.get_mut(&controller) {
+                            let targets = dm.choose_targets(&view, crate::constants::Outcome::Benefit,
+                                &crate::decision::TargetRequirement {
+                                    description: format!("Choose a creature controlled by player"),
+                                    legal_targets: creatures.clone(),
+                                    min_targets: 1, max_targets: 1,
+                                    required: true,
+                                });
+                            targets.into_iter().next().unwrap_or(creatures[0])
+                        } else {
+                            creatures[0]
+                        };
+                        chosen_per_player.push((pid, chosen_id));
+                    }
+                    let mut to_sacrifice: Vec<(ObjectId, PlayerId, bool, u32)> = Vec::new();
+                    for &(pid, chosen_id) in &chosen_per_player {
+                        let chosen_subtypes: Vec<crate::constants::SubType> = self.state.battlefield.get(chosen_id)
+                            .map(|p| p.card.subtypes.clone())
+                            .unwrap_or_default();
+                        let chosen_is_changeling = self.state.battlefield.get(chosen_id)
+                            .map(|p| p.is_creature() && p.has_keyword(crate::constants::KeywordAbilities::CHANGELING))
+                            .unwrap_or(false);
+                        for perm in self.state.battlefield.iter() {
+                            if perm.controller != pid || !perm.is_creature() || perm.id() == chosen_id {
+                                continue;
+                            }
+                            let perm_is_changeling = perm.is_creature()
+                                && perm.has_keyword(crate::constants::KeywordAbilities::CHANGELING);
+                            if chosen_is_changeling || perm_is_changeling {
+                                continue;
+                            }
+                            let shares = chosen_subtypes.iter().any(|st| perm.has_subtype(st));
+                            if !shares {
+                                to_sacrifice.push((perm.id(), perm.owner(), perm.is_creature(), perm.counters.total_count()));
+                            }
+                        }
+                    }
+                    for (id, owner, was_creature, ctr_count) in &to_sacrifice {
+                        if let Some(perm) = self.state.battlefield.remove(*id) {
+                            self.move_card_to_graveyard_inner(*id, *owner);
+                            if *was_creature {
+                                self.emit_event(GameEvent::dies(*id, perm.controller, *ctr_count));
+                            }
+                            self.state.ability_store.remove_source(*id);
+                        }
+                    }
+                }
                 _ => {
                     // Remaining effects not yet implemented (protection, etc.)
                 }

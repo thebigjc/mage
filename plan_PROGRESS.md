@@ -9,7 +9,7 @@ IN_PROGRESS
 ## Analysis
 
 ### Current State
-- **Engine tests**: 543 (mtg-engine), all passing
+- **Engine tests**: 546 (mtg-engine), all passing
 - **ECL Custom fallbacks**: 28 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 35 total (now 8 Effect::Custom + 7 StaticEffect::Custom remaining)
 - **Other sets**: FDN 336, TLA 199, TDM 110 (these are out of scope per the plan)
 
@@ -91,7 +91,7 @@ Group the 44 fallbacks by what engine feature they need. Implement the engine fe
 
 - [x] Task 19: Add `FigureOfFableTransform` / `LevelUp` effect — Added `Effect::SetSubtypesSelf { subtypes }` to replace source's subtypes. Added `"source is a {Type}"` condition to `evaluate_condition_with_targets`. Fixed `SetPowerToughness` and `GainKeyword` to fall back to source when targets empty. Updated **figure_of_fable**: replaced 2 Effect::Custom with `Effect::conditional("source is a Scout/Soldier", ...)` + `Effect::set_subtypes_self()` + `Effect::set_pt()` + `Effect::GainKeyword`. Also fixed first ability to set subtypes. 3 new tests (543 engine total). 2 Effect::Custom eliminated.
 
-- [ ] Task 20: Add `WinnowingEffect` — For each player, choose one creature, sacrifice all others that don't share a creature type. Update: **winnowing**. Java uses `SharesCreatureTypePredicate`. Add engine test. ~1 card fixed.
+- [x] Task 20: Add `WinnowingEffect` — Added `Effect::Winnowing` variant. For each player, the spell's controller chooses a creature that player controls; then each player sacrifices all other creatures they control that don't share a creature type with the chosen creature. Handles Changeling (shares all types). Updated **winnowing**: replaced Effect::Custom with Effect::winnowing(). 3 new tests (546 engine total). 1 Effect::Custom eliminated.
 
 - [ ] Task 21: Add `GlenElendrasAnswer` — Counter all spells and abilities opponents control on the stack, create tokens. Update: **glen_elendras_answer**. Java uses mass countering. Add engine test. ~1 card fixed.
 
@@ -154,7 +154,7 @@ Task 31 depends on all others
 18. Task 31 (verification)
 
 ## Completed This Iteration
-- Task 19: Added `Effect::SetSubtypesSelf` variant to replace source permanent's subtypes (for level-up / figure cards). Added "source is a {Type}" condition to evaluate_condition_with_targets. Fixed SetPowerToughness and GainKeyword to fall back to source permanent when targets are empty. Updated figure_of_fable: replaced 2 Effect::Custom with conditional + set_subtypes_self + set_pt + GainKeyword. 3 new tests (543 engine total). 2 Effect::Custom eliminated.
+- Task 20: Added `Effect::Winnowing` variant for the winnowing card. For each player, controller chooses a creature that player controls, then each player sacrifices all other creatures they control that don't share a creature type with the chosen creature. Properly handles Changeling keyword (shares all creature types). Updated winnowing card from Effect::Custom to Effect::winnowing(). 3 new tests (546 engine total). 1 Effect::Custom eliminated.
 
 ## Notes
 

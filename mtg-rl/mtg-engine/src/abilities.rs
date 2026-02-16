@@ -526,6 +526,11 @@ pub enum Effect {
         duration: String,
     },
 
+    /// For each player, the spell's controller chooses a creature that player controls.
+    /// Then each player sacrifices all other creatures they control that don't share
+    /// a creature type with the chosen creature they control.
+    Winnowing,
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1642,6 +1647,10 @@ impl Effect {
 
     pub fn opponents_exile_until_mv_and_cast(mv_threshold: u32) -> Self {
         Effect::OpponentsExileUntilMVAndCast { mv_threshold }
+    }
+
+    pub fn winnowing() -> Self {
+        Effect::Winnowing
     }
 }
 

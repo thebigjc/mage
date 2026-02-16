@@ -3993,7 +3993,6 @@ fn wildvine_pummeler(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [TYPE+COND] Convoke, for each player choose creature, sac others not sharing type
 fn winnowing(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Winnowing".into(),
         mana_cost: ManaCost::parse("{4}{W}{W}"),
@@ -4002,7 +4001,7 @@ fn winnowing(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Rare,
         abilities: vec![
             Ability::spell(id,
-                    vec![Effect::Custom("For each player, choose a creature they control. Each player sacrifices each creature they control that doesn't share a creature type with their chosen creature.".into())],
+                    vec![Effect::winnowing()],
                     TargetSpec::None),
         ],
         ..Default::default() }

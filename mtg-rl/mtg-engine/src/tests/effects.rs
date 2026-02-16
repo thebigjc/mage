@@ -2072,3 +2072,121 @@ fn conditional_source_is_a_type_level_up() {
     assert!(perm.has_subtype(&SubType::Avatar));
     assert!(perm.keywords().contains(KeywordAbilities::PROTECTION));
 }
+
+#[test]
+fn winnowing_sacrifices_non_sharing_creatures() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let mut game = Game::new_two_player(config, vec![
+        (p1, Box::new(AlwaysPassPlayer)),
+        (p2, Box::new(AlwaysPassPlayer)),
+    ]);
+
+    let mut elf1 = make_creature("Llanowar Elves", p1, 1, 1);
+    elf1.subtypes = vec![SubType::Elf, SubType::Druid];
+    let elf1_id = elf1.id;
+    game.state.card_store.insert(elf1.clone());
+    game.state.battlefield.add(Permanent::new(elf1, p1));
+
+    let mut elf2 = make_creature("Elvish Mystic", p1, 1, 1);
+    elf2.subtypes = vec![SubType::Elf];
+    let elf2_id = elf2.id;
+    game.state.card_store.insert(elf2.clone());
+    game.state.battlefield.add(Permanent::new(elf2, p1));
+
+    let mut goblin = make_creature("Goblin Piker", p1, 2, 1);
+    goblin.subtypes = vec![SubType::Goblin, SubType::Warrior];
+    let goblin_id = goblin.id;
+    game.state.card_store.insert(goblin.clone());
+    game.state.battlefield.add(Permanent::new(goblin, p1));
+
+    let mut human = make_creature("Grizzly Bears", p2, 2, 2);
+    human.subtypes = vec![SubType::Human];
+    let human_id = human.id;
+    game.state.card_store.insert(human.clone());
+    game.state.battlefield.add(Permanent::new(human, p2));
+
+    let mut merfolk = make_creature("Merfolk Looter", p2, 1, 2);
+    merfolk.subtypes = vec![SubType::Merfolk];
+    let merfolk_id = merfolk.id;
+    game.state.card_store.insert(merfolk.clone());
+    game.state.battlefield.add(Permanent::new(merfolk, p2));
+
+    game.execute_effects(&[Effect::winnowing()], p1, &[], None, None);
+
+    assert!(game.state.battlefield.get(elf1_id).is_some(), "Chosen elf should survive");
+    assert!(game.state.battlefield.get(elf2_id).is_some(), "Elf sharing type should survive");
+    assert!(game.state.battlefield.get(goblin_id).is_none(), "Goblin should be sacrificed");
+    assert!(game.state.battlefield.get(human_id).is_some(), "Chosen human should survive");
+    assert!(game.state.battlefield.get(merfolk_id).is_none(), "Merfolk should be sacrificed");
+}
+
+#[test]
+fn winnowing_changeling_survives() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let mut game = Game::new_two_player(config, vec![
+        (p1, Box::new(AlwaysPassPlayer)),
+        (p2, Box::new(AlwaysPassPlayer)),
+    ]);
+
+    let mut elf = make_creature("Llanowar Elves", p1, 1, 1);
+    elf.subtypes = vec![SubType::Elf];
+    let elf_id = elf.id;
+    game.state.card_store.insert(elf.clone());
+    game.state.battlefield.add(Permanent::new(elf, p1));
+
+    let mut changeling = make_creature("Changeling Outcast", p1, 1, 1);
+    changeling.subtypes = vec![SubType::Shapeshifter];
+    changeling.keywords = KeywordAbilities::CHANGELING;
+    let changeling_id = changeling.id;
+    game.state.card_store.insert(changeling.clone());
+    game.state.battlefield.add(Permanent::new(changeling, p1));
+
+    let mut goblin = make_creature("Goblin Piker", p1, 2, 1);
+    goblin.subtypes = vec![SubType::Goblin];
+    let goblin_id = goblin.id;
+    game.state.card_store.insert(goblin.clone());
+    game.state.battlefield.add(Permanent::new(goblin, p1));
+
+    game.execute_effects(&[Effect::winnowing()], p1, &[], None, None);
+
+    assert!(game.state.battlefield.get(elf_id).is_some(), "Chosen elf should survive");
+    assert!(game.state.battlefield.get(changeling_id).is_some(), "Changeling shares all types, should survive");
+    assert!(game.state.battlefield.get(goblin_id).is_none(), "Goblin does not share Elf type, should be sacrificed");
+}
+
+#[test]
+fn winnowing_no_creatures_is_noop() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let mut game = Game::new_two_player(config, vec![
+        (p1, Box::new(AlwaysPassPlayer)),
+        (p2, Box::new(AlwaysPassPlayer)),
+    ]);
+
+    let initial_bf = game.state.battlefield.iter().count();
+    game.execute_effects(&[Effect::winnowing()], p1, &[], None, None);
+    assert_eq!(game.state.battlefield.iter().count(), initial_bf);
+}
