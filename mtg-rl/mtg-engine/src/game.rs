@@ -1000,7 +1000,7 @@ impl Game {
                 .filter(|p| p.controller == controller && p.has_subtype(&subtype))
                 .map(|p| p.card.mana_value())
                 .max()
-                .unwrap_or(0) as u32;
+                .unwrap_or(0);
         }
 
         // "greatest power among {Type}s you control"
@@ -5194,7 +5194,7 @@ impl Game {
                     }
                 }
                 Effect::SearchLibraryVivid => {
-                    let x = self.count_colors_among_permanents(controller) as usize;
+                    let x = self.count_colors_among_permanents(controller);
                     let found = if x > 0 {
                         if let Some(player) = self.state.players.get(&controller) {
                             let lib_cards: Vec<ObjectId> = player.library.iter().copied().collect();
@@ -5223,7 +5223,7 @@ impl Game {
                     }
                 }
                 Effect::RevealFromLibraryVivid => {
-                    let x = self.count_colors_among_permanents(controller) as usize;
+                    let x = self.count_colors_among_permanents(controller);
                     if x > 0 {
                         let (permanents, rest) = if let Some(player) = self.state.players.get(&controller) {
                             let lib_cards: Vec<ObjectId> = player.library.iter().copied().collect();
@@ -6213,7 +6213,7 @@ impl Game {
                     }
                 }
                 Effect::CreateTokenDynamic { token_name, count_filter } => {
-                    let count = self.evaluate_count_filter(count_filter, controller) as u32;
+                    let count = self.evaluate_count_filter(count_filter, controller);
                     if !self.try_replace_token_creation(controller, count) {
                         self.mark_tokens_created(controller);
                         for _ in 0..count {
