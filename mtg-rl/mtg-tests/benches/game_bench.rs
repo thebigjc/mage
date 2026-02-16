@@ -14,7 +14,7 @@ use mtg_engine::constants::{CardType, KeywordAbilities};
 use mtg_engine::decision::PlayerAgent;
 use mtg_engine::game::{Game, GameConfig, PlayerConfig};
 use mtg_engine::permanent::Permanent;
-use mtg_engine::types::{ObjectId, PlayerId};
+use mtg_engine::types::{Life, ObjectId, PlayerId, Power, Toughness};
 
 use mtg_ai::gym::{GymConfig, MtgGymEnv};
 use mtg_ai::random_player::RandomPlayer;
@@ -33,8 +33,8 @@ fn make_basic_land(name: &str, owner: PlayerId) -> CardData {
 fn make_creature(name: &str, owner: PlayerId, power: i32, toughness: i32) -> CardData {
     let mut card = CardData::new(ObjectId::new(), owner, name);
     card.card_types = vec![CardType::Creature];
-    card.power = Some(power);
-    card.toughness = Some(toughness);
+    card.power = Some(Power::new(power));
+    card.toughness = Some(Toughness::new(toughness));
     card.keywords = KeywordAbilities::empty();
     card
 }
@@ -58,7 +58,7 @@ fn make_game() -> Game {
             PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
             PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
         ],
-        starting_life: 20,
+        starting_life: Life::new(20),
     };
     Game::new_two_player(
         config,
@@ -77,7 +77,7 @@ fn make_populated_state() -> Game {
             PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
             PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
         ],
-        starting_life: 20,
+        starting_life: Life::new(20),
     };
     let mut game = Game::new_two_player(
         config,
@@ -190,7 +190,7 @@ fn bench_parallel_games(c: &mut Criterion) {
                             PlayerConfig { name: "A".to_string(), deck: make_deck(p1) },
                             PlayerConfig { name: "B".to_string(), deck: make_deck(p2) },
                         ],
-                        starting_life: 20,
+                        starting_life: Life::new(20),
                     };
                     let mut game = Game::new_two_player(
                         config,
@@ -219,7 +219,7 @@ fn bench_parallel_games(c: &mut Criterion) {
                             PlayerConfig { name: "A".to_string(), deck: make_deck(p1) },
                             PlayerConfig { name: "B".to_string(), deck: make_deck(p2) },
                         ],
-                        starting_life: 20,
+                        starting_life: Life::new(20),
                     };
                     let mut game = Game::new_two_player(
                         config,

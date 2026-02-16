@@ -492,11 +492,8 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         game.execute_effects(&effects, p1, &[], Some(src_id), None);
 
         let perm = game.state.battlefield.get(src_id).unwrap();
-        assert!(perm.chosen_type.is_some());
-        match &perm.chosen_type {
-            Some(SubType::Custom(s)) => assert_eq!(s.as_str(), "Elemental"),
-            other => panic!("Expected SubType::Custom(\"Elemental\"), got {other:?}"),
-        }
+        assert_eq!(perm.chosen_type, Some(SubType::Elemental));
+
     }
 
     #[test]
@@ -514,10 +511,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         game.execute_effects(&effects, p1, &[], Some(src_id), None);
 
         let perm = game.state.battlefield.get(src_id).unwrap();
-        match &perm.chosen_type {
-            Some(SubType::Custom(s)) => assert_eq!(s.as_str(), "Elf"),
-            other => panic!("Expected SubType::Custom(\"Elf\"), got {other:?}"),
-        }
+        assert_eq!(perm.chosen_type, Some(SubType::Elf));
     }
 
     #[test]
@@ -530,7 +524,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
             let cid = ObjectId::new();
             let mut card = CardData::new(cid, p1, &format!("Goblin #{i}"));
             card.card_types = vec![CardType::Creature];
-            card.subtypes = vec![SubType::Custom("Goblin".into())];
+            card.subtypes = vec![SubType::Goblin];
             game.state.battlefield.add(Permanent::new(card, p1));
         }
         {
@@ -3825,8 +3819,8 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         }
 
         // Debug: check library state
-        let lib_len = game.state.players.get(&p1).unwrap().library.len();
-        let life = game.state.players.get(&p1).unwrap().life.get();
+        let _lib_len = game.state.players.get(&p1).unwrap().library.len();
+        let _life = game.state.players.get(&p1).unwrap().life.get();
 
         // Execute the effect: look at top 5 (life=5), pick nonland permanents MV<=3
         game.execute_effects(
@@ -3835,9 +3829,9 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         );
 
         // Debug: check what ended up on battlefield
-        let bf_count = game.state.battlefield.iter().count();
-        let bf_names: Vec<_> = game.state.battlefield.iter().map(|p| p.card.name.clone()).collect();
-        let lib_len_after = game.state.players.get(&p1).unwrap().library.len();
+        let _bf_count = game.state.battlefield.iter().count();
+        let _bf_names: Vec<_> = game.state.battlefield.iter().map(|p| p.card.name.clone()).collect();
+        let _lib_len_after = game.state.players.get(&p1).unwrap().library.len();
 
         // Eligible cards (Bear Cub MV2, Mox Opal MV0, Llanowar Elves MV1) should be on battlefield
         assert!(game.state.battlefield.get(eligible1).is_some(), "Bear Cub should be on battlefield");

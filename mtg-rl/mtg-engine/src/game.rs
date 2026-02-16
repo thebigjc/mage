@@ -5377,7 +5377,7 @@ impl Game {
                         0
                     };
                     if let Some(chosen) = options.get(choice_idx) {
-                        let subtype = crate::constants::SubType::Custom(chosen.description.clone());
+                        let subtype = crate::constants::SubType::by_description(&chosen.description);
                         if let Some(source_id) = source {
                             if let Some(perm) = self.state.battlefield.get_mut(source_id) {
                                 perm.chosen_type = Some(subtype);
@@ -5427,12 +5427,7 @@ impl Game {
                         let type_name = &chosen.description;
                         let count = self.state.battlefield.controlled_by(controller)
                             .filter(|p| {
-                                p.card.subtypes.iter().any(|st| {
-                                    match st {
-                                        crate::constants::SubType::Custom(s) => s == type_name,
-                                        other => format!("{other:?}") == *type_name,
-                                    }
-                                })
+                                p.card.subtypes.iter().any(|st| st.description() == type_name)
                             })
                             .count();
                         if count > 0 {

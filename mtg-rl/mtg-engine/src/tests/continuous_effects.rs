@@ -203,7 +203,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
         // Add anthem: "creature you control get +1/+1"
         let anthem_id = add_lord_with_boost(&mut game, p1, "Glorious Anthem", 0, 0,
-            SubType::Custom("Enchantment".into()), "creature you control", 1, 1);
+            SubType::Spirit, "creature you control", 1, 1);
 
         // P1's creature
         let bear1_id = add_creature(&mut game, p1, "Bear", 2, 2, KeywordAbilities::empty());
@@ -372,7 +372,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
         // "Creature token you control get +1/+1"
         add_lord_with_boost(&mut game, p1, "Token Lord", 2, 2,
-            SubType::Custom("Lord".into()), "creature token you control", 1, 1);
+            SubType::Human, "creature token you control", 1, 1);
 
         // Regular creature
         let regular_id = add_creature(&mut game, p1, "Regular Bear", 2, 2, KeywordAbilities::empty());
@@ -1896,7 +1896,7 @@ mod trigger_doubling_tests {
         let id = ObjectId::new();
         let mut card = CardData::new(id, owner, "Twinflame Travelers");
         card.card_types = vec![CardType::Creature];
-        card.subtypes = vec![SubType::Elemental, SubType::Custom("Sorcerer".into())];
+        card.subtypes = vec![SubType::Elemental, SubType::Sorcerer];
         card.power = Some(Power::new(3));
         card.toughness = Some(Toughness::new(3));
         let ability = Ability::static_ability(
@@ -1939,7 +1939,7 @@ mod trigger_doubling_tests {
         let id = ObjectId::new();
         let mut card = CardData::new(id, owner_placeholder(p1), "Goblin Raider");
         card.card_types = vec![CardType::Creature];
-        card.subtypes = vec![SubType::Custom("Goblin".into())];
+        card.subtypes = vec![SubType::Goblin];
         card.power = Some(Power::new(2));
         card.toughness = Some(Toughness::new(2));
         let ability = Ability::enters_battlefield_triggered(

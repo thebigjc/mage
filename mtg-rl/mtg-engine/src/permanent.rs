@@ -541,7 +541,7 @@ mod tests {
         assert!(perm.has_subtype(&SubType::Spirit));
         assert!(perm.has_subtype(&SubType::Dragon));
         // Even custom types
-        assert!(perm.has_subtype(&SubType::Custom("Weird".into())));
+        assert!(perm.has_subtype(&SubType::Weird));
     }
 
     #[test]

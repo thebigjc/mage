@@ -109,7 +109,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 
 ### Phase 3: Code Quality
 
-- [ ] Task 3.1: Replace `SubType::Custom(String)` with concrete enum variants for all 15 usages
+- [x] Task 3.1: Replace `SubType::Custom(String)` with concrete enum variants for all 15 usages
 - [ ] Task 3.2: Add `#[must_use]` annotations to functions returning important values
 - [ ] Task 3.3: Use `const` for compile-time card data where possible (mana costs, static strings)
 - [ ] Task 3.4: Convert string-based card name lookups in registry to use `&'static str` or interned strings
@@ -205,6 +205,23 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - All 576 engine tests passing, zero clippy warnings
 
 ## Completed This Iteration
+- Task 3.1: Replaced SubType::Custom(String) with concrete enum variants
+  - Reduced SubType::Custom from 15 usages to 2 (only the structural fallback in `by_description()` and `description()`)
+  - **game.rs**: `ChooseCreatureType` now uses `SubType::by_description()` instead of `SubType::Custom()` — chosen types resolve to proper enum variants
+  - **game.rs**: `ChooseTypeAndDraw` filter now uses `st.description() == type_name` instead of fragile `Custom(s) => s ==` / `format!("{:?}")` matching
+  - **Test files**: Replaced 11 SubType::Custom usages with proper variants:
+    - `SubType::Custom("Weird")` → `SubType::Weird` (permanent.rs)
+    - `SubType::Custom("Dragon")` → `SubType::Dragon` (tokens.rs)
+    - `SubType::Custom("Elemental")` → `SubType::Elemental` (special_mechanics.rs)
+    - `SubType::Custom("Elf")` → `SubType::Elf` (special_mechanics.rs)
+    - `SubType::Custom("Goblin")` → `SubType::Goblin` (special_mechanics.rs ×1, continuous_effects.rs ×1)
+    - `SubType::Custom("Sorcerer")` → `SubType::Sorcerer` (continuous_effects.rs)
+    - `SubType::Custom("Enchantment")` → `SubType::Spirit` (continuous_effects.rs, test-only label)
+    - `SubType::Custom("Lord")` → `SubType::Human` (continuous_effects.rs, test-only label)
+  - Fixed pre-existing issues: game_bench.rs Power/Toughness/Life newtype mismatches, special_mechanics.rs unused variables, tokens.rs clippy warning
+  - 705 tests passing (614 engine + 20 cards + 52 AI + 19 integration), zero clippy warnings
+
+### Previous Iteration
 - Tasks 2.7 + 2.8: Added PlayerAgent wrapper replacing Box<dyn PlayerDecisionMaker>
   - Created `PlayerAgent` struct in `decision.rs` wrapping `Box<dyn PlayerDecisionMaker>`
   - `PlayerAgent::new(impl PlayerDecisionMaker)` provides clean construction

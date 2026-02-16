@@ -8,7 +8,6 @@ use crate::permanent::Permanent;
 use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
 #[cfg(test)]
-
     struct PassPlayer;
     impl crate::decision::PlayerDecisionMaker for PassPlayer {
         fn priority(&mut self, _: &crate::decision::GameView, actions: &[crate::decision::PlayerAction]) -> crate::decision::PlayerAction { actions[0].clone() }
@@ -81,7 +80,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
         let src_card = CardData {
             id: src_id, owner: p1, name: "Big Dragon".into(),
             card_types: vec![crate::constants::CardType::Creature],
-            subtypes: vec![crate::constants::SubType::Custom("Dragon".into())],
+            subtypes: vec![crate::constants::SubType::Dragon],
             power: Some(Power::new(5)), toughness: Some(Toughness::new(5)),
             keywords: crate::constants::KeywordAbilities::FLYING,
             ..Default::default()
