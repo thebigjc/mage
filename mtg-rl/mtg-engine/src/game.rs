@@ -680,10 +680,13 @@ impl Game {
                     let mut count = 0i32;
                     for &card_id in player.graveyard.iter() {
                         if let Some(card) = self.state.card_store.get(card_id) {
-                            // If "creature card in your graveyard", check creature type
-                            if filter_lower.contains("creature") && card.is_creature() {
-                                count += 1;
-                            } else if filter_lower.contains("card") {
+                            // If filter mentions "creature", only count creatures;
+                            // otherwise count all cards in graveyard
+                            if filter_lower.contains("creature") {
+                                if card.is_creature() {
+                                    count += 1;
+                                }
+                            } else {
                                 count += 1;
                             }
                         }
