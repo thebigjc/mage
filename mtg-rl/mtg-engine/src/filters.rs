@@ -175,7 +175,12 @@ impl Predicate {
         }
     }
 
-    pub fn not(self) -> Predicate {
+}
+
+impl std::ops::Not for Predicate {
+    type Output = Predicate;
+
+    fn not(self) -> Predicate {
         Predicate::Not(Box::new(self))
     }
 }
@@ -481,7 +486,7 @@ mod tests {
         let bear = make_creature("Bear", 2, 2, KeywordAbilities::empty());
         let you = bear.controller;
 
-        let pred = Predicate::creature().not();
+        let pred = !Predicate::creature();
         assert!(!predicate_matches_permanent(&pred, &bear, you));
 
         let land = make_land("Forest", you);
