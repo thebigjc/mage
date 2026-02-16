@@ -15,7 +15,7 @@ use crate::player::Player;
 use crate::types::{AbilityId, ObjectId, PlayerId};
 use crate::zones::{Battlefield, CardStore, Exile, Stack};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// The complete game state at any point in time.
 ///
@@ -145,6 +145,8 @@ pub struct GameState {
     pub pending_dream_exile: Vec<ObjectId>,
 
     pub dream_countered_cards: Vec<ObjectId>,
+
+    pub cast_from_exile_once_used: HashSet<ObjectId>,
 }
 
 /// Duration for impulse draw effects (how long the exiled card remains playable).
@@ -274,6 +276,7 @@ impl GameState {
             ability_resolution_counts_this_turn: HashMap::new(),
             pending_dream_exile: Vec::new(),
             dream_countered_cards: Vec::new(),
+            cast_from_exile_once_used: HashSet::new(),
         }
     }
 

@@ -3157,7 +3157,6 @@ fn lofty_dreams(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [EXILE_CAST+COND] ETB this/Elf/Faerie exile opponent top 2, cast from exile with MV restriction, once per turn
 fn maralen_fae_ascendant(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Maralen, Fae Ascendant".into(),
         mana_cost: ManaCost::parse("{2}{B}{G}{U}"),
@@ -3170,11 +3169,11 @@ fn maralen_fae_ascendant(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::other_creature_etb_triggered(id,
                     "Whenever Maralen or another Elf or Faerie you control enters, exile the top two cards of target opponent's library.",
-                    vec![Effect::exile_from_opponent_library(2)],
+                    vec![Effect::exile_from_opponent_library_to_source_zone(2)],
                     TargetSpec::None),
             Ability::static_ability(id,
                     "Once each turn, you may cast a spell with mana value less than or equal to the number of Elves and Faeries you control from among cards exiled with Maralen without paying its mana cost.",
-                    vec![StaticEffect::Custom("Once per turn, cast exiled spell with MV <= Elves+Faeries you control for free.".into())]),
+                    vec![StaticEffect::cast_exiled_once_per_turn("Elves and Faeries you control")]),
         ],
         ..Default::default() }
 }

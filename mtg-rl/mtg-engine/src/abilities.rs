@@ -126,6 +126,8 @@ pub enum Effect {
     BounceAll { filter: String },
     /// Exile the top N cards of target opponent's library.
     ExileFromOpponentLibrary { count: u32 },
+    /// Exile the top N cards of target opponent's library into the source permanent's exile zone.
+    ExileFromOpponentLibraryToSourceZone { count: u32 },
     /// Put target permanent on top of its owner's library.
     PutOnLibrary,
     /// Return target card from graveyard to hand.
@@ -1466,6 +1468,10 @@ impl Effect {
         Effect::ExileFromOpponentLibrary { count }
     }
 
+    pub fn exile_from_opponent_library_to_source_zone(count: u32) -> Self {
+        Effect::ExileFromOpponentLibraryToSourceZone { count }
+    }
+
     /// Create a token copy of target creature.
     pub fn create_token_copy(count: u32) -> Self {
         Effect::CreateTokenCopy { count, modifications: vec![] }
@@ -1876,6 +1882,12 @@ impl StaticEffect {
             toughness_per,
         }
     }
+
+    pub fn cast_exiled_once_per_turn(mv_count_filter: &str) -> Self {
+        StaticEffect::CastExiledOncePerTurn {
+            mv_count_filter: mv_count_filter.to_string(),
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -2145,6 +2157,11 @@ pub enum StaticEffect {
         event: String,
         power_per: i32,
         toughness_per: i32,
+    },
+    /// Once each turn, you may cast a spell from this source's exile zone without paying
+    /// its mana cost if its mana value is <= the count of permanents matching the filter.
+    CastExiledOncePerTurn {
+        mv_count_filter: String,
     },
     /// Custom continuous effect.
 

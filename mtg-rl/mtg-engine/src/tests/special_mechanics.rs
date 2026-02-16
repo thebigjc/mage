@@ -2817,3 +2817,137 @@ use crate::types::{ObjectId, PlayerId};
         assert_eq!(total_counters, 2,
             "Should have removed 3 counters from the 5 available (5 - 3 = 2)");
     }
+
+    #[test]
+    fn cast_exiled_once_per_turn_appears_in_legal_actions() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let source_id = ObjectId::new();
+        let mut source_card = CardData::new(source_id, p1, "Maralen Test");
+        source_card.card_types = vec![CardType::Creature];
+        source_card.subtypes = vec![SubType::Elf, SubType::Faerie];
+        source_card.power = Some(4);
+        source_card.toughness = Some(5);
+        source_card.abilities = vec![
+            Ability::static_ability(source_id,
+                "Once each turn, cast exiled spell with MV <= Elves and Faeries.",
+                vec![StaticEffect::cast_exiled_once_per_turn("Elves and Faeries you control")]),
+        ];
+        game.state.card_store.insert(source_card.clone());
+        for ab in &source_card.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+        game.state.battlefield.add(Permanent::new(source_card, p1));
+
+        let exiled_id = ObjectId::new();
+        let mut exiled_card = CardData::new(exiled_id, p1, "Shock");
+        exiled_card.card_types = vec![CardType::Instant];
+        exiled_card.mana_cost = ManaCost::parse("{R}");
+        game.state.card_store.insert(exiled_card);
+        game.state.exile.exile_to_zone(exiled_id, source_id, "Exiled with Maralen Test");
+        game.state.set_zone(exiled_id, crate::constants::Zone::Exile, None);
+
+        let actions = game.compute_legal_actions(p1);
+        let cast_actions: Vec<_> = actions.iter()
+            .filter(|a| matches!(a, PlayerAction::CastSpell { card_id, .. } if *card_id == exiled_id))
+            .collect();
+        assert!(!cast_actions.is_empty(),
+            "Should be able to cast exiled spell with MV 1 when controlling 1 Elf/Faerie");
+
+        let too_expensive_id = ObjectId::new();
+        let mut expensive_card = CardData::new(too_expensive_id, p1, "Expensive Spell");
+        expensive_card.card_types = vec![CardType::Sorcery];
+        expensive_card.mana_cost = ManaCost::parse("{4}{B}{B}");
+        game.state.card_store.insert(expensive_card);
+        game.state.exile.exile_to_zone(too_expensive_id, source_id, "Exiled with Maralen Test");
+        game.state.set_zone(too_expensive_id, crate::constants::Zone::Exile, None);
+
+        let actions2 = game.compute_legal_actions(p1);
+        let cast_expensive: Vec<_> = actions2.iter()
+            .filter(|a| matches!(a, PlayerAction::CastSpell { card_id, .. } if *card_id == too_expensive_id))
+            .collect();
+        assert!(cast_expensive.is_empty(),
+            "Should NOT be able to cast MV 6 spell when only 1 Elf/Faerie on battlefield");
+    }
+
+    #[test]
+    fn cast_exiled_once_per_turn_only_once() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let source_id = ObjectId::new();
+        let mut source_card = CardData::new(source_id, p1, "Maralen Test");
+        source_card.card_types = vec![CardType::Creature];
+        source_card.subtypes = vec![SubType::Elf, SubType::Faerie];
+        source_card.power = Some(4);
+        source_card.toughness = Some(5);
+        source_card.abilities = vec![
+            Ability::static_ability(source_id,
+                "Once each turn, cast exiled spell with MV <= Elves and Faeries.",
+                vec![StaticEffect::cast_exiled_once_per_turn("Elves and Faeries you control")]),
+        ];
+        game.state.card_store.insert(source_card.clone());
+        for ab in &source_card.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+        game.state.battlefield.add(Permanent::new(source_card, p1));
+
+        let exiled1_id = ObjectId::new();
+        let mut exiled1 = CardData::new(exiled1_id, p1, "Lightning Bolt");
+        exiled1.card_types = vec![CardType::Instant];
+        exiled1.mana_cost = ManaCost::parse("{R}");
+        game.state.card_store.insert(exiled1);
+        game.state.exile.exile_to_zone(exiled1_id, source_id, "Exiled with Maralen Test");
+        game.state.set_zone(exiled1_id, crate::constants::Zone::Exile, None);
+
+        let exiled2_id = ObjectId::new();
+        let mut exiled2 = CardData::new(exiled2_id, p1, "Shock");
+        exiled2.card_types = vec![CardType::Instant];
+        exiled2.mana_cost = ManaCost::parse("{R}");
+        game.state.card_store.insert(exiled2);
+        game.state.exile.exile_to_zone(exiled2_id, source_id, "Exiled with Maralen Test");
+        game.state.set_zone(exiled2_id, crate::constants::Zone::Exile, None);
+
+        game.cast_spell(p1, exiled1_id);
+
+        assert!(game.state.cast_from_exile_once_used.contains(&source_id),
+            "Source should be marked as used this turn");
+
+        let actions = game.compute_legal_actions(p1);
+        let cast_actions: Vec<_> = actions.iter()
+            .filter(|a| matches!(a, PlayerAction::CastSpell { card_id, .. } if *card_id == exiled2_id))
+            .collect();
+        assert!(cast_actions.is_empty(),
+            "Should NOT be able to cast a second spell from exile this turn");
+    }
+
+    #[test]
+    fn cast_exiled_once_per_turn_resets_on_new_turn() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let source_id = ObjectId::new();
+        let mut source_card = CardData::new(source_id, p1, "Maralen Test");
+        source_card.card_types = vec![CardType::Creature];
+        source_card.subtypes = vec![SubType::Elf, SubType::Faerie];
+        source_card.power = Some(4);
+        source_card.toughness = Some(5);
+        source_card.abilities = vec![
+            Ability::static_ability(source_id,
+                "Once each turn, cast exiled spell with MV <= Elves and Faeries.",
+                vec![StaticEffect::cast_exiled_once_per_turn("Elves and Faeries you control")]),
+        ];
+        game.state.card_store.insert(source_card.clone());
+        for ab in &source_card.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+        game.state.battlefield.add(Permanent::new(source_card, p1));
+
+        game.state.cast_from_exile_once_used.insert(source_id);
+        assert!(game.state.cast_from_exile_once_used.contains(&source_id));
+
+        game.state.trigger_counts_this_turn.clear();
+        game.state.ability_resolution_counts_this_turn.clear();
+        game.state.cast_from_exile_once_used.clear();
+
+        assert!(!game.state.cast_from_exile_once_used.contains(&source_id),
+            "cast_from_exile_once_used should be cleared at turn start");
+    }

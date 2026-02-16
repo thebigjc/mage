@@ -239,6 +239,7 @@ impl Game {
 
                     self.state.trigger_counts_this_turn.clear();
                     self.state.ability_resolution_counts_this_turn.clear();
+                    self.state.cast_from_exile_once_used.clear();
 
                     self.watchers.reset_turn();
                 }
@@ -906,6 +907,21 @@ impl Game {
         }
 
         let lower = filter.to_lowercase();
+
+        // "{Type1}s and {Type2}s you control" — count permanents matching either type (OR, no double-counting)
+        if lower.ends_with("you control") && lower.contains(" and ") {
+            let type_part = lower.trim_end_matches("you control").trim();
+            let types: Vec<String> = type_part.split(" and ")
+                .map(|t| Self::depluralize_type(t.trim()))
+                .collect();
+            let subtypes: Vec<crate::constants::SubType> = types.iter()
+                .map(|t| crate::constants::SubType::by_description(t))
+                .collect();
+            return self.state.battlefield.iter()
+                .filter(|p| p.controller == controller
+                    && subtypes.iter().any(|st| p.has_subtype(st)))
+                .count() as u32;
+        }
 
         // "greatest mana value among {Type}s you control"
         if lower.starts_with("greatest mana value among") && lower.ends_with("you control") {
@@ -2690,6 +2706,44 @@ impl Game {
             }
         }
 
+        // Check for CastExiledOncePerTurn static effects
+        if can_sorcery && self.state.active_player == player_id {
+            let mut once_castable: Vec<(ObjectId, ObjectId, String)> = Vec::new();
+            for perm in self.state.battlefield.iter() {
+                if perm.controller != player_id { continue; }
+                let source_id = perm.id();
+                if self.state.cast_from_exile_once_used.contains(&source_id) { continue; }
+                let abilities = self.state.ability_store.for_source(source_id);
+                for ability in abilities {
+                    if ability.ability_type != crate::constants::AbilityType::Static { continue; }
+                    for effect in &ability.static_effects {
+                        if let crate::abilities::StaticEffect::CastExiledOncePerTurn { mv_count_filter } = effect {
+                            if let Some(zone) = self.state.exile.get_zone(source_id) {
+                                for &card_id in &zone.cards {
+                                    once_castable.push((card_id, source_id, mv_count_filter.clone()));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            for (card_id, _source_id, mv_count_filter) in once_castable {
+                if !self.state.exile.contains(card_id) { continue; }
+                if let Some(card) = self.state.card_store.get(card_id) {
+                    if card.is_land() { continue; }
+                    let max_mv = self.evaluate_count_filter(&mv_count_filter, player_id);
+                    if card.mana_value() <= max_mv {
+                        actions.push(crate::decision::PlayerAction::CastSpell {
+                            card_id,
+                            targets: vec![],
+                            mode: None,
+                            without_mana: true,
+                        });
+                    }
+                }
+            }
+        }
+
         // Check for flashback-castable cards in graveyard
         if let Some(graveyard) = self.state.players.get(&player_id).map(|p| {
             p.graveyard.iter().copied().collect::<Vec<_>>()
@@ -2832,7 +2886,7 @@ impl Game {
         // Check if this is an impulse-play from exile
         let from_exile = self.state.impulse_playable.iter()
             .any(|ip| ip.card_id == card_id && ip.player_id == player_id);
-        let without_mana = from_exile && self.state.impulse_playable.iter()
+        let mut without_mana = from_exile && self.state.impulse_playable.iter()
             .any(|ip| ip.card_id == card_id && ip.without_mana);
 
         // Check if this is a flashback cast from graveyard
@@ -2865,6 +2919,32 @@ impl Game {
             None
         };
 
+        // Check if this is cast from exile via CastExiledOncePerTurn
+        let exile_once_source = if !from_exile && !from_graveyard && exile_counter_cost.is_none()
+            && self.state.exile.contains(card_id) {
+            let mut found_source = None;
+            for perm in self.state.battlefield.iter() {
+                if perm.controller != player_id { continue; }
+                let source_id = perm.id();
+                if self.state.cast_from_exile_once_used.contains(&source_id) { continue; }
+                if let Some(zone) = self.state.exile.get_zone(source_id) {
+                    if !zone.cards.contains(&card_id) { continue; }
+                } else { continue; }
+                let abilities = self.state.ability_store.for_source(source_id);
+                for ability in abilities {
+                    if ability.ability_type != crate::constants::AbilityType::Static { continue; }
+                    for effect in &ability.static_effects {
+                        if let crate::abilities::StaticEffect::CastExiledOncePerTurn { .. } = effect {
+                            found_source = Some(source_id);
+                        }
+                    }
+                }
+            }
+            found_source
+        } else {
+            None
+        };
+
         // Remove from hand, exile, or graveyard
         if from_exile {
             self.state.exile.remove(card_id);
@@ -2875,6 +2955,10 @@ impl Game {
             }
         } else if exile_counter_cost.is_some() {
             self.state.exile.remove(card_id);
+        } else if let Some(src_id) = exile_once_source {
+            self.state.exile.remove(card_id);
+            self.state.cast_from_exile_once_used.insert(src_id);
+            without_mana = true;
         } else if let Some(player) = self.state.players.get_mut(&player_id) {
             if !player.hand.remove(card_id) {
                 return;
@@ -4028,6 +4112,32 @@ impl Game {
                     for (card_id, opp_id) in exiled {
                         self.state.exile.exile(card_id);
                         self.state.set_zone(card_id, crate::constants::Zone::Exile, Some(opp_id));
+                    }
+                }
+                Effect::ExileFromOpponentLibraryToSourceZone { count } => {
+                    let exile_count = resolve_x(*count);
+                    let src_id = source.unwrap_or(ObjectId::new());
+                    let source_name = self.state.battlefield.get(src_id)
+                        .map(|p| p.name().to_string())
+                        .unwrap_or_else(|| "Unknown".to_string());
+                    let opponents: Vec<PlayerId> = self.state.turn_order.iter()
+                        .filter(|&&id| id != controller)
+                        .copied()
+                        .collect();
+                    let mut exiled: Vec<ObjectId> = Vec::new();
+                    for opp_id in opponents {
+                        if let Some(player) = self.state.players.get_mut(&opp_id) {
+                            for _ in 0..exile_count {
+                                if let Some(card_id) = player.library.draw() {
+                                    exiled.push(card_id);
+                                }
+                            }
+                        }
+                    }
+                    let zone_name = format!("Exiled with {}", source_name);
+                    for card_id in exiled {
+                        self.state.exile.exile_to_zone(card_id, src_id, &zone_name);
+                        self.state.set_zone(card_id, crate::constants::Zone::Exile, None);
                     }
                 }
                 Effect::PutOnLibrary => {

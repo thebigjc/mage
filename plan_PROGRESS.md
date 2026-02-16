@@ -9,8 +9,8 @@ IN_PROGRESS
 ## Analysis
 
 ### Current State
-- **Engine tests**: 561 (mtg-engine), all passing
-- **ECL Custom fallbacks**: 28 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 35 total (now 3 Effect::Custom + 5 StaticEffect::Custom remaining)
+- **Engine tests**: 564 (mtg-engine), all passing
+- **ECL Custom fallbacks**: 28 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 35 total (now 3 Effect::Custom + 3 StaticEffect::Custom remaining)
 - **Other sets**: FDN 336, TLA 199, TDM 110 (these are out of scope per the plan)
 
 ### Goal
@@ -105,9 +105,9 @@ Group the 44 fallbacks by what engine feature they need. Implement the engine fe
 
 - [x] Task 25: Add persist/undying keyword mechanics — Implemented persist and undying in `apply_state_based_actions`. Creatures with persist (no -1/-1 counters) return from graveyard to battlefield with a -1/-1 counter. Creatures with undying (no +1/+1 counters) return with a +1/+1 counter. Added `return_from_graveyard_with_counter` helper. Added "nontoken" filter support to `find_matching_permanents`. Updated **eirdu_carrier_of_dawn** (back face): replaced `StaticEffect::Custom` with `StaticEffect::grant_keyword_controlled("other nontoken creatures you control", "persist")`. 3 new tests (561 engine total). 1 StaticEffect::Custom eliminated.
 
-- [ ] Task 26: Add `BoostPerTurnEvent` static effect — Dynamic +X/+X where X = creatures that entered the battlefield this turn. Needs per-turn event counting watcher. Update: **kinbinding**. Java uses `KinbindingWatcher` + `DynamicValue`. Add engine test. ~1 card fixed.
+- [x] Task 26: Add `BoostPerTurnEvent` static effect — Added `StaticEffect::BoostPerTurnEvent { filter, event, power_per, toughness_per }` variant. Wired `WatcherManager` into `emit_event` so per-turn stats (creatures_entered etc.) are tracked during gameplay. Fixed watcher to handle both `EntersTheBattlefield` and `EnteredTheBattlefield` event types. Updated **kinbinding**: replaced `StaticEffect::Custom` with `StaticEffect::boost_per_turn_event("creatures you control", "creatures_entered", 1, 1)`. 3 new tests (564 engine total). 1 StaticEffect::Custom eliminated.
 
-- [ ] Task 27: Add `CastExiledOncePerTurn` static effect — Once per turn, you may cast exiled spells with MV <= count of permanents matching filter, without paying mana cost. Update: **maralen_fae_ascendant**. Java uses `AsThoughEffectImpl` + `OnceEachTurnCastWatcher`. Add engine test. ~1 card fixed.
+- [x] Task 27: Add `CastExiledOncePerTurn` static effect — Added `StaticEffect::CastExiledOncePerTurn { mv_count_filter }` variant. Added `Effect::ExileFromOpponentLibraryToSourceZone` to exile cards into source-specific exile zone. Added `cast_from_exile_once_used: HashSet<ObjectId>` to GameState for once-per-turn tracking. Added "and" multi-type OR counting to `evaluate_count_filter`. Updated **maralen_fae_ascendant**: replaced `StaticEffect::Custom` with `StaticEffect::cast_exiled_once_per_turn("Elves and Faeries you control")`, replaced `Effect::exile_from_opponent_library` with `Effect::exile_from_opponent_library_to_source_zone`. 3 new tests (567 engine total). 1 StaticEffect::Custom eliminated.
 
 - [ ] Task 28: Add `ReplaceTokenCreation` static effect — First time you would create tokens each turn, instead create token copies of equipped creature. Update: **mirrormind_crown**. Java uses `ReplacementEffectImpl`. Add engine test. ~1 card fixed.
 
@@ -154,7 +154,7 @@ Task 31 depends on all others
 18. Task 31 (verification)
 
 ## Completed This Iteration
-- Task 25: Implemented persist and undying keyword mechanics in SBA processing. Added `return_from_graveyard_with_counter` helper method. Added "nontoken" filter support to `find_matching_permanents`. Updated eirdu_carrier_of_dawn back face to use `StaticEffect::grant_keyword_controlled`. 3 new tests (561 engine total). 1 StaticEffect::Custom eliminated.
+- Task 27: Added `StaticEffect::CastExiledOncePerTurn` for once-per-turn free casting from source exile zone with MV restriction. Added `Effect::ExileFromOpponentLibraryToSourceZone` and multi-type OR counting in `evaluate_count_filter`. Updated maralen_fae_ascendant card. 3 new tests (567 engine total). 1 StaticEffect::Custom eliminated.
 
 ## Notes
 
