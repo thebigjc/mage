@@ -531,10 +531,10 @@ impl Game {
                             self.state.mana_doubling_basic_lands += 1;
                         }
                         crate::abilities::StaticEffect::EnhancedManaProduction => {
-                            if let Some(perm) = self.state.battlefield.get(source_id) {
-                                if let (Some(attached_to), Some(color)) = (perm.attached_to, perm.chosen_color) {
-                                    self.state.enhanced_mana_productions.push((source_id, attached_to, color));
-                                }
+                            if let Some((attached_to, color)) = self.state.battlefield.get(source_id)
+                                .and_then(|perm| perm.attached_to.zip(perm.chosen_color))
+                            {
+                                self.state.enhanced_mana_productions.push((source_id, attached_to, color));
                             }
                         }
                         crate::abilities::StaticEffect::TriggerDoubling { filter } => {
@@ -544,22 +544,24 @@ impl Game {
                             boost_per_turn_events.push((source_id, controller, filter.clone(), event.clone(), *power_per, *toughness_per));
                         }
                         crate::abilities::StaticEffect::BecomesCreatureAttached { subtypes, colorless } => {
-                            if let Some(perm) = self.state.battlefield.get(source_id) {
-                                if let Some(attached_to) = perm.attached_to {
-                                    becomes_creature_attached.push((attached_to, subtypes.clone(), *colorless));
-                                }
+                            if let Some(attached_to) = self.state.battlefield.get(source_id)
+                                .and_then(|perm| perm.attached_to)
+                            {
+                                becomes_creature_attached.push((attached_to, subtypes.clone(), *colorless));
                             }
                         }
                         crate::abilities::StaticEffect::HexproofFromOwnColors => {
                             hexproof_from_own_colors.push((source_id, controller));
                         }
                         crate::abilities::StaticEffect::ReplaceTokenCreation => {
-                            if let Some(perm) = self.state.battlefield.get(source_id) {
-                                if let Some(attached_to) = perm.attached_to {
-                                    if self.state.battlefield.get(attached_to).is_some_and(|p| p.card.card_types.contains(&crate::constants::CardType::Creature)) {
-                                        self.state.token_replacement_effects.push((source_id, controller, attached_to));
-                                    }
-                                }
+                            if let Some(attached_to) = self.state.battlefield.get(source_id)
+                                .and_then(|perm| perm.attached_to)
+                                .filter(|&attached_to| {
+                                    self.state.battlefield.get(attached_to)
+                                        .is_some_and(|p| p.card.card_types.contains(&crate::constants::CardType::Creature))
+                                })
+                            {
+                                self.state.token_replacement_effects.push((source_id, controller, attached_to));
                             }
                         }
                         _ => {}
@@ -821,10 +823,10 @@ impl Game {
 
         // Step 9: Collect damage doubling effects (source permanent's chosen_type)
         for (source_id, controller) in damage_doublings {
-            if let Some(perm) = self.state.battlefield.get(source_id) {
-                if let Some(ref chosen) = perm.chosen_type {
-                    self.state.damage_doublings.push((controller, chosen.clone()));
-                }
+            if let Some(chosen) = self.state.battlefield.get(source_id)
+                .and_then(|perm| perm.chosen_type.clone())
+            {
+                self.state.damage_doublings.push((controller, chosen));
             }
         }
     }
@@ -1003,18 +1005,13 @@ impl Game {
                 return 0;
             };
             let subtype = crate::constants::SubType::by_description(type_str);
-            if let Some(player) = self.state.players.get(&controller) {
-                return player.graveyard.iter()
-                    .filter(|&&card_id| {
-                        if let Some(card) = self.state.card_store.get(card_id) {
-                            card.subtypes.contains(&subtype)
-                        } else {
-                            false
-                        }
-                    })
-                    .count() as u32;
-            }
-            return 0;
+            let Some(player) = self.state.players.get(&controller) else { return 0 };
+            return player.graveyard.iter()
+                .filter(|&&card_id| {
+                    self.state.card_store.get(card_id)
+                        .is_some_and(|card| card.subtypes.contains(&subtype))
+                })
+                .count() as u32;
         }
 
         if lower == "attacking creatures you control" {
@@ -1250,25 +1247,22 @@ impl Game {
     }
 
     fn copy_spell_on_stack(&mut self, spell_id: ObjectId, controller: PlayerId) {
-        let stack_item = self.state.stack.get(spell_id);
-        if let Some(item) = stack_item {
-            if let crate::zones::StackItemKind::Spell { card } = &item.kind {
-                let card_copy = card.clone();
-                let targets = item.targets.clone();
-                let x_value = item.x_value;
-                let copy_id = ObjectId::new();
-                let copy_item = crate::zones::StackItem {
-                    id: copy_id,
-                    kind: crate::zones::StackItemKind::Spell { card: card_copy },
-                    controller,
-                    targets,
-                    countered: false,
-                    x_value,
-                    exile_on_resolve: false,
-                };
-                self.state.stack.push(copy_item);
-            }
-        }
+        let Some(item) = self.state.stack.get(spell_id) else { return };
+        let crate::zones::StackItemKind::Spell { card } = &item.kind else { return };
+        let card_copy = card.clone();
+        let targets = item.targets.clone();
+        let x_value = item.x_value;
+        let copy_id = ObjectId::new();
+        let copy_item = crate::zones::StackItem {
+            id: copy_id,
+            kind: crate::zones::StackItemKind::Spell { card: card_copy },
+            controller,
+            targets,
+            countered: false,
+            x_value,
+            exile_on_resolve: false,
+        };
+        self.state.stack.push(copy_item);
     }
 
     fn find_triggering_spell(&self, controller: PlayerId) -> Option<ObjectId> {
@@ -1328,12 +1322,9 @@ impl Game {
         }
 
         if msg.contains("enchanted") || msg.contains("equipped") {
-            if let Some(source_perm) = self.state.battlefield.get(source_id) {
-                if let Some(attached_to) = source_perm.attached_to {
-                    return vec![attached_to];
-                }
-            }
-            return vec![];
+            return self.state.battlefield.get(source_id)
+                .and_then(|perm| perm.attached_to)
+                .map_or_else(Vec::new, |attached_to| vec![attached_to]);
         }
 
         let exclude_self = msg.contains("other");
@@ -1467,30 +1458,29 @@ impl Game {
 
         self.state.ability_store.remove_source(permanent_id);
 
-        if let Some(perm) = self.state.battlefield.get_mut(permanent_id) {
-            let original_id = perm.card.id;
-            let original_owner = perm.card.owner;
+        let Some(perm) = self.state.battlefield.get_mut(permanent_id) else { return };
+        let original_id = perm.card.id;
+        let original_owner = perm.card.owner;
 
-            perm.card = source_card;
-            perm.card.id = original_id;
-            perm.card.owner = original_owner;
-            perm.card.is_token = false;
+        perm.card = source_card;
+        perm.card.id = original_id;
+        perm.card.owner = original_owner;
+        perm.card.is_token = false;
 
-            for kw_name in &add_keywords {
-                if let Some(flag) = crate::constants::KeywordAbilities::keyword_from_name(kw_name) {
-                    perm.card.keywords |= flag;
-                }
+        for kw_name in &add_keywords {
+            if let Some(flag) = crate::constants::KeywordAbilities::keyword_from_name(kw_name) {
+                perm.card.keywords |= flag;
             }
-
-            perm.card.abilities = perm.card.abilities.iter().map(|ab| {
-                let mut new_ab = ab.clone();
-                new_ab.id = crate::types::AbilityId::new();
-                new_ab.source_id = original_id;
-                new_ab
-            }).collect();
-
-            perm.summoning_sick = perm.card.is_creature();
         }
+
+        perm.card.abilities = perm.card.abilities.iter().map(|ab| {
+            let mut new_ab = ab.clone();
+            new_ab.id = crate::types::AbilityId::new();
+            new_ab.source_id = original_id;
+            new_ab
+        }).collect();
+
+        perm.summoning_sick = perm.card.is_creature();
 
         if let Some(perm) = self.state.battlefield.get(permanent_id) {
             for ab in &perm.card.abilities {
@@ -5250,11 +5240,8 @@ impl Game {
                         if let Some(player) = self.state.players.get(&controller) {
                             let matching_ids: Vec<ObjectId> = player.graveyard.iter()
                                 .filter(|&&card_id| {
-                                    if let Some(card) = self.state.card_store.get(card_id) {
-                                        card.is_creature() && card.subtypes.contains(&target_subtype)
-                                    } else {
-                                        false
-                                    }
+                                    self.state.card_store.get(card_id)
+                                        .is_some_and(|card| card.is_creature() && card.subtypes.contains(&target_subtype))
                                 })
                                 .copied()
                                 .collect();

@@ -96,7 +96,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 #### 2A: Iterator/Functional Patterns
 - [x] Task 2.1: Replace imperative loops in game.rs with iterator chains where it improves clarity (`.iter().filter().map()` patterns)
 - [x] Task 2.2: Replace imperative loops in combat.rs with iterator chains
-- [ ] Task 2.3: Use `Option` and `Result` combinators (`.map()`, `.and_then()`, `.unwrap_or()`) to replace manual match/if-let chains
+- [x] Task 2.3: Use `Option` and `Result` combinators (`.map()`, `.and_then()`, `.unwrap_or()`) to replace manual match/if-let chains
 
 #### 2B: Newtype Validation
 - [ ] Task 2.4: Add validation to `ObjectId`, `PlayerId` constructors (ensure non-nil UUIDs)
@@ -205,11 +205,18 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - All 576 engine tests passing, zero clippy warnings
 
 ## Completed This Iteration
-- Task 2.2: Replaced imperative loops in combat.rs with idiomatic iterator chains
-  - `declare_blocker`: for+if+return → `.iter_mut().find()` + `if let Some`
-  - `has_first_strikers`: two for loops with early return → `.chain().filter_map().any()` with `intersects`
-  - `satisfies_menace`: if-return-true → direct boolean expression
-  - Preserved imperative loops in `assign_combat_damage` (stateful `remaining_damage` makes iteration inappropriate)
+- Task 2.3: Replaced manual match/if-let chains with Option/Result combinators across mtg-engine
+  - **zones.rs**: 4× `if let Some(pos) = position() { remove(); true } else { false }` → `.position().map().is_some()` (Library, Hand, Graveyard, CommandZone)
+  - **zones.rs**: Stack::remove `if let Some(pos) ... { Some(remove) } else { None }` → `.position().map()`
+  - **counters.rs**: `Counters::remove` `if let Some(current) ... else { 0 }` → `let-else` early return
+  - **combat.rs**: Nested `if let Some(threshold) { if blocker.power() <= threshold }` → `.is_some_and()`
+  - **game.rs**: 3× nested `if let Some(perm) { if let Some(attached_to) }` → `.and_then()` chains (EnhancedManaProduction, BecomesCreatureAttached, ReplaceTokenCreation)
+  - **game.rs**: `damage_doublings` nested if-let → `.and_then()` with `.clone()`
+  - **game.rs**: `evaluate_count_filter` graveyard subtype count: `if let Some(player) ... return 0` → `let-else` + `.is_some_and()` in closure
+  - **game.rs**: `find_matching_permanents` enchanted/equipped path: nested if-let → `.and_then().map_or_else()`
+  - **game.rs**: `copy_spell_on_stack` nested `if let Some(item) { if let Spell { card } }` → double `let-else`
+  - **game.rs**: `check_enter_as_copy` large `if let Some(perm)` block (25 lines) → `let-else` early return
+  - **game.rs**: 2× graveyard filter closures `if let Some(card) { ... } else { false }` → `.is_some_and()`
   - 584 engine + 20 cards + 19 integration tests passing, zero clippy warnings
 
 ### Previous Iteration

@@ -228,16 +228,13 @@ impl Counters {
 
     /// Remove up to `count` counters of the given type. Returns the actual number removed.
     pub fn remove(&mut self, counter_type: &CounterType, count: u32) -> u32 {
-        if let Some(current) = self.map.get_mut(counter_type) {
-            let removed = (*current).min(count);
-            *current -= removed;
-            if *current == 0 {
-                self.map.remove(counter_type);
-            }
-            removed
-        } else {
-            0
+        let Some(current) = self.map.get_mut(counter_type) else { return 0 };
+        let removed = (*current).min(count);
+        *current -= removed;
+        if *current == 0 {
+            self.map.remove(counter_type);
         }
+        removed
     }
 
     /// Remove all counters of the given type. Returns how many were removed.

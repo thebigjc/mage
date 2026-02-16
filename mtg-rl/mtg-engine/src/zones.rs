@@ -76,12 +76,7 @@ impl Library {
 
     /// Remove a specific card from the library (e.g. tutoring).
     pub fn remove(&mut self, card_id: ObjectId) -> bool {
-        if let Some(pos) = self.cards.iter().position(|&id| id == card_id) {
-            self.cards.remove(pos);
-            true
-        } else {
-            false
-        }
+        self.cards.iter().position(|&id| id == card_id).map(|pos| self.cards.remove(pos)).is_some()
     }
 
     pub fn len(&self) -> usize {
@@ -128,12 +123,7 @@ impl Hand {
     }
 
     pub fn remove(&mut self, card_id: ObjectId) -> bool {
-        if let Some(pos) = self.cards.iter().position(|&id| id == card_id) {
-            self.cards.remove(pos);
-            true
-        } else {
-            false
-        }
+        self.cards.iter().position(|&id| id == card_id).map(|pos| self.cards.remove(pos)).is_some()
     }
 
     pub fn contains(&self, card_id: ObjectId) -> bool {
@@ -188,12 +178,7 @@ impl Graveyard {
     }
 
     pub fn remove(&mut self, card_id: ObjectId) -> bool {
-        if let Some(pos) = self.cards.iter().position(|&id| id == card_id) {
-            self.cards.remove(pos);
-            true
-        } else {
-            false
-        }
+        self.cards.iter().position(|&id| id == card_id).map(|pos| self.cards.remove(pos)).is_some()
     }
 
     pub fn contains(&self, card_id: ObjectId) -> bool {
@@ -503,11 +488,7 @@ impl Stack {
 
     /// Remove a specific item from the stack (e.g. when countered).
     pub fn remove(&mut self, id: ObjectId) -> Option<StackItem> {
-        if let Some(pos) = self.items.iter().position(|item| item.id == id) {
-            Some(self.items.remove(pos))
-        } else {
-            None
-        }
+        self.items.iter().position(|item| item.id == id).map(|pos| self.items.remove(pos))
     }
 
     pub fn len(&self) -> usize {
@@ -555,12 +536,7 @@ impl CommandZone {
     }
 
     pub fn remove(&mut self, card_id: ObjectId) -> bool {
-        if let Some(pos) = self.cards.iter().position(|&id| id == card_id) {
-            self.cards.remove(pos);
-            true
-        } else {
-            false
-        }
+        self.cards.iter().position(|&id| id == card_id).map(|pos| self.cards.remove(pos)).is_some()
     }
 
     pub fn contains(&self, card_id: ObjectId) -> bool {
