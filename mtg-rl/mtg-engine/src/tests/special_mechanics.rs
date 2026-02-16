@@ -13,7 +13,6 @@ use crate::types::{ObjectId, PlayerId};
 
 
 #[cfg(test)]
-
     struct AlwaysPassPlayer;
     impl PlayerDecisionMaker for AlwaysPassPlayer {
         fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }

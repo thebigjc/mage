@@ -11,7 +11,6 @@ use crate::types::{ObjectId, PlayerId};
 
 
 #[cfg(test)]
-
     /// Passive decision maker — always passes.
     struct PassivePlayer;
 

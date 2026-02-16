@@ -8,7 +8,6 @@ use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, Pla
 use crate::types::{ObjectId, PlayerId};
 
 #[cfg(test)]
-
     struct AlwaysPassDM;
     impl PlayerDecisionMaker for AlwaysPassDM {
         fn priority(&mut self, _: &GameView, actions: &[PlayerAction]) -> PlayerAction {

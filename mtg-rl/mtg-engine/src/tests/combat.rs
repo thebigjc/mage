@@ -9,7 +9,6 @@ use crate::permanent::Permanent;
 use crate::types::{ObjectId, PlayerId};
 
 #[cfg(test)]
-
     /// Decision maker that attacks with all creatures.
     struct AttackAllPlayer;
 

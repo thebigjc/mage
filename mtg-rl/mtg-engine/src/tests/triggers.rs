@@ -10,7 +10,6 @@ use crate::permanent::Permanent;
 use crate::types::{ObjectId, PlayerId};
 
 #[cfg(test)]
-
     /// Decision maker that always passes and says yes to optional triggers.
     struct TriggerTestPlayer {
         attack_all: bool,

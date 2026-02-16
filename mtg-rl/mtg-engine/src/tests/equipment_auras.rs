@@ -10,7 +10,6 @@ use crate::permanent::Permanent;
 use crate::types::{ObjectId, PlayerId};
 
 #[cfg(test)]
-
     struct PassivePlayer;
     impl PlayerDecisionMaker for PassivePlayer {
         fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }

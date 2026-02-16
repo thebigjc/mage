@@ -13,7 +13,6 @@ use crate::abilities::X_VALUE;
 
 
 #[cfg(test)]
-
     /// Decision maker that selects the last N cards for discard/exile choices.
     struct LastCardPicker;
 
