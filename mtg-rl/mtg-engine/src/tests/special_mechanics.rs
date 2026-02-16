@@ -2047,7 +2047,7 @@ use crate::types::{ObjectId, PlayerId};
         let clone_id = add_copy_creature(&mut game, p1);
         game.check_enter_as_copy(clone_id);
         let clone_abilities = game.state.ability_store.for_source(clone_id);
-        assert!(clone_abilities.len() >= 1);
+        assert!(!clone_abilities.is_empty());
         let has_etb = clone_abilities.iter().any(|a| {
             a.rules_text.contains("draw a card")
         });
