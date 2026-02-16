@@ -178,7 +178,7 @@ impl WatcherManager {
                 if event.flag {
                     // flag indicates combat damage
                     self.game_stats.combat_damage_dealt = true;
-                    if let Some(pid) = event.target_id.and_then(|_| event.player_id) {
+                    if let Some(pid) = event.target_id.and(event.player_id) {
                         let stats = self.player_stats.entry(pid).or_default();
                         stats.took_combat_damage = true;
                     }
