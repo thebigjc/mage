@@ -1454,7 +1454,7 @@ use crate::types::{ObjectId, PlayerId};
         assert!(game.state.stack.get(spell_id).is_some(), "Spell should be on the stack");
 
         let tapped_count = [c1_id, c2_id, c3_id].iter()
-            .filter(|id| game.state.battlefield.get(**id).map_or(false, |p| p.tapped))
+            .filter(|id| game.state.battlefield.get(**id).is_some_and(|p| p.tapped))
             .count();
         assert_eq!(tapped_count, 3, "All 3 creatures should be tapped for convoke");
     }
@@ -1722,7 +1722,7 @@ use crate::types::{ObjectId, PlayerId};
         game.pay_conspire_cost(p1, &[Color::Red]);
 
         let tapped_count = [c1_id, c2_id, c3_id].iter()
-            .filter(|id| game.state.battlefield.get(**id).map_or(false, |p| p.tapped))
+            .filter(|id| game.state.battlefield.get(**id).is_some_and(|p| p.tapped))
             .count();
         assert_eq!(tapped_count, 2, "Exactly 2 creatures should be tapped for conspire");
     }
