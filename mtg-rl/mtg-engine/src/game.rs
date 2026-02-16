@@ -4048,6 +4048,71 @@ impl Game {
                         }
                     }
                 }
+                Effect::CounterAllOpponentSpellsAndAbilities { token_name } => {
+                    let opponent_ids: Vec<PlayerId> = self.state.turn_order.iter()
+                        .filter(|&&pid| pid != controller)
+                        .copied().collect();
+                    let opp_stack_ids: Vec<ObjectId> = self.state.stack.iter()
+                        .filter(|item| opponent_ids.contains(&item.controller))
+                        .map(|item| item.id)
+                        .collect();
+                    let mut countered_count = 0u32;
+                    for stack_id in opp_stack_ids {
+                        let cant_counter = if let Some(item) = self.state.stack.get(stack_id) {
+                            if let crate::zones::StackItemKind::Spell { card } = &item.kind {
+                                card.abilities.iter().any(|a| {
+                                    a.static_effects.iter().any(|se| matches!(se, StaticEffect::CantBeCountered))
+                                })
+                            } else {
+                                false
+                            }
+                        } else {
+                            false
+                        };
+                        let cant_counter_perm = if let Some(item) = self.state.stack.get(stack_id) {
+                            let spell_controller = item.controller;
+                            self.state.battlefield.iter().any(|perm| {
+                                perm.controller == spell_controller && {
+                                    let abilities = self.state.ability_store.for_source(perm.id());
+                                    abilities.iter().any(|a| {
+                                        a.ability_type == AbilityType::Static
+                                            && a.static_effects.iter().any(|se| matches!(se, StaticEffect::SpellsCantBeCountered))
+                                    })
+                                }
+                            })
+                        } else {
+                            false
+                        };
+                        if cant_counter || cant_counter_perm {
+                            continue;
+                        }
+                        if let Some(stack_item) = self.state.stack.remove(stack_id) {
+                            match &stack_item.kind {
+                                crate::zones::StackItemKind::Spell { .. } => {
+                                    self.move_card_to_graveyard_inner(stack_item.id, stack_item.controller);
+                                }
+                                _ => {}
+                            }
+                            countered_count += 1;
+                        }
+                    }
+                    if countered_count > 0 {
+                        for _ in 0..countered_count {
+                            let token_id = ObjectId::new();
+                            let mut card = CardData::new(token_id, controller, token_name);
+                            card.card_types = vec![crate::constants::CardType::Creature];
+                            let (p, t, kw) = Self::parse_token_stats(token_name);
+                            card.power = Some(p);
+                            card.toughness = Some(t);
+                            card.keywords = kw;
+                            card.is_token = true;
+                            let perm = Permanent::new(card, controller);
+                            self.state.battlefield.add(perm);
+                            self.state.set_zone(token_id, crate::constants::Zone::Battlefield, None);
+                            self.emit_event(GameEvent::enters_battlefield(token_id, controller));
+                        }
+                    }
+                }
                 Effect::AddMana { mana } => {
                     if let Some(player) = self.state.players.get_mut(&controller) {
                         player.mana_pool.add(*mana, None, false);

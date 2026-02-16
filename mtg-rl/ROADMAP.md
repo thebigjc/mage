@@ -357,7 +357,7 @@ The following Effect variants have working `execute_effects()` match arms:
 **Stats:** BoostUntilEndOfTurn, BoostPermanent, BoostAllUntilEndOfTurn, BoostUntilEotVivid, BoostAllUntilEotVivid, SetPowerToughness
 **Keywords:** GainKeywordUntilEndOfTurn, GainKeyword, LoseKeyword, GrantKeywordAllUntilEndOfTurn, Indestructible, Hexproof
 **Control:** GainControl, GainControlUntilEndOfTurn
-**Utility:** TapTarget, UntapTarget, CounterSpell, Scry, AddMana, Modal, DoIfCostPaid, ChooseCreatureType, ChooseTypeAndDrawPerPermanent
+**Utility:** TapTarget, UntapTarget, CounterSpell, CounterAllOpponentSpellsAndAbilities, Scry, AddMana, Modal, DoIfCostPaid, ChooseCreatureType, ChooseTypeAndDrawPerPermanent
 
 ### Unimplemented Effect Variants
 

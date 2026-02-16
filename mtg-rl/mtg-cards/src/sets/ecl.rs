@@ -4239,17 +4239,16 @@ fn formidable_speaker(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [COND] Can't be countered, counter ALL opponent spells+abilities, create tokens equal to count
 fn glen_elendras_answer(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Glen Elendra's Answer".into(), mana_cost: ManaCost::parse("{2}{U}{U}"),
         card_types: vec![CardType::Instant],
-        rarity: Rarity::Common,
+        rarity: Rarity::Mythic,
         abilities: vec![
             Ability::static_ability(id,
                 "This spell can't be countered.",
                 vec![StaticEffect::CantBeCountered]),
             Ability::spell(id,
-                vec![Effect::Custom("Counter all opponent spells and abilities, create tokens.".into())],
+                vec![Effect::counter_all_opponent_spells_and_abilities("1/1 Faerie with flying")],
                 TargetSpec::None),
         ],
         ..Default::default() }

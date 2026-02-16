@@ -9,8 +9,8 @@ IN_PROGRESS
 ## Analysis
 
 ### Current State
-- **Engine tests**: 546 (mtg-engine), all passing
-- **ECL Custom fallbacks**: 28 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 35 total (now 8 Effect::Custom + 7 StaticEffect::Custom remaining)
+- **Engine tests**: 549 (mtg-engine), all passing
+- **ECL Custom fallbacks**: 28 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 35 total (now 7 Effect::Custom + 7 StaticEffect::Custom remaining)
 - **Other sets**: FDN 336, TLA 199, TDM 110 (these are out of scope per the plan)
 
 ### Goal
@@ -93,7 +93,7 @@ Group the 44 fallbacks by what engine feature they need. Implement the engine fe
 
 - [x] Task 20: Add `WinnowingEffect` — Added `Effect::Winnowing` variant. For each player, the spell's controller chooses a creature that player controls; then each player sacrifices all other creatures they control that don't share a creature type with the chosen creature. Handles Changeling (shares all types). Updated **winnowing**: replaced Effect::Custom with Effect::winnowing(). 3 new tests (546 engine total). 1 Effect::Custom eliminated.
 
-- [ ] Task 21: Add `GlenElendrasAnswer` — Counter all spells and abilities opponents control on the stack, create tokens. Update: **glen_elendras_answer**. Java uses mass countering. Add engine test. ~1 card fixed.
+- [x] Task 21: Add `CounterAllOpponentSpellsAndAbilities` effect — Added `Effect::CounterAllOpponentSpellsAndAbilities { token_name }` variant. Iterates all opponent spells/abilities on the stack, counters each (respecting CantBeCountered/SpellsCantBeCountered), creates N tokens where N = number actually countered. Updated **glen_elendras_answer**: replaced Effect::Custom with `Effect::counter_all_opponent_spells_and_abilities("1/1 Faerie with flying")`, fixed rarity from Common to Mythic. 3 new tests (549 engine total). 1 Effect::Custom eliminated.
 
 - [ ] Task 22: Add `MassBecomeCopy` effect — Each nonland permanent you control becomes a copy of target. Update: **mirrorform**. Java uses complex copy effects. Add engine test. ~1 card fixed.
 
@@ -154,7 +154,7 @@ Task 31 depends on all others
 18. Task 31 (verification)
 
 ## Completed This Iteration
-- Task 20: Added `Effect::Winnowing` variant for the winnowing card. For each player, controller chooses a creature that player controls, then each player sacrifices all other creatures they control that don't share a creature type with the chosen creature. Properly handles Changeling keyword (shares all creature types). Updated winnowing card from Effect::Custom to Effect::winnowing(). 3 new tests (546 engine total). 1 Effect::Custom eliminated.
+- Task 21: Added `Effect::CounterAllOpponentSpellsAndAbilities { token_name }` variant. Counters all opponent spells and abilities on the stack (respecting can't-be-countered), creates tokens equal to the number countered. Updated glen_elendras_answer card (replaced Effect::Custom, fixed rarity to Mythic). 3 new tests (549 engine total). 1 Effect::Custom eliminated.
 
 ## Notes
 

@@ -2190,3 +2190,211 @@ fn winnowing_no_creatures_is_noop() {
     game.execute_effects(&[Effect::winnowing()], p1, &[], None, None);
     assert_eq!(game.state.battlefield.iter().count(), initial_bf);
 }
+
+#[test]
+fn counter_all_opponent_spells_and_abilities_counters_and_creates_tokens() {
+    use crate::zones::{StackItem, StackItemKind};
+    use crate::mana::ManaCost;
+
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let mut game = Game::new_two_player(config, vec![
+        (p1, Box::new(AlwaysPassPlayer)),
+        (p2, Box::new(AlwaysPassPlayer)),
+    ]);
+
+    let mut spell1 = CardData::new(ObjectId::new(), p2, "Lightning Bolt");
+    spell1.card_types = vec![CardType::Instant];
+    spell1.mana_cost = ManaCost::parse("{R}");
+    let spell1_id = spell1.id;
+    game.state.stack.push(StackItem {
+        id: spell1_id,
+        kind: StackItemKind::Spell { card: spell1 },
+        controller: p2,
+        targets: vec![],
+        countered: false,
+        x_value: None,
+        exile_on_resolve: false,
+    });
+
+    let mut spell2 = CardData::new(ObjectId::new(), p2, "Giant Growth");
+    spell2.card_types = vec![CardType::Instant];
+    spell2.mana_cost = ManaCost::parse("{G}");
+    let spell2_id = spell2.id;
+    game.state.stack.push(StackItem {
+        id: spell2_id,
+        kind: StackItemKind::Spell { card: spell2 },
+        controller: p2,
+        targets: vec![],
+        countered: false,
+        x_value: None,
+        exile_on_resolve: false,
+    });
+
+    let ability_id = ObjectId::new();
+    game.state.stack.push(StackItem {
+        id: ability_id,
+        kind: StackItemKind::Ability {
+            source_id: ObjectId::new(),
+            ability_id: crate::types::AbilityId::new(),
+            description: "Some triggered ability".into(),
+        },
+        controller: p2,
+        targets: vec![],
+        countered: false,
+        x_value: None,
+        exile_on_resolve: false,
+    });
+
+    let initial_tokens = game.state.battlefield.iter()
+        .filter(|p| p.card.is_token).count();
+    assert_eq!(initial_tokens, 0);
+    assert_eq!(game.state.stack.len(), 3);
+
+    game.execute_effects(
+        &[Effect::counter_all_opponent_spells_and_abilities("1/1 Faerie with flying")],
+        p1, &[], None, None,
+    );
+
+    assert_eq!(game.state.stack.len(), 0);
+    let tokens: Vec<_> = game.state.battlefield.iter()
+        .filter(|p| p.card.is_token).collect();
+    assert_eq!(tokens.len(), 3);
+    for t in &tokens {
+        assert_eq!(t.card.power, Some(1));
+        assert_eq!(t.card.toughness, Some(1));
+        assert!(t.card.keywords.contains(KeywordAbilities::FLYING));
+        assert_eq!(t.controller, p1);
+    }
+}
+
+#[test]
+fn counter_all_opponent_respects_cant_be_countered() {
+    use crate::zones::{StackItem, StackItemKind};
+    use crate::mana::ManaCost;
+    use crate::abilities::{Ability, StaticEffect};
+
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let mut game = Game::new_two_player(config, vec![
+        (p1, Box::new(AlwaysPassPlayer)),
+        (p2, Box::new(AlwaysPassPlayer)),
+    ]);
+
+    let mut uncounterable = CardData::new(ObjectId::new(), p2, "Uncounterable Spell");
+    uncounterable.card_types = vec![CardType::Instant];
+    uncounterable.mana_cost = ManaCost::parse("{U}");
+    uncounterable.abilities = vec![
+        Ability::static_ability(uncounterable.id,
+            "This spell can't be countered.",
+            vec![StaticEffect::CantBeCountered]),
+    ];
+    let unc_id = uncounterable.id;
+    game.state.stack.push(StackItem {
+        id: unc_id,
+        kind: StackItemKind::Spell { card: uncounterable },
+        controller: p2,
+        targets: vec![],
+        countered: false,
+        x_value: None,
+        exile_on_resolve: false,
+    });
+
+    let mut counterable = CardData::new(ObjectId::new(), p2, "Counterable Spell");
+    counterable.card_types = vec![CardType::Instant];
+    counterable.mana_cost = ManaCost::parse("{R}");
+    let cnt_id = counterable.id;
+    game.state.stack.push(StackItem {
+        id: cnt_id,
+        kind: StackItemKind::Spell { card: counterable },
+        controller: p2,
+        targets: vec![],
+        countered: false,
+        x_value: None,
+        exile_on_resolve: false,
+    });
+
+    game.execute_effects(
+        &[Effect::counter_all_opponent_spells_and_abilities("1/1 Faerie with flying")],
+        p1, &[], None, None,
+    );
+
+    assert!(game.state.stack.get(unc_id).is_some(), "Uncounterable spell should remain on stack");
+    assert!(game.state.stack.get(cnt_id).is_none(), "Counterable spell should be countered");
+    let tokens: Vec<_> = game.state.battlefield.iter()
+        .filter(|p| p.card.is_token).collect();
+    assert_eq!(tokens.len(), 1, "Only 1 token for the 1 spell actually countered");
+}
+
+#[test]
+fn counter_all_opponent_ignores_own_spells() {
+    use crate::zones::{StackItem, StackItemKind};
+    use crate::mana::ManaCost;
+
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let mut game = Game::new_two_player(config, vec![
+        (p1, Box::new(AlwaysPassPlayer)),
+        (p2, Box::new(AlwaysPassPlayer)),
+    ]);
+
+    let mut own_spell = CardData::new(ObjectId::new(), p1, "Own Spell");
+    own_spell.card_types = vec![CardType::Instant];
+    own_spell.mana_cost = ManaCost::parse("{U}");
+    let own_id = own_spell.id;
+    game.state.stack.push(StackItem {
+        id: own_id,
+        kind: StackItemKind::Spell { card: own_spell },
+        controller: p1,
+        targets: vec![],
+        countered: false,
+        x_value: None,
+        exile_on_resolve: false,
+    });
+
+    let mut opp_spell = CardData::new(ObjectId::new(), p2, "Opponent Spell");
+    opp_spell.card_types = vec![CardType::Instant];
+    opp_spell.mana_cost = ManaCost::parse("{R}");
+    let opp_id = opp_spell.id;
+    game.state.stack.push(StackItem {
+        id: opp_id,
+        kind: StackItemKind::Spell { card: opp_spell },
+        controller: p2,
+        targets: vec![],
+        countered: false,
+        x_value: None,
+        exile_on_resolve: false,
+    });
+
+    game.execute_effects(
+        &[Effect::counter_all_opponent_spells_and_abilities("1/1 Faerie with flying")],
+        p1, &[], None, None,
+    );
+
+    assert!(game.state.stack.get(own_id).is_some(), "Own spell should remain on stack");
+    assert!(game.state.stack.get(opp_id).is_none(), "Opponent spell should be countered");
+    let tokens: Vec<_> = game.state.battlefield.iter()
+        .filter(|p| p.card.is_token).collect();
+    assert_eq!(tokens.len(), 1, "1 token for the 1 opponent spell countered");
+}

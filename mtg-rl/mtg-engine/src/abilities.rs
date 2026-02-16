@@ -241,6 +241,9 @@ pub enum Effect {
     // -- Counter spells --
     /// Counter target spell.
     CounterSpell,
+    /// Counter all spells and abilities opponents control on the stack.
+    /// Creates tokens equal to the number of spells/abilities countered.
+    CounterAllOpponentSpellsAndAbilities { token_name: String },
 
     // -- Protection --
     /// Target gains protection from a color/quality until end of turn.
@@ -1087,6 +1090,10 @@ impl Effect {
     /// "Counter target spell."
     pub fn counter_spell() -> Self {
         Effect::CounterSpell
+    }
+
+    pub fn counter_all_opponent_spells_and_abilities(token_name: &str) -> Self {
+        Effect::CounterAllOpponentSpellsAndAbilities { token_name: token_name.to_string() }
     }
 
     /// "Scry N."
