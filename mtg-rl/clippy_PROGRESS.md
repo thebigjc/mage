@@ -51,8 +51,15 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 - [x] Task 21: Fix `uninlined_format_args` warnings in test files — fixed 16 instances across 6 files (mtg-engine tests: abilities.rs, effects.rs, keywords.rs, special_mechanics.rs; mtg-tests: framework.rs, concurrency.rs)
 - [x] Task 22: Fix 8 `empty_line_after_outer_attribute` warnings in test files + duplicate `#[cfg(test)]` in game.rs
 - [x] Task 23: Fix 2 `map_or` → `is_some_and` warnings in test files (keywords.rs lines 1457, 1725)
-- [ ] Task 24: Fix `len_one` warning in test files
-- [ ] Task 25: Decide on `too_many_arguments` in test files — suppress with `#[allow]` if test helper
+- [x] Task 24: Fix `len_zero` warning in test special_mechanics.rs — replaced `.len() >= 1` with `!.is_empty()`
+- [x] Task 25: Suppressed `too_many_arguments` on `add_lord_with_boost` test helper in continuous_effects.rs with `#[allow(clippy::too_many_arguments)]`
+
+### Phase 5b: Newly discovered warnings (mtg-cards tests, mtg-ai, mtg-python, mtg-tests)
+- [ ] Task 29: Fix 6 `uninlined_format_args` in mtg-cards test code (behold.rs, blight.rs, mobilize.rs) — these are in `#[test]` functions, not library code
+- [ ] Task 30: Fix 3 `manual_repeat_n` warnings in mtg-ai (repeat().take() → repeat_n())
+- [ ] Task 31: Fix 2 `redundant_closure` warnings in mtg-tests
+- [ ] Task 32: Fix `type_complexity` warning in mtg-python
+- [ ] Task 33: Fix `useless_conversion` warning in mtg-python
 
 ### Phase 6: Final Verification
 - [ ] Task 26: Run `cargo clippy --workspace` and confirm zero errors + zero warnings
@@ -60,7 +67,7 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 - [ ] Task 28: Run `cargo test --lib` and `cargo test --release` to confirm all tests still pass
 
 ## Completed This Iteration
-- Task 23: Replaced 2 `map_or(false, |p| p.tapped)` → `is_some_and(|p| p.tapped)` in keywords.rs test file. All 576 tests pass.
+- Task 25: Added `#[allow(clippy::too_many_arguments)]` to `add_lord_with_boost` test helper in continuous_effects.rs. All 576 tests pass.
 
 ## Notes
 
@@ -69,3 +76,5 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 5. Task 3 found 11 `map_or(false, ...)` in game.rs (not ~13 as estimated). 2 more in filters.rs covered by Task 16.
 3. The `only_used_in_recursion` warning was in filters.rs:311, not combat.rs:234 as originally listed. combat.rs:234 is a `collapsible_if`.
 4. mtg-ai has 3 `manual_repeat_n` warnings and mtg-python has 2 warnings (type_complexity, useless_conversion) — these were not in the original task list and should be added.
+5. Task 18 only fixed library code in mtg-cards keyword files; the test functions in those same files still have 6 uninlined_format_args warnings.
+6. Remaining warnings after Task 24: 14 actual warnings across mtg-cards tests (6), mtg-ai (3), mtg-tests (2), mtg-python (2), mtg-engine tests (1 too_many_arguments).
