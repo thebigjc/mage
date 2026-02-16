@@ -505,6 +505,13 @@ pub enum Effect {
         instant_sorcery_only: bool,
     },
 
+    /// Each opponent exiles cards from the top of their library until the total
+    /// mana value of cards exiled this way is >= `mv_threshold`. Until end of turn,
+    /// the controller may cast any of the exiled cards without paying their mana costs.
+    OpponentsExileUntilMVAndCast {
+        mv_threshold: u32,
+    },
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1607,6 +1614,10 @@ impl Effect {
             count_source: count_source.to_string(),
             instant_sorcery_only,
         }
+    }
+
+    pub fn opponents_exile_until_mv_and_cast(mv_threshold: u32) -> Self {
+        Effect::OpponentsExileUntilMVAndCast { mv_threshold }
     }
 }
 

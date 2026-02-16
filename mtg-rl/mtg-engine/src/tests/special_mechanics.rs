@@ -2376,3 +2376,102 @@ use crate::types::{ObjectId, PlayerId};
 
         assert_eq!(game.state.stack.len(), 2, "No-target spell should be copied with single_target_only=false");
     }
+
+    #[test]
+    fn opponents_exile_until_mv_and_cast_basic() {
+        let (mut game, p1, p2) = setup_impulse_game();
+
+        let id1 = ObjectId::new();
+        let mut c1 = CardData::new(id1, p2, "Small Creature");
+        c1.card_types = vec![CardType::Creature];
+        c1.mana_cost = ManaCost::parse("{1}{G}");
+        c1.power = Some(2); c1.toughness = Some(2);
+        game.state.card_store.insert(c1);
+        game.state.players.get_mut(&p2).unwrap().library.put_on_top(id1);
+
+        let id2 = ObjectId::new();
+        let mut c2 = CardData::new(id2, p2, "Big Creature");
+        c2.card_types = vec![CardType::Creature];
+        c2.mana_cost = ManaCost::parse("{3}{R}{R}");
+        c2.power = Some(5); c2.toughness = Some(5);
+        game.state.card_store.insert(c2);
+        game.state.players.get_mut(&p2).unwrap().library.put_on_top(id2);
+
+        game.execute_effects(
+            &[Effect::opponents_exile_until_mv_and_cast(5)],
+            p1, &[], None, None,
+        );
+
+        assert_eq!(game.state.exile.len(), 1, "Should exile Big Creature (MV 5 >= 5)");
+        assert!(game.state.exile.contains(id2), "Big Creature should be exiled");
+        assert_eq!(game.state.impulse_playable.len(), 1);
+        assert!(game.state.impulse_playable[0].without_mana, "Should be castable without mana");
+        assert_eq!(game.state.impulse_playable[0].player_id, p1, "P1 should be able to cast");
+    }
+
+    #[test]
+    fn opponents_exile_until_mv_multiple_cards() {
+        let (mut game, p1, p2) = setup_impulse_game();
+
+        let id1 = ObjectId::new();
+        let mut c1 = CardData::new(id1, p2, "One Drop");
+        c1.card_types = vec![CardType::Creature];
+        c1.mana_cost = ManaCost::parse("{G}");
+        c1.power = Some(1); c1.toughness = Some(1);
+        game.state.card_store.insert(c1);
+        game.state.players.get_mut(&p2).unwrap().library.put_on_top(id1);
+
+        let id2 = ObjectId::new();
+        let mut c2 = CardData::new(id2, p2, "Two Drop");
+        c2.card_types = vec![CardType::Creature];
+        c2.mana_cost = ManaCost::parse("{1}{U}");
+        c2.power = Some(2); c2.toughness = Some(1);
+        game.state.card_store.insert(c2);
+        game.state.players.get_mut(&p2).unwrap().library.put_on_top(id2);
+
+        let id3 = ObjectId::new();
+        let mut c3 = CardData::new(id3, p2, "Three Drop");
+        c3.card_types = vec![CardType::Creature];
+        c3.mana_cost = ManaCost::parse("{2}{B}");
+        c3.power = Some(3); c3.toughness = Some(2);
+        game.state.card_store.insert(c3);
+        game.state.players.get_mut(&p2).unwrap().library.put_on_top(id3);
+
+        game.execute_effects(
+            &[Effect::opponents_exile_until_mv_and_cast(5)],
+            p1, &[], None, None,
+        );
+
+        assert_eq!(game.state.exile.len(), 2, "Should exile Three Drop (MV3) + Two Drop (MV2) = 5");
+        assert!(game.state.exile.contains(id3));
+        assert!(game.state.exile.contains(id2));
+        assert!(!game.state.exile.contains(id1), "One Drop should stay in library");
+        assert_eq!(game.state.impulse_playable.len(), 2, "Both exiled cards should be impulse-playable");
+        for ip in &game.state.impulse_playable {
+            assert!(ip.without_mana);
+            assert_eq!(ip.player_id, p1);
+        }
+    }
+
+    #[test]
+    fn opponents_exile_until_mv_empty_library() {
+        let (mut game, p1, p2) = setup_impulse_game();
+
+        let id1 = ObjectId::new();
+        let mut c1 = CardData::new(id1, p2, "Tiny");
+        c1.card_types = vec![CardType::Creature];
+        c1.mana_cost = ManaCost::parse("{W}");
+        c1.power = Some(1); c1.toughness = Some(1);
+        game.state.card_store.insert(c1);
+        game.state.players.get_mut(&p2).unwrap().library.put_on_top(id1);
+
+        game.execute_effects(
+            &[Effect::opponents_exile_until_mv_and_cast(10)],
+            p1, &[], None, None,
+        );
+
+        assert_eq!(game.state.exile.len(), 1, "Should exile the only card");
+        assert!(game.state.exile.contains(id1));
+        assert_eq!(game.state.players.get(&p2).unwrap().library.len(), 0);
+        assert_eq!(game.state.impulse_playable.len(), 1);
+    }

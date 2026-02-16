@@ -4174,7 +4174,7 @@ fn dream_harvest(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::Custom("Each opponent exiles cards from the top of their library until they have exiled cards with total mana value 5 or greater this way. Until end of turn, you may cast cards exiled this way without paying ".into())],
+                vec![Effect::opponents_exile_until_mv_and_cast(5)],
                 TargetSpec::None),
         ],
         ..Default::default() }

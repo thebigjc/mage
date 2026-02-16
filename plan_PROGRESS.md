@@ -9,7 +9,7 @@ IN_PROGRESS
 ## Analysis
 
 ### Current State
-- **Engine tests**: 534 (mtg-engine), all passing
+- **Engine tests**: 537 (mtg-engine), all passing
 - **ECL Custom fallbacks**: 29 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 36 total
 - **Other sets**: FDN 336, TLA 199, TDM 110 (these are out of scope per the plan)
 
@@ -83,7 +83,7 @@ Group the 44 fallbacks by what engine feature they need. Implement the engine fe
 
 - [x] Task 16: Add `OpponentRevealsExileCast` effect — Added `Effect::OpponentRevealsFromHandExileCast { count_source, instant_sorcery_only }` variant. Added `ImpulseDuration::WhileSourceControlled { source_id, controller }` to track playability tied to permanent control. Opponent reveals X cards from hand (X = dynamic count via evaluate_count_filter), controller picks one to exile, instant/sorcery cards become impulse-playable while source is controlled. Updated WhileSourceControlled check in compute_legal_actions and end-of-turn cleanup. Updated **taster_of_wares**: fixed oracle text (hand not library), replaced Effect::Custom with `Effect::opponent_reveals_from_hand_exile_cast("Goblins you control", true)`. 3 new tests (534 engine total). 1 Effect::Custom eliminated.
 
-- [ ] Task 17: Add `MassExileAndCast` effect — Each opponent exiles from library until MV threshold, you may cast exiled cards. Update: **dream_harvest** (opponents exile until MV 5+). Java uses custom effect. Add engine test. ~1 card fixed.
+- [x] Task 17: Add `OpponentsExileUntilMVAndCast` effect — Each opponent exiles from library until total MV >= threshold, controller may cast exiled cards without mana until EOT. Updated: **dream_harvest** (opponents exile until MV 5+, free cast). Added Effect::OpponentsExileUntilMVAndCast variant, builder, game.rs resolution handler. 3 new tests (537 engine total). 1 Effect::Custom eliminated.
 
 - [ ] Task 18: Add `DealDamageWithDelayedExile` effect — Deal X damage to creature, create delayed trigger: when it dies this turn, exile cards = its power, choose one to cast. Update: **end_blaze_epiphany**. Java uses complex custom effect. Add engine test. ~1 card fixed.
 
@@ -154,7 +154,7 @@ Task 31 depends on all others
 18. Task 31 (verification)
 
 ## Completed This Iteration
-- Task 16: Added `Effect::OpponentRevealsFromHandExileCast` for opponent-hand-reveal-exile-cast effects. Added `ImpulseDuration::WhileSourceControlled` for permanent-linked impulse playability. Updated taster_of_wares (fixed oracle text from library to hand, replaced Effect::Custom). 3 new tests (534 engine total). 1 Effect::Custom eliminated.
+- Task 17: Added `Effect::OpponentsExileUntilMVAndCast` for mass opponent-library-exile effects. Each opponent exiles cards from library until total MV >= threshold, all exiled cards become free-cast impulse-playable until EOT. Updated dream_harvest (replaced Effect::Custom). 3 new tests (537 engine total). 1 Effect::Custom eliminated.
 
 ## Notes
 

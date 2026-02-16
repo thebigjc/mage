@@ -5225,6 +5225,45 @@ impl Game {
                         }
                     }
                 }
+                Effect::OpponentsExileUntilMVAndCast { mv_threshold } => {
+                    let threshold = resolve_x(*mv_threshold);
+                    let opponents: Vec<PlayerId> = self.state.turn_order.iter()
+                        .filter(|&&id| id != controller)
+                        .copied()
+                        .collect();
+                    let mut all_exiled = Vec::new();
+                    for opp_id in opponents {
+                        let mut total_mv: u32 = 0;
+                        loop {
+                            let card_id = self.state.players.get_mut(&opp_id)
+                                .and_then(|p| p.library.draw());
+                            if let Some(id) = card_id {
+                                let mv = self.state.card_store.get(id)
+                                    .map(|c| c.mana_value())
+                                    .unwrap_or(0);
+                                self.state.exile.exile(id);
+                                self.state.set_zone(id, crate::constants::Zone::Exile, Some(opp_id));
+                                all_exiled.push(id);
+                                total_mv += mv;
+                                if total_mv >= threshold {
+                                    break;
+                                }
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+                    let turn = self.state.turn_number;
+                    for id in all_exiled {
+                        self.state.impulse_playable.push(crate::state::ImpulsePlayable {
+                            card_id: id,
+                            player_id: controller,
+                            duration: crate::state::ImpulseDuration::EndOfTurn,
+                            created_turn: turn,
+                            without_mana: true,
+                        });
+                    }
+                }
                 Effect::ExileTopAndPlay { count, duration, without_mana } => {
                     let n = resolve_x(*count) as usize;
                     let dur = match duration.as_str() {
