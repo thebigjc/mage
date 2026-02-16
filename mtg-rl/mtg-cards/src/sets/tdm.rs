@@ -660,7 +660,7 @@ fn humbling_elder(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, target creature an opponent controls gets -2/-0 until end of turn.",
                 vec![Effect::BoostUntilEndOfTurn { power: -2, toughness: 0 }],
-                TargetSpec::PermanentFiltered("creature an opponent controls".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("creature an opponent controls"))),
         ],
         ..Default::default() }
 }
@@ -673,7 +673,7 @@ fn iceridge_serpent(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, return target creature an opponent controls to its owner's hand.",
                 vec![Effect::Bounce],
-                TargetSpec::PermanentFiltered("creature an opponent controls".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("creature an opponent controls"))),
         ],
         ..Default::default() }
 }
@@ -796,7 +796,7 @@ fn loxodon_battle_priest(id: ObjectId, owner: PlayerId) -> CardData {
                 "At the beginning of combat on your turn, put a +1/+1 counter on another target creature you control.",
                 vec![EventType::BeginCombat],
                 vec![Effect::AddCounters { counter_type: "+1/+1".into(), count: 1 }],
-                TargetSpec::PermanentFiltered("another creature you control".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("another creature you control"))),
         ],
         ..Default::default() }
 }
@@ -891,11 +891,11 @@ fn reputable_merchant(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters or dies, put a +1/+1 counter on target creature you control.",
                 vec![Effect::add_p1p1_counters(1)],
-                TargetSpec::PermanentFiltered("creature you control".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("creature you control"))),
             Ability::dies_triggered(id,
                 "When this creature enters or dies, put a +1/+1 counter on target creature you control.",
                 vec![Effect::add_p1p1_counters(1)],
-                TargetSpec::PermanentFiltered("creature you control".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("creature you control"))),
         ],
         ..Default::default() }
 }
@@ -1081,7 +1081,7 @@ fn undergrowth_leopard(id: ObjectId, owner: PlayerId) -> CardData {
                 "{1}, Sacrifice this creature: Destroy target artifact or enchantment.",
                 vec![Cost::pay_mana("{1}"), Cost::SacrificeSelf],
                 vec![Effect::Destroy],
-                TargetSpec::PermanentFiltered("artifact or enchantment".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("artifact or enchantment"))),
         ],
         ..Default::default() }
 }
@@ -1110,7 +1110,7 @@ fn unsparing_boltcaster(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, it deals 5 damage to target creature an opponent controls that was dealt damage this turn.",
                 vec![Effect::DealDamage { amount: 5 }],
-                TargetSpec::PermanentFiltered("creature an opponent controls that was dealt damage this turn".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("creature an opponent controls that was dealt damage this turn"))),
         ],
         ..Default::default() }
 }
@@ -1504,7 +1504,7 @@ fn inevitable_defeat(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Instant], rarity: Rarity::Rare,
         abilities: vec![Ability::spell(id,
             vec![Effect::exile(), Effect::lose_life(3), Effect::gain_life(3)],
-            TargetSpec::PermanentFiltered("nonland permanent".into()))],
+            TargetSpec::PermanentFiltered(Filter::parse("nonland permanent")))],
         ..Default::default() }
 }
 
@@ -1526,7 +1526,7 @@ fn kin_tree_severance(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Instant], rarity: Rarity::Uncommon,
         abilities: vec![Ability::spell(id,
             vec![Effect::exile()],
-            TargetSpec::PermanentFiltered("permanent with mana value 3 or greater".into()))],
+            TargetSpec::PermanentFiltered(Filter::parse("permanent with mana value 3 or greater")))],
         ..Default::default() }
 }
 
@@ -1919,7 +1919,7 @@ fn stormplain_detainment(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When this enchantment enters, exile target nonland permanent an opponent controls until this enchantment leaves the battlefield.",
                 vec![Effect::exile()],
-                TargetSpec::PermanentFiltered("nonland permanent an opponent controls".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("nonland permanent an opponent controls"))),
         ],
         ..Default::default() }
 }
@@ -2465,7 +2465,7 @@ fn hundred_battle_veteran(id: ObjectId, owner: PlayerId) -> CardData {
                 "Whenever Hundred-Battle Veteran attacks, put a +1/+1 counter on another target attacking creature you control.",
                 vec![EventType::AttackerDeclared],
                 vec![Effect::add_p1p1_counters(1)],
-                TargetSpec::PermanentFiltered("another attacking creature you control".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("another attacking creature you control"))),
         ],
         ..Default::default() }
 }
@@ -2536,12 +2536,12 @@ fn constrictor_sage(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, tap target creature an opponent controls and put a stun counter on it.",
                 vec![Effect::tap_target(), Effect::add_counters("stun", 1)],
-                TargetSpec::PermanentFiltered("creature an opponent controls".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("creature an opponent controls"))),
             Ability::activated(id,
                 "Renew -- {2}{U}, Exile this card from your graveyard: Tap target creature an opponent controls and put a stun counter on it. Activate only as a sorcery.",
                 vec![Cost::pay_mana("{2}{U}"), Cost::ExileFromGraveyard(1)],
                 vec![Effect::tap_target(), Effect::add_counters("stun", 1)],
-                TargetSpec::PermanentFiltered("creature an opponent controls".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("creature an opponent controls"))),
         ],
         ..Default::default() }
 }
@@ -2670,7 +2670,7 @@ fn osseous_exhale(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::spell(id,
                 vec![Effect::deal_damage(5), Effect::Custom("If a Dragon was beheld, you gain 2 life.".into())],
-                TargetSpec::PermanentFiltered("attacking or blocking creature".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("attacking or blocking creature"))),
         ],
         ..Default::default() }
 }
@@ -2746,7 +2746,7 @@ fn sunset_strikemaster(id: ObjectId, owner: PlayerId) -> CardData {
                 "{2}{R}, {T}, Sacrifice this creature: It deals 6 damage to target creature with flying.",
                 vec![Cost::pay_mana("{2}{R}"), Cost::TapSelf, Cost::SacrificeSelf],
                 vec![Effect::deal_damage(6)],
-                TargetSpec::PermanentFiltered("creature with flying".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("creature with flying"))),
         ],
         ..Default::default() }
 }
@@ -2853,7 +2853,7 @@ fn wayspeaker_bodyguard(id: ObjectId, owner: PlayerId) -> CardData {
                 "Flurry -- Whenever you cast your second spell each turn, tap target creature an opponent controls.",
                 vec![EventType::SpellCast],
                 vec![Effect::tap_target()],
-                TargetSpec::PermanentFiltered("creature an opponent controls".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("creature an opponent controls"))),
         ],
         ..Default::default() }
 }
@@ -3011,7 +3011,7 @@ fn magmatic_hellkite(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                     "When this creature enters, destroy target nonbasic land an opponent controls. Its controller searches their library for a basic land card, puts it onto the battlefield tapped with a stun counter on it, then shuffles.",
                     vec![Effect::Destroy, Effect::Custom("Controller searches for a basic land, puts it onto the battlefield tapped with a stun counter, then shuffles.".into())],
-                    TargetSpec::PermanentFiltered("nonbasic land an opponent controls".into())),
+                    TargetSpec::PermanentFiltered(Filter::parse("nonbasic land an opponent controls"))),
         ],
         ..Default::default() }
 }
@@ -3049,7 +3049,7 @@ fn mardu_siegebreaker(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                     "When this creature enters, destroy target permanent an opponent controls with mana value 2 or less.",
                     vec![Effect::Destroy],
-                    TargetSpec::PermanentFiltered("permanent an opponent controls with mana value 2 or less".into())),
+                    TargetSpec::PermanentFiltered(Filter::parse("permanent an opponent controls with mana value 2 or less"))),
             Ability::attacks_triggered(id,
                     "Whenever this creature attacks, create a tapped and attacking token that's a copy of it, except it's 1/1. Sacrifice the token at end of combat.",
                     vec![Effect::Custom("Create a tapped and attacking token copy of this creature (1/1). Sacrifice at end of combat.".into())],
@@ -3090,7 +3090,7 @@ fn naga_fleshcrafter(id: ObjectId, owner: PlayerId) -> CardData {
                 "Renew -- {2}{U}, Exile this card from your graveyard: Put a +1/+1 counter on target nonlegendary creature you control. Each other creature you control becomes a copy of that creature until end of turn. Activate only as a sorcery.",
                 vec![Cost::pay_mana("{2}{U}"), Cost::ExileFromGraveyard(1)],
                 vec![Effect::add_p1p1_counters(1), Effect::Custom("Each other creature you control becomes a copy of target creature until end of turn.".into())],
-                TargetSpec::PermanentFiltered("nonlegendary creature you control".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("nonlegendary creature you control"))),
         ],
         ..Default::default() }
 }
@@ -3130,7 +3130,7 @@ fn neriv_heart_of_the_storm(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::attacks_triggered(id,
                     "Whenever Neriv attacks, create a tapped and attacking token that's a copy of another target creature you control, except it's 1/1.",
                     vec![Effect::Custom("Create a tapped and attacking token copy of another target creature you control (1/1).".into())],
-                    TargetSpec::PermanentFiltered("another creature you control".into())),
+                    TargetSpec::PermanentFiltered(Filter::parse("another creature you control"))),
         ],
         ..Default::default() }
 }
@@ -3183,7 +3183,7 @@ fn riling_dawnbreaker(id: ObjectId, owner: PlayerId) -> CardData {
                     "At the beginning of combat on your turn, another target creature you control gets +1/+0 until end of turn.",
                     vec![EventType::BeginCombat],
                     vec![Effect::BoostUntilEndOfTurn { power: 1, toughness: 0 }],
-                    TargetSpec::PermanentFiltered("another creature you control".into())),
+                    TargetSpec::PermanentFiltered(Filter::parse("another creature you control"))),
         ],
         ..Default::default() }
 }
@@ -3364,7 +3364,7 @@ fn starry_eyed_skyrider(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::attacks_triggered(id,
                     "Whenever this creature attacks, another target creature you control gains flying until end of turn.",
                     vec![Effect::GainKeywordUntilEndOfTurn { keyword: "flying".into() }],
-                    TargetSpec::PermanentFiltered("another creature you control".into())),
+                    TargetSpec::PermanentFiltered(Filter::parse("another creature you control"))),
             Ability::static_ability(id,
                     "Attacking tokens you control have flying.",
                     vec![StaticEffect::GrantKeyword { filter: "attacking token you control".into(), keyword: "flying".into() }]),
@@ -3382,7 +3382,7 @@ fn static_snare(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                     "When this enchantment enters, exile target artifact or creature an opponent controls until this enchantment leaves the battlefield.",
                     vec![Effect::Exile],
-                    TargetSpec::PermanentFiltered("artifact or creature an opponent controls".into())),
+                    TargetSpec::PermanentFiltered(Filter::parse("artifact or creature an opponent controls"))),
             Ability::static_ability(id,
                     "This spell costs {1} less to cast for each attacking creature.",
                     vec![StaticEffect::CostReduction { filter: "self".into(), amount: 1, condition: None }]),
@@ -3437,7 +3437,7 @@ fn sunpearl_kirin(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                     "When this creature enters, return up to one other target nonland permanent you control to its owner's hand. If it was a token, draw a card.",
                     vec![Effect::Bounce, Effect::Custom("If it was a token, draw a card.".into())],
-                    TargetSpec::PermanentFiltered("other nonland permanent you control".into())),
+                    TargetSpec::PermanentFiltered(Filter::parse("other nonland permanent you control"))),
         ],
         ..Default::default() }
 }
@@ -3744,7 +3744,7 @@ fn disruptive_stormbrood(id: ObjectId, owner: PlayerId) -> CardData {
                 "When this creature enters, destroy up to one target artifact or enchantment.",
                 vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Destroy],
-                TargetSpec::PermanentFiltered("artifact or enchantment".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("artifact or enchantment"))),
         ],
         ..Default::default() }
 }
@@ -3832,7 +3832,7 @@ fn herd_heirloom(id: ObjectId, owner: PlayerId) -> CardData {
                 "{T}: Until end of turn, target creature you control with power 4 or greater gains trample and \"Whenever this creature deals combat damage to a player, draw a card.\"",
                 vec![Cost::TapSelf],
                 vec![Effect::GainKeywordUntilEndOfTurn { keyword: "trample".into() }],
-                TargetSpec::PermanentFiltered("creature you control with power 4 or greater".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("creature you control with power 4 or greater"))),
             Ability::mana_ability(id,
                 "{T}: Add one mana of any color. Spend this mana only to cast a creature spell.",
                 Mana { any: 1, ..Default::default() }),
@@ -3914,7 +3914,7 @@ fn marang_river_regent(id: ObjectId, owner: PlayerId) -> CardData {
                 "When this creature enters, return up to two other target nonland permanents to their owners' hands.",
                 vec![EventType::EnteredTheBattlefield],
                 vec![Effect::Bounce],
-                TargetSpec::Multiple { spec: Box::new(TargetSpec::PermanentFiltered("other nonland permanent".into())), count: 2 }),
+                TargetSpec::Multiple { spec: Box::new(TargetSpec::PermanentFiltered(Filter::parse("other nonland permanent"))), count: 2 }),
         ],
         ..Default::default() }
 }
@@ -4242,7 +4242,7 @@ fn underfoot_underdogs(id: ObjectId, owner: PlayerId) -> CardData {
                 "{1}, {T}: Target creature you control with power 2 or less can't be blocked this turn.",
                 vec![Cost::pay_mana("{1}"), Cost::TapSelf],
                 vec![Effect::CantBlock],
-                TargetSpec::PermanentFiltered("creature you control with power 2 or less".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("creature you control with power 2 or less"))),
         ],
         ..Default::default() }
 }

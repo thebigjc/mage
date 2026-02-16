@@ -397,7 +397,7 @@ fn boggart_prankster(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::attacks_triggered(id,
                 "Whenever Boggart Prankster attacks, target Goblin you control gets +1/+0 until end of turn.",
                 vec![Effect::boost_until_eot(1, 0)],
-                TargetSpec::PermanentFiltered("Goblin you control".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("Goblin you control"))),
         ],
         ..Default::default() }
 }
@@ -542,7 +542,7 @@ fn chomping_changeling(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When Chomping Changeling enters, you may destroy target artifact or enchantment.",
                 vec![Effect::destroy()],
-                TargetSpec::PermanentFiltered("artifact or enchantment".into())).set_optional(),
+                TargetSpec::PermanentFiltered(Filter::parse("artifact or enchantment"))).set_optional(),
         ],
         ..Default::default() }
 }
@@ -826,7 +826,7 @@ fn flock_impostor(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When Flock Impostor enters, you may return another creature you control to its owner's hand.",
                 vec![Effect::bounce()],
-                TargetSpec::PermanentFiltered("another creature you control".into())).set_optional(),
+                TargetSpec::PermanentFiltered(Filter::parse("another creature you control"))).set_optional(),
         ],
         ..Default::default() }
 }
@@ -1175,7 +1175,7 @@ fn nightmare_sower(id: ObjectId, owner: PlayerId) -> CardData {
                 "Whenever an opponent casts a spell during your turn, put a -1/-1 counter on target creature that player controls.",
                 vec![EventType::SpellCast],
                 vec![Effect::add_counters("-1/-1", 1)],
-                TargetSpec::PermanentFiltered("creature an opponent controls".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("creature an opponent controls"))),
         ],
         ..Default::default() }
 }
@@ -1299,7 +1299,7 @@ fn safewright_cavalry(id: ObjectId, owner: PlayerId) -> CardData {
                 "{5}: Target Elf you control gets +2/+2 until end of turn.",
                 vec![Cost::pay_mana("{5}")],
                 vec![Effect::boost_until_eot(2, 2)],
-                TargetSpec::PermanentFiltered("Elf you control".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("Elf you control"))),
         ],
         ..Default::default() }
 }
@@ -1672,7 +1672,7 @@ fn wanderwine_distracter(id: ObjectId, owner: PlayerId) -> CardData {
                 "Whenever Wanderwine Distracter becomes tapped, target creature an opponent controls gets -3/-0 until end of turn.",
                 vec![EventType::Tapped],
                 vec![Effect::boost_until_eot(-3, 0)],
-                TargetSpec::PermanentFiltered("creature an opponent controls".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("creature an opponent controls"))),
         ],
         ..Default::default() }
 }
@@ -1743,7 +1743,7 @@ fn liminal_hold(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When Liminal Hold enters, exile target nonland permanent an opponent controls and you gain 2 life.",
                 vec![Effect::exile(), Effect::gain_life(2)],
-                TargetSpec::PermanentFiltered("nonland permanent an opponent controls".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("nonland permanent an opponent controls"))),
         ],
         ..Default::default() }
 }
@@ -1753,7 +1753,7 @@ fn protective_response(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Protective Response".into(), mana_cost: ManaCost::parse("{2}{W}"),
         card_types: vec![CardType::Instant], keywords: KeywordAbilities::CONVOKE,
         rarity: Rarity::Common,
-        abilities: vec![Ability::spell(id, vec![Effect::destroy()], TargetSpec::PermanentFiltered("attacking or blocking creature".into()))],
+        abilities: vec![Ability::spell(id, vec![Effect::destroy()], TargetSpec::PermanentFiltered(Filter::parse("attacking or blocking creature")))],
         ..Default::default() }
 }
 
@@ -1775,7 +1775,7 @@ fn temporal_cleansing(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Temporal Cleansing".into(), mana_cost: ManaCost::parse("{3}{U}"),
         card_types: vec![CardType::Sorcery], keywords: KeywordAbilities::CONVOKE,
         rarity: Rarity::Common,
-        abilities: vec![Ability::spell(id, vec![Effect::put_on_library()], TargetSpec::PermanentFiltered("nonland permanent".into()))],
+        abilities: vec![Ability::spell(id, vec![Effect::put_on_library()], TargetSpec::PermanentFiltered(Filter::parse("nonland permanent")))],
         ..Default::default() }
 }
 
@@ -1993,7 +1993,7 @@ fn abigale_eloquent_first_year(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, up to one other target creature loses all abilities. Put a flying counter, a first strike counter, and a lifelink counter on that creature.",
                 vec![Effect::lose_all_abilities(), Effect::add_counters("flying", 1), Effect::add_counters("first strike", 1), Effect::add_counters("lifelink", 1)],
-                TargetSpec::PermanentFiltered("another creature".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("another creature"))),
         ],
         ..Default::default() }
 }
@@ -2169,7 +2169,7 @@ fn bre_of_clan_stoutarm(id: ObjectId, owner: PlayerId) -> CardData {
                 "{1}{W}, {T}: Another target creature you control gains flying and lifelink until end of turn.",
                 vec![Cost::pay_mana("{1}{W}"), Cost::tap_self()],
                 vec![Effect::gain_keyword_eot("flying"), Effect::gain_keyword_eot("lifelink")],
-                TargetSpec::PermanentFiltered("another creature you control".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("another creature you control"))),
             Ability::triggered(id,
                 "At the beginning of each end step, if you gained life this turn, return target creature card with mana value X or less from your graveyard to the battlefield, where X is the amount of life you gained this turn.",
                 vec![EventType::EndStep],
@@ -2448,7 +2448,7 @@ fn deceit(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, if {U}{U} was spent to cast it, return up to one other target nonland permanent to its owner's hand.",
                 vec![Effect::bounce()],
-                TargetSpec::PermanentFiltered("other nonland permanent".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("other nonland permanent"))),
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, if {B}{B} was spent to cast it, target opponent reveals their hand. You choose a nonland card from it. That player discards that card.",
                 vec![Effect::discard_cards(1)],
@@ -2492,7 +2492,7 @@ fn disruptor_of_currents(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, return up to one other target nonland permanent to its owner's hand.",
                 vec![Effect::bounce()],
-                TargetSpec::PermanentFiltered("other nonland permanent".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("other nonland permanent"))),
         ],
         ..Default::default() }
 }
@@ -3666,7 +3666,7 @@ fn spry_and_mighty(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::spell(id,
                     vec![Effect::compare_and_boost()],
-                    TargetSpec::PermanentFiltered("two creatures you control".into())),
+                    TargetSpec::PermanentFiltered(Filter::parse("two creatures you control"))),
         ],
         ..Default::default() }
 }
@@ -3950,7 +3950,7 @@ fn wanderwine_farewell(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![Effect::bounce(),
                      Effect::conditional("you control a Merfolk",
                          vec![Effect::create_token("1/1 white and blue Merfolk creature token", 1)], vec![])],
-                TargetSpec::PermanentFiltered("nonland permanent".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("nonland permanent"))),
         ],
         ..Default::default() }
 }
@@ -4045,7 +4045,7 @@ fn ajani_outland_chaperone(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::spell(id,
                 vec![Effect::deal_damage(4)],
-                TargetSpec::PermanentFiltered("tapped creature".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("tapped creature"))),
             Ability::spell(id,
                 vec![Effect::Custom("−8: Look at top X cards where X is your life total. Put any number of nonland permanents MV<=3 onto the battlefield.".into())],
                 TargetSpec::None),
@@ -4459,7 +4459,7 @@ fn meanders_guide(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::attacks_triggered(id,
                 "Whenever this creature attacks, you may tap another untapped Merfolk you control. When you do, return target creature card with mana value 3 or less from your graveyard to the battlefield.",
                 vec![Effect::tap_target()],
-                TargetSpec::PermanentFiltered("another untapped Merfolk you control".into()))
+                TargetSpec::PermanentFiltered(Filter::parse("another untapped Merfolk you control")))
                 .set_optional(),
         ],
         ..Default::default() }
@@ -4472,7 +4472,7 @@ fn mirrorform(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::spell(id,
                 vec![Effect::mass_become_copy()],
-                TargetSpec::PermanentFiltered("non-Aura permanent".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("non-Aura permanent"))),
         ],
         ..Default::default() }
 }
@@ -4556,7 +4556,7 @@ fn mudbutton_cursetosser(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::dies_triggered(id,
                 "When this creature dies, destroy target creature an opponent controls with power 2 or less.",
                 vec![Effect::destroy()],
-                TargetSpec::PermanentFiltered("creature an opponent controls with power 2 or less".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("creature an opponent controls with power 2 or less"))),
         ],
         additional_costs: vec![Cost::behold_or_pay("Goblin", "{2}")],
         ..Default::default() }
@@ -4688,7 +4688,7 @@ fn swat_away(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![StaticEffect::CostReduction { filter: "self if creature attacking you".into(), amount: 2, condition: None }]),
             Ability::spell(id,
                 vec![Effect::PutOnLibrary],
-                TargetSpec::PermanentFiltered("spell or creature".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("spell or creature"))),
         ],
         ..Default::default() }
 }

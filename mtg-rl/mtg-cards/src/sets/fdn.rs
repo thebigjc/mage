@@ -589,7 +589,7 @@ fn bigfin_bouncer(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When Bigfin Bouncer enters, return up to one target nonland permanent an opponent controls to its owner's hand.",
                 vec![Effect::bounce()],
-                TargetSpec::PermanentFiltered("nonland permanent an opponent controls".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("nonland permanent an opponent controls"))),
         ],
         ..Default::default() }
 }
@@ -705,7 +705,7 @@ fn felidar_cub(id: ObjectId, owner: PlayerId) -> CardData {
                 "Sacrifice Felidar Cub: Destroy target enchantment.",
                 vec![Cost::sacrifice_self()],
                 vec![Effect::destroy()],
-                TargetSpec::PermanentFiltered("enchantment".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("enchantment"))),
         ],
         ..Default::default() }
 }
@@ -1218,7 +1218,7 @@ fn banishing_light(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When Banishing Light enters, exile target nonland permanent an opponent controls until Banishing Light leaves the battlefield.",
                 vec![Effect::exile()],
-                TargetSpec::PermanentFiltered("nonland permanent an opponent controls".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("nonland permanent an opponent controls"))),
         ],
         ..Default::default() }
 }
@@ -1278,7 +1278,7 @@ fn into_the_roil(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::spell(id,
                 vec![Effect::bounce()],
-                TargetSpec::PermanentFiltered("nonland permanent".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("nonland permanent"))),
         ],
         ..Default::default() }
 }
@@ -1525,7 +1525,7 @@ fn thrashing_brontodon(id: ObjectId, owner: PlayerId) -> CardData {
                 "{1}, Sacrifice Thrashing Brontodon: Destroy target artifact or enchantment.",
                 vec![Cost::pay_mana("{1}"), Cost::sacrifice_self()],
                 vec![Effect::destroy()],
-                TargetSpec::PermanentFiltered("artifact or enchantment".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("artifact or enchantment"))),
         ],
         ..Default::default() }
 }
@@ -1670,7 +1670,7 @@ fn exclusion_mage(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When Exclusion Mage enters, return target creature an opponent controls to its owner's hand.",
                 vec![Effect::bounce()],
-                TargetSpec::PermanentFiltered("creature an opponent controls".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("creature an opponent controls"))),
         ],
         ..Default::default() }
 }
@@ -1873,7 +1873,7 @@ fn reclamation_sage(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When Reclamation Sage enters, you may destroy target artifact or enchantment.",
                 vec![Effect::destroy()],
-                TargetSpec::PermanentFiltered("artifact or enchantment".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("artifact or enchantment"))),
         ],
         ..Default::default() }
 }
@@ -2184,7 +2184,7 @@ fn disenchant(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::spell(id,
                 vec![Effect::destroy()],
-                TargetSpec::PermanentFiltered("artifact or enchantment".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("artifact or enchantment"))),
         ],
         ..Default::default() }
 }
@@ -2232,7 +2232,7 @@ fn broken_wings(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::spell(id,
                 vec![Effect::destroy()],
-                TargetSpec::PermanentFiltered("artifact, enchantment, or creature with flying".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("artifact, enchantment, or creature with flying"))),
         ],
         ..Default::default() }
 }
@@ -2379,7 +2379,7 @@ fn deathmark(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::spell(id,
                 vec![Effect::destroy()],
-                TargetSpec::PermanentFiltered("green or white creature".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("green or white creature"))),
         ],
         ..Default::default() }
 }
@@ -2428,7 +2428,7 @@ fn angelic_edict(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::spell(id,
                 vec![Effect::exile()],
-                TargetSpec::PermanentFiltered("creature or enchantment".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("creature or enchantment"))),
         ],
         ..Default::default() }
 }
@@ -2846,7 +2846,7 @@ fn ayli_eternal_pilgrim(id: ObjectId, owner: PlayerId) -> CardData {
                 "{1}{W}{B}, Sacrifice another creature: Exile target nonland permanent. Activate only if you have at least 10 life more than your starting life total.",
                 vec![Cost::pay_mana("{1}{W}{B}")],
                 vec![Effect::exile()],
-                TargetSpec::PermanentFiltered("nonland permanent".into())),
+                TargetSpec::PermanentFiltered(Filter::parse("nonland permanent"))),
         ],
         ..Default::default() }
 }

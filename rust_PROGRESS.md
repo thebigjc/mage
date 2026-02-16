@@ -205,14 +205,10 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - All 576 engine tests passing, zero clippy warnings
 
 ## Completed This Iteration
-- Task 1.11: Migrated `Sacrifice`, `SearchLibrary`, `TapCreatures` filter fields from `String` to `Filter`
-  - Changed `filter: String` → `filter: Filter` in `Effect::Sacrifice`, `Effect::SearchLibrary`, and `Cost::TapCreatures`
-  - Updated `Effect::search_library()` and `Cost::tap_creatures()` helpers to use `Filter::parse()`
-  - Updated game.rs `Sacrifice` handler to use `filter.matches_permanent()` instead of `Self::matches_filter()`
-  - Updated game.rs `SearchLibrary` handler to use `filter.matches_card()` instead of `Self::card_matches_filter()`
-  - Updated game.rs `TapCreatures` handler: replaced manual string-based Elf/Changeling check with `filter.matches_permanent()` (handled by typed `HasSubType` predicate + `has_subtype()` which already supports Changeling)
-  - Updated 2 delayed trigger constructions in game.rs (token sacrifice at end of turn)
-  - Updated direct variant constructions in fdn.rs (1 site), tdm.rs (6 sites)
-  - Added `Filter` import to fdn.rs
+- Task 1.12: Migrated `TargetSpec::PermanentFiltered(String)` to `TargetSpec::PermanentFiltered(Filter)`
+  - Changed `PermanentFiltered(String)` → `PermanentFiltered(Filter)` in the `TargetSpec` enum definition (abilities.rs)
+  - Updated game.rs target resolution to use `filter.matches_permanent_ignore_controller(p)` directly instead of `Self::matches_filter(p, filter)` (which parsed the string each time)
+  - Updated game.rs `target_spec_description` to use `f.message` instead of formatting the String directly
+  - Updated 60+ usages across 3 card set files (ecl.rs: 20, fdn.rs: 12, tdm.rs: 28) from `"...".into()` to `Filter::parse("...")`
   - All 584 engine tests passing, 20 mtg-cards tests passing, 19 integration tests passing, zero clippy warnings
 

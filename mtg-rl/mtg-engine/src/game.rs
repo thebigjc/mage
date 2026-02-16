@@ -6818,7 +6818,7 @@ impl Game {
                 .state
                 .battlefield
                 .iter()
-                .filter(|p| Self::matches_filter(p, filter)
+                .filter(|p| filter.matches_permanent_ignore_controller(p)
                     && !Self::is_untargetable(p, controller, source_colors))
                 .map(|p| p.id())
                 .collect(),
@@ -6862,7 +6862,7 @@ impl Game {
             TargetSpec::OpponentCreature => "target creature you don't control".into(),
             TargetSpec::CreatureOrPlayer => "target creature or player".into(),
             TargetSpec::Permanent => "target permanent".into(),
-            TargetSpec::PermanentFiltered(f) => format!("target {f}"),
+            TargetSpec::PermanentFiltered(f) => format!("target {}", f.message),
             TargetSpec::Spell => "target spell".into(),
             _ => "target".into(),
         }

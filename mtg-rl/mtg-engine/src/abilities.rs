@@ -594,7 +594,7 @@ pub enum TargetSpec {
     /// Target permanent.
     Permanent,
     /// Target permanent matching a filter.
-    PermanentFiltered(String),
+    PermanentFiltered(Filter),
     /// Target spell on the stack.
     Spell,
     /// Target card in a graveyard.
