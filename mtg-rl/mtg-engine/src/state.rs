@@ -131,6 +131,12 @@ pub struct GameState {
     /// Rebuilt each apply_continuous_effects call.
     #[serde(skip)]
     pub enhanced_mana_productions: Vec<(ObjectId, ObjectId, ManaColor)>,
+
+    // ── Trigger doubling ──────────────────────────────────────────
+    /// Active trigger doubling effects: (source_id, controller, filter).
+    /// Rebuilt each apply_continuous_effects call.
+    #[serde(skip)]
+    pub trigger_doublings: Vec<(ObjectId, PlayerId, String)>,
 }
 
 /// Duration for impulse draw effects (how long the exiled card remains playable).
@@ -243,6 +249,7 @@ impl GameState {
             damage_doublings: Vec::new(),
             mana_doubling_basic_lands: 0,
             enhanced_mana_productions: Vec::new(),
+            trigger_doublings: Vec::new(),
         }
     }
 

@@ -427,6 +427,7 @@ impl Game {
         self.state.damage_doublings.clear();
         self.state.mana_doubling_basic_lands = 0;
         self.state.enhanced_mana_productions.clear();
+        self.state.trigger_doublings.clear();
 
         // Step 2: Collect static effects from all battlefield permanents.
         // We must collect first to avoid borrow conflicts.
@@ -518,6 +519,9 @@ impl Game {
                                     self.state.enhanced_mana_productions.push((source_id, attached_to, color));
                                 }
                             }
+                        }
+                        crate::abilities::StaticEffect::TriggerDoubling { filter } => {
+                            self.state.trigger_doublings.push((source_id, controller, filter.clone()));
                         }
                         _ => {}
                     }
@@ -1308,6 +1312,35 @@ impl Game {
 
         if triggered.is_empty() && delayed_fired.is_empty() {
             return false;
+        }
+
+        // Apply trigger doubling: duplicate triggers whose source matches a TriggerDoubling filter
+        if !self.state.trigger_doublings.is_empty() {
+            let mut extra: Vec<(PlayerId, AbilityId, ObjectId, String)> = Vec::new();
+            for &(ref _controller, ref _ability_id, ref source_id, ref _desc) in &triggered {
+                let controller = *_controller;
+                let ability_id = *_ability_id;
+                let source_id = *source_id;
+                let desc = _desc.clone();
+                for &(doubler_source, doubler_controller, ref filter) in &self.state.trigger_doublings {
+                    if doubler_controller != controller {
+                        continue;
+                    }
+                    if let Some(source_perm) = self.state.battlefield.get(source_id) {
+                        let f = filter.to_lowercase();
+                        let exclude_doubler = f.contains("other");
+                        if exclude_doubler && source_id == doubler_source {
+                            continue;
+                        }
+                        let stripped = f.replace("other ", "").replace("you control", "").trim().to_string();
+                        if !stripped.is_empty() && !Self::matches_filter(source_perm, &stripped) {
+                            continue;
+                        }
+                        extra.push((controller, ability_id, source_id, desc.clone()));
+                    }
+                }
+            }
+            triggered.extend(extra);
         }
 
         // Sort by APNAP order (active player's triggers first)

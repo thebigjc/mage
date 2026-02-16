@@ -3852,9 +3852,7 @@ fn twilight_diviner(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [COND] Other Elemental triggered abilities trigger additional time (replacement effect)
 fn twinflame_travelers(id: ObjectId, owner: PlayerId) -> CardData {
-    // {2}{U}{R} 3/3 Elemental Sorcerer. Flying. Other Elementals' triggered abilities trigger additional time.
     CardData { id, owner, name: "Twinflame Travelers".into(),
         mana_cost: ManaCost::parse("{2}{U}{R}"),
         card_types: vec![CardType::Creature],
@@ -3865,7 +3863,7 @@ fn twinflame_travelers(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Whenever a triggered ability of another Elemental you control triggers, it triggers an additional time.",
-                vec![StaticEffect::Custom("Other Elementals' triggered abilities trigger an additional time.".into())]),
+                vec![StaticEffect::trigger_doubling("other Elementals you control")]),
         ],
         ..Default::default() }
 }

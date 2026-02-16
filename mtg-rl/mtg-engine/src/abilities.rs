@@ -1472,6 +1472,12 @@ impl StaticEffect {
     pub fn enhanced_mana_production() -> Self {
         StaticEffect::EnhancedManaProduction
     }
+
+    pub fn trigger_doubling(filter: &str) -> Self {
+        StaticEffect::TriggerDoubling {
+            filter: filter.to_string(),
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1703,6 +1709,10 @@ pub enum StaticEffect {
     ManaDoublingBasicLands,
     /// Enchanted land tapped for mana produces additional mana of the aura's chosen color.
     EnhancedManaProduction,
+    /// Triggered abilities of matching permanents the controller controls trigger an additional time.
+    TriggerDoubling {
+        filter: String,
+    },
     /// Custom continuous effect.
 
     Custom(String),

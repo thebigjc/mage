@@ -1866,3 +1866,216 @@ mod enhanced_mana_production_tests {
     }
 }
 
+mod trigger_doubling_tests {
+    use super::*;
+    use crate::events::GameEvent;
+
+    fn add_elemental_with_etb(game: &mut Game, owner: PlayerId, name: &str, life_gain: u32) -> ObjectId {
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![SubType::Elemental];
+        card.power = Some(2);
+        card.toughness = Some(2);
+        let ability = Ability::enters_battlefield_triggered(
+            id,
+            &format!("When {name} enters, you gain {life_gain} life."),
+            vec![Effect::GainLife { amount: life_gain }],
+            TargetSpec::None,
+        );
+        card.abilities.push(ability.clone());
+        game.state.card_store.insert(card.clone());
+        game.state.ability_store.add(ability);
+        let perm = Permanent::new(card, owner);
+        game.state.battlefield.add(perm);
+        game.state.set_zone(id, crate::constants::Zone::Battlefield, None);
+        id
+    }
+
+    fn add_trigger_doubler(game: &mut Game, owner: PlayerId, filter: &str) -> ObjectId {
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, owner, "Twinflame Travelers");
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![SubType::Elemental, SubType::Custom("Sorcerer".into())];
+        card.power = Some(3);
+        card.toughness = Some(3);
+        let ability = Ability::static_ability(
+            id,
+            "Triggered abilities of matching permanents trigger an additional time.",
+            vec![StaticEffect::trigger_doubling(filter)],
+        );
+        card.abilities.push(ability.clone());
+        game.state.card_store.insert(card.clone());
+        game.state.ability_store.add(ability);
+        let perm = Permanent::new(card, owner);
+        game.state.battlefield.add(perm);
+        id
+    }
+
+    #[test]
+    fn matching_elemental_etb_triggers_twice() {
+        let (mut game, p1, _p2) = setup();
+        add_trigger_doubler(&mut game, p1, "other Elementals you control");
+        game.apply_continuous_effects();
+        assert_eq!(game.state.trigger_doublings.len(), 1);
+
+        let elem_id = add_elemental_with_etb(&mut game, p1, "Fire Elemental", 3);
+        game.emit_event(GameEvent::enters_battlefield(elem_id, p1));
+        game.process_sba_and_triggers();
+
+        assert_eq!(game.state.stack.len(), 2, "ETB should be doubled");
+
+        game.resolve_top_of_stack();
+        game.resolve_top_of_stack();
+        assert_eq!(game.state.players[&p1].life, 26, "3 life x2 = 6 gained");
+    }
+
+    #[test]
+    fn non_matching_type_not_doubled() {
+        let (mut game, p1, _p2) = setup();
+        add_trigger_doubler(&mut game, p1, "other Elementals you control");
+        game.apply_continuous_effects();
+
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, owner_placeholder(p1), "Goblin Raider");
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![SubType::Custom("Goblin".into())];
+        card.power = Some(2);
+        card.toughness = Some(2);
+        let ability = Ability::enters_battlefield_triggered(
+            id, "When this enters, gain 3 life.",
+            vec![Effect::GainLife { amount: 3 }],
+            TargetSpec::None,
+        );
+        card.abilities.push(ability.clone());
+        game.state.card_store.insert(card.clone());
+        game.state.ability_store.add(ability);
+        let perm = Permanent::new(card, p1);
+        game.state.battlefield.add(perm);
+        game.state.set_zone(id, crate::constants::Zone::Battlefield, None);
+        game.emit_event(GameEvent::enters_battlefield(id, p1));
+        game.process_sba_and_triggers();
+
+        assert_eq!(game.state.stack.len(), 1, "non-Elemental not doubled");
+    }
+
+    #[test]
+    fn doubler_self_excluded_by_other_filter() {
+        let (mut game, p1, _p2) = setup();
+        let doubler_id = add_trigger_doubler(&mut game, p1, "other Elementals you control");
+        game.apply_continuous_effects();
+
+        let ability = Ability::enters_battlefield_triggered(
+            doubler_id, "When this enters, gain 2 life.",
+            vec![Effect::GainLife { amount: 2 }],
+            TargetSpec::None,
+        );
+        game.state.ability_store.add(ability);
+        game.emit_event(GameEvent::enters_battlefield(doubler_id, p1));
+        game.process_sba_and_triggers();
+
+        assert_eq!(game.state.stack.len(), 1, "doubler's own trigger not doubled");
+    }
+
+    #[test]
+    fn opponent_elemental_not_doubled() {
+        let (mut game, p1, p2) = setup();
+        add_trigger_doubler(&mut game, p1, "other Elementals you control");
+        game.apply_continuous_effects();
+
+        let elem_id = add_elemental_with_etb(&mut game, p2, "Opp Elemental", 3);
+        game.emit_event(GameEvent::enters_battlefield(elem_id, p2));
+        game.process_sba_and_triggers();
+
+        assert_eq!(game.state.stack.len(), 1, "opponent's Elemental not doubled");
+    }
+
+    #[test]
+    fn removal_reverts() {
+        let (mut game, p1, _p2) = setup();
+        let doubler_id = add_trigger_doubler(&mut game, p1, "other Elementals you control");
+        game.apply_continuous_effects();
+        assert_eq!(game.state.trigger_doublings.len(), 1);
+
+        game.state.battlefield.remove(doubler_id);
+        game.state.ability_store.remove_source(doubler_id);
+        game.apply_continuous_effects();
+        assert_eq!(game.state.trigger_doublings.len(), 0);
+
+        let elem_id = add_elemental_with_etb(&mut game, p1, "Late Elemental", 3);
+        game.emit_event(GameEvent::enters_battlefield(elem_id, p1));
+        game.process_sba_and_triggers();
+
+        assert_eq!(game.state.stack.len(), 1, "no doubling after removal");
+    }
+
+    #[test]
+    fn multiple_doublers_stack() {
+        let (mut game, p1, _p2) = setup();
+        add_trigger_doubler(&mut game, p1, "other Elementals you control");
+        add_trigger_doubler(&mut game, p1, "other Elementals you control");
+        game.apply_continuous_effects();
+        assert_eq!(game.state.trigger_doublings.len(), 2);
+
+        let elem_id = add_elemental_with_etb(&mut game, p1, "Double Fire", 3);
+        game.emit_event(GameEvent::enters_battlefield(elem_id, p1));
+        game.process_sba_and_triggers();
+
+        assert_eq!(game.state.stack.len(), 3, "1 original + 2 extra = 3 triggers");
+    }
+
+    #[test]
+    fn changeling_matches_filter() {
+        let (mut game, p1, _p2) = setup();
+        add_trigger_doubler(&mut game, p1, "other Elementals you control");
+        game.apply_continuous_effects();
+
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, p1, "Changeling Sentinel");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(1);
+        card.toughness = Some(1);
+        card.keywords = KeywordAbilities::CHANGELING;
+        let ability = Ability::enters_battlefield_triggered(
+            id, "When this enters, gain 2 life.",
+            vec![Effect::GainLife { amount: 2 }],
+            TargetSpec::None,
+        );
+        card.abilities.push(ability.clone());
+        game.state.card_store.insert(card.clone());
+        game.state.ability_store.add(ability);
+        let perm = Permanent::new(card, p1);
+        game.state.battlefield.add(perm);
+        game.state.set_zone(id, crate::constants::Zone::Battlefield, None);
+        game.emit_event(GameEvent::enters_battlefield(id, p1));
+        game.process_sba_and_triggers();
+
+        assert_eq!(game.state.stack.len(), 2, "changeling matches Elemental filter");
+    }
+
+    #[test]
+    fn no_doubling_without_doubler() {
+        let (mut game, p1, _p2) = setup();
+        game.apply_continuous_effects();
+        assert_eq!(game.state.trigger_doublings.len(), 0);
+
+        let elem_id = add_elemental_with_etb(&mut game, p1, "Solo Elemental", 3);
+        game.emit_event(GameEvent::enters_battlefield(elem_id, p1));
+        game.process_sba_and_triggers();
+
+        assert_eq!(game.state.stack.len(), 1, "no doubling without doubler");
+    }
+
+    #[test]
+    fn helper_constructor() {
+        match StaticEffect::trigger_doubling("other Elementals you control") {
+            StaticEffect::TriggerDoubling { filter } => {
+                assert_eq!(filter, "other Elementals you control");
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    fn owner_placeholder(p: PlayerId) -> PlayerId { p }
+}
+
