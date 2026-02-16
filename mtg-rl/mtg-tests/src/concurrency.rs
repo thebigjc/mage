@@ -115,7 +115,7 @@ mod tests {
         // (infinite loop, data race, etc.), this test will fail.
         let results: Vec<_> = (0..20u64)
             .into_par_iter()
-            .map(|seed| run_game(seed))
+            .map(run_game)
             .collect();
 
         // All games should have completed
@@ -257,7 +257,7 @@ mod tests {
 
         let results: Vec<_> = (0..n_games)
             .into_par_iter()
-            .map(|seed| run_game(seed))
+            .map(run_game)
             .collect();
 
         let elapsed = start.elapsed();
