@@ -2089,7 +2089,7 @@ impl Game {
                     .map(|p| p.is_in_game())
                     .unwrap_or(false)
             })
-            .map(|&id| ObjectId(id.0))
+            .map(|&id| ObjectId::from_player(id))
             .collect();
 
         if possible_defenders.is_empty() {
@@ -2165,7 +2165,7 @@ impl Game {
             .groups
             .iter()
             .filter(|g| g.defending_player)
-            .map(|g| PlayerId(g.defending_id.0))
+            .map(|g| PlayerId::from_object(g.defending_id))
             .collect::<std::collections::HashSet<_>>()
             .into_iter()
             .collect();
@@ -2177,7 +2177,7 @@ impl Game {
                 .combat
                 .groups
                 .iter()
-                .filter(|g| g.defending_player && PlayerId(g.defending_id.0) == def_player)
+                .filter(|g| g.defending_player && PlayerId::from_object(g.defending_id) == def_player)
                 .map(|g| {
                     // Check if attacker has landwalk (unblockable if defender controls that land type)
                     let has_landwalk_evasion = self.state.battlefield.get(g.attacker_id)
@@ -2351,7 +2351,7 @@ impl Game {
         // Apply all damage
         for (target_id, amount, is_player, source_id) in &damage_events {
             if *is_player {
-                let player_id = PlayerId(target_id.0);
+                let player_id = PlayerId::from_object(*target_id);
                 if let Some(player) = self.state.players.get_mut(&player_id) {
                     player.life -= *amount as i32;
                 }

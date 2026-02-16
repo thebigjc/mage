@@ -374,7 +374,7 @@ mod tests {
         let defender = PlayerId::new();
 
         state.attacking_player = Some(PlayerId::new());
-        state.declare_attacker(attacker, ObjectId(defender.0), true);
+        state.declare_attacker(attacker, ObjectId::from_player(defender), true);
 
         assert!(state.has_attackers());
         assert!(state.is_attacking(attacker));

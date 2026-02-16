@@ -99,7 +99,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - [x] Task 2.3: Use `Option` and `Result` combinators (`.map()`, `.and_then()`, `.unwrap_or()`) to replace manual match/if-let chains
 
 #### 2B: Newtype Validation
-- [ ] Task 2.4: Add validation to `ObjectId`, `PlayerId` constructors (ensure non-nil UUIDs)
+- [x] Task 2.4: Add validation to `ObjectId`, `PlayerId` constructors (ensure non-nil UUIDs)
 - [ ] Task 2.5: Create `Power(i32)`, `Toughness(i32)`, `Life(i32)` newtypes for game values with appropriate `impl`s
 - [ ] Task 2.6: Propagate newtypes through CardData, Permanent, and game logic
 
@@ -205,6 +205,19 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - All 576 engine tests passing, zero clippy warnings
 
 ## Completed This Iteration
+- Task 2.4: Made ObjectId, PlayerId, AbilityId inner UUID fields private with validated constructors
+  - Made tuple field private (was `pub Uuid`, now `Uuid`) for all three types
+  - Added `from_uuid()` constructor with `debug_assert!(!uuid.is_nil())` validation
+  - Added `as_uuid()` accessor for reading the inner UUID
+  - Added `ObjectId::from_player(PlayerId)` and `PlayerId::from_object(ObjectId)` conversion methods
+  - Updated 4 call sites in game.rs that converted between ObjectId/PlayerId via `.0` field
+  - Updated 1 call site in combat.rs test
+  - Replaced 42 `ObjectId(Uuid::new_v4())`/`PlayerId(Uuid::new_v4())` in test code with `::new()`
+  - Removed 5 unused `use uuid::Uuid` imports from test files
+  - Added 6 unit tests (uniqueness, roundtrip, conversion, nil rejection for all 3 types)
+  - 590 engine + 20 cards + 52 AI + 19 integration tests passing, zero clippy warnings
+
+### Previous Iteration
 - Task 2.3: Replaced manual match/if-let chains with Option/Result combinators across mtg-engine
   - **zones.rs**: 4× `if let Some(pos) = position() { remove(); true } else { false }` → `.position().map().is_some()` (Library, Hand, Graveyard, CommandZone)
   - **zones.rs**: Stack::remove `if let Some(pos) ... { Some(remove) } else { None }` → `.position().map()`

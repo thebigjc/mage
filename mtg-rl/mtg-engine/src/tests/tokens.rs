@@ -7,7 +7,6 @@ use crate::permanent::Permanent;
 use crate::types::{ObjectId, PlayerId};
 
 #[cfg(test)]
-    use uuid::Uuid;
 
     struct PassPlayer;
     impl crate::decision::PlayerDecisionMaker for PassPlayer {
@@ -29,8 +28,8 @@ use crate::types::{ObjectId, PlayerId};
     }
 
     fn make_game() -> (Game, PlayerId, PlayerId) {
-        let p1 = PlayerId(Uuid::new_v4());
-        let p2 = PlayerId(Uuid::new_v4());
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
         let config = GameConfig { players: vec![PlayerConfig { name: "P1".into(), deck: vec![] }, PlayerConfig { name: "P2".into(), deck: vec![] }], starting_life: 20 };
         let game = Game::new_two_player(config, vec![(p1, Box::new(PassPlayer)), (p2, Box::new(PassPlayer))]);
         (game, p1, p2)
@@ -41,7 +40,7 @@ use crate::types::{ObjectId, PlayerId};
         let (mut game, p1, _p2) = make_game();
 
         // Create a creature to copy
-        let src_id = ObjectId(Uuid::new_v4());
+        let src_id = ObjectId::new();
         let src_card = CardData {
             id: src_id, owner: p1, name: "Goblin Lord".into(),
             card_types: vec![crate::constants::CardType::Creature],
@@ -77,7 +76,7 @@ use crate::types::{ObjectId, PlayerId};
     fn token_copy_with_haste() {
         let (mut game, p1, _p2) = make_game();
 
-        let src_id = ObjectId(Uuid::new_v4());
+        let src_id = ObjectId::new();
         let src_card = CardData {
             id: src_id, owner: p1, name: "Big Dragon".into(),
             card_types: vec![crate::constants::CardType::Creature],
@@ -104,7 +103,7 @@ use crate::types::{ObjectId, PlayerId};
     fn token_copy_with_changeling() {
         let (mut game, p1, _p2) = make_game();
 
-        let src_id = ObjectId(Uuid::new_v4());
+        let src_id = ObjectId::new();
         let src_card = CardData {
             id: src_id, owner: p1, name: "Elf Warrior".into(),
             card_types: vec![crate::constants::CardType::Creature],
@@ -131,7 +130,7 @@ use crate::types::{ObjectId, PlayerId};
     fn token_copy_emits_etb() {
         let (mut game, p1, _p2) = make_game();
 
-        let src_id = ObjectId(Uuid::new_v4());
+        let src_id = ObjectId::new();
         let src_card = CardData {
             id: src_id, owner: p1, name: "Bear".into(),
             card_types: vec![crate::constants::CardType::Creature],

@@ -1055,7 +1055,6 @@ use crate::types::{ObjectId, PlayerId};
 
 
     // Additional tests
-    use uuid::Uuid;
 
     struct PassPlayer;
     impl crate::decision::PlayerDecisionMaker for PassPlayer {
@@ -1081,8 +1080,8 @@ use crate::types::{ObjectId, PlayerId};
 
     #[test]
     fn blight_opponents_puts_counter() {
-        let p1 = PlayerId(Uuid::new_v4());
-        let p2 = PlayerId(Uuid::new_v4());
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
         let config = GameConfig { players: vec![PlayerConfig { name: "P1".into(), deck: vec![] }, PlayerConfig { name: "P2".into(), deck: vec![] }], starting_life: 20 };
         let mut game = Game::new_two_player(config, vec![
             (p1, Box::new(PassPlayer)),
@@ -1090,7 +1089,7 @@ use crate::types::{ObjectId, PlayerId};
         ]);
 
         // Give opponent a creature
-        let opp_creature = ObjectId(Uuid::new_v4());
+        let opp_creature = ObjectId::new();
         let card = CardData {
             id: opp_creature, owner: p2, name: "Bear".into(),
             card_types: vec![crate::constants::CardType::Creature],
@@ -1112,15 +1111,15 @@ use crate::types::{ObjectId, PlayerId};
 
     #[test]
     fn gain_all_creature_types() {
-        let p1 = PlayerId(Uuid::new_v4());
-        let p2 = PlayerId(Uuid::new_v4());
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
         let config = GameConfig { players: vec![PlayerConfig { name: "P1".into(), deck: vec![] }, PlayerConfig { name: "P2".into(), deck: vec![] }], starting_life: 20 };
         let mut game = Game::new_two_player(config, vec![
             (p1, Box::new(PassPlayer)),
             (p2, Box::new(PassPlayer)),
         ]);
 
-        let creature_id = ObjectId(Uuid::new_v4());
+        let creature_id = ObjectId::new();
         let card = CardData {
             id: creature_id, owner: p1, name: "Type Gainer".into(),
             card_types: vec![crate::constants::CardType::Creature],

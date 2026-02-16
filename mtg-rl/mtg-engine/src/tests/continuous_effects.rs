@@ -452,7 +452,6 @@ use crate::types::{ObjectId, PlayerId};
 
 
     // Additional tests
-    use uuid::Uuid;
 
     struct PassPlayer;
     impl crate::decision::PlayerDecisionMaker for PassPlayer {
@@ -474,8 +473,8 @@ use crate::types::{ObjectId, PlayerId};
     }
 
     fn make_test_game() -> (Game, PlayerId, PlayerId) {
-        let p1 = PlayerId(Uuid::new_v4());
-        let p2 = PlayerId(Uuid::new_v4());
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
         let config = GameConfig { players: vec![PlayerConfig { name: "P1".to_string(), deck: vec![] }, PlayerConfig { name: "P2".to_string(), deck: vec![] }], starting_life: 20 };
         let game = Game::new_two_player(config, vec![
             (p1, Box::new(PassPlayer)),
@@ -489,7 +488,7 @@ use crate::types::{ObjectId, PlayerId};
         let (mut game, p1, _p2) = make_test_game();
 
         // Create creature with "first strike on your turn"
-        let card_id = ObjectId(Uuid::new_v4());
+        let card_id = ObjectId::new();
         let card = CardData {
             id: card_id, owner: p1, name: "First Strike Guy".into(),
             card_types: vec![crate::constants::CardType::Creature],
@@ -522,7 +521,7 @@ use crate::types::{ObjectId, PlayerId};
     fn conditional_keyword_untapped() {
         let (mut game, p1, _p2) = make_test_game();
 
-        let card_id = ObjectId(Uuid::new_v4());
+        let card_id = ObjectId::new();
         let card = CardData {
             id: card_id, owner: p1, name: "Hexproof Untapped".into(),
             card_types: vec![crate::constants::CardType::Creature],
@@ -557,7 +556,7 @@ use crate::types::{ObjectId, PlayerId};
         let (mut game, p1, _p2) = make_test_game();
 
         // Create creature with "flash if you control a Faerie"
-        let card_id = ObjectId(Uuid::new_v4());
+        let card_id = ObjectId::new();
         let card = CardData {
             id: card_id, owner: p1, name: "Faerie Pal".into(),
             card_types: vec![crate::constants::CardType::Creature],
@@ -578,7 +577,7 @@ use crate::types::{ObjectId, PlayerId};
             "should NOT have flash without a Faerie");
 
         // Add a Faerie
-        let faerie_id = ObjectId(Uuid::new_v4());
+        let faerie_id = ObjectId::new();
         let faerie = CardData {
             id: faerie_id, owner: p1, name: "Faerie Token".into(),
             card_types: vec![crate::constants::CardType::Creature],
@@ -600,7 +599,7 @@ use crate::types::{ObjectId, PlayerId};
     fn conditional_boost_creature_etb() {
         let (mut game, p1, _p2) = make_test_game();
 
-        let card_id = ObjectId(Uuid::new_v4());
+        let card_id = ObjectId::new();
         let card = CardData {
             id: card_id, owner: p1, name: "Boost on ETB".into(),
             card_types: vec![crate::constants::CardType::Creature],
@@ -620,7 +619,7 @@ use crate::types::{ObjectId, PlayerId};
         assert_eq!(perm.power(), 3, "should be base power without ETB event");
 
         // Add ETB event
-        game.emit_event(crate::events::GameEvent::enters_battlefield(ObjectId(Uuid::new_v4()), p1));
+        game.emit_event(crate::events::GameEvent::enters_battlefield(ObjectId::new(), p1));
         game.apply_continuous_effects();
         let perm = game.state.battlefield.get(card_id).unwrap();
         assert_eq!(perm.power(), 5, "should be 3+2 with ETB event this turn");
@@ -2128,7 +2127,6 @@ mod trigger_doubling_tests {
 mod boost_per_turn_event_tests {
     use super::*;
     use crate::events::GameEvent;
-    use uuid::Uuid;
 
     struct PassPlayer2;
     impl crate::decision::PlayerDecisionMaker for PassPlayer2 {
@@ -2150,8 +2148,8 @@ mod boost_per_turn_event_tests {
     }
 
     fn make_game() -> (Game, PlayerId, PlayerId) {
-        let p1 = PlayerId(Uuid::new_v4());
-        let p2 = PlayerId(Uuid::new_v4());
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
         let config = GameConfig { players: vec![
             PlayerConfig { name: "P1".into(), deck: vec![] },
             PlayerConfig { name: "P2".into(), deck: vec![] },
@@ -2167,7 +2165,7 @@ mod boost_per_turn_event_tests {
     fn boost_per_creatures_entered_no_events() {
         let (mut game, p1, _p2) = make_game();
 
-        let ench_id = ObjectId(Uuid::new_v4());
+        let ench_id = ObjectId::new();
         let ench = CardData {
             id: ench_id, owner: p1, name: "Kinbinding".into(),
             card_types: vec![CardType::Enchantment],
@@ -2180,7 +2178,7 @@ mod boost_per_turn_event_tests {
         game.state.card_store.insert(ench.clone());
         for ab in &ench.abilities { game.state.ability_store.add(ab.clone()); }
 
-        let bear_id = ObjectId(Uuid::new_v4());
+        let bear_id = ObjectId::new();
         let mut bear = CardData::new(bear_id, p1, "Bear");
         bear.card_types = vec![CardType::Creature];
         bear.power = Some(2);
@@ -2197,7 +2195,7 @@ mod boost_per_turn_event_tests {
     fn boost_per_creatures_entered_scales_with_count() {
         let (mut game, p1, _p2) = make_game();
 
-        let ench_id = ObjectId(Uuid::new_v4());
+        let ench_id = ObjectId::new();
         let ench = CardData {
             id: ench_id, owner: p1, name: "Kinbinding".into(),
             card_types: vec![CardType::Enchantment],
@@ -2210,16 +2208,16 @@ mod boost_per_turn_event_tests {
         game.state.card_store.insert(ench.clone());
         for ab in &ench.abilities { game.state.ability_store.add(ab.clone()); }
 
-        let bear_id = ObjectId(Uuid::new_v4());
+        let bear_id = ObjectId::new();
         let mut bear = CardData::new(bear_id, p1, "Bear");
         bear.card_types = vec![CardType::Creature];
         bear.power = Some(2);
         bear.toughness = Some(2);
         game.state.battlefield.add(Permanent::new(bear, p1));
 
-        game.emit_event(GameEvent::enters_battlefield(ObjectId(Uuid::new_v4()), p1));
-        game.emit_event(GameEvent::enters_battlefield(ObjectId(Uuid::new_v4()), p1));
-        game.emit_event(GameEvent::enters_battlefield(ObjectId(Uuid::new_v4()), p1));
+        game.emit_event(GameEvent::enters_battlefield(ObjectId::new(), p1));
+        game.emit_event(GameEvent::enters_battlefield(ObjectId::new(), p1));
+        game.emit_event(GameEvent::enters_battlefield(ObjectId::new(), p1));
 
         game.apply_continuous_effects();
         let perm = game.state.battlefield.get(bear_id).unwrap();
@@ -2231,7 +2229,7 @@ mod boost_per_turn_event_tests {
     fn boost_per_creatures_entered_only_your_creatures() {
         let (mut game, p1, p2) = make_game();
 
-        let ench_id = ObjectId(Uuid::new_v4());
+        let ench_id = ObjectId::new();
         let ench = CardData {
             id: ench_id, owner: p1, name: "Kinbinding".into(),
             card_types: vec![CardType::Enchantment],
@@ -2244,22 +2242,22 @@ mod boost_per_turn_event_tests {
         game.state.card_store.insert(ench.clone());
         for ab in &ench.abilities { game.state.ability_store.add(ab.clone()); }
 
-        let bear_id = ObjectId(Uuid::new_v4());
+        let bear_id = ObjectId::new();
         let mut bear = CardData::new(bear_id, p1, "Bear");
         bear.card_types = vec![CardType::Creature];
         bear.power = Some(2);
         bear.toughness = Some(2);
         game.state.battlefield.add(Permanent::new(bear, p1));
 
-        let opp_bear_id = ObjectId(Uuid::new_v4());
+        let opp_bear_id = ObjectId::new();
         let mut opp_bear = CardData::new(opp_bear_id, p2, "Opp Bear");
         opp_bear.card_types = vec![CardType::Creature];
         opp_bear.power = Some(3);
         opp_bear.toughness = Some(3);
         game.state.battlefield.add(Permanent::new(opp_bear, p2));
 
-        game.emit_event(GameEvent::enters_battlefield(ObjectId(Uuid::new_v4()), p1));
-        game.emit_event(GameEvent::enters_battlefield(ObjectId(Uuid::new_v4()), p2));
+        game.emit_event(GameEvent::enters_battlefield(ObjectId::new(), p1));
+        game.emit_event(GameEvent::enters_battlefield(ObjectId::new(), p2));
 
         game.apply_continuous_effects();
         let own = game.state.battlefield.get(bear_id).unwrap();
@@ -2274,7 +2272,6 @@ mod boost_per_turn_event_tests {
 
 mod becomes_creature_attached_tests {
     use super::*;
-    use uuid::Uuid;
 
     struct PassPlayer3;
     impl crate::decision::PlayerDecisionMaker for PassPlayer3 {
@@ -2296,8 +2293,8 @@ mod becomes_creature_attached_tests {
     }
 
     fn make_game() -> (Game, PlayerId, PlayerId) {
-        let p1 = PlayerId(Uuid::new_v4());
-        let p2 = PlayerId(Uuid::new_v4());
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
         let config = GameConfig { players: vec![
             PlayerConfig { name: "P1".into(), deck: vec![] },
             PlayerConfig { name: "P2".into(), deck: vec![] },
@@ -2310,7 +2307,7 @@ mod becomes_creature_attached_tests {
     fn becomes_creature_attached_overrides_subtypes_and_color() {
         let (mut game, p1, _p2) = make_game();
 
-        let creature_id = ObjectId(Uuid::new_v4());
+        let creature_id = ObjectId::new();
         let mut creature = CardData::new(creature_id, p1, "Tarmogoyf");
         creature.card_types = vec![CardType::Creature];
         creature.subtypes = vec![SubType::Elemental];
@@ -2319,7 +2316,7 @@ mod becomes_creature_attached_tests {
         creature.color_identity = vec![Color::Green];
         game.state.battlefield.add(Permanent::new(creature, p1));
 
-        let aura_id = ObjectId(Uuid::new_v4());
+        let aura_id = ObjectId::new();
         let aura = CardData {
             id: aura_id, owner: p1, name: "Noggle the Mind".into(),
             card_types: vec![CardType::Enchantment],
@@ -2355,7 +2352,7 @@ mod becomes_creature_attached_tests {
     fn becomes_creature_attached_removed_when_aura_leaves() {
         let (mut game, p1, _p2) = make_game();
 
-        let creature_id = ObjectId(Uuid::new_v4());
+        let creature_id = ObjectId::new();
         let mut creature = CardData::new(creature_id, p1, "Grizzly Bears");
         creature.card_types = vec![CardType::Creature];
         creature.subtypes = vec![SubType::Bear];
@@ -2364,7 +2361,7 @@ mod becomes_creature_attached_tests {
         creature.color_identity = vec![Color::Green];
         game.state.battlefield.add(Permanent::new(creature, p1));
 
-        let aura_id = ObjectId(Uuid::new_v4());
+        let aura_id = ObjectId::new();
         let aura = CardData {
             id: aura_id, owner: p1, name: "Noggle the Mind".into(),
             card_types: vec![CardType::Enchantment],
@@ -2408,7 +2405,7 @@ mod becomes_creature_attached_tests {
     fn colorless_override_affects_color_count() {
         let (mut game, p1, _p2) = make_game();
 
-        let creature_id = ObjectId(Uuid::new_v4());
+        let creature_id = ObjectId::new();
         let mut creature = CardData::new(creature_id, p1, "Blue Creature");
         creature.card_types = vec![CardType::Creature];
         creature.power = Some(3);
@@ -2418,7 +2415,7 @@ mod becomes_creature_attached_tests {
 
         assert_eq!(game.count_colors_among_permanents(p1), 1, "one blue permanent");
 
-        let aura_id = ObjectId(Uuid::new_v4());
+        let aura_id = ObjectId::new();
         let aura = CardData {
             id: aura_id, owner: p1, name: "Colorless Aura".into(),
             card_types: vec![CardType::Enchantment],

@@ -1,17 +1,26 @@
-// Core types -- ObjectId, PlayerId, AbilityId as typed UUID wrappers.
-// Foundation types needed by the decision system and the rest of the engine.
-
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use uuid::Uuid;
 
-/// Unique identifier for any game object (card, permanent, ability on the stack, token, etc.).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct ObjectId(pub Uuid);
+pub struct ObjectId(Uuid);
 
 impl ObjectId {
     pub fn new() -> Self {
-        ObjectId(Uuid::new_v4())
+        Self(Uuid::new_v4())
+    }
+
+    pub fn from_uuid(uuid: Uuid) -> Self {
+        debug_assert!(!uuid.is_nil(), "ObjectId must not be nil");
+        Self(uuid)
+    }
+
+    pub fn as_uuid(self) -> Uuid {
+        self.0
+    }
+
+    pub fn from_player(player: PlayerId) -> Self {
+        Self(player.0)
     }
 }
 
@@ -33,13 +42,25 @@ impl fmt::Display for ObjectId {
     }
 }
 
-/// Unique identifier for a player in the game.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct PlayerId(pub Uuid);
+pub struct PlayerId(Uuid);
 
 impl PlayerId {
     pub fn new() -> Self {
-        PlayerId(Uuid::new_v4())
+        Self(Uuid::new_v4())
+    }
+
+    pub fn from_uuid(uuid: Uuid) -> Self {
+        debug_assert!(!uuid.is_nil(), "PlayerId must not be nil");
+        Self(uuid)
+    }
+
+    pub fn as_uuid(self) -> Uuid {
+        self.0
+    }
+
+    pub fn from_object(object: ObjectId) -> Self {
+        Self(object.0)
     }
 }
 
@@ -61,13 +82,21 @@ impl fmt::Display for PlayerId {
     }
 }
 
-/// Identifier for an ability on a card or permanent.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
-pub struct AbilityId(pub Uuid);
+pub struct AbilityId(Uuid);
 
 impl AbilityId {
     pub fn new() -> Self {
-        AbilityId(Uuid::new_v4())
+        Self(Uuid::new_v4())
+    }
+
+    pub fn from_uuid(uuid: Uuid) -> Self {
+        debug_assert!(!uuid.is_nil(), "AbilityId must not be nil");
+        Self(uuid)
+    }
+
+    pub fn as_uuid(self) -> Uuid {
+        self.0
     }
 }
 
@@ -80,5 +109,51 @@ impl Default for AbilityId {
 impl fmt::Display for AbilityId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", &self.0.to_string()[..8])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_ids_are_unique() {
+        let a = ObjectId::new();
+        let b = ObjectId::new();
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn from_uuid_roundtrips() {
+        let id = ObjectId::new();
+        let uuid = id.as_uuid();
+        let id2 = ObjectId::from_uuid(uuid);
+        assert_eq!(id, id2);
+    }
+
+    #[test]
+    fn player_object_conversion_preserves_uuid() {
+        let player = PlayerId::new();
+        let object = ObjectId::from_player(player);
+        let player2 = PlayerId::from_object(object);
+        assert_eq!(player, player2);
+    }
+
+    #[test]
+    #[should_panic(expected = "ObjectId must not be nil")]
+    fn object_id_rejects_nil() {
+        ObjectId::from_uuid(Uuid::nil());
+    }
+
+    #[test]
+    #[should_panic(expected = "PlayerId must not be nil")]
+    fn player_id_rejects_nil() {
+        PlayerId::from_uuid(Uuid::nil());
+    }
+
+    #[test]
+    #[should_panic(expected = "AbilityId must not be nil")]
+    fn ability_id_rejects_nil() {
+        AbilityId::from_uuid(Uuid::nil());
     }
 }
