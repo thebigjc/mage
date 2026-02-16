@@ -15,6 +15,13 @@ use crate::mana::Mana;
 use crate::types::{AbilityId, ObjectId};
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TriggerScope {
+    SelfOnly,
+    OtherControlled,
+    Any,
+}
+
 /// Sentinel value for effect amounts that should use the X value from the stack.
 /// When an effect has this amount, it will be resolved using the X value chosen at cast time.
 pub const X_VALUE: u32 = u32::MAX;
@@ -351,6 +358,8 @@ pub enum Effect {
         modifications: Vec<TokenModification>,
     },
 
+    CreateTokenCopyOfTriggering,
+
     /// Tap the source permanent (self-tap as part of an effect, not a cost).
     TapSelf,
 
@@ -505,6 +514,12 @@ pub struct Ability {
     pub trigger_events: Vec<EventType>,
     /// For triggered abilities: whether the trigger is optional ("may").
     pub optional_trigger: bool,
+    /// For triggered abilities: scope — self, other, or any.
+    pub trigger_scope: TriggerScope,
+    /// For triggered abilities: max times this can trigger per turn (0 = unlimited).
+    pub triggers_per_turn: u32,
+    /// For triggered abilities: filter on from_zone (e.g. Some(Zone::Graveyard) for "from a graveyard").
+    pub trigger_from_zone: Option<Zone>,
     /// For mana abilities: the mana produced.
     pub mana_produced: Option<Mana>,
     /// For static abilities: continuous effects applied while in play.
@@ -531,6 +546,9 @@ impl Ability {
             targets,
             trigger_events: vec![],
             optional_trigger: false,
+            trigger_scope: TriggerScope::SelfOnly,
+            triggers_per_turn: 0,
+            trigger_from_zone: None,
             mana_produced: None,
             static_effects: vec![],
         }
@@ -555,6 +573,9 @@ impl Ability {
             targets,
             trigger_events,
             optional_trigger: false,
+            trigger_scope: TriggerScope::SelfOnly,
+            triggers_per_turn: 0,
+            trigger_from_zone: None,
             mana_produced: None,
             static_effects: vec![],
         }
@@ -577,6 +598,9 @@ impl Ability {
             targets: TargetSpec::None,
             trigger_events: vec![],
             optional_trigger: false,
+            trigger_scope: TriggerScope::SelfOnly,
+            triggers_per_turn: 0,
+            trigger_from_zone: None,
             mana_produced: None,
             static_effects,
         }
@@ -595,6 +619,9 @@ impl Ability {
             targets: TargetSpec::None,
             trigger_events: vec![],
             optional_trigger: false,
+            trigger_scope: TriggerScope::SelfOnly,
+            triggers_per_turn: 0,
+            trigger_from_zone: None,
             mana_produced: Some(mana),
             static_effects: vec![],
         }
@@ -613,6 +640,9 @@ impl Ability {
             targets,
             trigger_events: vec![],
             optional_trigger: false,
+            trigger_scope: TriggerScope::SelfOnly,
+            triggers_per_turn: 0,
+            trigger_from_zone: None,
             mana_produced: None,
             static_effects: vec![],
         }
@@ -786,13 +816,38 @@ impl Ability {
         effects: Vec<Effect>,
         targets: TargetSpec,
     ) -> Self {
-        Ability::triggered(
+        let mut ab = Ability::triggered(
             source_id,
             rules_text,
             vec![EventType::EnteredTheBattlefield],
             effects,
             targets,
-        )
+        );
+        ab.trigger_scope = TriggerScope::OtherControlled;
+        ab
+    }
+
+    pub fn other_creature_etb_from_graveyard_triggered(
+        source_id: ObjectId,
+        rules_text: &str,
+        effects: Vec<Effect>,
+        targets: TargetSpec,
+    ) -> Self {
+        let mut ab = Ability::triggered(
+            source_id,
+            rules_text,
+            vec![EventType::EnteredTheBattlefield],
+            effects,
+            targets,
+        );
+        ab.trigger_scope = TriggerScope::OtherControlled;
+        ab.trigger_from_zone = Some(Zone::Graveyard);
+        ab
+    }
+
+    pub fn set_once_per_turn(mut self) -> Self {
+        self.triggers_per_turn = 1;
+        self
     }
 
     /// "Whenever a creature dies, [effect]."
@@ -802,13 +857,15 @@ impl Ability {
         effects: Vec<Effect>,
         targets: TargetSpec,
     ) -> Self {
-        Ability::triggered(
+        let mut ab = Ability::triggered(
             source_id,
             rules_text,
             vec![EventType::Dies],
             effects,
             targets,
-        )
+        );
+        ab.trigger_scope = TriggerScope::Any;
+        ab
     }
 }
 
@@ -1244,6 +1301,10 @@ impl Effect {
                 TokenModification::SacrificeAtEndStep,
             ],
         }
+    }
+
+    pub fn create_token_copy_of_triggering() -> Self {
+        Effect::CreateTokenCopyOfTriggering
     }
 
     /// Tap the source permanent.

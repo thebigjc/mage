@@ -12,7 +12,7 @@ use crate::abilities::AbilityStore;
 use crate::combat::CombatState;
 use crate::constants::{ManaColor, PhaseStep, SubType, TurnPhase, Zone};
 use crate::player::Player;
-use crate::types::{ObjectId, PlayerId};
+use crate::types::{AbilityId, ObjectId, PlayerId};
 use crate::zones::{Battlefield, CardStore, Exile, Stack};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -137,6 +137,8 @@ pub struct GameState {
     /// Rebuilt each apply_continuous_effects call.
     #[serde(skip)]
     pub trigger_doublings: Vec<(ObjectId, PlayerId, String)>,
+
+    pub trigger_counts_this_turn: HashMap<AbilityId, u32>,
 }
 
 /// Duration for impulse draw effects (how long the exiled card remains playable).
@@ -250,6 +252,7 @@ impl GameState {
             mana_doubling_basic_lands: 0,
             enhanced_mana_productions: Vec::new(),
             trigger_doublings: Vec::new(),
+            trigger_counts_this_turn: HashMap::new(),
         }
     }
 

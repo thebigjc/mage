@@ -3839,7 +3839,6 @@ fn trystans_command(id: ObjectId, owner: PlayerId) -> CardData {
 // ENGINE DEPS: [COND+COPY] ETB surveil 2, creatures from GY entering then create token copy (once per turn)
 // ENGINE DEPS: [COND+COPY] ETB surveil 2 (approx scry), GY creature trigger creates token copy (once/turn)
 fn twilight_diviner(id: ObjectId, owner: PlayerId) -> CardData {
-    // {2}{B} 3/3 Elf Cleric. ETB: surveil 2. Creatures from GY entering create token copy (once/turn).
     CardData { id, owner, name: "Twilight Diviner".into(),
         mana_cost: ManaCost::parse("{2}{B}"),
         card_types: vec![CardType::Creature],
@@ -3851,11 +3850,10 @@ fn twilight_diviner(id: ObjectId, owner: PlayerId) -> CardData {
                 "When this creature enters, surveil 2.",
                 vec![Effect::scry(2)],
                 TargetSpec::None),
-            Ability::triggered(id,
-                "Whenever one or more other creatures you control enter from a graveyard, create a token copy of one of them. This triggers only once each turn.",
-                vec![EventType::EnteredTheBattlefield],
-                vec![Effect::Custom("Create token copy of creature entering from graveyard (once per turn).".into())],
-                TargetSpec::None),
+            Ability::other_creature_etb_from_graveyard_triggered(id,
+                "Whenever one or more other creatures you control enter, if they entered from a graveyard, create a token that's a copy of one of them. This ability triggers only once each turn.",
+                vec![Effect::create_token_copy_of_triggering()],
+                TargetSpec::None).set_once_per_turn(),
         ],
         ..Default::default() }
 }

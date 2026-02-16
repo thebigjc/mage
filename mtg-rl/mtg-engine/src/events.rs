@@ -531,6 +531,13 @@ impl GameEvent {
             .player(player)
     }
 
+    pub fn enters_battlefield_from(permanent_id: ObjectId, player: PlayerId, from: crate::constants::Zone) -> Self {
+        GameEvent::new(EventType::EnteredTheBattlefield)
+            .target(permanent_id)
+            .player(player)
+            .zone(from)
+    }
+
     /// Create a dies event (creature to graveyard from battlefield).
     pub fn dies(permanent_id: ObjectId, player: PlayerId) -> Self {
         GameEvent::new(EventType::Dies)

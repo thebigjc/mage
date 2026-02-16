@@ -14,7 +14,7 @@
 //
 // Ported from mage.game.GameImpl.
 
-use crate::abilities::{Cost, Effect, StaticEffect};
+use crate::abilities::{Cost, Effect, StaticEffect, TriggerScope};
 use crate::mana::ManaCost;
 use crate::combat::{self, CombatState};
 use crate::constants::AbilityType;
@@ -233,7 +233,8 @@ impl Game {
                         player.begin_turn();
                     }
 
-                    // Reset watchers at the start of each turn
+                    self.state.trigger_counts_this_turn.clear();
+
                     self.watchers.reset_turn();
                 }
             }
@@ -1353,43 +1354,79 @@ impl Game {
             return false;
         }
 
-        // Collect all triggered abilities that match events
-        let mut triggered: Vec<(PlayerId, AbilityId, ObjectId, String)> = Vec::new();
+        let mut triggered: Vec<(PlayerId, AbilityId, ObjectId, String, Option<ObjectId>)> = Vec::new();
 
         for event in self.event_log.iter() {
             let matching = self.state.ability_store.triggered_by(event);
             for ability in matching {
-                // Dies triggers: the source is no longer on the battlefield
-                // but its abilities are still in the store (deferred cleanup).
                 let is_dies_trigger = event.event_type == EventType::Dies;
 
                 if is_dies_trigger {
-                    // For dies triggers, the dying creature's target_id must match
-                    // the ability's source_id (i.e., "when THIS creature dies")
-                    if let Some(target_id) = event.target_id {
-                        if target_id != ability.source_id {
+                    match ability.trigger_scope {
+                        TriggerScope::SelfOnly => {
+                            if let Some(target_id) = event.target_id {
+                                if target_id != ability.source_id {
+                                    continue;
+                                }
+                            }
+                        }
+                        TriggerScope::OtherControlled => {
+                            if let Some(target_id) = event.target_id {
+                                if target_id == ability.source_id {
+                                    continue;
+                                }
+                            }
+                            let source_on_bf = self.state.battlefield.contains(ability.source_id);
+                            if !source_on_bf {
+                                continue;
+                            }
+                            let ab_controller = self.state.battlefield.get(ability.source_id)
+                                .map(|p| p.controller);
+                            if let Some(ac) = ab_controller {
+                                if let Some(player_id) = event.player_id {
+                                    if player_id != ac {
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
+                        TriggerScope::Any => {
+                            let source_on_bf = self.state.battlefield.contains(ability.source_id);
+                            if !source_on_bf {
+                                continue;
+                            }
+                        }
+                    }
+                    let controller = if ability.trigger_scope == TriggerScope::SelfOnly {
+                        event.player_id.unwrap_or(self.state.active_player)
+                    } else {
+                        self.state.battlefield.get(ability.source_id)
+                            .map(|p| p.controller)
+                            .unwrap_or(self.state.active_player)
+                    };
+
+                    if ability.triggers_per_turn > 0 {
+                        let count = self.state.trigger_counts_this_turn.get(&ability.id).copied().unwrap_or(0);
+                        if count >= ability.triggers_per_turn {
                             continue;
                         }
                     }
-                    // Controller comes from the event's player_id
-                    let controller = event.player_id.unwrap_or(self.state.active_player);
 
                     triggered.push((
                         controller,
                         ability.id,
                         ability.source_id,
                         ability.rules_text.clone(),
+                        event.target_id,
                     ));
                     continue;
                 }
 
-                // For non-dies triggers, source must still be on the battlefield
                 let source_on_bf = self.state.battlefield.contains(ability.source_id);
                 if !source_on_bf {
                     continue;
                 }
 
-                // Determine controller of the source permanent
                 let controller = self
                     .state
                     .battlefield
@@ -1397,8 +1434,6 @@ impl Game {
                     .map(|p| p.controller)
                     .unwrap_or(self.state.active_player);
 
-                // Check if this trigger is "self" only (e.g., "whenever THIS creature attacks")
-                // For attack triggers, only trigger for the source creature
                 if event.event_type == EventType::AttackerDeclared {
                     if let Some(target_id) = event.target_id {
                         if target_id != ability.source_id {
@@ -1407,16 +1442,36 @@ impl Game {
                     }
                 }
 
-                // For ETB triggers, only trigger for the source permanent
                 if event.event_type == EventType::EnteredTheBattlefield {
-                    if let Some(target_id) = event.target_id {
-                        if target_id != ability.source_id {
-                            continue;
+                    match ability.trigger_scope {
+                        TriggerScope::SelfOnly => {
+                            if let Some(target_id) = event.target_id {
+                                if target_id != ability.source_id {
+                                    continue;
+                                }
+                            }
                         }
+                        TriggerScope::OtherControlled => {
+                            if let Some(target_id) = event.target_id {
+                                if target_id == ability.source_id {
+                                    continue;
+                                }
+                            }
+                            if let Some(player_id) = event.player_id {
+                                if player_id != controller {
+                                    continue;
+                                }
+                            }
+                            if let Some(required_zone) = ability.trigger_from_zone {
+                                if event.zone != Some(required_zone) {
+                                    continue;
+                                }
+                            }
+                        }
+                        TriggerScope::Any => {}
                     }
                 }
 
-                // For GainLife, only trigger for the controller's life gain
                 if event.event_type == EventType::GainLife {
                     if let Some(player_id) = event.player_id {
                         if player_id != controller {
@@ -1425,7 +1480,6 @@ impl Game {
                     }
                 }
 
-                // For UpkeepStep/EndStep/PrecombatMainPre, only trigger for the controller whose step it is
                 if event.event_type == EventType::UpkeepStep || event.event_type == EventType::EndStep || event.event_type == EventType::PrecombatMainPre {
                     if let Some(player_id) = event.player_id {
                         if player_id != controller {
@@ -1434,7 +1488,6 @@ impl Game {
                     }
                 }
 
-                // For DamagedPlayer, only trigger for the source creature that dealt damage
                 if event.event_type == EventType::DamagedPlayer {
                     if let Some(target_id) = event.target_id {
                         if target_id != ability.source_id {
@@ -1443,11 +1496,19 @@ impl Game {
                     }
                 }
 
+                if ability.triggers_per_turn > 0 {
+                    let count = self.state.trigger_counts_this_turn.get(&ability.id).copied().unwrap_or(0);
+                    if count >= ability.triggers_per_turn {
+                        continue;
+                    }
+                }
+
                 triggered.push((
                     controller,
                     ability.id,
                     ability.source_id,
                     ability.rules_text.clone(),
+                    event.target_id,
                 ));
             }
         }
@@ -1540,12 +1601,13 @@ impl Game {
 
         // Apply trigger doubling: duplicate triggers whose source matches a TriggerDoubling filter
         if !self.state.trigger_doublings.is_empty() {
-            let mut extra: Vec<(PlayerId, AbilityId, ObjectId, String)> = Vec::new();
-            for &(ref _controller, ref _ability_id, ref source_id, ref _desc) in &triggered {
+            let mut extra: Vec<(PlayerId, AbilityId, ObjectId, String, Option<ObjectId>)> = Vec::new();
+            for &(ref _controller, ref _ability_id, ref source_id, ref _desc, ref _event_target) in &triggered {
                 let controller = *_controller;
                 let ability_id = *_ability_id;
                 let source_id = *source_id;
                 let desc = _desc.clone();
+                let et = *_event_target;
                 for &(doubler_source, doubler_controller, ref filter) in &self.state.trigger_doublings {
                     if doubler_controller != controller {
                         continue;
@@ -1560,7 +1622,7 @@ impl Game {
                         if !stripped.is_empty() && !Self::matches_filter(source_perm, &stripped) {
                             continue;
                         }
-                        extra.push((controller, ability_id, source_id, desc.clone()));
+                        extra.push((controller, ability_id, source_id, desc.clone(), et));
                     }
                 }
             }
@@ -1569,11 +1631,10 @@ impl Game {
 
         // Sort by APNAP order (active player's triggers first)
         let active = self.state.active_player;
-        triggered.sort_by_key(|(controller, _, _, _)| if *controller == active { 0 } else { 1 });
+        triggered.sort_by_key(|(controller, _, _, _, _)| if *controller == active { 0 } else { 1 });
 
         // Push triggered abilities onto the stack
-        for (controller, ability_id, source_id, description) in triggered {
-            // For optional triggers, ask the controller
+        for (controller, ability_id, source_id, description, event_target) in triggered {
             let ability = self.state.ability_store.get(ability_id).cloned();
             if let Some(ref ab) = ability {
                 if ab.optional_trigger {
@@ -1593,15 +1654,28 @@ impl Game {
                 }
             }
 
-            // Select targets for the triggered ability
-            let targets = if let Some(ref ab) = ability {
+            let mut targets = if let Some(ref ab) = ability {
                 self.select_targets_for_spec(&ab.targets, controller)
             } else {
                 Vec::new()
             };
 
+            if let Some(et) = event_target {
+                if let Some(ref ab) = ability {
+                    if ab.trigger_scope != TriggerScope::SelfOnly && targets.is_empty() {
+                        targets.push(et);
+                    }
+                }
+            }
+
+            if let Some(ref ab) = ability {
+                if ab.triggers_per_turn > 0 {
+                    *self.state.trigger_counts_this_turn.entry(ability_id).or_insert(0) += 1;
+                }
+            }
+
             let stack_item = crate::zones::StackItem {
-                id: ObjectId::new(), // triggered abilities get a fresh ID on the stack
+                id: ObjectId::new(),
                 kind: crate::zones::StackItemKind::Ability {
                     source_id,
                     ability_id,
@@ -1610,8 +1684,8 @@ impl Game {
                 controller,
                 targets,
                 countered: false,
-            x_value: None,
-            exile_on_resolve: false,
+                x_value: None,
+                exile_on_resolve: false,
             };
             self.state.stack.push(stack_item);
         }
@@ -3680,16 +3754,13 @@ impl Game {
                     }
                 }
                 Effect::Reanimate => {
-                    // Return target card from graveyard to battlefield under controller's control
                     for &target_id in targets {
                         let owner = self.state.find_card_owner_in_graveyard(target_id);
                         if let Some(owner_id) = owner {
                             if let Some(player) = self.state.players.get_mut(&owner_id) {
                                 player.graveyard.remove(target_id);
                             }
-                            // Get card data from the card store to create a permanent
                             if let Some(card_data) = self.state.card_store.remove(target_id) {
-                                // Re-register abilities for reanimated permanent
                                 for ability in &card_data.abilities {
                                     self.state.ability_store.add(ability.clone());
                                 }
@@ -3698,6 +3769,7 @@ impl Game {
                                 self.state.set_zone(target_id, crate::constants::Zone::Battlefield, None);
                                 self.check_enters_tapped(target_id);
                                 self.check_enters_with_counters(target_id);
+                                self.emit_event(GameEvent::enters_battlefield_from(target_id, controller, crate::constants::Zone::Graveyard));
                             }
                         }
                     }
@@ -4369,7 +4441,7 @@ impl Game {
                                     self.state.battlefield.add(perm);
                                     self.state.set_zone(card_id, crate::constants::Zone::Battlefield, None);
                                     self.check_enters_with_counters(card_id);
-                                    self.emit_event(GameEvent::enters_battlefield(card_id, controller));
+                                    self.emit_event(GameEvent::enters_battlefield_from(card_id, controller, crate::constants::Zone::Graveyard));
                                 }
                             }
                         }
@@ -4865,8 +4937,36 @@ impl Game {
                         }
                     }
                 }
+                Effect::CreateTokenCopyOfTriggering => {
+                    for &target_id in targets {
+                        let source_card = if let Some(perm) = self.state.battlefield.get(target_id) {
+                            Some(perm.card.clone())
+                        } else {
+                            None
+                        };
+                        if let Some(src) = source_card {
+                            let token_id = ObjectId::new();
+                            let mut token_card = src.clone();
+                            token_card.id = token_id;
+                            token_card.owner = controller;
+                            token_card.is_token = true;
+                            token_card.abilities = token_card.abilities.iter().map(|ab| {
+                                let mut new_ab = ab.clone();
+                                new_ab.id = crate::types::AbilityId::new();
+                                new_ab.source_id = token_id;
+                                new_ab
+                            }).collect();
+                            for ab in &token_card.abilities {
+                                self.state.ability_store.add(ab.clone());
+                            }
+                            let perm = Permanent::new(token_card, controller);
+                            self.state.battlefield.add(perm);
+                            self.state.set_zone(token_id, crate::constants::Zone::Battlefield, None);
+                            self.emit_event(GameEvent::enters_battlefield(token_id, controller));
+                        }
+                    }
+                }
                 Effect::TapSelf => {
-                    // Tap the source permanent
                     if let Some(src_id) = source {
                         if let Some(perm) = self.state.battlefield.get_mut(src_id) {
                             perm.tap();
@@ -4900,7 +5000,7 @@ impl Game {
                                 self.state.battlefield.add(perm);
                                 self.state.set_zone(card_id, crate::constants::Zone::Battlefield, None);
                                 self.check_enters_with_counters(card_id);
-                                self.emit_event(GameEvent::enters_battlefield(card_id, controller));
+                                self.emit_event(GameEvent::enters_battlefield_from(card_id, controller, crate::constants::Zone::Graveyard));
                             }
                         }
                     }

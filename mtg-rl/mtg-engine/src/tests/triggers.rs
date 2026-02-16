@@ -813,3 +813,441 @@ use crate::types::{ObjectId, PlayerId};
         assert_eq!(game.state.delayed_triggers.len(), 0);
 
 }
+
+    #[test]
+    fn other_creature_etb_trigger_fires() {
+        let (mut game, p1, _p2) = setup(
+            Box::new(TriggerTestPlayer::passive()),
+            Box::new(TriggerTestPlayer::passive()),
+        );
+
+        let warden_id = ObjectId::new();
+        let mut warden = CardData::new(warden_id, p1, "Warden");
+        warden.card_types = vec![CardType::Creature];
+        warden.power = Some(1);
+        warden.toughness = Some(1);
+        warden.abilities.push(Ability::other_creature_etb_triggered(
+            warden_id,
+            "Whenever another creature enters under your control, gain 1 life.",
+            vec![Effect::GainLife { amount: 1 }],
+            TargetSpec::None,
+        ));
+        game.state.card_store.insert(warden.clone());
+        for ab in &warden.abilities { game.state.ability_store.add(ab.clone()); }
+        let perm = Permanent::new(warden, p1);
+        game.state.battlefield.add(perm);
+        game.state.set_zone(warden_id, crate::constants::Zone::Battlefield, None);
+
+        let bear_id = ObjectId::new();
+        let mut bear = CardData::new(bear_id, p1, "Bear");
+        bear.card_types = vec![CardType::Creature];
+        bear.power = Some(2);
+        bear.toughness = Some(2);
+        game.state.card_store.insert(bear.clone());
+        let perm2 = Permanent::new(bear, p1);
+        game.state.battlefield.add(perm2);
+        game.state.set_zone(bear_id, crate::constants::Zone::Battlefield, None);
+        game.emit_event(GameEvent::enters_battlefield(bear_id, p1));
+
+        assert_eq!(game.state.players[&p1].life, 20);
+        game.process_sba_and_triggers();
+        assert!(!game.state.stack.is_empty());
+        game.resolve_top_of_stack();
+        assert_eq!(game.state.players[&p1].life, 21);
+    }
+
+    #[test]
+    fn other_creature_etb_does_not_trigger_for_self() {
+        let (mut game, p1, _p2) = setup(
+            Box::new(TriggerTestPlayer::passive()),
+            Box::new(TriggerTestPlayer::passive()),
+        );
+
+        let warden_id = ObjectId::new();
+        let mut warden = CardData::new(warden_id, p1, "Warden");
+        warden.card_types = vec![CardType::Creature];
+        warden.power = Some(1);
+        warden.toughness = Some(1);
+        warden.abilities.push(Ability::other_creature_etb_triggered(
+            warden_id,
+            "Whenever another creature enters under your control, gain 1 life.",
+            vec![Effect::GainLife { amount: 1 }],
+            TargetSpec::None,
+        ));
+        game.state.card_store.insert(warden.clone());
+        for ab in &warden.abilities { game.state.ability_store.add(ab.clone()); }
+        let perm = Permanent::new(warden, p1);
+        game.state.battlefield.add(perm);
+        game.state.set_zone(warden_id, crate::constants::Zone::Battlefield, None);
+        game.emit_event(GameEvent::enters_battlefield(warden_id, p1));
+
+        game.process_sba_and_triggers();
+        assert!(game.state.stack.is_empty(), "Should not trigger for self entering");
+    }
+
+    #[test]
+    fn other_creature_etb_does_not_trigger_for_opponent() {
+        let (mut game, p1, p2) = setup(
+            Box::new(TriggerTestPlayer::passive()),
+            Box::new(TriggerTestPlayer::passive()),
+        );
+
+        let warden_id = ObjectId::new();
+        let mut warden = CardData::new(warden_id, p1, "Warden");
+        warden.card_types = vec![CardType::Creature];
+        warden.power = Some(1);
+        warden.toughness = Some(1);
+        warden.abilities.push(Ability::other_creature_etb_triggered(
+            warden_id,
+            "Whenever another creature enters under your control, gain 1 life.",
+            vec![Effect::GainLife { amount: 1 }],
+            TargetSpec::None,
+        ));
+        game.state.card_store.insert(warden.clone());
+        for ab in &warden.abilities { game.state.ability_store.add(ab.clone()); }
+        let perm = Permanent::new(warden, p1);
+        game.state.battlefield.add(perm);
+        game.state.set_zone(warden_id, crate::constants::Zone::Battlefield, None);
+
+        let bear_id = ObjectId::new();
+        let mut bear = CardData::new(bear_id, p2, "Bear");
+        bear.card_types = vec![CardType::Creature];
+        bear.power = Some(2);
+        bear.toughness = Some(2);
+        game.state.card_store.insert(bear.clone());
+        let perm2 = Permanent::new(bear, p2);
+        game.state.battlefield.add(perm2);
+        game.state.set_zone(bear_id, crate::constants::Zone::Battlefield, None);
+        game.emit_event(GameEvent::enters_battlefield(bear_id, p2));
+
+        game.process_sba_and_triggers();
+        assert!(game.state.stack.is_empty(), "Should not trigger for opponent's creature");
+    }
+
+    #[test]
+    fn graveyard_etb_trigger_fires_from_graveyard() {
+        let (mut game, p1, _p2) = setup(
+            Box::new(TriggerTestPlayer::passive()),
+            Box::new(TriggerTestPlayer::passive()),
+        );
+
+        let diviner_id = ObjectId::new();
+        let mut diviner = CardData::new(diviner_id, p1, "Diviner");
+        diviner.card_types = vec![CardType::Creature];
+        diviner.power = Some(3);
+        diviner.toughness = Some(3);
+        diviner.abilities.push(
+            Ability::other_creature_etb_from_graveyard_triggered(
+                diviner_id,
+                "GY ETB: create token copy.",
+                vec![Effect::create_token_copy_of_triggering()],
+                TargetSpec::None,
+            ).set_once_per_turn()
+        );
+        game.state.card_store.insert(diviner.clone());
+        for ab in &diviner.abilities { game.state.ability_store.add(ab.clone()); }
+        let perm = Permanent::new(diviner, p1);
+        game.state.battlefield.add(perm);
+        game.state.set_zone(diviner_id, crate::constants::Zone::Battlefield, None);
+
+        let bear_id = ObjectId::new();
+        let mut bear = CardData::new(bear_id, p1, "Bear");
+        bear.card_types = vec![CardType::Creature];
+        bear.power = Some(2);
+        bear.toughness = Some(2);
+        game.state.card_store.insert(bear.clone());
+        let perm2 = Permanent::new(bear, p1);
+        game.state.battlefield.add(perm2);
+        game.state.set_zone(bear_id, crate::constants::Zone::Battlefield, None);
+        game.emit_event(GameEvent::enters_battlefield_from(bear_id, p1, crate::constants::Zone::Graveyard));
+
+        let bf_count_before = game.state.battlefield.iter().count();
+        game.process_sba_and_triggers();
+        assert!(!game.state.stack.is_empty(), "Should trigger from graveyard");
+        game.resolve_top_of_stack();
+        let bf_count_after = game.state.battlefield.iter().count();
+        assert_eq!(bf_count_after, bf_count_before + 1, "Token copy should be created");
+    }
+
+    #[test]
+    fn graveyard_etb_trigger_does_not_fire_from_hand() {
+        let (mut game, p1, _p2) = setup(
+            Box::new(TriggerTestPlayer::passive()),
+            Box::new(TriggerTestPlayer::passive()),
+        );
+
+        let diviner_id = ObjectId::new();
+        let mut diviner = CardData::new(diviner_id, p1, "Diviner");
+        diviner.card_types = vec![CardType::Creature];
+        diviner.power = Some(3);
+        diviner.toughness = Some(3);
+        diviner.abilities.push(
+            Ability::other_creature_etb_from_graveyard_triggered(
+                diviner_id,
+                "GY ETB: create token copy.",
+                vec![Effect::create_token_copy_of_triggering()],
+                TargetSpec::None,
+            ).set_once_per_turn()
+        );
+        game.state.card_store.insert(diviner.clone());
+        for ab in &diviner.abilities { game.state.ability_store.add(ab.clone()); }
+        let perm = Permanent::new(diviner, p1);
+        game.state.battlefield.add(perm);
+        game.state.set_zone(diviner_id, crate::constants::Zone::Battlefield, None);
+
+        let bear_id = ObjectId::new();
+        let mut bear = CardData::new(bear_id, p1, "Bear");
+        bear.card_types = vec![CardType::Creature];
+        bear.power = Some(2);
+        bear.toughness = Some(2);
+        game.state.card_store.insert(bear.clone());
+        let perm2 = Permanent::new(bear, p1);
+        game.state.battlefield.add(perm2);
+        game.state.set_zone(bear_id, crate::constants::Zone::Battlefield, None);
+        game.emit_event(GameEvent::enters_battlefield(bear_id, p1));
+
+        game.process_sba_and_triggers();
+        assert!(game.state.stack.is_empty(), "Should not trigger from hand (no from_zone)");
+    }
+
+    #[test]
+    fn once_per_turn_trigger_only_fires_once() {
+        let (mut game, p1, _p2) = setup(
+            Box::new(TriggerTestPlayer::passive()),
+            Box::new(TriggerTestPlayer::passive()),
+        );
+
+        let diviner_id = ObjectId::new();
+        let mut diviner = CardData::new(diviner_id, p1, "Diviner");
+        diviner.card_types = vec![CardType::Creature];
+        diviner.power = Some(3);
+        diviner.toughness = Some(3);
+        diviner.abilities.push(
+            Ability::other_creature_etb_from_graveyard_triggered(
+                diviner_id,
+                "GY ETB: gain 1 life once/turn.",
+                vec![Effect::GainLife { amount: 1 }],
+                TargetSpec::None,
+            ).set_once_per_turn()
+        );
+        game.state.card_store.insert(diviner.clone());
+        for ab in &diviner.abilities { game.state.ability_store.add(ab.clone()); }
+        let perm = Permanent::new(diviner, p1);
+        game.state.battlefield.add(perm);
+        game.state.set_zone(diviner_id, crate::constants::Zone::Battlefield, None);
+
+        let bear1_id = ObjectId::new();
+        let mut bear1 = CardData::new(bear1_id, p1, "Bear1");
+        bear1.card_types = vec![CardType::Creature];
+        bear1.power = Some(2);
+        bear1.toughness = Some(2);
+        game.state.card_store.insert(bear1.clone());
+        let perm2 = Permanent::new(bear1, p1);
+        game.state.battlefield.add(perm2);
+        game.state.set_zone(bear1_id, crate::constants::Zone::Battlefield, None);
+        game.emit_event(GameEvent::enters_battlefield_from(bear1_id, p1, crate::constants::Zone::Graveyard));
+
+        game.process_sba_and_triggers();
+        assert!(!game.state.stack.is_empty());
+        game.resolve_top_of_stack();
+        assert_eq!(game.state.players[&p1].life, 21);
+
+        let bear2_id = ObjectId::new();
+        let mut bear2 = CardData::new(bear2_id, p1, "Bear2");
+        bear2.card_types = vec![CardType::Creature];
+        bear2.power = Some(2);
+        bear2.toughness = Some(2);
+        game.state.card_store.insert(bear2.clone());
+        let perm3 = Permanent::new(bear2, p1);
+        game.state.battlefield.add(perm3);
+        game.state.set_zone(bear2_id, crate::constants::Zone::Battlefield, None);
+        game.emit_event(GameEvent::enters_battlefield_from(bear2_id, p1, crate::constants::Zone::Graveyard));
+
+        game.process_sba_and_triggers();
+        assert!(game.state.stack.is_empty(), "Second trigger should be blocked by once-per-turn");
+        assert_eq!(game.state.players[&p1].life, 21, "Life should not change on second trigger");
+    }
+
+    #[test]
+    fn once_per_turn_resets_on_new_turn() {
+        let (mut game, p1, _p2) = setup(
+            Box::new(TriggerTestPlayer::passive()),
+            Box::new(TriggerTestPlayer::passive()),
+        );
+
+        let diviner_id = ObjectId::new();
+        let mut diviner = CardData::new(diviner_id, p1, "Diviner");
+        diviner.card_types = vec![CardType::Creature];
+        diviner.power = Some(3);
+        diviner.toughness = Some(3);
+        diviner.abilities.push(
+            Ability::other_creature_etb_from_graveyard_triggered(
+                diviner_id,
+                "GY ETB: gain 1 life once/turn.",
+                vec![Effect::GainLife { amount: 1 }],
+                TargetSpec::None,
+            ).set_once_per_turn()
+        );
+        game.state.card_store.insert(diviner.clone());
+        for ab in &diviner.abilities { game.state.ability_store.add(ab.clone()); }
+        let perm = Permanent::new(diviner, p1);
+        game.state.battlefield.add(perm);
+        game.state.set_zone(diviner_id, crate::constants::Zone::Battlefield, None);
+
+        let bear1_id = ObjectId::new();
+        let mut bear1 = CardData::new(bear1_id, p1, "Bear1");
+        bear1.card_types = vec![CardType::Creature];
+        bear1.power = Some(2);
+        bear1.toughness = Some(2);
+        game.state.card_store.insert(bear1.clone());
+        let perm2 = Permanent::new(bear1, p1);
+        game.state.battlefield.add(perm2);
+        game.state.set_zone(bear1_id, crate::constants::Zone::Battlefield, None);
+        game.emit_event(GameEvent::enters_battlefield_from(bear1_id, p1, crate::constants::Zone::Graveyard));
+
+        game.process_sba_and_triggers();
+        game.resolve_top_of_stack();
+        assert_eq!(game.state.players[&p1].life, 21);
+
+        game.state.trigger_counts_this_turn.clear();
+
+        let bear2_id = ObjectId::new();
+        let mut bear2 = CardData::new(bear2_id, p1, "Bear2");
+        bear2.card_types = vec![CardType::Creature];
+        bear2.power = Some(2);
+        bear2.toughness = Some(2);
+        game.state.card_store.insert(bear2.clone());
+        let perm3 = Permanent::new(bear2, p1);
+        game.state.battlefield.add(perm3);
+        game.state.set_zone(bear2_id, crate::constants::Zone::Battlefield, None);
+        game.emit_event(GameEvent::enters_battlefield_from(bear2_id, p1, crate::constants::Zone::Graveyard));
+
+        game.process_sba_and_triggers();
+        assert!(!game.state.stack.is_empty(), "Should trigger again after turn reset");
+        game.resolve_top_of_stack();
+        assert_eq!(game.state.players[&p1].life, 22);
+    }
+
+    #[test]
+    fn create_token_copy_of_triggering_copies_creature() {
+        let (mut game, p1, _p2) = setup(
+            Box::new(TriggerTestPlayer::passive()),
+            Box::new(TriggerTestPlayer::passive()),
+        );
+
+        let diviner_id = ObjectId::new();
+        let mut diviner = CardData::new(diviner_id, p1, "Diviner");
+        diviner.card_types = vec![CardType::Creature];
+        diviner.power = Some(3);
+        diviner.toughness = Some(3);
+        diviner.abilities.push(
+            Ability::other_creature_etb_from_graveyard_triggered(
+                diviner_id,
+                "GY ETB: create token copy.",
+                vec![Effect::create_token_copy_of_triggering()],
+                TargetSpec::None,
+            ).set_once_per_turn()
+        );
+        game.state.card_store.insert(diviner.clone());
+        for ab in &diviner.abilities { game.state.ability_store.add(ab.clone()); }
+        let perm = Permanent::new(diviner, p1);
+        game.state.battlefield.add(perm);
+        game.state.set_zone(diviner_id, crate::constants::Zone::Battlefield, None);
+
+        let dragon_id = ObjectId::new();
+        let mut dragon = CardData::new(dragon_id, p1, "Big Dragon");
+        dragon.card_types = vec![CardType::Creature];
+        dragon.power = Some(5);
+        dragon.toughness = Some(5);
+        dragon.keywords = crate::constants::KeywordAbilities::FLYING;
+        game.state.card_store.insert(dragon.clone());
+        let perm2 = Permanent::new(dragon, p1);
+        game.state.battlefield.add(perm2);
+        game.state.set_zone(dragon_id, crate::constants::Zone::Battlefield, None);
+        game.emit_event(GameEvent::enters_battlefield_from(dragon_id, p1, crate::constants::Zone::Graveyard));
+
+        game.process_sba_and_triggers();
+        assert!(!game.state.stack.is_empty());
+        game.resolve_top_of_stack();
+
+        let tokens: Vec<_> = game.state.battlefield.iter()
+            .filter(|p| p.card.name == "Big Dragon" && p.card.is_token)
+            .collect();
+        assert_eq!(tokens.len(), 1, "Should create exactly one token copy");
+        let token = &tokens[0];
+        assert_eq!(token.card.power, Some(5));
+        assert_eq!(token.card.toughness, Some(5));
+        assert!(token.card.keywords.contains(crate::constants::KeywordAbilities::FLYING));
+        assert_eq!(token.controller, p1);
+    }
+
+    #[test]
+    fn reanimate_emits_etb_event() {
+        let (mut game, p1, _p2) = setup(
+            Box::new(TriggerTestPlayer::passive()),
+            Box::new(TriggerTestPlayer::passive()),
+        );
+
+        let warden_id = ObjectId::new();
+        let mut warden = CardData::new(warden_id, p1, "Warden");
+        warden.card_types = vec![CardType::Creature];
+        warden.power = Some(1);
+        warden.toughness = Some(1);
+        warden.abilities.push(Ability::enters_battlefield_triggered(
+            warden_id,
+            "When enters, gain 3 life.",
+            vec![Effect::GainLife { amount: 3 }],
+            TargetSpec::None,
+        ));
+        game.state.card_store.insert(warden.clone());
+        game.state.players.get_mut(&p1).unwrap().graveyard.add(warden_id);
+        game.state.set_zone(warden_id, crate::constants::Zone::Graveyard, None);
+
+        game.execute_effects(
+            &[Effect::Reanimate],
+            p1,
+            &[warden_id],
+            None,
+            None,
+        );
+
+        assert!(game.state.battlefield.contains(warden_id), "Card should be on battlefield");
+        assert!(!game.event_log.is_empty(), "ETB event should have been emitted");
+        let etb_events: Vec<_> = game.event_log.iter()
+            .filter(|e| e.event_type == EventType::EnteredTheBattlefield)
+            .collect();
+        assert_eq!(etb_events.len(), 1);
+        assert_eq!(etb_events[0].zone, Some(crate::constants::Zone::Graveyard));
+    }
+
+    #[test]
+    fn trigger_scope_helper_constructors() {
+        use crate::abilities::TriggerScope;
+        let src = ObjectId::new();
+
+        let self_etb = Ability::enters_battlefield_triggered(
+            src, "self etb", vec![Effect::GainLife { amount: 1 }], TargetSpec::None,
+        );
+        assert_eq!(self_etb.trigger_scope, TriggerScope::SelfOnly);
+        assert_eq!(self_etb.triggers_per_turn, 0);
+        assert_eq!(self_etb.trigger_from_zone, None);
+
+        let other_etb = Ability::other_creature_etb_triggered(
+            src, "other etb", vec![Effect::GainLife { amount: 1 }], TargetSpec::None,
+        );
+        assert_eq!(other_etb.trigger_scope, TriggerScope::OtherControlled);
+        assert_eq!(other_etb.triggers_per_turn, 0);
+        assert_eq!(other_etb.trigger_from_zone, None);
+
+        let gy_etb = Ability::other_creature_etb_from_graveyard_triggered(
+            src, "gy etb", vec![Effect::GainLife { amount: 1 }], TargetSpec::None,
+        ).set_once_per_turn();
+        assert_eq!(gy_etb.trigger_scope, TriggerScope::OtherControlled);
+        assert_eq!(gy_etb.triggers_per_turn, 1);
+        assert_eq!(gy_etb.trigger_from_zone, Some(crate::constants::Zone::Graveyard));
+
+        let any_dies = Ability::any_creature_dies_triggered(
+            src, "any dies", vec![Effect::GainLife { amount: 1 }], TargetSpec::None,
+        );
+        assert_eq!(any_dies.trigger_scope, TriggerScope::Any);
+    }
