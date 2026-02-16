@@ -78,7 +78,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - [x] Task 1.8: Implement `Filter::matches_permanent(&self, perm: &Permanent, state: &GameState) -> bool` evaluation
 - [x] Task 1.9: Migrate `matches_filter()` string parsing logic to `Filter` enum evaluation
 - [x] Task 1.10: Migrate `DealDamageAll`, `DestroyAll`, `BoostAllUntilEndOfTurn` filter fields from `String` to `Filter`
-- [ ] Task 1.11: Migrate `Sacrifice`, `SearchLibrary`, `TapCreatures` filter fields from `String` to `Filter`
+- [x] Task 1.11: Migrate `Sacrifice`, `SearchLibrary`, `TapCreatures` filter fields from `String` to `Filter`
 - [ ] Task 1.12: Migrate `TargetSpec::PermanentFiltered(String)` to `TargetSpec::PermanentFiltered(Filter)` (~62 usages)
 - [ ] Task 1.13: Migrate `CostReduction { filter: String }` to use `Filter` enum (~14 usages)
 - [ ] Task 1.14: Update card implementations in all 4 set files to use `Filter` enum instead of strings
@@ -205,12 +205,14 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - All 576 engine tests passing, zero clippy warnings
 
 ## Completed This Iteration
-- Task 1.10: Migrated `DealDamageAll`, `DestroyAll`, `BoostAllUntilEndOfTurn` filter fields from `String` to `Filter`
-  - Changed `filter: String` → `filter: Filter` in all three Effect variants in abilities.rs
-  - Updated helper functions `boost_all_eot()` and `destroy_all()` to use `Filter::parse()`
-  - Updated game.rs handlers to use `filter.matches_permanent(perm, controller)` instead of string-based `matches_filter()`
-  - Simplified `BoostAllUntilEndOfTurn` handler: removed manual "you control" string check (now handled by typed Predicate)
-  - Updated direct variant constructions in tdm.rs (3 sites), ecl.rs (1 site), and keywords.rs test (1 site)
-  - Updated registry.rs test assertion from `filter.contains()` to `filter.message.contains()`
+- Task 1.11: Migrated `Sacrifice`, `SearchLibrary`, `TapCreatures` filter fields from `String` to `Filter`
+  - Changed `filter: String` → `filter: Filter` in `Effect::Sacrifice`, `Effect::SearchLibrary`, and `Cost::TapCreatures`
+  - Updated `Effect::search_library()` and `Cost::tap_creatures()` helpers to use `Filter::parse()`
+  - Updated game.rs `Sacrifice` handler to use `filter.matches_permanent()` instead of `Self::matches_filter()`
+  - Updated game.rs `SearchLibrary` handler to use `filter.matches_card()` instead of `Self::card_matches_filter()`
+  - Updated game.rs `TapCreatures` handler: replaced manual string-based Elf/Changeling check with `filter.matches_permanent()` (handled by typed `HasSubType` predicate + `has_subtype()` which already supports Changeling)
+  - Updated 2 delayed trigger constructions in game.rs (token sacrifice at end of turn)
+  - Updated direct variant constructions in fdn.rs (1 site), tdm.rs (6 sites)
+  - Added `Filter` import to fdn.rs
   - All 584 engine tests passing, 20 mtg-cards tests passing, 19 integration tests passing, zero clippy warnings
 
