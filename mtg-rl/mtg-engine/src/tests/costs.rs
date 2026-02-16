@@ -2,6 +2,7 @@
 
 use crate::game::*;
 use crate::abilities::{Ability, Cost, Effect, TargetSpec, StaticEffect};
+use crate::filters::Filter;
 use crate::card::CardData;
 use crate::constants::{CardType, KeywordAbilities, Outcome, SubType};
 use crate::counters::CounterType;
@@ -451,7 +452,7 @@ use crate::abilities::X_VALUE;
         lord.toughness = Some(1);
         lord.abilities = vec![Ability::static_ability(lord_id,
             "Elf spells you cast cost {1} less.",
-            vec![StaticEffect::CostReduction { filter: "Elf".into(), amount: 1, condition: None }])];
+            vec![StaticEffect::CostReduction { filter: Filter::parse("Elf"), amount: 1, condition: None }])];
         let perm = crate::permanent::Permanent::new(lord.clone(), p1);
         game.state.card_store.insert(lord.clone());
         game.state.battlefield.add(perm);
@@ -496,7 +497,7 @@ use crate::abilities::X_VALUE;
         lord.toughness = Some(1);
         lord.abilities = vec![Ability::static_ability(lord_id,
             "Elf spells cost {1} less.",
-            vec![StaticEffect::CostReduction { filter: "Elf".into(), amount: 1, condition: None }])];
+            vec![StaticEffect::CostReduction { filter: Filter::parse("Elf"), amount: 1, condition: None }])];
         let perm = crate::permanent::Permanent::new(lord.clone(), p1);
         game.state.card_store.insert(lord.clone());
         game.state.battlefield.add(perm);
@@ -727,7 +728,7 @@ use crate::abilities::X_VALUE;
     fn conditional_cost_reduction_helper_constructor() {
         match StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1) {
             StaticEffect::CostReduction { filter, amount, condition } => {
-                assert_eq!(filter, "creature spells");
+                assert_eq!(filter.message, "creature spells");
                 assert_eq!(amount, 1);
                 assert_eq!(condition.as_deref(), Some("toughness_greater_than_power"));
             }

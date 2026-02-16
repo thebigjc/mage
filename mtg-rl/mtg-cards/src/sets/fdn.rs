@@ -1397,7 +1397,7 @@ fn omniscience(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "You may cast spells from your hand without paying their mana costs.",
-                vec![StaticEffect::CostReduction { filter: "spells you cast from hand".into(), amount: 99, condition: None }]),
+                vec![StaticEffect::CostReduction { filter: Filter::parse("spells you cast from hand"), amount: 99, condition: None }]),
         ],
         ..Default::default() }
 }
@@ -1577,7 +1577,7 @@ fn tolarian_terror(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "This spell costs {1} less to cast for each instant and sorcery card in your graveyard.",
-                vec![StaticEffect::CostReduction { filter: "instants/sorceries in graveyard".into(), amount: 1, condition: None }]),
+                vec![StaticEffect::CostReduction { filter: Filter::parse("instants/sorceries in graveyard"), amount: 1, condition: None }]),
         ],
         ..Default::default() }
 }
@@ -1828,7 +1828,7 @@ fn dragonlords_servant(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Dragon spells you cast cost {1} less to cast.",
-                vec![StaticEffect::CostReduction { filter: "Dragon spells".into(), amount: 1, condition: None }]),
+                vec![StaticEffect::CostReduction { filter: Filter::parse("Dragon spells"), amount: 1, condition: None }]),
         ],
         ..Default::default() }
 }

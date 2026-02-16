@@ -1742,7 +1742,7 @@ impl StaticEffect {
     /// "[Spell type] spells you cast cost {N} less."
     pub fn cost_reduction(filter: &str, amount: u32) -> Self {
         StaticEffect::CostReduction {
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
             amount,
             condition: None,
         }
@@ -1750,7 +1750,7 @@ impl StaticEffect {
 
     pub fn cost_reduction_dynamic(filter: &str, value_source: &str) -> Self {
         StaticEffect::CostReductionDynamic {
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
             value_source: value_source.to_string(),
         }
     }
@@ -1758,7 +1758,7 @@ impl StaticEffect {
     /// "Creature spells with toughness > power cost {N} less."
     pub fn cost_reduction_if_toughness_greater(filter: &str, amount: u32) -> Self {
         StaticEffect::CostReduction {
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
             amount,
             condition: Some("toughness_greater_than_power".into()),
         }
@@ -1836,7 +1836,7 @@ impl StaticEffect {
 
     pub fn grant_convoke(filter: &str) -> Self {
         StaticEffect::GrantConvoke {
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
         }
     }
 
@@ -1860,7 +1860,7 @@ impl StaticEffect {
 
     pub fn grant_conspire(filter: &str) -> Self {
         StaticEffect::GrantConspire {
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
         }
     }
 
@@ -2047,13 +2047,13 @@ pub enum StaticEffect {
     },
     /// Reduce cost of matching spells.
     CostReduction {
-        filter: String,
+        filter: Filter,
         amount: u32,
         condition: Option<String>,
     },
     /// Reduce cost dynamically: "greatest mana value among [type] you control".
     CostReductionDynamic {
-        filter: String,
+        filter: Filter,
         value_source: String,
     },
     /// Matching permanents enter the battlefield tapped.
@@ -2138,7 +2138,7 @@ pub enum StaticEffect {
     },
     /// Grant convoke to matching spells the controller casts.
     GrantConvoke {
-        filter: String,
+        filter: Filter,
     },
     /// Double all damage that sources the controller controls of the chosen creature type would deal.
     DamageDoublingFromType,
@@ -2152,7 +2152,7 @@ pub enum StaticEffect {
     },
     /// Grant conspire to matching spells the controller casts.
     GrantConspire {
-        filter: String,
+        filter: Filter,
     },
     /// This permanent enters the battlefield with counters on it (replacement effect).
     EntersWithCounters {
@@ -2587,7 +2587,7 @@ mod tests {
 
         match StaticEffect::cost_reduction("creature spells", 1) {
             StaticEffect::CostReduction { filter, amount, condition } => {
-                assert_eq!(filter, "creature spells");
+                assert_eq!(filter.message, "creature spells");
                 assert_eq!(amount, 1);
                 assert!(condition.is_none());
             }
@@ -2596,7 +2596,7 @@ mod tests {
 
         match StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1) {
             StaticEffect::CostReduction { filter, amount, condition } => {
-                assert_eq!(filter, "creature spells");
+                assert_eq!(filter.message, "creature spells");
                 assert_eq!(amount, 1);
                 assert_eq!(condition.as_deref(), Some("toughness_greater_than_power"));
             }

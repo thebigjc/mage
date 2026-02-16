@@ -79,8 +79,8 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - [x] Task 1.9: Migrate `matches_filter()` string parsing logic to `Filter` enum evaluation
 - [x] Task 1.10: Migrate `DealDamageAll`, `DestroyAll`, `BoostAllUntilEndOfTurn` filter fields from `String` to `Filter`
 - [x] Task 1.11: Migrate `Sacrifice`, `SearchLibrary`, `TapCreatures` filter fields from `String` to `Filter`
-- [ ] Task 1.12: Migrate `TargetSpec::PermanentFiltered(String)` to `TargetSpec::PermanentFiltered(Filter)` (~62 usages)
-- [ ] Task 1.13: Migrate `CostReduction { filter: String }` to use `Filter` enum (~14 usages)
+- [x] Task 1.12: Migrate `TargetSpec::PermanentFiltered(String)` to `TargetSpec::PermanentFiltered(Filter)` (~62 usages)
+- [x] Task 1.13: Migrate `CostReduction { filter: String }` to use `Filter` enum (~14 usages)
 - [ ] Task 1.14: Update card implementations in all 4 set files to use `Filter` enum instead of strings
 - [ ] Task 1.15: Remove `matches_filter()` string parsing function once all callers migrated
 
@@ -205,10 +205,13 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - All 576 engine tests passing, zero clippy warnings
 
 ## Completed This Iteration
-- Task 1.12: Migrated `TargetSpec::PermanentFiltered(String)` to `TargetSpec::PermanentFiltered(Filter)`
-  - Changed `PermanentFiltered(String)` → `PermanentFiltered(Filter)` in the `TargetSpec` enum definition (abilities.rs)
-  - Updated game.rs target resolution to use `filter.matches_permanent_ignore_controller(p)` directly instead of `Self::matches_filter(p, filter)` (which parsed the string each time)
-  - Updated game.rs `target_spec_description` to use `f.message` instead of formatting the String directly
-  - Updated 60+ usages across 3 card set files (ecl.rs: 20, fdn.rs: 12, tdm.rs: 28) from `"...".into()` to `Filter::parse("...")`
+- Task 1.13: Migrated `CostReduction { filter: String }`, `CostReductionDynamic { filter: String }`, `GrantConvoke { filter: String }`, and `GrantConspire { filter: String }` to use `Filter` enum
+  - Changed `filter: String` → `filter: Filter` in 4 `StaticEffect` variants (abilities.rs)
+  - Updated helper constructors (`cost_reduction`, `cost_reduction_dynamic`, `cost_reduction_if_toughness_greater`, `grant_convoke`, `grant_conspire`) to use `Filter::parse()`
+  - Updated `calculate_cost_reduction()` and `spell_has_convoke()` in game.rs to use `filter.matches_card_ignore_controller(card)` instead of the string-based `spell_matches_cost_filter()`
+  - Removed `spell_matches_cost_filter()` method entirely — no longer needed
+  - Enhanced `parse_filter_string` in filters.rs to handle "noncreature" and "instants/sorceries" patterns
+  - Updated 12 card implementations across 3 set files (ecl.rs: 4, fdn.rs: 3, tdm.rs: 5)
+  - Updated 4 test files (abilities.rs, costs.rs, keywords.rs) to use `filter.message` for assertions
   - All 584 engine tests passing, 20 mtg-cards tests passing, 19 integration tests passing, zero clippy warnings
 

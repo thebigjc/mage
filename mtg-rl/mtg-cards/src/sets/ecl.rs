@@ -2750,7 +2750,7 @@ fn gathering_stone(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::static_ability(id,
                 "Spells you cast of the chosen type cost {1} less to cast.",
-                vec![StaticEffect::CostReduction { filter: "spells of chosen type".into(), amount: 1, condition: None }]),
+                vec![StaticEffect::CostReduction { filter: Filter::parse("spells of chosen type"), amount: 1, condition: None }]),
             Ability::triggered(id,
                 "When this artifact enters and at the beginning of your upkeep, look at the top card of your library. If it's a card of the chosen type, you may reveal it and put it into your hand.",
                 vec![EventType::EnteredTheBattlefield, EventType::UpkeepStep],
@@ -3540,7 +3540,7 @@ fn sapling_nursery(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Affinity for Forests.",
-                vec![StaticEffect::CostReduction { filter: "Forest".into(), amount: 1, condition: None }]),
+                vec![StaticEffect::CostReduction { filter: Filter::parse("Forest"), amount: 1, condition: None }]),
             Ability::triggered(id,
                 "Landfall — Whenever a land you control enters, create a 3/4 green Treefolk creature token with reach.",
                 vec![EventType::EnteredTheBattlefield],
@@ -3986,7 +3986,7 @@ fn wildvine_pummeler(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Vivid -- This spell costs {1} less for each color among permanents you control.",
-                vec![StaticEffect::CostReduction { filter: "self".into(), amount: 1, condition: None }]),
+                vec![StaticEffect::CostReduction { filter: Filter::parse("self"), amount: 1, condition: None }]),
         ],
         ..Default::default() }
 }
@@ -4685,7 +4685,7 @@ fn swat_away(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "This spell costs {2} less to cast if a creature is attacking you.",
-                vec![StaticEffect::CostReduction { filter: "self if creature attacking you".into(), amount: 2, condition: None }]),
+                vec![StaticEffect::CostReduction { filter: Filter::parse("self if creature attacking you"), amount: 2, condition: None }]),
             Ability::spell(id,
                 vec![Effect::PutOnLibrary],
                 TargetSpec::PermanentFiltered(Filter::parse("spell or creature"))),

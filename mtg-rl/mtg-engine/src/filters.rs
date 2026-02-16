@@ -311,6 +311,10 @@ fn parse_filter_string(s: &str) -> Predicate {
         return Predicate::creature();
     }
 
+    if lower == "noncreature" || lower == "noncreature spell" || lower == "noncreature spells" {
+        return Predicate::NotCardType(CardType::Creature);
+    }
+
     if lower == "land" || lower == "lands" {
         return Predicate::land();
     }
@@ -325,6 +329,15 @@ fn parse_filter_string(s: &str) -> Predicate {
 
     if lower == "planeswalker" || lower == "planeswalkers" {
         return Predicate::planeswalker();
+    }
+
+    if lower.contains("instant") && lower.contains("sorcery")
+        || lower.starts_with("instants/sorceries")
+    {
+        return Predicate::Or(vec![
+            Predicate::instant(),
+            Predicate::sorcery(),
+        ]);
     }
 
     if lower == "nonland permanent" || lower == "nonland permanents" {

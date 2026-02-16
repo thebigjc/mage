@@ -1084,7 +1084,7 @@ impl Game {
                 }
                 for effect in &ability.static_effects {
                     if let crate::abilities::StaticEffect::CostReduction { filter, amount, condition } = effect {
-                        if self.spell_matches_cost_filter(card, filter) {
+                        if filter.matches_card_ignore_controller(card) {
                             if let Some(cond) = condition {
                                 if cond == "toughness_greater_than_power" {
                                     let t = card.toughness.unwrap_or(0);
@@ -1098,7 +1098,7 @@ impl Game {
                         }
                     }
                     if let crate::abilities::StaticEffect::CostReductionDynamic { filter, value_source } = effect {
-                        if self.spell_matches_cost_filter(card, filter) {
+                        if filter.matches_card_ignore_controller(card) {
                             let dynamic_amount = self.evaluate_count_filter(value_source, player_id);
                             total_reduction += dynamic_amount;
                         }
@@ -1135,7 +1135,7 @@ impl Game {
                 }
                 for effect in &ability.static_effects {
                     if let crate::abilities::StaticEffect::GrantConvoke { filter } = effect {
-                        if self.spell_matches_cost_filter(card, filter) {
+                        if filter.matches_card_ignore_controller(card) {
                             return true;
                         }
                     }
@@ -1236,7 +1236,7 @@ impl Game {
                 }
                 for effect in &ability.static_effects {
                     if let crate::abilities::StaticEffect::GrantConspire { filter } = effect {
-                        if self.spell_matches_cost_filter(card, filter) {
+                        if filter.matches_card_ignore_controller(card) {
                             return true;
                         }
                     }
@@ -1328,47 +1328,6 @@ impl Game {
                 }
             }
         }
-    }
-
-    /// Check if a spell/card matches a cost reduction filter string.
-    fn spell_matches_cost_filter(&self, card: &crate::card::CardData, filter: &str) -> bool {
-        let lower = filter.to_lowercase();
-
-        // "self" — only the source card itself (doesn't apply to other spells)
-        if lower == "self" {
-            return false;
-        }
-
-        // Subtype match: "Elf", "Goblin", "Merfolk", etc.
-        let subtype = crate::constants::SubType::by_description(filter);
-        if card.subtypes.contains(&subtype) {
-            return true;
-        }
-
-        // "creature spells" / "creature"
-        if lower == "creature spells" || lower == "creature" {
-            return card.card_types.contains(&crate::constants::CardType::Creature);
-        }
-
-        // "noncreature spells"
-        if lower == "noncreature spells" {
-            return !card.card_types.contains(&crate::constants::CardType::Creature);
-        }
-
-        // "instant and sorcery spells"
-        if lower.contains("instant") && lower.contains("sorcery") {
-            return card.is_instant() || card.card_types.contains(&crate::constants::CardType::Sorcery);
-        }
-
-        // Card type match: "artifact", "enchantment", etc.
-        for ct in &card.card_types {
-            let ct_name = format!("{ct:?}").to_lowercase();
-            if lower == ct_name || lower == format!("{ct_name} spells") {
-                return true;
-            }
-        }
-
-        false
     }
 
     /// Find permanents matching a filter string, relative to a source permanent.
