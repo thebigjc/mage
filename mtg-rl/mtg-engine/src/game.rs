@@ -4504,6 +4504,35 @@ impl Game {
                         self.state.set_zone(token_id, crate::constants::Zone::Battlefield, None);
                     }
                 }
+                Effect::SearchLibraryVivid => {
+                    let x = self.count_colors_among_permanents(controller) as usize;
+                    let found = if x > 0 {
+                        if let Some(player) = self.state.players.get(&controller) {
+                            let lib_cards: Vec<ObjectId> = player.library.iter().copied().collect();
+                            let mut result: Vec<ObjectId> = Vec::new();
+                            for &card_id in &lib_cards {
+                                if result.len() >= x {
+                                    break;
+                                }
+                                if let Some(c) = self.state.card_store.get(card_id) {
+                                    if Self::card_matches_filter(c, "basic land") {
+                                        result.push(card_id);
+                                    }
+                                }
+                            }
+                            result
+                        } else { vec![] }
+                    } else { vec![] };
+                    if let Some(player) = self.state.players.get_mut(&controller) {
+                        for card_id in &found {
+                            player.library.remove(*card_id);
+                            player.hand.add(*card_id);
+                        }
+                    }
+                    for card_id in found {
+                        self.state.set_zone(card_id, crate::constants::Zone::Hand, Some(controller));
+                    }
+                }
                 Effect::DoIfCostPaid { cost, if_paid, if_not_paid } => {
                     // Ask player if they want to pay the cost
                     let view = crate::decision::GameView::placeholder();

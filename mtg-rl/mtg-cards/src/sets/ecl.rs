@@ -3344,7 +3344,6 @@ fn pitiless_fists(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [VIVID] Vivid (search X basic lands, X=colors), play additional land each turn
 fn prismatic_undercurrents(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Prismatic Undercurrents".into(),
         mana_cost: ManaCost::parse("{3}{G}"),
@@ -3353,7 +3352,7 @@ fn prismatic_undercurrents(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "Vivid — When this enters, search your library for up to X basic land cards, where X is the number of colors among permanents you control. Reveal them, put them into your hand, then shuffle.",
-                    vec![Effect::Custom("Vivid search: up to X basic lands where X = colors among permanents.".into())],
+                    vec![Effect::search_library_vivid()],
                     TargetSpec::None),
             Ability::static_ability(id,
                     "You may play an additional land on each of your turns.",

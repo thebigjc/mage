@@ -150,6 +150,61 @@ use crate::types::{ObjectId, PlayerId};
     }
 
 
+    #[test]
+    fn vivid_search_library_basic_lands() {
+        let (mut game, p1, _) = setup();
+        add_colored_creature(&mut game, p1, "R", "{R}");
+        add_colored_creature(&mut game, p1, "G", "{G}");
+        add_colored_creature(&mut game, p1, "B", "{B}");
+
+        let _land_ids: Vec<ObjectId> = (0..5).map(|i| {
+            let id = ObjectId::new();
+            let mut card = CardData::new(id, p1, &format!("Forest {i}"));
+            card.card_types = vec![CardType::Land];
+            card.supertypes = vec![crate::constants::SuperType::Basic];
+            game.state.card_store.insert(card);
+            game.state.set_zone(id, crate::constants::Zone::Library, Some(p1));
+            if let Some(player) = game.state.players.get_mut(&p1) {
+                player.library.put_on_bottom(id);
+            }
+            id
+        }).collect();
+
+        let hand_before = game.state.players[&p1].hand.len();
+        game.execute_effects(&[Effect::SearchLibraryVivid], p1, &[], None, None);
+        let hand_after = game.state.players[&p1].hand.len();
+        assert_eq!(hand_after - hand_before, 3);
+
+        let lib_basic_count = game.state.players[&p1].library.iter()
+            .filter(|&&cid| {
+                game.state.card_store.get(cid)
+                    .map(|c| c.supertypes.contains(&crate::constants::SuperType::Basic) && c.card_types.contains(&CardType::Land))
+                    .unwrap_or(false)
+            })
+            .count();
+        assert_eq!(lib_basic_count, 2);
+    }
+
+    #[test]
+    fn vivid_search_library_zero_colors() {
+        let (mut game, p1, _) = setup();
+
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, p1, "Forest");
+        card.card_types = vec![CardType::Land];
+        card.supertypes = vec![crate::constants::SuperType::Basic];
+        game.state.card_store.insert(card);
+        game.state.set_zone(id, crate::constants::Zone::Library, Some(p1));
+        if let Some(player) = game.state.players.get_mut(&p1) {
+            player.library.put_on_bottom(id);
+        }
+
+        let hand_before = game.state.players[&p1].hand.len();
+        game.execute_effects(&[Effect::SearchLibraryVivid], p1, &[], None, None);
+        let hand_after = game.state.players[&p1].hand.len();
+        assert_eq!(hand_after, hand_before);
+    }
+
     // Additional tests
 
     /// Decision maker that always says "yes" to choose_use.
