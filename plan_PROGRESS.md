@@ -9,7 +9,7 @@ IN_PROGRESS
 ## Analysis
 
 ### Current State
-- **Engine tests**: 513 (mtg-engine), all passing
+- **Engine tests**: 516 (mtg-engine), all passing
 - **ECL Custom fallbacks**: 33 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 40 total
 - **Other sets**: FDN 336, TLA 199, TDM 110 (these are out of scope per the plan)
 
@@ -65,7 +65,7 @@ Group the 44 fallbacks by what engine feature they need. Implement the engine fe
 
 - [x] Task 8: Add `CompareAndBoost` effect — Choose two creatures, compute X = abs(power difference), draw X cards, boost both +X/+X and grant trample. Updated: **spry_and_mighty**. Added Effect::CompareAndBoost variant, builder, game.rs resolution (power diff, draw, P1P1 counters, trample). 2 new tests, 513 engine total. 1 Effect::Custom eliminated.
 
-- [ ] Task 9: Add `ExileTopAndPlayDynamic` effect — Exile X cards from library (X = dynamic value like counters on a creature), play until next end step. Update: **shadow_urchin** (X = counters on dying creature). Java uses `ExileTopXMayPlayUntilEffect` with `ShadowUrchinValue`. Add engine test. ~1 card fixed.
+- [x] Task 9: Add `ExileTopAndPlayDynamic` effect — Exile X cards from library (X = dynamic value like counters on a creature), play until next end step. Update: **shadow_urchin** (X = counters on dying creature). Java uses `ExileTopXMayPlayUntilEffect` with `ShadowUrchinValue`. Add engine test. ~1 card fixed.
 
 - [ ] Task 10: Add `ConditionalTokenCreation` — If condition met, create token(s). Part of ConditionalEffect (Task 1) but may need dynamic count. Update: **tend_the_sprigs** and **wanderwine_farewell** (both need conditional + counting). May be covered by Task 1.
 
@@ -154,7 +154,7 @@ Task 31 depends on all others
 18. Task 31 (verification)
 
 ## Completed This Iteration
-- Task 8: Added `Effect::CompareAndBoost` variant and `Effect::compare_and_boost()` builder. Computes X = abs(power difference) between two target creatures, draws X cards, gives both +X/+X (P1P1 counters) and trample until EOT. Updated `spry_and_mighty` to use CompareAndBoost. 2 new tests (513 engine total). 1 Effect::Custom eliminated.
+- Task 9: Dies events now carry counter counts from dying permanents. Triggered abilities with `TargetSpec::None` skip fizzle check (implicit references, not MTG targets). Updated `shadow_urchin` from `Effect::Custom` to `ExileTopAndPlay` with `X_VALUE` sentinel + `TriggerScope::OtherControlled`. 3 new tests (516 engine total). 1 Effect::Custom eliminated.
 
 ## Notes
 
