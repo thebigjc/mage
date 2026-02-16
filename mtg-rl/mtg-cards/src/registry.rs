@@ -326,7 +326,7 @@ mod tests {
         let gf = registry.create("Gallant Fowlknight", id, owner).unwrap();
         assert_eq!(gf.power, Some(3));
         assert_eq!(gf.abilities[0].effects.len(), 2);
-        assert!(matches!(gf.abilities[0].effects[0], Effect::BoostAllUntilEndOfTurn { ref filter, power: 1, toughness: 0 } if filter.contains("creature")));
+        assert!(matches!(gf.abilities[0].effects[0], Effect::BoostAllUntilEndOfTurn { ref filter, power: 1, toughness: 0 } if filter.message.contains("creature")));
         assert!(matches!(gf.abilities[0].effects[1], Effect::GrantKeywordAllUntilEndOfTurn { ref filter, ref keyword } if filter.contains("Kithkin") && keyword == "first_strike"));
     }
 

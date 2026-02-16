@@ -4,6 +4,7 @@
 use crate::cards::basic_lands;
 use crate::registry::CardRegistry;
 use mtg_engine::abilities::{Ability, Cost, Effect, StaticEffect, TargetSpec};
+use mtg_engine::filters::Filter;
 use mtg_engine::events::EventType;
 use mtg_engine::card::CardData;
 use mtg_engine::constants::*;
@@ -1305,7 +1306,7 @@ fn dragonback_assault(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Dragonback Assault enters, it deals 3 damage to each creature and planeswalker.",
-                vec![Effect::DealDamageAll { amount: 3, filter: "creatures and planeswalkers".into() }],
+                vec![Effect::DealDamageAll { amount: 3, filter: Filter::parse("creatures and planeswalkers") }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -2166,7 +2167,7 @@ fn death_begets_life(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Death Begets Life".into(), mana_cost: ManaCost::parse("{2}{W}{B}"),
         card_types: vec![CardType::Sorcery], rarity: Rarity::Rare,
         abilities: vec![Ability::spell(id,
-            vec![Effect::DestroyAll { filter: "creature".into() },
+            vec![Effect::DestroyAll { filter: Filter::parse("creature") },
                  Effect::Custom("Create X 1/1 white Spirit creature tokens with flying, where X is the number of creatures destroyed this way.".into())],
             TargetSpec::None)],
         ..Default::default() }
@@ -3658,7 +3659,7 @@ fn zurgo_thunders_decree(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::attacks_triggered(id,
                     "Whenever Zurgo attacks, it deals 1 damage to each creature defending player controls.",
-                    vec![Effect::DealDamageAll { amount: 1, filter: "creature defending player controls".into() }],
+                    vec![Effect::DealDamageAll { amount: 1, filter: Filter::parse("creature defending player controls") }],
                     TargetSpec::None),
             Ability::static_ability(id,
                     "Whenever a creature dealt damage by Zurgo this turn dies, you gain 1 life and Zurgo gets +1/+0 until end of turn.",

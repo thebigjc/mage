@@ -11,6 +11,7 @@
 
 use crate::constants::{AbilityType, Zone};
 use crate::events::{EventType, GameEvent};
+use crate::filters::Filter;
 use crate::mana::Mana;
 use crate::types::{AbilityId, ObjectId};
 use serde::{Deserialize, Serialize};
@@ -95,7 +96,7 @@ pub enum Effect {
     /// Deal damage to target creature or player.
     DealDamage { amount: u32 },
     /// Deal damage to each creature.
-    DealDamageAll { amount: u32, filter: String },
+    DealDamageAll { amount: u32, filter: Filter },
     /// Deal damage to each opponent.
     DealDamageOpponents { amount: u32 },
     /// Deal damage to each creature opponents control.
@@ -115,7 +116,7 @@ pub enum Effect {
     /// Destroy target permanent.
     Destroy,
     /// Destroy all permanents matching filter.
-    DestroyAll { filter: String },
+    DestroyAll { filter: Filter },
     /// Exile target permanent.
     Exile,
     /// Sacrifice a permanent (owner chooses).
@@ -201,7 +202,7 @@ pub enum Effect {
     /// Give +N/+M permanently (e.g. from counters, applied differently).
     BoostPermanent { power: i32, toughness: i32 },
     /// Give all matching creatures +N/+M until end of turn.
-    BoostAllUntilEndOfTurn { filter: String, power: i32, toughness: i32 },
+    BoostAllUntilEndOfTurn { filter: Filter, power: i32, toughness: i32 },
     /// Set power and toughness.
     SetPowerToughness { power: i32, toughness: i32 },
     /// Give target creature +X/+X until end of turn, where X = |toughness - power|.
@@ -1075,7 +1076,7 @@ impl Effect {
     /// "Creatures [matching filter] get +N/+M until end of turn."
     pub fn boost_all_eot(filter: &str, power: i32, toughness: i32) -> Self {
         Effect::BoostAllUntilEndOfTurn {
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
             power,
             toughness,
         }
@@ -1237,7 +1238,7 @@ impl Effect {
     /// "Destroy all creatures" (or other filter).
     pub fn destroy_all(filter: &str) -> Self {
         Effect::DestroyAll {
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
         }
     }
 

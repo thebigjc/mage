@@ -4,6 +4,7 @@
 use crate::cards::basic_lands;
 use crate::registry::CardRegistry;
 use mtg_engine::abilities::{Ability, Cost, Effect, ModalMode, StaticEffect, TargetSpec, TriggerScope, X_VALUE};
+use mtg_engine::filters::Filter;
 use mtg_engine::card::CardData;
 use mtg_engine::constants::*;
 use mtg_engine::events::EventType;
@@ -2028,7 +2029,7 @@ fn ashlings_command(id: ObjectId, owner: PlayerId) -> CardData {
                 ModalMode::new("Target player draws two cards.",
                     vec![Effect::draw_cards(2)]),
                 ModalMode::new("Deal 2 damage to each creature target player controls.",
-                    vec![Effect::DealDamageAll { amount: 2, filter: "creature target player controls".into() }]),
+                    vec![Effect::DealDamageAll { amount: 2, filter: Filter::parse("creature target player controls") }]),
                 ModalMode::new("Target player creates two Treasure tokens.",
                     vec![Effect::create_token("Treasure", 2)]),
             ], 2, 2)],

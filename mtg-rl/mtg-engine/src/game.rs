@@ -4709,7 +4709,7 @@ impl Game {
                 }
                 Effect::DestroyAll { filter } => {
                     let to_destroy: Vec<(ObjectId, PlayerId, bool, u32)> = self.state.battlefield.iter()
-                        .filter(|p| Self::matches_filter(p, filter) && !p.has_indestructible())
+                        .filter(|p| filter.matches_permanent(p, controller) && !p.has_indestructible())
                         .map(|p| (p.id(), p.owner(), p.is_creature(), p.counters.total_count()))
                         .collect();
                     for (id, owner, was_creature, ctr_count) in &to_destroy {
@@ -4729,7 +4729,7 @@ impl Game {
                     let mult = source.map(|s| self.get_damage_multiplier(s)).unwrap_or(1);
                     let dmg = base_dmg * mult;
                     let matching: Vec<ObjectId> = self.state.battlefield.iter()
-                        .filter(|p| p.is_creature() && Self::matches_filter(p, filter))
+                        .filter(|p| p.is_creature() && filter.matches_permanent(p, controller))
                         .map(|p| p.id())
                         .collect();
                     for id in matching {
@@ -4919,12 +4919,8 @@ impl Game {
                     }
                 }
                 Effect::BoostAllUntilEndOfTurn { filter, power, toughness: _ } => {
-                    // Give all matching creatures controlled by the effect's controller +N/+M until EOT
-                    let you_control = filter.to_lowercase().contains("you control");
                     let matching: Vec<ObjectId> = self.state.battlefield.iter()
-                        .filter(|p| p.is_creature()
-                            && (!you_control || p.controller == controller)
-                            && Self::matches_filter(p, filter))
+                        .filter(|p| p.is_creature() && filter.matches_permanent(p, controller))
                         .map(|p| p.id())
                         .collect();
                     for id in matching {

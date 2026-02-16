@@ -2,6 +2,7 @@
 
 use crate::game::*;
 use crate::abilities::{Ability, Effect, TargetSpec, StaticEffect};
+use crate::filters::Filter;
 use crate::card::CardData;
 use crate::constants::{CardType, Color, KeywordAbilities, Outcome, PhaseStep, SubType, TurnPhase};
 use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
@@ -511,7 +512,7 @@ use crate::types::{ObjectId, PlayerId};
             Ability::static_ability(spell_id, "This spell can't be countered.",
                 vec![StaticEffect::CantBeCountered]),
             Ability::spell(spell_id,
-                vec![Effect::DestroyAll { filter: "creature".into() }],
+                vec![Effect::DestroyAll { filter: Filter::parse("creature") }],
                 TargetSpec::None),
         ];
         let stack_item = crate::zones::StackItem {
