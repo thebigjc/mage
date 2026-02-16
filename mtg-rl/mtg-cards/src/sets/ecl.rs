@@ -4054,7 +4054,7 @@ fn ajani_outland_chaperone(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::loyalty_ability(id,
                 "-8: Look at the top X cards of your library, where X is your life total. Put any number of nonland permanent cards with mana value 3 or less onto the battlefield.",
                 -8,
-                vec![Effect::Custom("Look at top X cards (X=life total), put nonland permanents MV<=3 onto battlefield.".into())],
+                vec![Effect::look_top_life_put_battlefield("nonland permanent with mana value 3 or less")],
                 TargetSpec::None),
         ],
         ..Default::default() }

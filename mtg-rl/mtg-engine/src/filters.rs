@@ -506,6 +506,16 @@ fn parse_filter_string(s: &str) -> Predicate {
         }
     }
 
+    // Mana value / power comparisons must be checked BEFORE the " or " splitter,
+    // because patterns like "with mana value 3 or less" contain " or ".
+    if let Some(mv_filter) = parse_mana_value_suffix(&lower) {
+        return mv_filter;
+    }
+
+    if let Some(power_filter) = parse_power_suffix(&lower) {
+        return power_filter;
+    }
+
     if let Some((left, right)) = lower.split_once(" or ") {
         let lp = parse_filter_string(left.trim());
         let rp = parse_filter_string(right.trim());
@@ -535,14 +545,6 @@ fn parse_filter_string(s: &str) -> Predicate {
     if let Some(rest) = lower.strip_suffix(" with flying") {
         let inner = parse_filter_string(rest);
         return inner.and(Predicate::HasKeyword(KeywordAbilities::FLYING));
-    }
-
-    if let Some(mv_filter) = parse_mana_value_suffix(&lower) {
-        return mv_filter;
-    }
-
-    if let Some(power_filter) = parse_power_suffix(&lower) {
-        return power_filter;
     }
 
     if let Some(rest) = lower.strip_suffix(" card") {

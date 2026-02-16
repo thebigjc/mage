@@ -351,7 +351,7 @@ The following Effect variants have working `execute_effects()` match arms:
 **Damage:** DealDamage, DealDamageAll, DealDamageOpponents, DealDamageVivid
 **Life:** GainLife, GainLifeVivid, LoseLife, LoseLifeOpponents, LoseLifeOpponentsVivid, SetLife
 **Removal:** Destroy, DestroyAll, Exile, Sacrifice, SacrificeTargets, PutOnLibrary
-**Card Movement:** Bounce, ReturnFromGraveyard, Reanimate, DrawCards, DrawCardsVivid, DiscardCards, DiscardOpponents, Mill, SearchLibrary, LookTopAndPick, LookTopChosenType
+**Card Movement:** Bounce, ReturnFromGraveyard, Reanimate, DrawCards, DrawCardsVivid, DiscardCards, DiscardOpponents, Mill, SearchLibrary, LookTopAndPick, LookTopChosenType, LookTopLifePutBattlefield
 **Counters:** AddCounters, AddCountersSelf, AddCountersAll, RemoveCounters
 **Tokens:** CreateToken, CreateTokenTappedAttacking, CreateTokenVivid
 **Combat:** CantBlock, Fight, Bite, MustBlock
@@ -430,10 +430,10 @@ These are effects where no typed variant exists. Grouped by what engine feature 
 | FDN (Foundations) | 315 | 57 | 21 | 393 |
 | TLA (Avatar: TLA) | 197 | 54 | 2 | 253 |
 | TDM (Tarkir: Dragonstorm) | 107 | 15 | 3 | 125 |
-| ECL (Lorwyn Eclipsed) | 1 | 0 | 0 | 1 |
-| **Total** | **620** | **126** | **26** | **772** |
+| ECL (Lorwyn Eclipsed) | 0 | 0 | 0 | 0 |
+| **Total** | **619** | **126** | **26** | **771** |
 
-**ECL reduction: 88 → 1 (98.9% reduction)** through 30+ new engine features and per-card updates. The 1 remaining ECL Effect::Custom is Ajani's -8 ultimate implementation (planeswalker loyalty system now functional).
+**ECL reduction: 88 → 0 (100% reduction)** through 30+ new engine features and per-card updates. All ECL Custom fallbacks eliminated including Ajani's planeswalker ultimate (LookTopLifePutBattlefield).
 
 Detailed per-card breakdowns in `docs/{fdn,tla,tdm,ecl}-remediation.md`.
 
@@ -555,6 +555,6 @@ After the above systems are in place, systematically replace remaining `Custom(S
 
 **Session 2026-02-16 (ECL parity — Tasks 27-30):** Added `StaticEffect::CastExiledOncePerTurn`, `StaticEffect::ReplaceTokenCreation`, `StaticEffect::BecomesCreatureAttached`, `StaticEffect::HexproofFromOwnColors`. Also added `Effect::ExileFromOpponentLibraryToSourceZone`. ECL StaticEffect::Custom reduced from 7 to 0. 12 new tests (576 engine total).
 
-**ECL parity complete (2026-02-16):** All 30 implementation tasks done. ECL Custom fallbacks reduced from 88 to 1 (98.9%). Two more effects implemented in follow-up: LookTopChosenType (Gathering Stone) and blight+token-copy attack trigger (Grub). The 1 remaining is Ajani's planeswalker ultimate (requires planeswalker system, Tier 2 feature blocking ~10+ cards across all sets). 613 engine tests, all passing. Planeswalker loyalty system now functional with combat targeting.
+**ECL parity complete (2026-02-16):** All 30 implementation tasks done. ECL Custom fallbacks reduced from 88 to 1 (98.9%). Two more effects implemented in follow-up: LookTopChosenType (Gathering Stone) and blight+token-copy attack trigger (Grub). The 1 remaining is Ajani's planeswalker ultimate (requires planeswalker system, Tier 2 feature blocking ~10+ cards across all sets). 614 engine tests, all passing. Planeswalker loyalty system functional with combat targeting. ECL Effect::Custom reduced to 0 (100% complete).
 
 See `docs/work-queue.md` for the batch-fix loop and per-set remediation docs for card-level details.

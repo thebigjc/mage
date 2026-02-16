@@ -4819,6 +4819,77 @@ impl Game {
                         }
                     }
                 }
+                Effect::LookTopLifePutBattlefield { filter } => {
+                    // Look at top X cards where X = controller's life total.
+                    // Put any number matching filter onto the battlefield.
+                    // Shuffle the rest into library.
+                    let life_total = self.state.players.get(&controller)
+                        .map(|p| p.life.get().max(0) as usize)
+                        .unwrap_or(0);
+                    if life_total == 0 { /* nothing to do */ }
+                    else {
+                        let (top_cards, eligible) = if let Some(player) = self.state.players.get(&controller) {
+                            let look_count = life_total.min(player.library.len());
+                            let top: Vec<ObjectId> = player.library.peek(look_count).to_vec();
+                            let elig: Vec<ObjectId> = top.iter().copied()
+                                .filter(|&cid| {
+                                    self.state.card_store.get(cid)
+                                        .map(|c| filter.matches_card_ignore_controller(c))
+                                        .unwrap_or(false)
+                                })
+                                .collect();
+                            (top, elig)
+                        } else {
+                            (vec![], vec![])
+                        };
+
+                        // AI/decision-maker picks which eligible cards to put onto battlefield.
+                        // Use choose_discard with all eligible cards; count = all (pick any number).
+                        let chosen: Vec<ObjectId> = if !eligible.is_empty() {
+                            let view = crate::decision::GameView::placeholder();
+                            if let Some(dm) = self.decision_makers.get_mut(&controller) {
+                                dm.choose_discard(&view, &eligible, eligible.len())
+                            } else {
+                                eligible.clone() // default: put all eligible
+                            }
+                        } else {
+                            vec![]
+                        };
+
+                        // Remove all looked-at cards from library
+                        if let Some(player) = self.state.players.get_mut(&controller) {
+                            for &card_id in &top_cards {
+                                player.library.remove(card_id);
+                            }
+                        }
+
+                        // Put chosen cards onto the battlefield
+                        for &card_id in &chosen {
+                            if let Some(card_data) = self.state.card_store.remove(card_id) {
+                                for ability in &card_data.abilities {
+                                    self.state.ability_store.add(ability.clone());
+                                }
+                                let perm = Permanent::new(card_data, controller);
+                                self.state.battlefield.add(perm);
+                                self.state.set_zone(card_id, crate::constants::Zone::Battlefield, None);
+                                self.check_enters_with_counters(card_id);
+                                self.check_planeswalker_entry(card_id);
+                                self.emit_event(GameEvent::enters_battlefield(card_id, controller));
+                            }
+                        }
+
+                        // Shuffle remaining cards back into library
+                        if let Some(player) = self.state.players.get_mut(&controller) {
+                            for &card_id in &top_cards {
+                                if !chosen.contains(&card_id) {
+                                    player.library.put_on_bottom(card_id);
+                                }
+                            }
+                            let mut rng = rand::thread_rng();
+                            player.library.shuffle(&mut rng);
+                        }
+                    }
+                }
                 Effect::CreateTokenTappedAttacking { token_name, count } => {
                     self.mark_tokens_created(controller);
                     for _ in 0..*count {

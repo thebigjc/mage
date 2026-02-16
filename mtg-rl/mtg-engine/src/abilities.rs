@@ -169,6 +169,11 @@ pub enum Effect {
     /// your hand. If you don't put it into your hand, you may put it into
     /// your graveyard. (Gathering Stone)
     LookTopChosenType,
+    /// Look at the top X cards of your library, where X is your life total.
+    /// Put any number of cards matching `filter` onto the battlefield.
+    /// Shuffle the rest into your library.
+    /// (Used by Ajani's -8 ultimate.)
+    LookTopLifePutBattlefield { filter: Filter },
 
     // -- Counters --
     /// Put counters on target.
@@ -1409,6 +1414,12 @@ impl Effect {
     /// "Look at the top card, if chosen type put to hand, else may put to graveyard."
     pub fn look_top_chosen_type() -> Self {
         Effect::LookTopChosenType
+    }
+
+    /// "Look at the top X cards of your library, where X is your life total.
+    /// Put any number of [filter] cards onto the battlefield. Shuffle the rest."
+    pub fn look_top_life_put_battlefield(filter: &str) -> Self {
+        Effect::LookTopLifePutBattlefield { filter: Filter::parse(filter) }
     }
 
     /// "Attach this Equipment to target creature you control."

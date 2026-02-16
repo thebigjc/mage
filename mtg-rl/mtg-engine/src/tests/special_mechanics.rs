@@ -3720,3 +3720,135 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         assert_eq!(group.defending_id, pw_id, "should be attacking the planeswalker");
         assert!(!group.defending_player, "defending_player should be false for planeswalker");
     }
+
+    /// Decision maker that picks all offered cards (via choose_discard).
+    struct PickAllPlayer;
+    impl PlayerDecisionMaker for PickAllPlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, _: &TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { true }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, hand: &[ObjectId], count: usize) -> Vec<ObjectId> {
+            hand.iter().take(count).copied().collect() // Pick all offered cards
+        }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    #[test]
+    fn look_top_life_put_battlefield_basic() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".into(), deck: vec![] },
+                PlayerConfig { name: "B".into(), deck: vec![] },
+            ],
+            starting_life: Life::new(5), // Life total = 5, so look at top 5 cards
+        };
+        let mut game = Game::new_two_player(config, vec![
+            (p1, PlayerAgent::new(PickAllPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
+        ]);
+
+        // Populate P1's library with 7 cards:
+        // 3 nonland permanents MV <= 3 (eligible)
+        // 1 nonland permanent MV = 5 (too expensive)
+        // 1 land (filtered out by "nonland")
+        // 2 instants (filtered out by "permanent")
+        let eligible1 = ObjectId::new();
+        let mut c1 = CardData::new(eligible1, p1, "Bear Cub");
+        c1.card_types = vec![CardType::Creature];
+        c1.mana_cost = ManaCost::parse("{1}{G}");
+        c1.power = Some(Power::new(2));
+        c1.toughness = Some(Toughness::new(2));
+        game.state.card_store.insert(c1);
+
+        let eligible2 = ObjectId::new();
+        let mut c2 = CardData::new(eligible2, p1, "Mox Opal");
+        c2.card_types = vec![CardType::Artifact];
+        c2.mana_cost = ManaCost::parse("{0}");
+        game.state.card_store.insert(c2);
+
+        let eligible3 = ObjectId::new();
+        let mut c3 = CardData::new(eligible3, p1, "Llanowar Elves");
+        c3.card_types = vec![CardType::Creature];
+        c3.mana_cost = ManaCost::parse("{G}");
+        c3.power = Some(Power::new(1));
+        c3.toughness = Some(Toughness::new(1));
+        game.state.card_store.insert(c3);
+
+        let too_expensive = ObjectId::new();
+        let mut c4 = CardData::new(too_expensive, p1, "Baneslayer Angel");
+        c4.card_types = vec![CardType::Creature];
+        c4.mana_cost = ManaCost::parse("{3}{W}{W}");
+        c4.power = Some(Power::new(5));
+        c4.toughness = Some(Toughness::new(5));
+        game.state.card_store.insert(c4);
+
+        let land = ObjectId::new();
+        let mut c5 = CardData::new(land, p1, "Forest");
+        c5.card_types = vec![CardType::Land];
+        game.state.card_store.insert(c5);
+
+        let instant1 = ObjectId::new();
+        let mut c6 = CardData::new(instant1, p1, "Giant Growth");
+        c6.card_types = vec![CardType::Instant];
+        c6.mana_cost = ManaCost::parse("{G}");
+        game.state.card_store.insert(c6);
+
+        let instant2 = ObjectId::new();
+        let mut c7 = CardData::new(instant2, p1, "Shock");
+        c7.card_types = vec![CardType::Instant];
+        c7.mana_cost = ManaCost::parse("{R}");
+        game.state.card_store.insert(c7);
+
+        // Put cards on top of library (top = first)
+        // Top 5 (looked at): eligible1, eligible2, too_expensive, land, eligible3
+        // Bottom 2 (not looked at): instant1, instant2
+        if let Some(player) = game.state.players.get_mut(&p1) {
+            player.library.put_on_top(instant2);
+            player.library.put_on_top(instant1);
+            player.library.put_on_top(eligible3);
+            player.library.put_on_top(land);
+            player.library.put_on_top(too_expensive);
+            player.library.put_on_top(eligible2);
+            player.library.put_on_top(eligible1);
+        }
+
+        // Debug: check library state
+        let lib_len = game.state.players.get(&p1).unwrap().library.len();
+        let life = game.state.players.get(&p1).unwrap().life.get();
+
+        // Execute the effect: look at top 5 (life=5), pick nonland permanents MV<=3
+        game.execute_effects(
+            &[Effect::look_top_life_put_battlefield("nonland permanent with mana value 3 or less")],
+            p1, &[], None, None,
+        );
+
+        // Debug: check what ended up on battlefield
+        let bf_count = game.state.battlefield.iter().count();
+        let bf_names: Vec<_> = game.state.battlefield.iter().map(|p| p.card.name.clone()).collect();
+        let lib_len_after = game.state.players.get(&p1).unwrap().library.len();
+
+        // Eligible cards (Bear Cub MV2, Mox Opal MV0, Llanowar Elves MV1) should be on battlefield
+        assert!(game.state.battlefield.get(eligible1).is_some(), "Bear Cub should be on battlefield");
+        assert!(game.state.battlefield.get(eligible2).is_some(), "Mox Opal should be on battlefield");
+        assert!(game.state.battlefield.get(eligible3).is_some(), "Llanowar Elves should be on battlefield");
+
+        // Non-eligible cards from the top 5 (too_expensive, land) should be shuffled back
+        assert!(game.state.battlefield.get(too_expensive).is_none(), "Baneslayer should not be on battlefield");
+        assert!(game.state.battlefield.get(land).is_none(), "Forest should not be on battlefield");
+
+        // Library should contain: too_expensive, land, instant1, instant2 (shuffled)
+        let lib_size = game.state.players.get(&p1).unwrap().library.len();
+        assert_eq!(lib_size, 4, "library should have 4 cards (2 returned + 2 untouched)");
+    }
