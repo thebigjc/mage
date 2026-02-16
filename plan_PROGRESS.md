@@ -9,7 +9,7 @@ IN_PROGRESS
 ## Analysis
 
 ### Current State
-- **Engine tests**: 516 (mtg-engine), all passing
+- **Engine tests**: 519 (mtg-engine), all passing
 - **ECL Custom fallbacks**: 33 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 40 total
 - **Other sets**: FDN 336, TLA 199, TDM 110 (these are out of scope per the plan)
 
@@ -67,11 +67,11 @@ Group the 44 fallbacks by what engine feature they need. Implement the engine fe
 
 - [x] Task 9: Add `ExileTopAndPlayDynamic` effect — Exile X cards from library (X = dynamic value like counters on a creature), play until next end step. Update: **shadow_urchin** (X = counters on dying creature). Java uses `ExileTopXMayPlayUntilEffect` with `ShadowUrchinValue`. Add engine test. ~1 card fixed.
 
-- [ ] Task 10: Add `ConditionalTokenCreation` — If condition met, create token(s). Part of ConditionalEffect (Task 1) but may need dynamic count. Update: **tend_the_sprigs** and **wanderwine_farewell** (both need conditional + counting). May be covered by Task 1.
+- [x] Task 10: Add `ConditionalTokenCreation` — Already covered by Task 1. Both **tend_the_sprigs** and **wanderwine_farewell** already use `Effect::conditional()` + `Effect::create_token()`. No Effect::Custom remains.
 
 ### Tier 3: Medium-Hard — new systems needed
 
-- [ ] Task 11: Add ability resolution counter / `IfResolvedNTimes` effect — Track how many times an ability has resolved this turn. On Nth resolution, perform additional effect. Update: **soulbright_seeker** (3rd resolution: add RRRR). Java uses `IfAbilityHasResolvedXTimesEffect` + `AbilityResolvedWatcher`. Needs new watcher. Add engine test. ~1 card fixed.
+- [x] Task 11: Add `IfAbilityResolvedNTimes` effect — Added `Effect::IfAbilityResolvedNTimes { resolution_number, effects }` variant. Added `ability_resolution_counts_this_turn` to GameState, tracked in `resolve_top_of_stack`, reset at turn start. Added `resolving_ability_id` transient field on Game for effect context. Updated **soulbright_seeker** from `Effect::Custom` to `Effect::if_resolved_n_times(3, vec![Effect::add_mana(Mana::red(4))])`. 3 new tests (519 engine total). 1 Effect::Custom eliminated.
 
 - [ ] Task 12: Add `GrantTemporaryTriggeredAbility` effect — Create a delayed trigger that grants "whenever a creature you control deals combat damage to a player, draw a card" until EOT. Update: **flitterwing_nuisance**. Also needs cost for "remove a counter from this creature". Java uses `CreateDelayedTriggeredAbilityEffect`. Add engine test. ~1 card fixed.
 
@@ -154,7 +154,8 @@ Task 31 depends on all others
 18. Task 31 (verification)
 
 ## Completed This Iteration
-- Task 9: Dies events now carry counter counts from dying permanents. Triggered abilities with `TargetSpec::None` skip fizzle check (implicit references, not MTG targets). Updated `shadow_urchin` from `Effect::Custom` to `ExileTopAndPlay` with `X_VALUE` sentinel + `TriggerScope::OtherControlled`. 3 new tests (516 engine total). 1 Effect::Custom eliminated.
+- Task 10: Already covered by Task 1. Both tend_the_sprigs and wanderwine_farewell use typed effects (conditional + create_token), no Custom remaining.
+- Task 11: Added `Effect::IfAbilityResolvedNTimes` for tracking Nth ability resolution per turn. Added `ability_resolution_counts_this_turn` HashMap to GameState, incremented in `resolve_top_of_stack`, cleared at turn start. Added `resolving_ability_id` to Game struct for effect-resolution context. Updated soulbright_seeker. 3 new tests (519 engine total). 1 Effect::Custom eliminated.
 
 ## Notes
 

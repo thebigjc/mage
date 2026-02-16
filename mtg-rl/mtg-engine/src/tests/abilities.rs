@@ -176,3 +176,115 @@ use crate::types::{ObjectId, PlayerId};
             .collect();
         assert_eq!(tokens.len(), 3, "should have 3 elf tokens");
     }
+
+    #[test]
+    fn if_ability_resolved_n_times_no_effect_before_threshold() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let creature_id = ObjectId::new();
+        let mut card = CardData::new(creature_id, p1, "Seeker");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(2);
+        card.toughness = Some(1);
+        let ability = Ability::activated(creature_id,
+            "{R}: Grant trample. 3rd time adds RRRR.",
+            vec![],
+            vec![
+                Effect::gain_keyword_eot("trample"),
+                Effect::if_resolved_n_times(3, vec![Effect::AddMana { mana: crate::mana::Mana::red(4) }]),
+            ],
+            TargetSpec::None);
+        let ability_id = ability.id;
+        card.abilities.push(ability);
+
+        let perm = crate::permanent::Permanent::new(card.clone(), p1);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(card.clone());
+        for a in &card.abilities {
+            game.state.ability_store.add(a.clone());
+        }
+
+        game.activate_ability(p1, creature_id, ability_id, &[]);
+        game.resolve_top_of_stack();
+        let mana = &game.state.players.get(&p1).unwrap().mana_pool;
+        assert_eq!(mana.available().red, 0, "no mana after 1st resolution");
+
+        game.activate_ability(p1, creature_id, ability_id, &[]);
+        game.resolve_top_of_stack();
+        let mana = &game.state.players.get(&p1).unwrap().mana_pool;
+        assert_eq!(mana.available().red, 0, "no mana after 2nd resolution");
+    }
+
+    #[test]
+    fn if_ability_resolved_n_times_fires_on_threshold() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let creature_id = ObjectId::new();
+        let mut card = CardData::new(creature_id, p1, "Seeker");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(2);
+        card.toughness = Some(1);
+        let ability = Ability::activated(creature_id,
+            "{R}: Grant trample. 3rd time adds RRRR.",
+            vec![],
+            vec![
+                Effect::gain_keyword_eot("trample"),
+                Effect::if_resolved_n_times(3, vec![Effect::AddMana { mana: crate::mana::Mana::red(4) }]),
+            ],
+            TargetSpec::None);
+        let ability_id = ability.id;
+        card.abilities.push(ability);
+
+        let perm = crate::permanent::Permanent::new(card.clone(), p1);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(card.clone());
+        for a in &card.abilities {
+            game.state.ability_store.add(a.clone());
+        }
+
+        for _ in 0..3 {
+            game.activate_ability(p1, creature_id, ability_id, &[]);
+            game.resolve_top_of_stack();
+        }
+        let mana = &game.state.players.get(&p1).unwrap().mana_pool;
+        assert_eq!(mana.available().red, 4, "should have 4 red mana after 3rd resolution");
+    }
+
+    #[test]
+    fn if_ability_resolved_n_times_resets_at_new_turn() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let creature_id = ObjectId::new();
+        let mut card = CardData::new(creature_id, p1, "Seeker");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(2);
+        card.toughness = Some(1);
+        let ability = Ability::activated(creature_id,
+            "3rd time adds RRRR.",
+            vec![],
+            vec![Effect::if_resolved_n_times(3, vec![Effect::AddMana { mana: crate::mana::Mana::red(4) }])],
+            TargetSpec::None);
+        let ability_id = ability.id;
+        card.abilities.push(ability);
+
+        let perm = crate::permanent::Permanent::new(card.clone(), p1);
+        game.state.battlefield.add(perm);
+        game.state.card_store.insert(card.clone());
+        for a in &card.abilities {
+            game.state.ability_store.add(a.clone());
+        }
+
+        for _ in 0..2 {
+            game.activate_ability(p1, creature_id, ability_id, &[]);
+            game.resolve_top_of_stack();
+        }
+        assert_eq!(game.state.ability_resolution_counts_this_turn.get(&ability_id).copied().unwrap_or(0), 2);
+
+        game.state.ability_resolution_counts_this_turn.clear();
+        assert_eq!(game.state.ability_resolution_counts_this_turn.get(&ability_id).copied().unwrap_or(0), 0);
+
+        game.activate_ability(p1, creature_id, ability_id, &[]);
+        game.resolve_top_of_stack();
+        let mana = &game.state.players.get(&p1).unwrap().mana_pool;
+        assert_eq!(mana.available().red, 0, "counter reset, so 1st resolution of new turn should not add mana");
+    }

@@ -87,6 +87,7 @@ pub struct Game {
     pub watchers: WatcherManager,
     /// Event log for tracking events that may trigger abilities.
     event_log: EventLog,
+    resolving_ability_id: Option<AbilityId>,
 }
 
 impl Game {
@@ -153,6 +154,7 @@ impl Game {
             decision_makers: dm_map,
             watchers: WatcherManager::new(),
             event_log: EventLog::new(),
+            resolving_ability_id: None,
         }
     }
 
@@ -234,6 +236,7 @@ impl Game {
                     }
 
                     self.state.trigger_counts_this_turn.clear();
+                    self.state.ability_resolution_counts_this_turn.clear();
 
                     self.watchers.reset_turn();
                 }
@@ -2995,12 +2998,15 @@ impl Game {
                 }
             }
             crate::zones::StackItemKind::Ability { ability_id, source_id, .. } => {
-                // Resolve ability: find its effects and execute them
+                let ab_id = *ability_id;
+                *self.state.ability_resolution_counts_this_turn.entry(ab_id).or_insert(0) += 1;
                 let source = *source_id;
-                let ability_data = self.state.ability_store.get(*ability_id).cloned();
+                let ability_data = self.state.ability_store.get(ab_id).cloned();
                 if let Some(ability) = ability_data {
                     let targets = item.targets.clone();
+                    self.resolving_ability_id = Some(ab_id);
                     self.execute_effects(&ability.effects, item.controller, &targets, Some(source), item.x_value);
+                    self.resolving_ability_id = None;
                 }
             }
         }
@@ -4700,6 +4706,15 @@ impl Game {
                         self.execute_effects(if_true, controller, targets, source, None);
                     } else {
                         self.execute_effects(if_false, controller, targets, source, None);
+                    }
+                }
+                Effect::IfAbilityResolvedNTimes { resolution_number, effects: sub_effects } => {
+                    if let Some(ab_id) = self.resolving_ability_id {
+                        let count = self.state.ability_resolution_counts_this_turn
+                            .get(&ab_id).copied().unwrap_or(0);
+                        if count >= *resolution_number {
+                            self.execute_effects(sub_effects, controller, targets, source, None);
+                        }
                     }
                 }
                 Effect::ChooseCreatureType { restricted } => {

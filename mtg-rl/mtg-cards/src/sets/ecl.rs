@@ -4665,7 +4665,7 @@ fn soulbright_seeker(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "{R}: Target creature you control gains trample until end of turn. If this is the third time this ability has resolved this turn, add {R}{R}{R}{R}.",
                 vec![Cost::pay_mana("{R}")],
-                vec![Effect::gain_keyword_eot("trample"), Effect::Custom("3rd resolution: add RRRR.".into())],
+                vec![Effect::gain_keyword_eot("trample"), Effect::if_resolved_n_times(3, vec![Effect::add_mana(Mana::red(4))])],
                 TargetSpec::CreatureYouControl),
         ],
         additional_costs: vec![Cost::behold_or_pay("Elemental", "{2}")],

@@ -456,6 +456,13 @@ pub enum Effect {
     /// Draw X cards, both get +X/+X (via P1P1 counters), both gain trample until EOT.
     CompareAndBoost,
 
+    /// "If this is the Nth time this ability has resolved this turn, [effects]."
+    /// Checks the resolution count for the current ability and conditionally executes sub-effects.
+    IfAbilityResolvedNTimes {
+        resolution_number: u32,
+        effects: Vec<Effect>,
+    },
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1521,6 +1528,13 @@ impl Effect {
 
     pub fn compare_and_boost() -> Self {
         Effect::CompareAndBoost
+    }
+
+    pub fn if_resolved_n_times(n: u32, effects: Vec<Effect>) -> Self {
+        Effect::IfAbilityResolvedNTimes {
+            resolution_number: n,
+            effects,
+        }
     }
 }
 

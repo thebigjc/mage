@@ -139,6 +139,8 @@ pub struct GameState {
     pub trigger_doublings: Vec<(ObjectId, PlayerId, String)>,
 
     pub trigger_counts_this_turn: HashMap<AbilityId, u32>,
+
+    pub ability_resolution_counts_this_turn: HashMap<AbilityId, u32>,
 }
 
 /// Duration for impulse draw effects (how long the exiled card remains playable).
@@ -253,6 +255,7 @@ impl GameState {
             enhanced_mana_productions: Vec::new(),
             trigger_doublings: Vec::new(),
             trigger_counts_this_turn: HashMap::new(),
+            ability_resolution_counts_this_turn: HashMap::new(),
         }
     }
 
