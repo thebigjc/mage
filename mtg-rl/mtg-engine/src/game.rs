@@ -1333,13 +1333,15 @@ impl Game {
         let exclude_self = f.contains("other");
         let you_control = f.contains("you control");
         let is_attacking = f.contains("attacking");
-        let is_token = f.contains("token");
+        let is_nontoken = f.contains("nontoken");
+        let is_token = !is_nontoken && f.contains("token");
 
         // Strip modifiers to get the core type filter
         let type_filter = f
             .replace("other ", "")
             .replace("attacking ", "")
             .replace("you control", "")
+            .replace("nontoken ", "")
             .replace("token ", "")
             .replace("token", "")
             .trim()
@@ -1354,6 +1356,9 @@ impl Game {
                 continue;
             }
             if is_token && !perm.card.is_token {
+                continue;
+            }
+            if is_nontoken && perm.card.is_token {
                 continue;
             }
             if is_attacking && !self.state.combat.is_attacking(perm.id()) {
@@ -3223,6 +3228,8 @@ impl Game {
 
     /// Apply the detected state-based actions.
     fn apply_state_based_actions(&mut self, sba: &StateBasedActions) -> Vec<ObjectId> {
+        use crate::constants::KeywordAbilities;
+
         // Players losing the game
         for &pid in &sba.players_losing {
             if let Some(player) = self.state.players.get_mut(&pid) {
@@ -3232,6 +3239,8 @@ impl Game {
 
         // Track IDs of permanents that die (for deferred ability cleanup)
         let mut died_sources: Vec<ObjectId> = Vec::new();
+        let mut persist_returns: Vec<(ObjectId, PlayerId)> = Vec::new();
+        let mut undying_returns: Vec<(ObjectId, PlayerId)> = Vec::new();
 
         // Permanents going to graveyard (0 toughness)
         for &perm_id in &sba.permanents_to_graveyard {
@@ -3240,10 +3249,17 @@ impl Game {
                 let controller = perm.controller;
                 let was_creature = perm.is_creature();
                 let counter_count = perm.counters.total_count();
+                let has_persist = was_creature && perm.has_keyword(KeywordAbilities::PERSIST)
+                    && perm.counters.get(&CounterType::M1M1) == 0;
+                let has_undying = was_creature && !has_persist
+                    && perm.has_keyword(KeywordAbilities::UNDYING)
+                    && perm.counters.get(&CounterType::P1P1) == 0;
                 self.move_card_to_graveyard(perm_id, owner);
                 if was_creature {
                     self.emit_event(GameEvent::dies(perm_id, controller, counter_count));
                     died_sources.push(perm_id);
+                    if has_persist { persist_returns.push((perm_id, owner)); }
+                    if has_undying { undying_returns.push((perm_id, owner)); }
                 } else {
                     self.state.ability_store.remove_source(perm_id);
                 }
@@ -3257,14 +3273,31 @@ impl Game {
                 let controller = perm.controller;
                 let was_creature = perm.is_creature();
                 let counter_count = perm.counters.total_count();
+                let has_persist = was_creature && perm.has_keyword(KeywordAbilities::PERSIST)
+                    && perm.counters.get(&CounterType::M1M1) == 0;
+                let has_undying = was_creature && !has_persist
+                    && perm.has_keyword(KeywordAbilities::UNDYING)
+                    && perm.counters.get(&CounterType::P1P1) == 0;
                 self.move_card_to_graveyard(perm_id, owner);
                 if was_creature {
                     self.emit_event(GameEvent::dies(perm_id, controller, counter_count));
                     died_sources.push(perm_id);
+                    if has_persist { persist_returns.push((perm_id, owner)); }
+                    if has_undying { undying_returns.push((perm_id, owner)); }
                 } else {
                     self.state.ability_store.remove_source(perm_id);
                 }
             }
+        }
+
+        // Persist: return creature from graveyard to battlefield with a -1/-1 counter
+        for (card_id, owner) in persist_returns {
+            self.return_from_graveyard_with_counter(card_id, owner, CounterType::M1M1);
+        }
+
+        // Undying: return creature from graveyard to battlefield with a +1/+1 counter
+        for (card_id, owner) in undying_returns {
+            self.return_from_graveyard_with_counter(card_id, owner, CounterType::P1P1);
         }
 
         // Counter annihilation: +1/+1 and -1/-1 counters cancel out
@@ -6361,6 +6394,24 @@ impl Game {
         if let Some(player) = self.state.players.get_mut(&owner) {
             player.graveyard.add(card_id);
             self.state.set_zone(card_id, crate::constants::Zone::Graveyard, Some(owner));
+        }
+    }
+
+    fn return_from_graveyard_with_counter(&mut self, card_id: ObjectId, owner: PlayerId, counter: CounterType) {
+        if let Some(player) = self.state.players.get_mut(&owner) {
+            if !player.graveyard.remove(card_id) {
+                return;
+            }
+        }
+        if let Some(card_data) = self.state.card_store.remove(card_id) {
+            for ability in &card_data.abilities {
+                self.state.ability_store.add(ability.clone());
+            }
+            let mut perm = Permanent::new(card_data, owner);
+            perm.add_counters(counter, 1);
+            self.state.battlefield.add(perm);
+            self.state.set_zone(card_id, crate::constants::Zone::Battlefield, None);
+            self.emit_event(GameEvent::enters_battlefield_from(card_id, owner, crate::constants::Zone::Graveyard));
         }
     }
 

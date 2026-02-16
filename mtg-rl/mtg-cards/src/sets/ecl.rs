@@ -2543,7 +2543,7 @@ fn eirdu_carrier_of_dawn(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Each other nontoken creature you control has persist.",
-                vec![StaticEffect::Custom("Each other nontoken creature you control has persist.".into())]),
+                vec![StaticEffect::grant_keyword_controlled("other nontoken creatures you control", "persist")]),
             Ability::triggered(id,
                 "At the beginning of your first main phase, you may pay {W}. If you do, transform Isilu.",
                 vec![EventType::PrecombatMainPre],

@@ -1727,3 +1727,97 @@ use crate::types::{ObjectId, PlayerId};
             .count();
         assert_eq!(tapped_count, 2, "Exactly 2 creatures should be tapped for conspire");
     }
+
+    fn add_creature_with_store(game: &mut Game, owner: PlayerId, name: &str, power: i32, toughness: i32, kw: KeywordAbilities) -> ObjectId {
+        let mut card = CardData::new(ObjectId::new(), owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        card.keywords = kw;
+        let id = card.id;
+        game.state.card_store.insert(card.clone());
+        game.state.battlefield.add(Permanent::new(card, owner));
+        id
+    }
+
+    #[test]
+    fn persist_returns_creature_with_m1m1_counter() {
+        let (mut game, p1, _p2) = setup();
+        let bear_id = add_creature_with_store(&mut game, p1, "Persist Bear", 2, 2, KeywordAbilities::PERSIST);
+
+        assert!(game.state.battlefield.get(bear_id).is_some());
+
+        if let Some(perm) = game.state.battlefield.get_mut(bear_id) {
+            perm.apply_damage(3);
+        }
+        game.process_state_based_actions();
+
+        let on_bf = game.state.battlefield.get(bear_id).is_some();
+        assert!(on_bf, "Creature with persist should return to the battlefield");
+
+        let perm = game.state.battlefield.get(bear_id).unwrap();
+        let m1m1 = perm.counters.get(&crate::counters::CounterType::M1M1);
+        assert_eq!(m1m1, 1, "Returned creature should have exactly one -1/-1 counter");
+        assert_eq!(perm.damage, 0, "Returned creature should have no damage");
+    }
+
+    #[test]
+    fn persist_does_not_return_if_had_m1m1_counter() {
+        let (mut game, p1, _p2) = setup();
+        let bear_id = add_creature_with_store(&mut game, p1, "Persist Bear", 3, 3, KeywordAbilities::PERSIST);
+
+        if let Some(perm) = game.state.battlefield.get_mut(bear_id) {
+            perm.add_counters(crate::counters::CounterType::M1M1, 1);
+        }
+
+        if let Some(perm) = game.state.battlefield.get_mut(bear_id) {
+            perm.apply_damage(3);
+        }
+        game.process_state_based_actions();
+
+        assert!(game.state.battlefield.get(bear_id).is_none(),
+            "Creature with persist and a -1/-1 counter should NOT return");
+    }
+
+    #[test]
+    fn persist_granted_by_static_ability_works() {
+        let (mut game, p1, _p2) = setup();
+
+        let lord_id = ObjectId::new();
+        let mut lord_card = CardData::new(lord_id, p1, "Persist Lord");
+        lord_card.card_types = vec![CardType::Creature];
+        lord_card.power = Some(3);
+        lord_card.toughness = Some(3);
+        lord_card.abilities = vec![
+            Ability::static_ability(lord_id,
+                "Other creatures you control have persist.",
+                vec![StaticEffect::GrantKeyword {
+                    filter: "other creatures you control".to_string(),
+                    keyword: "persist".to_string(),
+                }]),
+        ];
+        for ab in &lord_card.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+        game.state.card_store.insert(lord_card.clone());
+        game.state.battlefield.add(Permanent::new(lord_card, p1));
+
+        let bear_id = add_creature_with_store(&mut game, p1, "Regular Bear", 2, 2, KeywordAbilities::empty());
+
+        game.apply_continuous_effects();
+
+        let bear = game.state.battlefield.get(bear_id).unwrap();
+        assert!(bear.has_keyword(KeywordAbilities::PERSIST),
+            "Bear should have persist granted by lord");
+
+        if let Some(perm) = game.state.battlefield.get_mut(bear_id) {
+            perm.apply_damage(3);
+        }
+        game.process_state_based_actions();
+
+        assert!(game.state.battlefield.get(bear_id).is_some(),
+            "Bear with granted persist should return to the battlefield");
+        let bear = game.state.battlefield.get(bear_id).unwrap();
+        let m1m1 = bear.counters.get(&crate::counters::CounterType::M1M1);
+        assert_eq!(m1m1, 1, "Returned bear should have one -1/-1 counter");
+    }

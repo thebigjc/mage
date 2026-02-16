@@ -215,7 +215,8 @@ These require new engine architecture beyond adding match arms to existing funct
 - `applies()` filter + `replaceEvent()` modification
 - Support common patterns: exile-instead-of-die, enters-tapped, enters-with-counters, damage prevention
 - Prevent infinite loops (each replacement applies once per event)
-- **Blocked features:** Damage prevention, death replacement, Doubling Season, Undying, Persist (~30+ cards)
+- **Blocked features:** Damage prevention, death replacement, Doubling Season (~30+ cards)
+- **Completed 2026-02-16:** Persist and Undying keyword mechanics implemented in SBA processing. Creatures with persist (no -1/-1 counters) or undying (no +1/+1 counters) return to battlefield with the appropriate counter when they die. 3 tests added (561 engine total).
 - **Java reference:** `ReplacementEffectImpl.java`, `ContinuousEffects.getReplacementEffects()`
 
 #### ~~7. X-Cost Spells~~ (DONE)
@@ -482,7 +483,7 @@ Priority ordered by cards-unblocked per effort.
 
 ### Phase 2: Core Missing Mechanics
 
-4. **Replacement effect pipeline** — Event interception. Enters-tapped done (2026-02-14). Enters-with-counters done (2026-02-15, 15 ECL cards). Enter-as-copy done (2026-02-15). Still needed: damage prevention, death replacement, Undying/Persist. **~15+ remaining cards.**
+4. **Replacement effect pipeline** — Event interception. Enters-tapped done (2026-02-14). Enters-with-counters done (2026-02-15, 15 ECL cards). Enter-as-copy done (2026-02-15). Persist/Undying done (2026-02-16). Still needed: damage prevention, death replacement. **~15+ remaining cards.**
 
 5. ~~**Equipment system**~~ — **DONE (2026-02-14).** `Effect::Equip`, detachment SBA, card updates.
 

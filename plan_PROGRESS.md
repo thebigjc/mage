@@ -9,8 +9,8 @@ IN_PROGRESS
 ## Analysis
 
 ### Current State
-- **Engine tests**: 558 (mtg-engine), all passing
-- **ECL Custom fallbacks**: 28 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 35 total (now 3 Effect::Custom + 6 StaticEffect::Custom remaining)
+- **Engine tests**: 561 (mtg-engine), all passing
+- **ECL Custom fallbacks**: 28 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 35 total (now 3 Effect::Custom + 5 StaticEffect::Custom remaining)
 - **Other sets**: FDN 336, TLA 199, TDM 110 (these are out of scope per the plan)
 
 ### Goal
@@ -103,7 +103,7 @@ Group the 44 fallbacks by what engine feature they need. Implement the engine fe
 
 - [x] Task 24: Add `CastFromExileWithCounterCost` static effect — Added `Effect::ExileTargetToSourceZone` to exile cards to a named zone linked to source. Added `StaticEffect::CastFromExileWithCounterCost { counter_count }` to allow casting creature spells from source's exile zone during your turn by removing N counters from creatures you control. Updated `compute_legal_actions` to check for castable exiled creatures and `cast_spell` to handle counter removal cost. Updated **dawnhand_dissident**: replaced `StaticEffect::Custom` with `StaticEffect::cast_from_exile_with_counter_cost(3)`, replaced `Effect::exile()` with `Effect::exile_target_to_source_zone()`, added missing `Cost::Blight` to both activated abilities. 3 new tests (558 engine total). 1 StaticEffect::Custom eliminated.
 
-- [ ] Task 25: Add `GrantPersist` static effect — "Each other nontoken creature you control has persist." Needs persist keyword enforcement (return with -1/-1 counter on death). Update: **eirdu_carrier_of_dawn**. Java uses `GainAbilityAllEffect` with persist. Add engine test. ~1 card fixed.
+- [x] Task 25: Add persist/undying keyword mechanics — Implemented persist and undying in `apply_state_based_actions`. Creatures with persist (no -1/-1 counters) return from graveyard to battlefield with a -1/-1 counter. Creatures with undying (no +1/+1 counters) return with a +1/+1 counter. Added `return_from_graveyard_with_counter` helper. Added "nontoken" filter support to `find_matching_permanents`. Updated **eirdu_carrier_of_dawn** (back face): replaced `StaticEffect::Custom` with `StaticEffect::grant_keyword_controlled("other nontoken creatures you control", "persist")`. 3 new tests (561 engine total). 1 StaticEffect::Custom eliminated.
 
 - [ ] Task 26: Add `BoostPerTurnEvent` static effect — Dynamic +X/+X where X = creatures that entered the battlefield this turn. Needs per-turn event counting watcher. Update: **kinbinding**. Java uses `KinbindingWatcher` + `DynamicValue`. Add engine test. ~1 card fixed.
 
@@ -154,7 +154,7 @@ Task 31 depends on all others
 18. Task 31 (verification)
 
 ## Completed This Iteration
-- Task 24: Added CastFromExileWithCounterCost static effect. Added `Effect::ExileTargetToSourceZone` to exile cards to named source zones. Added `StaticEffect::CastFromExileWithCounterCost { counter_count }`. Updated compute_legal_actions and cast_spell for exile-with-counter casting. Updated dawnhand_dissident (replaced 1 StaticEffect::Custom + fixed Blight costs). 3 new tests (558 engine total). 1 StaticEffect::Custom eliminated.
+- Task 25: Implemented persist and undying keyword mechanics in SBA processing. Added `return_from_graveyard_with_counter` helper method. Added "nontoken" filter support to `find_matching_permanents`. Updated eirdu_carrier_of_dawn back face to use `StaticEffect::grant_keyword_controlled`. 3 new tests (561 engine total). 1 StaticEffect::Custom eliminated.
 
 ## Notes
 
