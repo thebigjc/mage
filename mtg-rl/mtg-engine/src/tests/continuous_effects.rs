@@ -3,7 +3,7 @@
 use crate::game::*;
 use crate::abilities::{Ability, Effect, TargetSpec, StaticEffect};
 use crate::card::CardData;
-use crate::constants::{CardType, Color, KeywordAbilities, Outcome, SubType};
+use crate::constants::{CardType, Color, KeywordAbilities, Outcome, SubType, SuperType};
 use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
 use crate::mana::Mana;
 use crate::permanent::Permanent;
@@ -1550,6 +1550,153 @@ mod damage_doubling_tests {
     fn helper_constructor_damage_doubling() {
         match StaticEffect::damage_doubling_from_type() {
             StaticEffect::DamageDoublingFromType => {}
+            _ => panic!("wrong variant"),
+        }
+    }
+}
+
+mod mana_doubling_basic_lands_tests {
+    use super::*;
+
+    fn add_basic_land(game: &mut Game, owner: PlayerId, name: &str, mana: Mana) -> (ObjectId, crate::types::AbilityId) {
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, owner, name);
+        card.card_types = vec![CardType::Land];
+        card.supertypes = vec![SuperType::Basic];
+        let mana_ability = Ability::mana_ability(id, &format!("{{T}}: Add {mana}."), mana);
+        let ability_id = mana_ability.id;
+        card.abilities.push(mana_ability.clone());
+        let perm = Permanent::new(card, owner);
+        game.state.battlefield.add(perm);
+        game.state.ability_store.add(mana_ability);
+        (id, ability_id)
+    }
+
+    fn add_nonbasic_land(game: &mut Game, owner: PlayerId, name: &str, mana: Mana) -> (ObjectId, crate::types::AbilityId) {
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, owner, name);
+        card.card_types = vec![CardType::Land];
+        let mana_ability = Ability::mana_ability(id, &format!("{{T}}: Add {mana}."), mana);
+        let ability_id = mana_ability.id;
+        card.abilities.push(mana_ability.clone());
+        let perm = Permanent::new(card, owner);
+        game.state.battlefield.add(perm);
+        game.state.ability_store.add(mana_ability);
+        (id, ability_id)
+    }
+
+    fn add_doubler(game: &mut Game, owner: PlayerId) -> ObjectId {
+        let mut card = CardData::new(ObjectId::new(), owner, "Mana Doubler");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(4);
+        card.toughness = Some(4);
+        card.keywords = KeywordAbilities::empty();
+        let ench_id = card.id;
+        let ability = Ability::static_ability(ench_id,
+            "Basic lands produce double mana.",
+            vec![StaticEffect::mana_doubling_basic_lands()]);
+        card.abilities.push(ability.clone());
+        game.state.battlefield.add(Permanent::new(card, owner));
+        game.state.ability_store.add(ability);
+        ench_id
+    }
+
+    #[test]
+    fn basic_land_produces_double_mana() {
+        let (mut game, p1, _p2) = setup();
+        add_doubler(&mut game, p1);
+        let (forest_id, ability_id) = add_basic_land(&mut game, p1, "Forest", Mana::green(1));
+        game.apply_continuous_effects();
+
+        assert_eq!(game.state.mana_doubling_basic_lands, 1);
+
+        game.activate_mana_ability(p1, forest_id, ability_id);
+        let available = game.state.players.get(&p1).unwrap().mana_pool.available();
+        assert_eq!(available.green, 2, "basic Forest should produce 2G with doubler");
+    }
+
+    #[test]
+    fn nonbasic_land_not_doubled() {
+        let (mut game, p1, _p2) = setup();
+        add_doubler(&mut game, p1);
+        let (land_id, ability_id) = add_nonbasic_land(&mut game, p1, "Mystic Gate", Mana::white(1));
+        game.apply_continuous_effects();
+
+        game.activate_mana_ability(p1, land_id, ability_id);
+        let available = game.state.players.get(&p1).unwrap().mana_pool.available();
+        assert_eq!(available.white, 1, "nonbasic land should produce only 1W");
+    }
+
+    #[test]
+    fn applies_to_opponent_basic_lands() {
+        let (mut game, p1, p2) = setup();
+        add_doubler(&mut game, p1);
+        let (opp_forest_id, opp_ability_id) = add_basic_land(&mut game, p2, "Forest", Mana::green(1));
+        game.apply_continuous_effects();
+
+        game.activate_mana_ability(p2, opp_forest_id, opp_ability_id);
+        let available = game.state.players.get(&p2).unwrap().mana_pool.available();
+        assert_eq!(available.green, 2, "opponent's basic Forest should also be doubled");
+    }
+
+    #[test]
+    fn multiple_doublers_stack() {
+        let (mut game, p1, _p2) = setup();
+        add_doubler(&mut game, p1);
+        add_doubler(&mut game, p1);
+        let (forest_id, ability_id) = add_basic_land(&mut game, p1, "Forest", Mana::green(1));
+        game.apply_continuous_effects();
+
+        assert_eq!(game.state.mana_doubling_basic_lands, 2);
+
+        game.activate_mana_ability(p1, forest_id, ability_id);
+        let available = game.state.players.get(&p1).unwrap().mana_pool.available();
+        assert_eq!(available.green, 3, "two doublers: base 1 + 1 + 1 = 3G");
+    }
+
+    #[test]
+    fn removed_when_source_leaves_battlefield() {
+        let (mut game, p1, _p2) = setup();
+        let doubler_id = add_doubler(&mut game, p1);
+        game.apply_continuous_effects();
+        assert_eq!(game.state.mana_doubling_basic_lands, 1);
+
+        game.state.battlefield.remove(doubler_id);
+        game.state.ability_store.remove_source(doubler_id);
+        game.apply_continuous_effects();
+        assert_eq!(game.state.mana_doubling_basic_lands, 0);
+    }
+
+    #[test]
+    fn no_doubling_without_effect() {
+        let (mut game, p1, _p2) = setup();
+        let (forest_id, ability_id) = add_basic_land(&mut game, p1, "Forest", Mana::green(1));
+        game.apply_continuous_effects();
+
+        assert_eq!(game.state.mana_doubling_basic_lands, 0);
+
+        game.activate_mana_ability(p1, forest_id, ability_id);
+        let available = game.state.players.get(&p1).unwrap().mana_pool.available();
+        assert_eq!(available.green, 1, "no doubler, basic Forest produces only 1G");
+    }
+
+    #[test]
+    fn colored_mana_doubled_correctly() {
+        let (mut game, p1, _p2) = setup();
+        add_doubler(&mut game, p1);
+        let (mountain_id, ability_id) = add_basic_land(&mut game, p1, "Mountain", Mana::red(1));
+        game.apply_continuous_effects();
+
+        game.activate_mana_ability(p1, mountain_id, ability_id);
+        let available = game.state.players.get(&p1).unwrap().mana_pool.available();
+        assert_eq!(available.red, 2, "Mountain produces 2R with doubler");
+        assert_eq!(available.green, 0);
+    }
+
+    #[test]
+    fn helper_constructor_mana_doubling() {
+        match StaticEffect::mana_doubling_basic_lands() {
+            StaticEffect::ManaDoublingBasicLands => {}
             _ => panic!("wrong variant"),
         }
     }

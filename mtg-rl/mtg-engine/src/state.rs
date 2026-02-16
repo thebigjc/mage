@@ -119,6 +119,12 @@ pub struct GameState {
     /// Rebuilt each apply_continuous_effects call.
     #[serde(skip)]
     pub damage_doublings: Vec<(PlayerId, SubType)>,
+
+    // ── Mana doubling ───────────────────────────────────────────────
+    /// Number of "basic lands produce double mana" effects currently active.
+    /// Rebuilt each apply_continuous_effects call.
+    #[serde(skip)]
+    pub mana_doubling_basic_lands: u32,
 }
 
 /// Duration for impulse draw effects (how long the exiled card remains playable).
@@ -229,6 +235,7 @@ impl GameState {
             impulse_playable: Vec::new(),
             delayed_triggers: Vec::new(),
             damage_doublings: Vec::new(),
+            mana_doubling_basic_lands: 0,
         }
     }
 

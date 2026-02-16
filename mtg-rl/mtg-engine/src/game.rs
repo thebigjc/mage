@@ -425,6 +425,7 @@ impl Game {
             perm.assign_damage_with_toughness = false;
         }
         self.state.damage_doublings.clear();
+        self.state.mana_doubling_basic_lands = 0;
 
         // Step 2: Collect static effects from all battlefield permanents.
         // We must collect first to avoid borrow conflicts.
@@ -506,6 +507,9 @@ impl Game {
                         }
                         crate::abilities::StaticEffect::DamageDoublingFromType => {
                             damage_doublings.push((source_id, controller));
+                        }
+                        crate::abilities::StaticEffect::ManaDoublingBasicLands => {
+                            self.state.mana_doubling_basic_lands += 1;
                         }
                         _ => {}
                     }
@@ -2617,8 +2621,18 @@ impl Game {
 
         // Resolve immediately: add mana
         if let Some(mana) = ability.mana_produced {
+            let mut produced = mana;
+            if self.state.mana_doubling_basic_lands > 0 {
+                if let Some(perm) = self.state.battlefield.get(source_id) {
+                    if perm.is_land() && perm.has_supertype(crate::constants::SuperType::Basic) {
+                        for _ in 0..self.state.mana_doubling_basic_lands {
+                            produced = produced + mana;
+                        }
+                    }
+                }
+            }
             if let Some(player) = self.state.players.get_mut(&player_id) {
-                player.mana_pool.add(mana, None, false);
+                player.mana_pool.add(produced, None, false);
             }
         }
     }

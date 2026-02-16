@@ -4419,8 +4419,8 @@ fn lavaleaper(id: ObjectId, owner: PlayerId) -> CardData {
                 "All creatures have haste.",
                 vec![StaticEffect::GrantKeyword { filter: "creature".into(), keyword: "haste".into() }]),
             Ability::static_ability(id,
-                "Whenever a basic land you control is tapped for mana, it produces one additional mana of the same type.",
-                vec![StaticEffect::Custom("Basic land mana doubling.".into())]),
+                "Whenever a player taps a basic land for mana, that player adds one mana of any type that land produced.",
+                vec![StaticEffect::mana_doubling_basic_lands()]),
         ],
         ..Default::default() }
 }

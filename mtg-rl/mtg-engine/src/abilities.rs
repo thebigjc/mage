@@ -1455,6 +1455,10 @@ impl StaticEffect {
     pub fn damage_doubling_from_type() -> Self {
         StaticEffect::DamageDoublingFromType
     }
+
+    pub fn mana_doubling_basic_lands() -> Self {
+        StaticEffect::ManaDoublingBasicLands
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1682,6 +1686,8 @@ pub enum StaticEffect {
     },
     /// Double all damage that sources the controller controls of the chosen creature type would deal.
     DamageDoublingFromType,
+    /// Basic lands tapped for mana produce one additional mana of the same type (all players).
+    ManaDoublingBasicLands,
     /// Custom continuous effect.
 
     Custom(String),
