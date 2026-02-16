@@ -431,6 +431,8 @@ impl Game {
             perm.base_toughness_override = None;
             perm.cant_untap = false;
             perm.assign_damage_with_toughness = false;
+            perm.colorless_override = false;
+            perm.subtypes_override = None;
         }
         self.state.damage_doublings.clear();
         self.state.mana_doubling_basic_lands = 0;
@@ -458,6 +460,7 @@ impl Game {
         let mut assign_damage_toughness: Vec<(ObjectId, PlayerId, String, Option<String>)> = Vec::new();
         let mut damage_doublings: Vec<(ObjectId, PlayerId)> = Vec::new();
         let mut boost_per_turn_events: Vec<(ObjectId, PlayerId, String, String, i32, i32)> = Vec::new();
+        let mut becomes_creature_attached: Vec<(ObjectId, Vec<String>, bool)> = Vec::new();
 
         for perm in self.state.battlefield.iter() {
             let source_id = perm.id();
@@ -536,6 +539,13 @@ impl Game {
                         crate::abilities::StaticEffect::BoostPerTurnEvent { filter, event, power_per, toughness_per } => {
                             boost_per_turn_events.push((source_id, controller, filter.clone(), event.clone(), *power_per, *toughness_per));
                         }
+                        crate::abilities::StaticEffect::BecomesCreatureAttached { subtypes, colorless } => {
+                            if let Some(perm) = self.state.battlefield.get(source_id) {
+                                if let Some(attached_to) = perm.attached_to {
+                                    becomes_creature_attached.push((attached_to, subtypes.clone(), *colorless));
+                                }
+                            }
+                        }
                         crate::abilities::StaticEffect::ReplaceTokenCreation => {
                             if let Some(perm) = self.state.battlefield.get(source_id) {
                                 if let Some(attached_to) = perm.attached_to {
@@ -547,6 +557,19 @@ impl Game {
                         }
                         _ => {}
                     }
+                }
+            }
+        }
+
+        // Step 2a: Apply BecomesCreatureAttached (Layer 4 — Type changing, Layer 5 — Color changing)
+        for (target_id, subtypes, colorless) in becomes_creature_attached {
+            if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                let new_subtypes: Vec<crate::constants::SubType> = subtypes.iter()
+                    .map(|s| crate::constants::SubType::by_description(s))
+                    .collect();
+                perm.subtypes_override = Some(new_subtypes);
+                if colorless {
+                    perm.colorless_override = true;
                 }
             }
         }
@@ -3549,6 +3572,9 @@ impl Game {
         for perm in self.state.battlefield.controlled_by(player_id) {
             if perm.all_colors_until_eot {
                 return 5;
+            }
+            if perm.colorless_override {
+                continue;
             }
             for c in perm.card.colors() {
                 colors.insert(c);

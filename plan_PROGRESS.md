@@ -109,9 +109,9 @@ Group the 44 fallbacks by what engine feature they need. Implement the engine fe
 
 - [x] Task 27: Add `CastExiledOncePerTurn` static effect — Added `StaticEffect::CastExiledOncePerTurn { mv_count_filter }` variant. Added `Effect::ExileFromOpponentLibraryToSourceZone` to exile cards into source-specific exile zone. Added `cast_from_exile_once_used: HashSet<ObjectId>` to GameState for once-per-turn tracking. Added "and" multi-type OR counting to `evaluate_count_filter`. Updated **maralen_fae_ascendant**: replaced `StaticEffect::Custom` with `StaticEffect::cast_exiled_once_per_turn("Elves and Faeries you control")`, replaced `Effect::exile_from_opponent_library` with `Effect::exile_from_opponent_library_to_source_zone`. 3 new tests (567 engine total). 1 StaticEffect::Custom eliminated.
 
-- [ ] Task 28: Add `ReplaceTokenCreation` static effect — First time you would create tokens each turn, instead create token copies of equipped creature. Update: **mirrormind_crown**. Java uses `ReplacementEffectImpl`. Add engine test. ~1 card fixed.
+- [x] Task 28: Add `ReplaceTokenCreation` static effect — Added `StaticEffect::ReplaceTokenCreation` variant. Added `tokens_created_this_turn: HashSet<PlayerId>` and `token_replacement_effects: Vec<(ObjectId, PlayerId, ObjectId)>` to GameState. Equipment with this effect, when attached to a creature, replaces the first token creation each turn with token copies of the equipped creature. Hooked into all token creation paths (CreateToken, CreateTokenVivid, CreateTokenDynamic). Updated **mirrormind_crown**: replaced `StaticEffect::Custom` with `StaticEffect::replace_token_creation()`. 3 new tests (570 engine total). 1 StaticEffect::Custom eliminated.
 
-- [ ] Task 29: Add `BecomesCreatureAttached` static effect — Enchanted creature loses all abilities and becomes a colorless 1/1 Noggle. Update: **noggle_the_mind**. Java uses `BecomesCreatureAttachedEffect`. Add engine test. ~1 card fixed.
+- [x] Task 29: Add `BecomesCreatureAttached` static effect — Added `StaticEffect::BecomesCreatureAttached { subtypes, colorless }` variant. Added `colorless_override` and `subtypes_override` fields to `Permanent`. Applied in Layer 4 (type-changing) before ability removal. `has_subtype()` respects `subtypes_override`, `count_colors_among_permanents` respects `colorless_override`. Updated **noggle_the_mind**: replaced `StaticEffect::Custom` with `StaticEffect::becomes_creature_attached(&["Noggle"], true)`. 3 new tests (573 engine total). 1 StaticEffect::Custom eliminated.
 
 - [ ] Task 30: Add `HexproofFromOwnColors` static effect — Each other creature you control has hexproof from each of its colors. Update: **tam_mindful_first_year**. Java uses `HexproofBaseAbility.getFromColor()`. Add engine test. ~1 card fixed.
 
@@ -154,7 +154,7 @@ Task 31 depends on all others
 18. Task 31 (verification)
 
 ## Completed This Iteration
-- Task 27: Added `StaticEffect::CastExiledOncePerTurn` for once-per-turn free casting from source exile zone with MV restriction. Added `Effect::ExileFromOpponentLibraryToSourceZone` and multi-type OR counting in `evaluate_count_filter`. Updated maralen_fae_ascendant card. 3 new tests (567 engine total). 1 StaticEffect::Custom eliminated.
+- Task 29: Added `StaticEffect::BecomesCreatureAttached` for Aura effects that transform enchanted creature's subtypes and color. Added `colorless_override` and `subtypes_override` fields to Permanent. Updated noggle_the_mind card. 3 new tests (573 engine total). 1 StaticEffect::Custom eliminated.
 
 ## Notes
 

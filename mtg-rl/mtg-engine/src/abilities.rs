@@ -1798,6 +1798,13 @@ impl StaticEffect {
         }
     }
 
+    pub fn becomes_creature_attached(subtypes: &[&str], colorless: bool) -> Self {
+        StaticEffect::BecomesCreatureAttached {
+            subtypes: subtypes.iter().map(|s| s.to_string()).collect(),
+            colorless,
+        }
+    }
+
     /// Matching permanents can't untap during their controller's untap step.
     pub fn cant_untap(filter: &str) -> Self {
         StaticEffect::CantUntap {
@@ -2168,6 +2175,10 @@ pub enum StaticEffect {
         mv_count_filter: String,
     },
     ReplaceTokenCreation,
+    BecomesCreatureAttached {
+        subtypes: Vec<String>,
+        colorless: bool,
+    },
     Custom(String),
 }
 

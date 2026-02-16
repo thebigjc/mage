@@ -3275,7 +3275,7 @@ fn noggle_the_mind(id: ObjectId, owner: PlayerId) -> CardData {
                 "Enchanted creature loses all abilities and is a colorless Noggle creature with base power and toughness 1/1.",
                 vec![StaticEffect::lose_all_abilities("enchanted creature"),
                      StaticEffect::set_base_pt("enchanted creature", 1, 1),
-                     StaticEffect::Custom("Enchanted creature is a colorless Noggle creature.".into())]),
+                     StaticEffect::becomes_creature_attached(&["Noggle"], true)]),
         ],
         ..Default::default() }
 }

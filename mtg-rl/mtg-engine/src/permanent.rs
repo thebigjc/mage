@@ -90,6 +90,8 @@ pub struct Permanent {
     /// When transformed=false, this is None.
     pub front_face: Option<Box<CardData>>,
     pub all_colors_until_eot: bool,
+    pub colorless_override: bool,
+    pub subtypes_override: Option<Vec<SubType>>,
 }
 
 impl Permanent {
@@ -130,6 +132,8 @@ impl Permanent {
             base_toughness_eot: None,
             front_face: None,
             all_colors_until_eot: false,
+            colorless_override: false,
+            subtypes_override: None,
             card,
         }
     }
@@ -178,7 +182,9 @@ impl Permanent {
     }
 
     pub fn has_subtype(&self, st: &SubType) -> bool {
-        // Changeling: has every creature type
+        if let Some(ref overrides) = self.subtypes_override {
+            return overrides.contains(st);
+        }
         if self.has_keyword(KeywordAbilities::CHANGELING) && self.is_creature() {
             return true;
         }

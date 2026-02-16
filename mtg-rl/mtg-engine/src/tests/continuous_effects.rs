@@ -2271,3 +2271,173 @@ mod boost_per_turn_event_tests {
     }
 }
 
+mod becomes_creature_attached_tests {
+    use super::*;
+    use uuid::Uuid;
+
+    struct PassPlayer3;
+    impl crate::decision::PlayerDecisionMaker for PassPlayer3 {
+        fn priority(&mut self, _: &crate::decision::GameView, actions: &[crate::decision::PlayerAction]) -> crate::decision::PlayerAction { actions[0].clone() }
+        fn choose_targets(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &crate::decision::TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &crate::decision::GameView, _: &[crate::decision::NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &crate::decision::GameView, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &crate::decision::GameView, _: &[crate::decision::AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &crate::decision::GameView, _: &crate::decision::DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &crate::decision::GameView, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &crate::decision::GameView, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &crate::decision::GameView, hand: &[ObjectId], count: usize) -> Vec<ObjectId> { hand.iter().take(count).copied().collect() }
+        fn choose_amount(&mut self, _: &crate::decision::GameView, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &crate::decision::GameView, _: &crate::decision::UnpaidMana, _: &[crate::decision::PlayerAction]) -> Option<crate::decision::PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &crate::decision::GameView, _: &[crate::decision::ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &str, _: &[crate::decision::NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId(Uuid::new_v4());
+        let p2 = PlayerId(Uuid::new_v4());
+        let config = GameConfig { players: vec![
+            PlayerConfig { name: "P1".into(), deck: vec![] },
+            PlayerConfig { name: "P2".into(), deck: vec![] },
+        ], starting_life: 20 };
+        let game = Game::new_two_player(config, vec![(p1, Box::new(PassPlayer3)), (p2, Box::new(PassPlayer3))]);
+        (game, p1, p2)
+    }
+
+    #[test]
+    fn becomes_creature_attached_overrides_subtypes_and_color() {
+        let (mut game, p1, _p2) = make_game();
+
+        let creature_id = ObjectId(Uuid::new_v4());
+        let mut creature = CardData::new(creature_id, p1, "Tarmogoyf");
+        creature.card_types = vec![CardType::Creature];
+        creature.subtypes = vec![SubType::Elemental];
+        creature.power = Some(4);
+        creature.toughness = Some(5);
+        creature.color_identity = vec![Color::Green];
+        game.state.battlefield.add(Permanent::new(creature, p1));
+
+        let aura_id = ObjectId(Uuid::new_v4());
+        let aura = CardData {
+            id: aura_id, owner: p1, name: "Noggle the Mind".into(),
+            card_types: vec![CardType::Enchantment],
+            subtypes: vec![SubType::Aura],
+            abilities: vec![Ability::static_ability(aura_id,
+                "Enchanted creature loses all abilities and is a colorless Noggle with base P/T 1/1.",
+                vec![StaticEffect::lose_all_abilities("enchanted creature"),
+                     StaticEffect::set_base_pt("enchanted creature", 1, 1),
+                     StaticEffect::becomes_creature_attached(&["Noggle"], true)])],
+            ..Default::default()
+        };
+        let mut aura_perm = Permanent::new(aura.clone(), p1);
+        aura_perm.attach_to(creature_id);
+        game.state.battlefield.add(aura_perm);
+        game.state.card_store.insert(aura.clone());
+        for ab in &aura.abilities { game.state.ability_store.add(ab.clone()); }
+        if let Some(target) = game.state.battlefield.get_mut(creature_id) {
+            target.add_attachment(aura_id);
+        }
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert_eq!(perm.power(), 1, "base P/T should be 1/1");
+        assert_eq!(perm.toughness(), 1);
+        assert!(perm.has_subtype(&SubType::Noggle), "should be a Noggle");
+        assert!(!perm.has_subtype(&SubType::Elemental), "should not be a Lhurgoyf anymore");
+        assert!(perm.colorless_override, "should be colorless");
+        assert!(perm.abilities_lost, "should have lost all abilities");
+    }
+
+    #[test]
+    fn becomes_creature_attached_removed_when_aura_leaves() {
+        let (mut game, p1, _p2) = make_game();
+
+        let creature_id = ObjectId(Uuid::new_v4());
+        let mut creature = CardData::new(creature_id, p1, "Grizzly Bears");
+        creature.card_types = vec![CardType::Creature];
+        creature.subtypes = vec![SubType::Bear];
+        creature.power = Some(2);
+        creature.toughness = Some(2);
+        creature.color_identity = vec![Color::Green];
+        game.state.battlefield.add(Permanent::new(creature, p1));
+
+        let aura_id = ObjectId(Uuid::new_v4());
+        let aura = CardData {
+            id: aura_id, owner: p1, name: "Noggle the Mind".into(),
+            card_types: vec![CardType::Enchantment],
+            subtypes: vec![SubType::Aura],
+            abilities: vec![Ability::static_ability(aura_id,
+                "Enchanted creature is a colorless Noggle 1/1.",
+                vec![StaticEffect::lose_all_abilities("enchanted creature"),
+                     StaticEffect::set_base_pt("enchanted creature", 1, 1),
+                     StaticEffect::becomes_creature_attached(&["Noggle"], true)])],
+            ..Default::default()
+        };
+        let mut aura_perm = Permanent::new(aura.clone(), p1);
+        aura_perm.attach_to(creature_id);
+        game.state.battlefield.add(aura_perm);
+        game.state.card_store.insert(aura.clone());
+        for ab in &aura.abilities { game.state.ability_store.add(ab.clone()); }
+        if let Some(target) = game.state.battlefield.get_mut(creature_id) {
+            target.add_attachment(aura_id);
+        }
+
+        game.apply_continuous_effects();
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(perm.has_subtype(&SubType::Noggle));
+        assert!(!perm.has_subtype(&SubType::Bear));
+
+        game.state.battlefield.remove(aura_id);
+        if let Some(target) = game.state.battlefield.get_mut(creature_id) {
+            target.remove_attachment(aura_id);
+        }
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert!(!perm.has_subtype(&SubType::Noggle), "should no longer be Noggle after aura removed");
+        assert!(perm.has_subtype(&SubType::Bear), "should be Bear again");
+        assert!(!perm.colorless_override, "should not be colorless anymore");
+        assert_eq!(perm.power(), 2, "should be back to 2/2");
+        assert_eq!(perm.toughness(), 2);
+    }
+
+    #[test]
+    fn colorless_override_affects_color_count() {
+        let (mut game, p1, _p2) = make_game();
+
+        let creature_id = ObjectId(Uuid::new_v4());
+        let mut creature = CardData::new(creature_id, p1, "Blue Creature");
+        creature.card_types = vec![CardType::Creature];
+        creature.power = Some(3);
+        creature.toughness = Some(3);
+        creature.color_identity = vec![Color::Blue];
+        game.state.battlefield.add(Permanent::new(creature, p1));
+
+        assert_eq!(game.count_colors_among_permanents(p1), 1, "one blue permanent");
+
+        let aura_id = ObjectId(Uuid::new_v4());
+        let aura = CardData {
+            id: aura_id, owner: p1, name: "Colorless Aura".into(),
+            card_types: vec![CardType::Enchantment],
+            subtypes: vec![SubType::Aura],
+            abilities: vec![Ability::static_ability(aura_id,
+                "Enchanted creature is colorless.",
+                vec![StaticEffect::becomes_creature_attached(&[], true)])],
+            ..Default::default()
+        };
+        let mut aura_perm = Permanent::new(aura.clone(), p1);
+        aura_perm.attach_to(creature_id);
+        game.state.battlefield.add(aura_perm);
+        game.state.card_store.insert(aura.clone());
+        for ab in &aura.abilities { game.state.ability_store.add(ab.clone()); }
+        if let Some(target) = game.state.battlefield.get_mut(creature_id) {
+            target.add_attachment(aura_id);
+        }
+
+        game.apply_continuous_effects();
+        assert_eq!(game.count_colors_among_permanents(p1), 0, "creature is now colorless");
+    }
+}
+
