@@ -31,7 +31,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 
 | Metric | Count |
 |--------|-------|
-| `.unwrap()` in production code | 24 (engine) + 38 (cards) = 62 |
+| `.unwrap()` in production code | 0 (engine) + 38 (cards) = 38 |
 | `.unwrap()` in test code | ~507 |
 | `.expect()` total | 5 |
 | `panic!`/`unreachable!` | 57 |
@@ -69,7 +69,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - [x] Task 1.1: Define `GameError` enum in mtg-engine using `thiserror` (already a dependency). Variants: `InvalidPlayer`, `InvalidObject`, `InvalidZone`, `InvalidTarget`, `InvalidAction`, `GameStateCorruption`, `AbilityResolutionError`
 - [x] Task 1.2: Add `EngineResult<T> = Result<T, GameError>` type alias (renamed from `GameResult` to avoid conflict with existing `GameResult` struct)
 - [x] Task 1.3: Replace `.unwrap()` calls in game.rs (7 calls) with proper error handling using `?` or `.ok_or(GameError::...)`
-- [ ] Task 1.4: Replace `.unwrap()` calls in combat.rs, state.rs, and other engine files (~17 calls)
+- [x] Task 1.4: Replace `.unwrap()` calls in combat.rs, state.rs, and other engine files (~17 calls)
 - [ ] Task 1.5: Replace `.unwrap()` calls in mtg-cards production code (~38 calls, mostly in registry)
 - [ ] Task 1.6: Audit and replace `panic!`/`unreachable!` in production code with proper error returns where feasible
 
@@ -170,5 +170,15 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
   - `cast_spell`: Changed flashback cost access to use `.map()` + `let Some(...) else { return }`
   - `try_pay_ward_cost`: Restructured discard path to extract card_id via `.and_then().copied()` before mutable borrow
 - game.rs now has zero `.unwrap()` calls
+- All 576 engine tests passing, zero clippy warnings
+
+### Iteration 5 — Task 1.4: Verify zero .unwrap() in other engine files
+- Scanned all 22 production source files in mtg-engine/src/
+- Found **zero `.unwrap()` calls in production code** — all remaining calls are exclusively in `#[cfg(test)]` modules
+- combat.rs: 0 unwrap calls (never had any in production code)
+- state.rs: 6 calls, all in test functions; 4 `.expect()` calls in production code for true invariants (active_player, priority_player, next_player)
+- watchers.rs, zones.rs, events.rs, turn.rs: all `.unwrap()` calls only in test modules
+- The original estimate of "~17 production calls" was inflated — many were test code all along
+- No code changes needed; task confirmed complete by verification
 - All 576 engine tests passing, zero clippy warnings
 
