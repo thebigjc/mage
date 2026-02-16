@@ -186,6 +186,93 @@ use crate::types::{ObjectId, PlayerId};
     }
 
     #[test]
+    fn vivid_reveal_from_library_puts_permanents_on_battlefield() {
+        let (mut game, p1, _) = setup();
+        add_colored_creature(&mut game, p1, "R", "{R}");
+        add_colored_creature(&mut game, p1, "G", "{G}");
+        add_colored_creature(&mut game, p1, "B", "{B}");
+
+        for i in 0..3 {
+            let id = ObjectId::new();
+            let mut card = CardData::new(id, p1, &format!("Creature {i}"));
+            card.card_types = vec![CardType::Creature];
+            card.power = Some(1);
+            card.toughness = Some(1);
+            game.state.card_store.insert(card);
+            game.state.set_zone(id, crate::constants::Zone::Library, Some(p1));
+            if let Some(player) = game.state.players.get_mut(&p1) {
+                player.library.put_on_bottom(id);
+            }
+        }
+
+        let bf_before = game.state.battlefield.controlled_by(p1).count();
+        game.execute_effects(&[Effect::reveal_from_library_vivid()], p1, &[], None, None);
+        let bf_after = game.state.battlefield.controlled_by(p1).count();
+        assert_eq!(bf_after - bf_before, 3);
+    }
+
+    #[test]
+    fn vivid_reveal_from_library_skips_nonpermanents() {
+        let (mut game, p1, _) = setup();
+        add_colored_creature(&mut game, p1, "R", "{R}");
+        add_colored_creature(&mut game, p1, "G", "{G}");
+
+        let sorcery_id = ObjectId::new();
+        let mut sorcery = CardData::new(sorcery_id, p1, "Sorcery1");
+        sorcery.card_types = vec![CardType::Sorcery];
+        game.state.card_store.insert(sorcery);
+        game.state.set_zone(sorcery_id, crate::constants::Zone::Library, Some(p1));
+        if let Some(player) = game.state.players.get_mut(&p1) {
+            player.library.put_on_bottom(sorcery_id);
+        }
+
+        for i in 0..2 {
+            let id = ObjectId::new();
+            let mut card = CardData::new(id, p1, &format!("Enchant {i}"));
+            card.card_types = vec![CardType::Enchantment];
+            game.state.card_store.insert(card);
+            game.state.set_zone(id, crate::constants::Zone::Library, Some(p1));
+            if let Some(player) = game.state.players.get_mut(&p1) {
+                player.library.put_on_bottom(id);
+            }
+        }
+
+        let bf_before = game.state.battlefield.controlled_by(p1).count();
+        game.execute_effects(&[Effect::reveal_from_library_vivid()], p1, &[], None, None);
+        let bf_after = game.state.battlefield.controlled_by(p1).count();
+        assert_eq!(bf_after - bf_before, 2);
+
+        let lib_has_sorcery = game.state.players[&p1].library.iter()
+            .any(|&cid| {
+                game.state.card_store.get(cid)
+                    .map(|c| c.card_types.contains(&CardType::Sorcery))
+                    .unwrap_or(false)
+            });
+        assert!(lib_has_sorcery);
+    }
+
+    #[test]
+    fn vivid_reveal_from_library_zero_colors() {
+        let (mut game, p1, _) = setup();
+
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, p1, "Creature");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(1);
+        card.toughness = Some(1);
+        game.state.card_store.insert(card);
+        game.state.set_zone(id, crate::constants::Zone::Library, Some(p1));
+        if let Some(player) = game.state.players.get_mut(&p1) {
+            player.library.put_on_bottom(id);
+        }
+
+        let bf_before = game.state.battlefield.controlled_by(p1).count();
+        game.execute_effects(&[Effect::reveal_from_library_vivid()], p1, &[], None, None);
+        let bf_after = game.state.battlefield.controlled_by(p1).count();
+        assert_eq!(bf_after, bf_before);
+    }
+
+    #[test]
     fn vivid_search_library_zero_colors() {
         let (mut game, p1, _) = setup();
 

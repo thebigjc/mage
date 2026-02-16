@@ -2060,7 +2060,7 @@ fn aurora_awakener(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "Vivid — When this creature enters, reveal cards from the top of your library until you reveal X permanent cards, where X is the number of colors among permanents you control. Put any number of those permanent cards onto the battlefield, then put the rest on the bottom in a random order.",
-                vec![Effect::Custom("Vivid ETB: reveal and put permanents onto battlefield.".into())],
+                vec![Effect::reveal_from_library_vivid()],
                 TargetSpec::None),
         ],
         ..Default::default() }

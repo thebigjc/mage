@@ -4613,6 +4613,59 @@ impl Game {
                         self.state.set_zone(card_id, crate::constants::Zone::Hand, Some(controller));
                     }
                 }
+                Effect::RevealFromLibraryVivid => {
+                    let x = self.count_colors_among_permanents(controller) as usize;
+                    if x > 0 {
+                        let (permanents, rest) = if let Some(player) = self.state.players.get(&controller) {
+                            let lib_cards: Vec<ObjectId> = player.library.iter().copied().collect();
+                            let mut permanents: Vec<ObjectId> = Vec::new();
+                            let mut rest: Vec<ObjectId> = Vec::new();
+                            let mut found_count = 0usize;
+                            for &card_id in &lib_cards {
+                                if found_count >= x {
+                                    break;
+                                }
+                                if let Some(c) = self.state.card_store.get(card_id) {
+                                    if Self::card_matches_filter(c, "permanent") {
+                                        permanents.push(card_id);
+                                        found_count += 1;
+                                    } else {
+                                        rest.push(card_id);
+                                    }
+                                }
+                            }
+                            (permanents, rest)
+                        } else {
+                            (vec![], vec![])
+                        };
+                        for &card_id in &permanents {
+                            let card = self.state.card_store.get(card_id).cloned();
+                            if let Some(card) = card {
+                                if let Some(player) = self.state.players.get_mut(&controller) {
+                                    player.library.remove(card_id);
+                                }
+                                let perm = crate::permanent::Permanent::new(card, controller);
+                                self.state.battlefield.add(perm);
+                                self.state.set_zone(card_id, crate::constants::Zone::Battlefield, None);
+                                self.emit_event(GameEvent::enters_battlefield(card_id, controller));
+                            }
+                        }
+                        if let Some(player) = self.state.players.get_mut(&controller) {
+                            for &card_id in &rest {
+                                player.library.remove(card_id);
+                            }
+                        }
+                        use rand::seq::SliceRandom;
+                        let mut rng = rand::thread_rng();
+                        let mut rest = rest;
+                        rest.shuffle(&mut rng);
+                        if let Some(player) = self.state.players.get_mut(&controller) {
+                            for card_id in rest {
+                                player.library.put_on_bottom(card_id);
+                            }
+                        }
+                    }
+                }
                 Effect::DoIfCostPaid { cost, if_paid, if_not_paid } => {
                     // Ask player if they want to pay the cost
                     let view = crate::decision::GameView::placeholder();
@@ -5642,6 +5695,10 @@ impl Game {
         let f = filter.to_lowercase();
         if f.is_empty() || f == "all" {
             return true;
+        }
+        // Check "permanent" (any permanent card type)
+        if f == "permanent" {
+            return card.card_types.iter().any(|ct| ct.is_permanent());
         }
         // Check "basic land"
         if f.contains("basic") && f.contains("land") {

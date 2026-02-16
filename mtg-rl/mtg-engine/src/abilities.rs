@@ -266,6 +266,10 @@ pub enum Effect {
     CreateTokenVivid { token_name: String },
     /// Vivid -- Search library for up to X basic land cards where X = colors among permanents you control, put into hand.
     SearchLibraryVivid,
+    /// Vivid -- Reveal cards from the top of your library until you reveal X permanent cards
+    /// (X = colors among permanents you control). Put any number of those onto the battlefield,
+    /// rest on the bottom in random order.
+    RevealFromLibraryVivid,
 
     // -- Conditional cost --
     /// "You may pay [cost]. If you do, [if_paid]. If you don't, [if_not_paid]."
@@ -1154,6 +1158,10 @@ impl Effect {
 
     pub fn search_library_vivid() -> Self {
         Effect::SearchLibraryVivid
+    }
+
+    pub fn reveal_from_library_vivid() -> Self {
+        Effect::RevealFromLibraryVivid
     }
 
     /// "Look at top N, may pick one matching filter to hand, rest to bottom."
