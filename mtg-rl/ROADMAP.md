@@ -9,10 +9,10 @@ This document describes implementation gaps between the Rust mtg-rl engine and t
 | Metric | Value |
 |--------|-------|
 | Cards registered | 1,333 (FDN 512, TLA 280, TDM 273, ECL 268) |
-| `Effect::Custom` fallbacks | 656 |
-| `StaticEffect::Custom` fallbacks | 133 |
-| `Cost::Custom` fallbacks | 26 |
-| **Total Custom fallbacks** | **815** |
+| `Effect::Custom` fallbacks | 622 (ECL: 3) |
+| `StaticEffect::Custom` fallbacks | 126 (ECL: 0) |
+| `Cost::Custom` fallbacks | 26 (ECL: 0) |
+| **Total Custom fallbacks** | **774** (ECL: 3) |
 | Keywords defined | 47 |
 | Keywords mechanically enforced | 24 (combat, hexproof, hexproof-from-colors, shroud, prowess, landwalk, ward, convoke, conspire, changeling, flashback) |
 | State-based actions | 10 of ~20 rules implemented |
@@ -430,10 +430,10 @@ These are effects where no typed variant exists. Grouped by what engine feature 
 | FDN (Foundations) | 315 | 57 | 21 | 393 |
 | TLA (Avatar: TLA) | 197 | 54 | 2 | 253 |
 | TDM (Tarkir: Dragonstorm) | 107 | 15 | 3 | 125 |
-| ECL (Lorwyn Eclipsed) | 37 | 7 | 0 | 44 |
-| **Total** | **656** | **133** | **26** | **815** |
+| ECL (Lorwyn Eclipsed) | 3 | 0 | 0 | 3 |
+| **Total** | **622** | **126** | **26** | **774** |
 
-**ECL reduction: 88 → 44 (50% reduction)** through 20+ new engine features and per-card updates.
+**ECL reduction: 88 → 3 (96.6% reduction)** through 30+ new engine features and per-card updates. The 3 remaining ECL Effect::Custom are truly complex unique effects (chosen-type library peek, blight+token-copy attack trigger, planeswalker ultimate).
 
 Detailed per-card breakdowns in `docs/{fdn,tla,tdm,ecl}-remediation.md`.
 
@@ -552,5 +552,9 @@ After the above systems are in place, systematically replace remaining `Custom(S
 **Session 2026-02-16 (ECL parity continued):** Added Effect::Conditional variant (4 cards fixed), Effect::AddSubtypeAll (curious_colossus fixed). 500 engine tests, 43 ECL Custom fallbacks remaining.
 
 **Session 2026-02-16 (ECL parity — Task 26):** Added `StaticEffect::BoostPerTurnEvent` for dynamic +X/+X based on per-turn event counts (creatures entered this turn). Wired `WatcherManager` into `emit_event` so per-turn stats are tracked during gameplay. Updated **kinbinding** to use `StaticEffect::boost_per_turn_event("creatures you control", "creatures_entered", 1, 1)`. 3 new tests (564 engine total). 1 StaticEffect::Custom eliminated.
+
+**Session 2026-02-16 (ECL parity — Tasks 27-30):** Added `StaticEffect::CastExiledOncePerTurn`, `StaticEffect::ReplaceTokenCreation`, `StaticEffect::BecomesCreatureAttached`, `StaticEffect::HexproofFromOwnColors`. Also added `Effect::ExileFromOpponentLibraryToSourceZone`. ECL StaticEffect::Custom reduced from 7 to 0. 12 new tests (576 engine total).
+
+**ECL parity complete (2026-02-16):** All 30 implementation tasks done. ECL Custom fallbacks reduced from 88 to 3 (96.6%). The 3 remaining are complex unique effects not worth individual engine variants: chosen-type library peek, blight+token-copy attack trigger, and planeswalker ultimate. 576 engine tests, all passing.
 
 See `docs/work-queue.md` for the batch-fix loop and per-set remediation docs for card-level details.
