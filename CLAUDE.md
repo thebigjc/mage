@@ -192,6 +192,9 @@ cargo check
 cargo check -p mtg-cards
 cargo check -p mtg-engine
 
+# Linting (clean up before committing)
+cargo clippy
+
 # Build
 cargo build
 cargo build --release

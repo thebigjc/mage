@@ -4187,7 +4187,7 @@ impl Game {
                 }
                 Effect::ExileFromOpponentLibraryToSourceZone { count } => {
                     let exile_count = resolve_x(*count);
-                    let src_id = source.unwrap_or(ObjectId::new());
+                    let src_id = source.unwrap_or_default();
                     let source_name = self.state.battlefield.get(src_id)
                         .map(|p| p.name().to_string())
                         .unwrap_or_else(|| "Unknown".to_string());
@@ -5283,7 +5283,7 @@ impl Game {
                     } else {
                         false
                     };
-                    let source_id = source.unwrap_or(ObjectId::new());
+                    let source_id = source.unwrap_or_default();
                     if wants_to_pay && self.pay_costs(controller, source_id, &[cost.clone()]) {
                         self.execute_effects(if_paid, controller, targets, source, None);
                     } else {
@@ -5291,7 +5291,7 @@ impl Game {
                     }
                 }
                 Effect::Conditional { condition, if_true, if_false } => {
-                    let source_id = source.unwrap_or(ObjectId::new());
+                    let source_id = source.unwrap_or_default();
                     if self.evaluate_condition_with_targets(source_id, controller, condition, targets) {
                         self.execute_effects(if_true, controller, targets, source, None);
                     } else {
@@ -5748,7 +5748,7 @@ impl Game {
                     }
                 }
                 Effect::UntapAll { filter } => {
-                    let src_id = source.unwrap_or(ObjectId::new());
+                    let src_id = source.unwrap_or_default();
                     let matching = self.find_matching_permanents(src_id, controller, filter);
                     for perm_id in matching {
                         if let Some(perm) = self.state.battlefield.get_mut(perm_id) {
@@ -5842,7 +5842,7 @@ impl Game {
                     }
                 }
                 Effect::ExileTargetToSourceZone => {
-                    let source_id = source.unwrap_or(ObjectId::new());
+                    let source_id = source.unwrap_or_default();
                     let source_name = self.state.battlefield.get(source_id)
                         .map(|p| p.name().to_string())
                         .unwrap_or_else(|| "Unknown".to_string());
