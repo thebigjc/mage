@@ -9,8 +9,8 @@ IN_PROGRESS
 ## Analysis
 
 ### Current State
-- **Engine tests**: 531 (mtg-engine), all passing
-- **ECL Custom fallbacks**: 30 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 37 total
+- **Engine tests**: 534 (mtg-engine), all passing
+- **ECL Custom fallbacks**: 29 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 36 total
 - **Other sets**: FDN 336, TLA 199, TDM 110 (these are out of scope per the plan)
 
 ### Goal
@@ -81,7 +81,7 @@ Group the 44 fallbacks by what engine feature they need. Implement the engine fe
 
 - [x] Task 15: Add `VariableBlightCost` — Added `Cost::VariableBlight` variant that lets the player choose X (up to greatest toughness among controlled creatures), puts X -1/-1 counters on a chosen creature, and sets the spell's x_value. Added `Effect::DealDamageOpponentsCreatures` for dealing damage to opponents' creatures. Added `variable_blight_amount` transient field on Game for cost→spell X value propagation. Updated **soul_immolation**: replaced Effect::Custom with `Cost::variable_blight()` + `Effect::damage_opponents(X_VALUE)` + `Effect::damage_opponents_creatures(X_VALUE)`. 3 new tests (531 engine total). 1 Effect::Custom eliminated.
 
-- [ ] Task 16: Add `OpponentRevealsExileCast` effect — Target opponent reveals X cards from library (X = dynamic count), you exile one, may cast it. Update: **taster_of_wares** (X = Goblins you control). Java uses custom effect. Add engine test. ~1 card fixed.
+- [x] Task 16: Add `OpponentRevealsExileCast` effect — Added `Effect::OpponentRevealsFromHandExileCast { count_source, instant_sorcery_only }` variant. Added `ImpulseDuration::WhileSourceControlled { source_id, controller }` to track playability tied to permanent control. Opponent reveals X cards from hand (X = dynamic count via evaluate_count_filter), controller picks one to exile, instant/sorcery cards become impulse-playable while source is controlled. Updated WhileSourceControlled check in compute_legal_actions and end-of-turn cleanup. Updated **taster_of_wares**: fixed oracle text (hand not library), replaced Effect::Custom with `Effect::opponent_reveals_from_hand_exile_cast("Goblins you control", true)`. 3 new tests (534 engine total). 1 Effect::Custom eliminated.
 
 - [ ] Task 17: Add `MassExileAndCast` effect — Each opponent exiles from library until MV threshold, you may cast exiled cards. Update: **dream_harvest** (opponents exile until MV 5+). Java uses custom effect. Add engine test. ~1 card fixed.
 
@@ -154,7 +154,7 @@ Task 31 depends on all others
 18. Task 31 (verification)
 
 ## Completed This Iteration
-- Task 15: Added `Cost::VariableBlight` for variable blight X additional cost. Added `Effect::DealDamageOpponentsCreatures` for dealing X damage to each creature opponents control. Updated soul_immolation from Effect::Custom to proper Cost + Effects. 3 new tests (531 engine total). 1 Effect::Custom eliminated.
+- Task 16: Added `Effect::OpponentRevealsFromHandExileCast` for opponent-hand-reveal-exile-cast effects. Added `ImpulseDuration::WhileSourceControlled` for permanent-linked impulse playability. Updated taster_of_wares (fixed oracle text from library to hand, replaced Effect::Custom). 3 new tests (534 engine total). 1 Effect::Custom eliminated.
 
 ## Notes
 
