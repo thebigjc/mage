@@ -238,6 +238,143 @@ fn bench_parallel_games(c: &mut Criterion) {
     group.finish();
 }
 
+// ---------------------------------------------------------------------------
+// Hot-path micro-benchmarks for profiling
+// ---------------------------------------------------------------------------
+
+fn bench_filter_evaluation(c: &mut Criterion) {
+    use mtg_engine::constants::SubType;
+    use mtg_engine::filters::{Filter, Predicate};
+
+    let p1 = PlayerId::new();
+
+    // Build a creature permanent for testing
+    let mut card = CardData::new(ObjectId::new(), p1, "Elvish Mystic");
+    card.card_types = vec![CardType::Creature];
+    card.subtypes = vec![SubType::Elf, SubType::Druid];
+    card.power = Some(Power::new(1));
+    card.toughness = Some(Toughness::new(1));
+    card.keywords = KeywordAbilities::empty();
+    let perm = Permanent::new(card, p1);
+
+    let mut group = c.benchmark_group("filter_eval");
+
+    // Simple predicate: just check card type
+    let simple_filter = Filter::new("creature", Predicate::creature());
+    group.bench_function("simple_creature", |b| {
+        b.iter(|| black_box(simple_filter.matches_permanent(&perm, p1)));
+    });
+
+    // Compound predicate: "creature you control" (And with 2 predicates)
+    let compound_filter = Filter::creature_you_control();
+    group.bench_function("creature_you_control", |b| {
+        b.iter(|| black_box(compound_filter.matches_permanent(&perm, p1)));
+    });
+
+    // Complex predicate: nonland permanent (And + nested Or)
+    let complex_filter = Filter::any_nonland_permanent();
+    group.bench_function("nonland_permanent", |b| {
+        b.iter(|| black_box(complex_filter.matches_permanent(&perm, p1)));
+    });
+
+    // Filter clone cost (hot in apply_continuous_effects)
+    group.bench_function("filter_clone_simple", |b| {
+        b.iter(|| black_box(simple_filter.clone()));
+    });
+    group.bench_function("filter_clone_compound", |b| {
+        b.iter(|| black_box(compound_filter.clone()));
+    });
+    group.bench_function("filter_clone_complex", |b| {
+        b.iter(|| black_box(complex_filter.clone()));
+    });
+
+    group.finish();
+}
+
+fn bench_battlefield_iteration(c: &mut Criterion) {
+    use mtg_engine::filters::Filter;
+
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+
+    let mut group = c.benchmark_group("battlefield_iter");
+
+    // Build battlefield with 20 permanents (realistic mid-game)
+    for size in [10, 20, 40] {
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".to_string(), deck: make_deck(p1) },
+                PlayerConfig { name: "B".to_string(), deck: make_deck(p2) },
+            ],
+            starting_life: Life::new(20),
+        };
+        let mut game = Game::new_two_player(
+            config,
+            vec![
+                (p1, PlayerAgent::new(RandomPlayer::with_seed(42))),
+                (p2, PlayerAgent::new(RandomPlayer::with_seed(43))),
+            ],
+        );
+        for i in 0..(size / 2) {
+            let card = make_creature(&format!("Bear_{i}"), p1, 2, 2);
+            game.state.battlefield.add(Permanent::new(card, p1));
+            let card = make_creature(&format!("Lion_{i}"), p2, 3, 3);
+            game.state.battlefield.add(Permanent::new(card, p2));
+        }
+
+        let filter = Filter::creature_you_control();
+
+        // Measure: iterate + filter + collect IDs (mirrors find_matching_permanents)
+        group.bench_function(format!("filter_collect_{size}"), |b| {
+            b.iter(|| {
+                let ids: Vec<ObjectId> = game.state.battlefield.iter()
+                    .filter(|perm| filter.matches_permanent(perm, p1))
+                    .map(|perm| perm.id())
+                    .collect();
+                black_box(ids);
+            });
+        });
+
+        // Measure: just iteration count (baseline without filter)
+        group.bench_function(format!("iter_count_{size}"), |b| {
+            b.iter(|| {
+                let count = game.state.battlefield.iter().count();
+                black_box(count);
+            });
+        });
+    }
+
+    group.finish();
+}
+
+fn bench_string_allocation(c: &mut Criterion) {
+    // Measures the string allocation overhead in hot paths
+    let mut group = c.benchmark_group("string_alloc");
+
+    // Legend rule: perm.name().to_string() for HashMap key
+    let name = "Sheoldred, the Apocalypse";
+    group.bench_function("name_to_string", |b| {
+        b.iter(|| black_box(name.to_string()));
+    });
+
+    // to_lowercase() calls in find_matching_permanents
+    let filter_msg = "creature you control";
+    group.bench_function("to_lowercase", |b| {
+        b.iter(|| black_box(filter_msg.to_lowercase()));
+    });
+
+    // Combined: what legend rule does per permanent
+    let p1 = PlayerId::new();
+    group.bench_function("legend_rule_key", |b| {
+        b.iter(|| {
+            let key: (PlayerId, String) = (p1, name.to_string());
+            let _ = black_box(key);
+        });
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_game_state_clone,
@@ -247,5 +384,8 @@ criterion_group!(
     bench_gym_env_step,
     bench_gym_env_reset,
     bench_parallel_games,
+    bench_filter_evaluation,
+    bench_battlefield_iteration,
+    bench_string_allocation,
 );
 criterion_main!(benches);
