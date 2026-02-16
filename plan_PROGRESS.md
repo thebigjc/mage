@@ -9,7 +9,7 @@ IN_PROGRESS
 ## Analysis
 
 ### Current State
-- **Engine tests**: 511 (mtg-engine), all passing
+- **Engine tests**: 513 (mtg-engine), all passing
 - **ECL Custom fallbacks**: 33 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 40 total
 - **Other sets**: FDN 336, TLA 199, TDM 110 (these are out of scope per the plan)
 
@@ -63,7 +63,7 @@ Group the 44 fallbacks by what engine feature they need. Implement the engine fe
 
 - [x] Task 7: Add `RevealFromLibraryVivid` effect — Reveal cards from library until X permanents found (X = colors among permanents), put some onto battlefield. Update: **aurora_awakener** (Vivid ETB reveal+deploy). Java uses `ColorsAmongControlledPermanentsCount`. Add engine test. ~1 card fixed.
 
-- [ ] Task 8: Add `CompareAndBoost` effect — Choose two creatures, compute X = abs(power difference), draw X cards, boost both +X/+X and grant trample. Update: **spry_and_mighty**. Java uses custom OneShotEffect. Add engine test. ~1 card fixed.
+- [x] Task 8: Add `CompareAndBoost` effect — Choose two creatures, compute X = abs(power difference), draw X cards, boost both +X/+X and grant trample. Updated: **spry_and_mighty**. Added Effect::CompareAndBoost variant, builder, game.rs resolution (power diff, draw, P1P1 counters, trample). 2 new tests, 513 engine total. 1 Effect::Custom eliminated.
 
 - [ ] Task 9: Add `ExileTopAndPlayDynamic` effect — Exile X cards from library (X = dynamic value like counters on a creature), play until next end step. Update: **shadow_urchin** (X = counters on dying creature). Java uses `ExileTopXMayPlayUntilEffect` with `ShadowUrchinValue`. Add engine test. ~1 card fixed.
 
@@ -154,7 +154,7 @@ Task 31 depends on all others
 18. Task 31 (verification)
 
 ## Completed This Iteration
-- Task 7: Added `Effect::RevealFromLibraryVivid` variant and `Effect::reveal_from_library_vivid()` builder. Reveals cards from top of library until X permanent cards found (X = colors among permanents you control), puts all onto battlefield, rest on bottom in random order. Added "permanent" support to `card_matches_filter`. Updated `aurora_awakener` to use RevealFromLibraryVivid. 3 new tests (511 engine total). 1 Effect::Custom eliminated.
+- Task 8: Added `Effect::CompareAndBoost` variant and `Effect::compare_and_boost()` builder. Computes X = abs(power difference) between two target creatures, draws X cards, gives both +X/+X (P1P1 counters) and trample until EOT. Updated `spry_and_mighty` to use CompareAndBoost. 2 new tests (513 engine total). 1 Effect::Custom eliminated.
 
 ## Notes
 
