@@ -1934,11 +1934,12 @@ fn sear(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn soul_immolation(id: ObjectId, owner: PlayerId) -> CardData {
-    // Sorcery {3}{R}{R}. Blight X. X damage to each opponent and their creatures.
     CardData { id, owner, name: "Soul Immolation".into(), mana_cost: ManaCost::parse("{3}{R}{R}"),
         card_types: vec![CardType::Sorcery], rarity: Rarity::Rare,
+        additional_costs: vec![Cost::variable_blight()],
         abilities: vec![Ability::spell(id,
-            vec![Effect::Custom("As an additional cost, put any number of -1/-1 counters on creatures you control. Soul Immolation deals that much damage to each opponent and each creature they control.".into())],
+            vec![Effect::damage_opponents(X_VALUE),
+                 Effect::damage_opponents_creatures(X_VALUE)],
             TargetSpec::None)],
         ..Default::default() }
 }

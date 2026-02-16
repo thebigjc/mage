@@ -735,3 +735,89 @@ use crate::abilities::X_VALUE;
             _ => panic!("wrong variant"),
         }
     }
+
+    #[test]
+    fn variable_blight_cost_puts_counters_and_sets_x() {
+        let (mut game, p1, _p2) = setup_x_game(3);
+
+        let creature_id = ObjectId::new();
+        let mut creature = CardData::new(creature_id, p1, "Blight Target");
+        creature.card_types = vec![CardType::Creature];
+        creature.power = Some(2);
+        creature.toughness = Some(5);
+        game.state.battlefield.add(Permanent::new(creature.clone(), p1));
+        game.state.card_store.insert(creature);
+
+        assert!(game.pay_costs(p1, ObjectId::new(), &[Cost::VariableBlight]));
+
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert_eq!(perm.counters.get(&CounterType::M1M1), 3);
+        assert_eq!(game.variable_blight_amount, Some(3));
+    }
+
+    #[test]
+    fn variable_blight_fails_without_creatures() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let non_creatures: Vec<ObjectId> = game.state.battlefield.controlled_by(p1)
+            .map(|p| p.id())
+            .collect();
+        for id in non_creatures {
+            game.state.battlefield.remove(id);
+        }
+
+        assert!(!game.can_pay_additional_costs(p1, ObjectId::new(), &[Cost::VariableBlight]));
+    }
+
+    #[test]
+    fn variable_blight_soul_immolation_pattern() {
+        let (mut game, p1, p2) = setup_x_game(2);
+
+        let my_creature_id = ObjectId::new();
+        let mut my_creature = CardData::new(my_creature_id, p1, "My Creature");
+        my_creature.card_types = vec![CardType::Creature];
+        my_creature.power = Some(3);
+        my_creature.toughness = Some(4);
+        game.state.battlefield.add(Permanent::new(my_creature.clone(), p1));
+        game.state.card_store.insert(my_creature);
+
+        let opp_creature_id = ObjectId::new();
+        let mut opp_creature = CardData::new(opp_creature_id, p2, "Opp Creature");
+        opp_creature.card_types = vec![CardType::Creature];
+        opp_creature.power = Some(3);
+        opp_creature.toughness = Some(5);
+        game.state.battlefield.add(Permanent::new(opp_creature.clone(), p2));
+        game.state.card_store.insert(opp_creature);
+
+        if let Some(player) = game.state.players.get_mut(&p1) {
+            player.mana_pool.add(Mana { red: 2, green: 3, ..Mana::new() }, None, false);
+        }
+
+        let spell_id = ObjectId::new();
+        let mut spell = CardData::new(spell_id, p1, "Soul Immolation");
+        spell.card_types = vec![CardType::Sorcery];
+        spell.mana_cost = ManaCost::parse("{3}{R}{R}");
+        spell.additional_costs = vec![Cost::VariableBlight];
+        spell.abilities = vec![Ability::spell(spell_id,
+            vec![Effect::DealDamageOpponents { amount: X_VALUE },
+                 Effect::DealDamageOpponentsCreatures { amount: X_VALUE }],
+            TargetSpec::None)];
+
+        if let Some(player) = game.state.players.get_mut(&p1) {
+            player.hand.add(spell_id);
+        }
+        game.state.card_store.insert(spell);
+
+        game.cast_spell(p1, spell_id);
+
+        assert_eq!(game.state.stack.top().unwrap().x_value, Some(2));
+
+        let my_perm = game.state.battlefield.get(my_creature_id).unwrap();
+        assert_eq!(my_perm.counters.get(&CounterType::M1M1), 2);
+
+        game.resolve_top_of_stack();
+
+        assert_eq!(game.state.players.get(&p2).unwrap().life, 18);
+        let opp_perm = game.state.battlefield.get(opp_creature_id).unwrap();
+        assert_eq!(opp_perm.damage, 2);
+    }

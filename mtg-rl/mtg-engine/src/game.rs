@@ -88,6 +88,7 @@ pub struct Game {
     /// Event log for tracking events that may trigger abilities.
     event_log: EventLog,
     resolving_ability_id: Option<AbilityId>,
+    variable_blight_amount: Option<u32>,
 }
 
 impl Game {
@@ -155,6 +156,7 @@ impl Game {
             watchers: WatcherManager::new(),
             event_log: EventLog::new(),
             resolving_ability_id: None,
+            variable_blight_amount: None,
         }
     }
 
@@ -2821,6 +2823,12 @@ impl Game {
             }
         }
 
+        let x_value = if let Some(blight_x) = self.variable_blight_amount.take() {
+            Some(blight_x)
+        } else {
+            x_value
+        };
+
         // Select targets based on the spell's TargetSpec
         let target_spec = card_data
             .abilities
@@ -3326,6 +3334,11 @@ impl Game {
                         if !available.can_pay(mana) { return false; }
                     }
                 }
+                Cost::VariableBlight => {
+                    let has_creature = self.state.battlefield.controlled_by(player_id)
+                        .any(|p| p.is_creature());
+                    if !has_creature { return false; }
+                }
                 _ => {} // Other costs checked elsewhere
             }
         }
@@ -3451,6 +3464,44 @@ impl Game {
                     } else {
                         return false;
                     }
+                }
+                Cost::VariableBlight => {
+                    let creatures: Vec<ObjectId> = self.state.battlefield.iter()
+                        .filter(|p| p.controller == player_id && p.is_creature())
+                        .map(|p| p.id())
+                        .collect();
+                    if creatures.is_empty() {
+                        return false;
+                    }
+                    let max_x = self.state.battlefield.iter()
+                        .filter(|p| p.controller == player_id && p.is_creature())
+                        .map(|p| p.toughness().max(0) as u32)
+                        .max()
+                        .unwrap_or(0);
+                    let view = crate::decision::GameView::placeholder();
+                    let x = if let Some(dm) = self.decision_makers.get_mut(&player_id) {
+                        dm.choose_amount(&view, "Choose X (blight amount)", 0, max_x)
+                    } else {
+                        max_x
+                    };
+                    if x > 0 {
+                        let chosen = if let Some(dm) = self.decision_makers.get_mut(&player_id) {
+                            let targets = dm.choose_targets(&view, crate::constants::Outcome::Detriment,
+                                &crate::decision::TargetRequirement {
+                                    description: format!("Put {} -1/-1 counters on creature you control", x),
+                                    legal_targets: creatures.clone(),
+                                    min_targets: 1, max_targets: 1,
+                                    required: true,
+                                });
+                            targets.into_iter().next().unwrap_or(creatures[0])
+                        } else {
+                            creatures[0]
+                        };
+                        if let Some(perm) = self.state.battlefield.get_mut(chosen) {
+                            perm.counters.add(crate::counters::CounterType::M1M1, x);
+                        }
+                    }
+                    self.variable_blight_amount = Some(x);
                 }
                 Cost::ExileFromGraveyard(count) => {
                     let gy_cards: Vec<ObjectId> = self.state.players.get(&player_id)
@@ -3853,6 +3904,20 @@ impl Game {
                     for opp in opponents {
                         if let Some(player) = self.state.players.get_mut(&opp) {
                             player.life -= dmg as i32;
+                        }
+                    }
+                }
+                Effect::DealDamageOpponentsCreatures { amount } => {
+                    let base_dmg = resolve_x(*amount);
+                    let mult = source.map(|s| self.get_damage_multiplier(s)).unwrap_or(1);
+                    let dmg = base_dmg * mult;
+                    let matching: Vec<ObjectId> = self.state.battlefield.iter()
+                        .filter(|p| p.is_creature() && p.controller != controller)
+                        .map(|p| p.id())
+                        .collect();
+                    for id in matching {
+                        if let Some(perm) = self.state.battlefield.get_mut(id) {
+                            perm.apply_damage(dmg);
                         }
                     }
                 }

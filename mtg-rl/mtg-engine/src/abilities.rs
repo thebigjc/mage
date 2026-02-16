@@ -58,6 +58,9 @@ pub enum Cost {
     /// Blight N — put N -1/-1 counters on a creature you control.
     /// (ECL set-specific mechanic.)
     Blight(u32),
+    /// Variable Blight X — choose X, put X -1/-1 counters on a creature you control.
+    /// Sets the spell's X value for subsequent effects.
+    VariableBlight,
     /// Reveal a card of a specific type from hand (used by Behold).
     /// Reveal a card of a specific type from hand (used by Behold).
     RevealFromHand(String),
@@ -95,6 +98,8 @@ pub enum Effect {
     DealDamageAll { amount: u32, filter: String },
     /// Deal damage to each opponent.
     DealDamageOpponents { amount: u32 },
+    /// Deal damage to each creature opponents control.
+    DealDamageOpponentsCreatures { amount: u32 },
 
     // -- Life --
     /// Gain life.
@@ -1187,6 +1192,10 @@ impl Effect {
         Effect::DealDamageOpponents { amount }
     }
 
+    pub fn damage_opponents_creatures(amount: u32) -> Self {
+        Effect::DealDamageOpponentsCreatures { amount }
+    }
+
     /// "Search library for a card."
     pub fn search_library(filter: &str) -> Self {
         Effect::SearchLibrary {
@@ -1831,6 +1840,11 @@ impl Cost {
     /// Blight N — put N -1/-1 counters on a creature you control.
     pub fn blight(count: u32) -> Self {
         Cost::Blight(count)
+    }
+
+    /// Variable Blight X — choose X, put X -1/-1 counters on a creature you control.
+    pub fn variable_blight() -> Self {
+        Cost::VariableBlight
     }
 
     /// Reveal a card of a specific type from hand.

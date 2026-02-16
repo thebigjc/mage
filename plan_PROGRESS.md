@@ -9,8 +9,8 @@ IN_PROGRESS
 ## Analysis
 
 ### Current State
-- **Engine tests**: 525 (mtg-engine), all passing
-- **ECL Custom fallbacks**: 32 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 39 total
+- **Engine tests**: 531 (mtg-engine), all passing
+- **ECL Custom fallbacks**: 30 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 37 total
 - **Other sets**: FDN 336, TLA 199, TDM 110 (these are out of scope per the plan)
 
 ### Goal
@@ -77,9 +77,9 @@ Group the 44 fallbacks by what engine feature they need. Implement the engine fe
 
 - [x] Task 13: Add `CopyNextSpell` effect — Added `Effect::CopyNextSpell` variant. Creates a delayed trigger on SpellCast with `copy_spell: true` flag. Added `copy_spell` boolean to `DelayedTrigger` struct. Delayed trigger handler checks that the cast spell is instant/sorcery and was cast by the trigger's controller, then calls `copy_spell_on_stack`. Updated **rimefire_torque**: moved RemoveCounters from effects to costs, replaced Effect::Custom with Effect::copy_next_spell(). 3 new tests (525 engine total). 1 Effect::Custom eliminated.
 
-- [ ] Task 14: Add `CopySpellWithModification` effect — Copy a spell and add keywords (wither) to both original and copy. Update: **spinerock_tyrant** (copy single-target instant/sorcery, both gain wither). Extends Task 13. Add engine test. ~1 card fixed.
+- [x] Task 14: Add `CopySpellWithModification` effect — Added `Effect::CopyTriggeringSpell { keywords, single_target_only }` variant. Finds triggering instant/sorcery on stack, optionally checks single-target, copies it, grants keywords to both original and copy. Added wither/infect/shadow to `keyword_from_name()`. Updated **spinerock_tyrant**: replaced Effect::Custom with `Effect::copy_triggering_spell(vec!["wither"], true)`. 3 new tests (528 engine total). 1 Effect::Custom eliminated.
 
-- [ ] Task 15: Add `VariableBlightCost` — Variable additional cost: put any number of -1/-1 counters on your creatures, scale damage by that count. Update: **soul_immolation** (blight X, deal X damage to opponents and their creatures). Java uses `VariableCostImpl`. Add engine test. ~1 card fixed.
+- [x] Task 15: Add `VariableBlightCost` — Added `Cost::VariableBlight` variant that lets the player choose X (up to greatest toughness among controlled creatures), puts X -1/-1 counters on a chosen creature, and sets the spell's x_value. Added `Effect::DealDamageOpponentsCreatures` for dealing damage to opponents' creatures. Added `variable_blight_amount` transient field on Game for cost→spell X value propagation. Updated **soul_immolation**: replaced Effect::Custom with `Cost::variable_blight()` + `Effect::damage_opponents(X_VALUE)` + `Effect::damage_opponents_creatures(X_VALUE)`. 3 new tests (531 engine total). 1 Effect::Custom eliminated.
 
 - [ ] Task 16: Add `OpponentRevealsExileCast` effect — Target opponent reveals X cards from library (X = dynamic count), you exile one, may cast it. Update: **taster_of_wares** (X = Goblins you control). Java uses custom effect. Add engine test. ~1 card fixed.
 
@@ -154,7 +154,7 @@ Task 31 depends on all others
 18. Task 31 (verification)
 
 ## Completed This Iteration
-- Task 13: Added `Effect::CopyNextSpell` for "copy next instant/sorcery" delayed triggers. Added `copy_spell` flag to `DelayedTrigger` struct. Handler filters for instant/sorcery by controller, then calls `copy_spell_on_stack`. Updated rimefire_torque: moved RemoveCounters to costs, replaced Custom with copy_next_spell(). 3 new tests (525 engine total). 1 Effect::Custom eliminated.
+- Task 15: Added `Cost::VariableBlight` for variable blight X additional cost. Added `Effect::DealDamageOpponentsCreatures` for dealing X damage to each creature opponents control. Updated soul_immolation from Effect::Custom to proper Cost + Effects. 3 new tests (531 engine total). 1 Effect::Custom eliminated.
 
 ## Notes
 
