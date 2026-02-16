@@ -395,6 +395,12 @@ pub enum Effect {
     /// value_source examples: "Kithkin you control"
     BoostTargetDynamic { value_source: String },
 
+    /// Dual-target dynamic boost: first target gets +X/+0, second target gets -0/-X,
+    /// where X = evaluate_count_filter(value_source). Uses TargetSpec::Pair.
+    /// targets[0] = creature you control (gets +X/+0)
+    /// targets[1] = opponent creature (gets -0/-X)
+    BoostDualTargetDynamic { value_source: String },
+
     /// The controller of the targeted permanent draws N cards.
     /// Used for effects like "Its controller draws a card."
     TargetControllerDraws { count: u32 },
@@ -1407,6 +1413,11 @@ impl Effect {
     /// Target gets +X/+X until end of turn where X = dynamic value.
     pub fn boost_target_dynamic(value_source: &str) -> Self {
         Effect::BoostTargetDynamic { value_source: value_source.to_string() }
+    }
+
+    /// First target gets +X/+0, second target gets -0/-X where X = dynamic value.
+    pub fn boost_dual_target_dynamic(value_source: &str) -> Self {
+        Effect::BoostDualTargetDynamic { value_source: value_source.to_string() }
     }
 
     /// Target's controller draws N cards.

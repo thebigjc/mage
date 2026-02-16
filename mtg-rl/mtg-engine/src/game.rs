@@ -861,6 +861,12 @@ impl Game {
     /// - "Goblins you control" / "Kithkin you control" — count of matching permanents
     /// - "greatest power among Giants you control" — max power among matching creatures
     fn evaluate_count_filter(&self, filter: &str, controller: PlayerId) -> u32 {
+        if filter.contains(" + ") {
+            return filter.split(" + ")
+                .map(|part| self.evaluate_count_filter(part.trim(), controller))
+                .sum();
+        }
+
         let lower = filter.to_lowercase();
 
         // "greatest mana value among {Type}s you control"
@@ -924,16 +930,33 @@ impl Game {
         // "{Type}s you control" / "{Type} you control"
         if lower.ends_with("you control") {
             let type_part = lower.trim_end_matches("you control").trim();
-            let type_str = type_part.trim_end_matches('s'); // "Goblins" -> "Goblin"
-            let subtype = crate::constants::SubType::by_description(
-                &format!("{}{}", &type_str[..1].to_uppercase(), &type_str[1..])
-            );
+            let type_str = Self::depluralize_type(type_part);
+            let subtype = crate::constants::SubType::by_description(&type_str);
             return self.state.battlefield.iter()
                 .filter(|p| p.controller == controller && p.has_subtype(&subtype))
                 .count() as u32;
         }
 
         0 // unknown filter
+    }
+
+    fn depluralize_type(lower: &str) -> String {
+        let irregular: &[(&str, &str)] = &[
+            ("elves", "Elf"),
+            ("wolves", "Wolf"),
+            ("dwarves", "Dwarf"),
+        ];
+        for &(plural, singular) in irregular {
+            if lower == plural {
+                return singular.to_string();
+            }
+        }
+        let trimmed = lower.trim_end_matches('s');
+        let mut chars = trimmed.chars();
+        match chars.next() {
+            Some(c) => c.to_uppercase().to_string() + chars.as_str(),
+            None => String::new(),
+        }
     }
 
     /// Calculate the total cost reduction that applies to a spell being cast by a player.
@@ -5347,6 +5370,19 @@ impl Game {
                         if let Some(perm) = self.state.battlefield.get_mut(target_id) {
                             perm.continuous_boost_power += amount;
                             perm.continuous_boost_toughness += amount;
+                        }
+                    }
+                }
+                Effect::BoostDualTargetDynamic { value_source } => {
+                    let amount = self.evaluate_count_filter(value_source, controller) as i32;
+                    if targets.len() >= 1 {
+                        if let Some(perm) = self.state.battlefield.get_mut(targets[0]) {
+                            perm.continuous_boost_power += amount;
+                        }
+                    }
+                    if targets.len() >= 2 {
+                        if let Some(perm) = self.state.battlefield.get_mut(targets[1]) {
+                            perm.continuous_boost_toughness -= amount;
                         }
                     }
                 }

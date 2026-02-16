@@ -57,9 +57,9 @@ Group the 44 fallbacks by what engine feature they need. Implement the engine fe
 
 - [x] Task 4: Add `MillAndSelect` effect — Mill N cards, then pick one matching a filter (creature/land) and put it on top of library or into hand. Update: **lluwen_imperfect_naturalist** (mill 4, put creature/land on top). Java uses a custom OneShotEffect. Add engine test. ~1 card fixed.
 
-- [ ] Task 5: Add `MillAndReturnType` effect — Mill N, return all cards of a specific type from among milled to hand. Update: **grubs_command** mode 4 (mill 5, return Goblins). Java uses custom mill effect. Add engine test. ~1 card fixed.
+- [x] Task 5: Add `MillAndReturnAll` effect — Mill N, return all cards of a specific type from among milled to hand. Update: **grubs_command** mode 4 (mill 5, return Goblins). Java uses custom mill effect. Add engine test. ~1 card fixed.
 
-- [ ] Task 6: Add `BoostDualTargetDynamic` effect — Give +X/+0 to one target and -0/-X to another, where X = count of permanents matching filter. Update: **gloom_ripper** (X = Elves you control + Elf cards in graveyard). Java uses `AdditiveDynamicValue` + `SignInversionDynamicValue`. Add engine test. ~1 card fixed.
+- [x] Task 6: Add `BoostDualTargetDynamic` effect — Give +X/+0 to one target and -0/-X to another, where X = count of permanents matching filter. Update: **gloom_ripper** (X = Elves you control + Elf cards in graveyard). Added Effect::BoostDualTargetDynamic variant, additive "+" support in evaluate_count_filter, irregular plural handling (depluralize_type). 2 new tests, 508 engine total. 1 Effect::Custom eliminated.
 
 - [ ] Task 7: Add `RevealFromLibraryVivid` effect — Reveal cards from library until X permanents found (X = colors among permanents), put some onto battlefield. Update: **aurora_awakener** (Vivid ETB reveal+deploy). Java uses `ColorsAmongControlledPermanentsCount`. Add engine test. ~1 card fixed.
 
@@ -154,7 +154,7 @@ Task 31 depends on all others
 18. Task 31 (verification)
 
 ## Completed This Iteration
-- Task 4: Added `Effect::MillAndSelect { count, filter, destination }` variant and `Effect::mill_and_select()` builder. Mills N cards, picks first matching filter, puts on top of library or into hand. Updated `lluwen_imperfect_naturalist` to use it. 2 new tests (504 engine total). 1 Effect::Custom eliminated.
+- Task 6: Added `Effect::BoostDualTargetDynamic { value_source }` variant and `Effect::boost_dual_target_dynamic()` builder. First target gets +X/+0, second gets -0/-X where X = dynamic count. Added additive "+" support in evaluate_count_filter and irregular plural handling (depluralize_type for Elves→Elf etc). Updated `gloom_ripper` to use BoostDualTargetDynamic with TargetSpec::Pair. 2 new tests (508 engine total). 1 Effect::Custom eliminated.
 
 ## Notes
 

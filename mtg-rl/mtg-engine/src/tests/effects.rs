@@ -1594,3 +1594,102 @@ fn mill_and_return_all_no_matches() {
     assert_eq!(hand_after, hand_before, "No goblins milled, hand unchanged");
     assert_eq!(gy_after, 3, "All 3 milled cards stay in graveyard");
 }
+
+#[test]
+fn boost_dual_target_dynamic_boosts_both_targets() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+
+    let mut game = Game::new_two_player(
+        config,
+        vec![
+            (p1, Box::new(AlwaysPassPlayer)),
+            (p2, Box::new(AlwaysPassPlayer)),
+        ],
+    );
+
+    let mut elf1 = make_creature("Elf Warrior", p1, 2, 2);
+    elf1.subtypes = vec![SubType::Elf];
+    let _elf1_id = elf1.id;
+
+    let mut elf2 = make_creature("Elf Scout", p1, 1, 1);
+    elf2.subtypes = vec![SubType::Elf];
+    let _elf2_id = elf2.id;
+
+    let my_creature = make_creature("My Fighter", p1, 3, 3);
+    let my_id = my_creature.id;
+
+    let opp_creature = make_creature("Enemy Beast", p2, 5, 5);
+    let opp_id = opp_creature.id;
+
+    game.state.battlefield.add(Permanent::new(elf1, p1));
+    game.state.battlefield.add(Permanent::new(elf2, p1));
+    game.state.battlefield.add(Permanent::new(my_creature, p1));
+    game.state.battlefield.add(Permanent::new(opp_creature, p2));
+
+    let mut elf_in_gy = CardData::new(ObjectId::new(), p1, "Dead Elf");
+    elf_in_gy.subtypes = vec![SubType::Elf];
+    let gy_elf_id = elf_in_gy.id;
+    game.state.card_store.insert(elf_in_gy);
+    if let Some(player) = game.state.players.get_mut(&p1) {
+        player.graveyard.add(gy_elf_id);
+    }
+
+    game.execute_effects(
+        &[Effect::boost_dual_target_dynamic("Elves you control + Elf cards in your graveyard")],
+        p1, &[my_id, opp_id], None, None,
+    );
+
+    let my_perm = game.state.battlefield.get(my_id).unwrap();
+    assert_eq!(my_perm.continuous_boost_power, 3, "+3/+0: 2 Elves on battlefield + 1 Elf in graveyard");
+    assert_eq!(my_perm.continuous_boost_toughness, 0, "No toughness boost on first target");
+
+    let opp_perm = game.state.battlefield.get(opp_id).unwrap();
+    assert_eq!(opp_perm.continuous_boost_power, 0, "No power reduction on second target");
+    assert_eq!(opp_perm.continuous_boost_toughness, -3, "-0/-3: same X applied negatively");
+}
+
+#[test]
+fn boost_dual_target_dynamic_single_target_only() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+
+    let mut game = Game::new_two_player(
+        config,
+        vec![
+            (p1, Box::new(AlwaysPassPlayer)),
+            (p2, Box::new(AlwaysPassPlayer)),
+        ],
+    );
+
+    let mut elf1 = make_creature("Elf Warrior", p1, 2, 2);
+    elf1.subtypes = vec![SubType::Elf];
+    game.state.battlefield.add(Permanent::new(elf1, p1));
+
+    let my_creature = make_creature("My Fighter", p1, 3, 3);
+    let my_id = my_creature.id;
+    game.state.battlefield.add(Permanent::new(my_creature, p1));
+
+    game.execute_effects(
+        &[Effect::boost_dual_target_dynamic("Elves you control")],
+        p1, &[my_id], None, None,
+    );
+
+    let my_perm = game.state.battlefield.get(my_id).unwrap();
+    assert_eq!(my_perm.continuous_boost_power, 1, "+1/+0: 1 Elf on battlefield");
+    assert_eq!(my_perm.continuous_boost_toughness, 0, "No toughness change on first target");
+}

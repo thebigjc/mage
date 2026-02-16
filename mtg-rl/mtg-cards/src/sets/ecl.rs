@@ -4247,7 +4247,6 @@ fn glen_elendras_answer(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [COND] Dynamic X = Elves you control + Elf cards in GY, +X/+0 to your creature, -0/-X to opponent's
 fn gloom_ripper(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Gloom Ripper".into(), mana_cost: ManaCost::parse("{3}{B}{B}"),
         card_types: vec![CardType::Creature],
@@ -4255,11 +4254,13 @@ fn gloom_ripper(id: ObjectId, owner: PlayerId) -> CardData {
         power: Some(4), toughness: Some(4),
         rarity: Rarity::Common,
         abilities: vec![
-            Ability::triggered(id,
-                "When this creature enters, target creature you control gets +X/+0 until end of turn and up to one target creature an opponent controls gets -0/-X until end of turn, where X is the number of Elves you ",
-                vec![EventType::EnteredTheBattlefield],
-                vec![Effect::Custom("When this creature enters, target creature you control gets +X/+0 until end of turn and up to one target creature an opponent controls gets -0/-X until end of turn, where X is the number of Elves you ".into())],
-                TargetSpec::None),
+            Ability::enters_battlefield_triggered(id,
+                "When this creature enters, target creature you control gets +X/+0 until end of turn and up to one target creature an opponent controls gets -0/-X until end of turn, where X is the number of Elves you control plus the number of Elf cards in your graveyard.",
+                vec![Effect::boost_dual_target_dynamic("Elves you control + Elf cards in your graveyard")],
+                TargetSpec::Pair {
+                    first: Box::new(TargetSpec::CreatureYouControl),
+                    second: Box::new(TargetSpec::OpponentCreature),
+                }),
         ],
         ..Default::default() }
 }
