@@ -3932,8 +3932,6 @@ fn vibrance(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [COND] Convoke, bounce 1-2 nonland permanents, conditional Merfolk tokens
 fn wanderwine_farewell(id: ObjectId, owner: PlayerId) -> CardData {
-    // Kindred Sorcery — Merfolk for {5}{U}{U}. Convoke.
-    // Return 1-2 target nonland permanents to hands. If you control a Merfolk, create tokens.
     CardData { id, owner, name: "Wanderwine Farewell".into(),
         mana_cost: ManaCost::parse("{5}{U}{U}"),
         card_types: vec![CardType::Kindred, CardType::Sorcery],
@@ -3942,7 +3940,9 @@ fn wanderwine_farewell(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Uncommon,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::bounce(), Effect::Custom("If you control a Merfolk, create a 1/1 Merfolk token for each permanent returned.".into())],
+                vec![Effect::bounce(),
+                     Effect::conditional("you control a Merfolk",
+                         vec![Effect::create_token("1/1 white and blue Merfolk creature token", 1)], vec![])],
                 TargetSpec::PermanentFiltered("nonland permanent".into())),
         ],
         ..Default::default() }
@@ -4266,14 +4266,13 @@ fn gloom_ripper(id: ObjectId, owner: PlayerId) -> CardData {
 }
 
 fn goatnap(id: ObjectId, owner: PlayerId) -> CardData {
-    // Sorcery: Gain control of target creature until end of turn. Untap it. It gains haste.
-    // If that creature is a Goat, it also gets +3/+0 until end of turn.
     CardData { id, owner, name: "Goatnap".into(), mana_cost: ManaCost::parse("{2}{R}"),
         card_types: vec![CardType::Sorcery],
         rarity: Rarity::Common,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::gain_control_eot(), Effect::untap_target(), Effect::gain_keyword_eot("haste"), Effect::Custom("If Goat, +3/+0 until end of turn.".into())],
+                vec![Effect::gain_control_eot(), Effect::untap_target(), Effect::gain_keyword_eot("haste"),
+                     Effect::conditional("target is a Goat", vec![Effect::boost_until_eot(3, 0)], vec![])],
                 TargetSpec::Creature),
         ],
         ..Default::default() }
@@ -4607,13 +4606,12 @@ fn raiding_schemes(id: ObjectId, owner: PlayerId) -> CardData {
 
 // ENGINE DEPS: [COST] Optional blight 1, destroy creature MV<=2, conditional gain 2 life if blighted
 fn requiting_hex(id: ObjectId, owner: PlayerId) -> CardData {
-    // Instant for {B}. (Optional blight 1; destroy creature MV<=2; if blighted, gain 2 life)
     CardData { id, owner, name: "Requiting Hex".into(), mana_cost: ManaCost::parse("{B}"),
         card_types: vec![CardType::Instant],
         rarity: Rarity::Common,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::destroy(), Effect::Custom("If you blighted, you gain 2 life.".into())],
+                vec![Effect::destroy(), Effect::do_if_cost_paid(Cost::Blight(1), vec![Effect::gain_life(2)], vec![])],
                 TargetSpec::Creature),
         ],
         ..Default::default() }
@@ -4693,13 +4691,14 @@ fn swat_away(id: ObjectId, owner: PlayerId) -> CardData {
 // ENGINE DEPS: [COND] Search basic land to battlefield tapped, conditional create Treefolk token if 7+ lands/Treefolk
 // ENGINE DEPS: [COND] Search basic land + conditional Treefolk token
 fn tend_the_sprigs(id: ObjectId, owner: PlayerId) -> CardData {
-    // Sorcery {2}{G}. Search basic land to BF tapped. If 7+ lands/Treefolk, create 3/4 Treefolk with reach.
     CardData { id, owner, name: "Tend the Sprigs".into(), mana_cost: ManaCost::parse("{2}{G}"),
         card_types: vec![CardType::Sorcery],
         rarity: Rarity::Common,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::search_library("basic land"), Effect::Custom("If 7+ lands/Treefolk, create 3/4 Treefolk with reach.".into())],
+                vec![Effect::search_library("basic land"),
+                     Effect::conditional("you control 7 or more lands and/or Treefolk",
+                         vec![Effect::create_token("3/4 green Treefolk creature token with reach", 1)], vec![])],
                 TargetSpec::None),
         ],
         ..Default::default() }

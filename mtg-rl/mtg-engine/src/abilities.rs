@@ -422,6 +422,17 @@ pub enum Effect {
     /// Requires the card to have a back_face defined in CardData.
     TransformSelf,
 
+    // -- Conditional --
+    /// "If [condition], [if_true effects]. Otherwise, [if_false effects]."
+    /// Evaluates a game-state condition string and branches accordingly.
+    /// Supported conditions include "target is a {Type}", "you control a {Type}",
+    /// "you control N or more {filter}", etc.
+    Conditional {
+        condition: String,
+        if_true: Vec<Effect>,
+        if_false: Vec<Effect>,
+    },
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1447,6 +1458,14 @@ impl Effect {
 
     pub fn transform_self() -> Self {
         Effect::TransformSelf
+    }
+
+    pub fn conditional(condition: &str, if_true: Vec<Effect>, if_false: Vec<Effect>) -> Self {
+        Effect::Conditional {
+            condition: condition.to_string(),
+            if_true,
+            if_false,
+        }
     }
 }
 

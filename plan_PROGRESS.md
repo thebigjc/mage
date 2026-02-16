@@ -1,190 +1,165 @@
 # Progress: plan
 
-Started: Sun Feb 15 11:47:37 AM EST 2026
+Started: Mon Feb 16 12:34:17 AM EST 2026
 
 ## Status
 
-RALPH_DONE
+IN_PROGRESS
 
 ## Analysis
 
 ### Current State
-- 1,333 cards across 4 sets (FDN 512, TLA 280, TDM 273, ECL 268)
-- **940 total Custom fallbacks** (747 Effect::Custom, 160 StaticEffect::Custom, 33 Cost::Custom)
-- ECL has the fewest customs: 68 Effect::Custom, 20 StaticEffect::Custom, 0 Cost::Custom = **88 total**
-- All tests pass (318 engine, 20 cards, 52 AI)
-- Build compiles cleanly (warnings only)
-- **Cost reduction system**: committed (cf3ba09)
+- **Engine tests**: 499 (mtg-engine), 590 total across all crates, all passing
+- **ECL Custom fallbacks**: 33 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 40 total
+- **Other sets**: FDN 336, TLA 199, TDM 110 (these are out of scope per the plan)
 
 ### Goal
-Complete ECL set by implementing missing engine capabilities and updating card factories to use typed Effect/StaticEffect variants instead of Custom strings. Work one ROADMAP item at a time, add tests, commit after each.
+The plan says: "bring our rust engine into parity with Java" and "complete the fully functional implementation of ECL by implementing engine capabilities and updating cards to use them." This means we should systematically eliminate the remaining 44 ECL Custom fallbacks by adding engine features and updating card definitions.
 
-### What Already Exists (Engine Features)
-- Combat system (full), triggered abilities (ETB, attack, dies, upkeep, end step, spell cast, life gain)
-- Continuous effects (Layer 6 keywords + Layer 7 P/T), equipment/aura systems
-- X-cost spells, impulse draw, graveyard casting (flashback), delayed triggers
-- Behold mechanic, Vivid mechanic, Modal spells, Fight/Bite
-- Token creation (regular, tapped-attacking, copy, dynamic), Flicker/FlickerEndStep
-- Cost reduction (uncommitted), BoostPerCount, ConditionalKeyword/ConditionalBoostSelf
-- GainAllCreatureTypes, BlightOpponents, AdditionalLandPlays
+### Approach
+Group the 44 fallbacks by what engine feature they need. Implement the engine feature first (with tests), then update all ECL cards that benefit. Work one task at a time. Commit after each item.
 
-### What's Missing for ECL Parity (grouped by engine feature)
+### Fallback Categories
 
-**Tier 1 - High Impact (reduce many Custom fallbacks):**
-1. Generic stub replacement - 48 cards have generic placeholders ("ETB effect.", "Activated effect.", "Spell effect.", "Static effect.") that can be replaced by composing existing Effect variants per-card
-2. Replacement effect pipeline - needed for enters-with-counters, death replacement, damage prevention (~20+ cards across all sets, ~3-5 in ECL)
+**Easy (existing effects can handle with minor extensions):**
+- Conditional effects based on game state (blight paid, creature type, permanent count)
+- Vivid variants (search, put-onto-battlefield)
+- Type-adding effects
 
-**Tier 2 - Medium Impact (new engine features for ECL):**
-3. "Loses all abilities" effect - 4 ECL cards (Abigale, Curious Colossus, Noggle the Mind, Retched Wretch)
-4. SetPowerToughnessAll / mass type change - 2 ECL cards (Curious Colossus, Noggle the Mind)
-5. "Put creature from hand onto battlefield" effect - 2 ECL cards (Meek Attack, Kinscaer Sentry)
-6. Transform/DFC system - 2 ECL cards (Eirdu/Isilu, Figure of Fable)
-7. Animate artifact ("becomes a creature") - 1 ECL card (Firdoch Core)
-8. Convoke keyword enforcement - 2 ECL cards (Omni-Changeling, Eirdu)
-9. Conspire keyword - 1 ECL card (Raiding Schemes)
-10. Mass reanimation by creature type - 1 ECL card (Bloodline Bidding)
-11. Dynamic P/T based on game state conditions - 3 ECL cards (Squawkroaster, Doran, Kinbinding)
-12. Toughness-based damage assignment - 1 ECL card (Bark of Doran)
-13. Damage doubling from chosen type - 1 ECL card (Collective Inferno)
-14. Mana doubling for basic lands - 1 ECL card (Lavaleaper)
-15. Enhanced mana production (enchanted land) - 1 ECL card (Shimmerwilds Growth)
-16. Triggered ability doubling - 1 ECL card (Twinflame Travelers)
-17. "Can't untap" static effect - 1 ECL card (Blossombind)
-18. Mass hexproof+indestructible by type - 1 ECL card (Selfless Safewright)
-19. Enter-as-copy with changeling - 1 ECL card (Omni-Changeling)
-20. Graveyard-to-battlefield copy trigger - 1 ECL card (Twilight Diviner)
+**Medium (new Effect variant needed, but uses existing infrastructure):**
+- Dynamic exile-and-play (X = counters on creature)
+- Mill-and-select (put creature/land from milled on top)
+- Dynamic dual-target boost (X = count of type)
+- Conditional token creation
+- Ability resolution count tracking
 
-**Tier 3 - Simple per-card fixes (compose existing effects):**
-21. Cards where Custom strings can be directly replaced by existing typed Effect variants (e.g., "Each opponent loses 1 life" -> LoseLifeOpponents)
+**Hard (significant engine work):**
+- Spell copy with modification (copy next spell, add wither)
+- Granting temporary triggered abilities
+- Mass copy (all permanents become copy of target)
+- Variable additional cost (blight X, scale damage)
+- Cast-from-exile systems (remove counters as cost, MV restriction)
+- Type-changing layer effects
+- Persist keyword granting
+- Color-dependent hexproof
 
 ## Task List
 
-### Phase 0: Commit Existing Work
-- [x] Task 0.1: Commit uncommitted cost reduction system (game.rs + mana.rs changes with tests)
+### Tier 1: Easy Effect::Custom eliminations (compose from existing effects)
 
-### Phase 1: Generic Stub Replacement (Easy Wins)
-Replace generic Custom placeholders with compositions of existing typed effects. Each sub-task is one card or small batch of related cards. Analyze each card's Oracle text (check Java reference if needed), then replace Custom with the correct combination of existing Effect variants.
+- [x] Task 1: Add `ConditionalEffect` variant — `Effect::Conditional { condition, if_true, if_false }` for cards that do "if X, then Y". Updated: **requiting_hex** (DoIfCostPaid with Blight), **goatnap** (target is a Goat), **tend_the_sprigs** (7+ lands/Treefolk), **wanderwine_farewell** (you control a Merfolk). Added evaluate_condition_with_targets, count_permanents_matching, permanent_matches_filter_part. 6 new tests, 499 engine total. 4 Effect::Custom eliminated.
 
-- [x] Task 1.1: Audit all generic-placeholder ECL cards and all 88 Custom fallbacks
-- [x] Task 1.2: Replace generic placeholders on 14 cards with descriptive Custom strings matching Oracle text. Also added missing card data and typed variants where possible.
-- [x] Task 1.3: Replace simple Custom strings with existing Effect variants where possible (4 cards updated)
+- [ ] Task 2: Add `AddSubtype` effect — `Effect::AddSubtype { subtype: String, filter: String, duration: String }` for type-adding effects. Update: **curious_colossus** (add Coward subtype to opponent creatures). Java uses `AddCardSubTypeTargetEffect`. Add engine test. ~1 card fixed.
 
-### Phase 2: New Engine Features (Ordered by Dependency + Impact)
+- [ ] Task 3: Add `SearchLibraryVivid` effect — Vivid variant of SearchLibrary that searches for X basic lands where X = colors among permanents. Update: **prismatic_undercurrents**. Java uses `ColorsAmongControlledPermanentsCount` with `TargetCardInLibrary`. Add engine test. ~1 card fixed.
 
-Each task: add engine feature, add tests, update ECL cards to use it, commit.
+### Tier 2: Medium — new Effect variants using existing infrastructure
 
-- [x] Task 2.1: Add `Effect::LoseAllAbilities` - remove all abilities from target creature (Java ref: `LoseAllAbilitiesTargetEffect.java`). Update 4 ECL cards: Abigale, Curious Colossus, Noggle the Mind, Retched Wretch. Tests + commit.
+- [ ] Task 4: Add `MillAndSelect` effect — Mill N cards, then pick one matching a filter (creature/land) and put it on top of library or into hand. Update: **lluwen_imperfect_naturalist** (mill 4, put creature/land on top). Java uses a custom OneShotEffect. Add engine test. ~1 card fixed.
 
-- [x] Task 2.2: Add `Effect::SetBasePowerToughnessAll`, `Effect::LoseAllAbilitiesAll`, `StaticEffect::SetBasePowerToughness` - mass P/T setting and continuous base P/T override. Update Curious Colossus, Noggle the Mind. Tests + commit.
+- [ ] Task 5: Add `MillAndReturnType` effect — Mill N, return all cards of a specific type from among milled to hand. Update: **grubs_command** mode 4 (mill 5, return Goblins). Java uses custom mill effect. Add engine test. ~1 card fixed.
 
-- [x] Task 2.3: Add `Effect::PutFromHandToBattlefield { max_mana_value, max_mv_dynamic, tapped, attacking, haste, sacrifice_eot }` - put creature from hand onto battlefield. Update Meek Attack, Kinscaer Sentry. Tests + commit.
+- [ ] Task 6: Add `BoostDualTargetDynamic` effect — Give +X/+0 to one target and -0/-X to another, where X = count of permanents matching filter. Update: **gloom_ripper** (X = Elves you control + Elf cards in graveyard). Java uses `AdditiveDynamicValue` + `SignInversionDynamicValue`. Add engine test. ~1 card fixed.
 
-- [x] Task 2.4: Add `StaticEffect::CantUntap { filter }` - prevents permanents from untapping. Update Blossombind. Tests + commit.
+- [ ] Task 7: Add `RevealFromLibraryVivid` effect — Reveal cards from library until X permanents found (X = colors among permanents), put some onto battlefield. Update: **aurora_awakener** (Vivid ETB reveal+deploy). Java uses `ColorsAmongControlledPermanentsCount`. Add engine test. ~1 card fixed.
 
-- [x] Task 2.5: Add `Effect::ChooseTypeAndReturnFromGraveyard` - compound effect that chooses a creature type then returns all matching creatures from graveyard to battlefield (needed because sorceries can't chain ChooseCreatureType → ReturnAllTypeFromGraveyard). Update Bloodline Bidding. Tests + commit.
+- [ ] Task 8: Add `CompareAndBoost` effect — Choose two creatures, compute X = abs(power difference), draw X cards, boost both +X/+X and grant trample. Update: **spry_and_mighty**. Java uses custom OneShotEffect. Add engine test. ~1 card fixed.
 
-- [x] Task 2.6: Add `Effect::ChooseTypeAndGrantKeywords { keywords, other_only }` - compound effect choosing creature type then granting keywords to matching permanents until EOT. Update Selfless Safewright. Tests + commit.
+- [ ] Task 9: Add `ExileTopAndPlayDynamic` effect — Exile X cards from library (X = dynamic value like counters on a creature), play until next end step. Update: **shadow_urchin** (X = counters on dying creature). Java uses `ExileTopXMayPlayUntilEffect` with `ShadowUrchinValue`. Add engine test. ~1 card fixed.
 
-- [x] Task 2.7: Add `StaticEffect::SetPowerToColorCount` — continuous Vivid power-setting effect. Update Squawkroaster. Tests + commit.
+- [ ] Task 10: Add `ConditionalTokenCreation` — If condition met, create token(s). Part of ConditionalEffect (Task 1) but may need dynamic count. Update: **tend_the_sprigs** and **wanderwine_farewell** (both need conditional + counting). May be covered by Task 1.
 
-- [x] Task 2.8: Add `StaticEffect::AssignDamageWithToughness` - creature assigns combat damage equal to toughness. Update Bark of Doran. Java ref: `CombatDamageByToughnessAllEffect` / custom. Tests + commit.
+### Tier 3: Medium-Hard — new systems needed
 
-- [x] Task 2.9: Add `Effect::BecomesCreature { power, toughness }` - make artifact become a creature temporarily until end of turn. Update Firdoch Core. Tests + commit.
+- [ ] Task 11: Add ability resolution counter / `IfResolvedNTimes` effect — Track how many times an ability has resolved this turn. On Nth resolution, perform additional effect. Update: **soulbright_seeker** (3rd resolution: add RRRR). Java uses `IfAbilityHasResolvedXTimesEffect` + `AbilityResolvedWatcher`. Needs new watcher. Add engine test. ~1 card fixed.
 
-- [x] Task 2.10: Implement Convoke cost payment - tap creatures to reduce mana cost. Update Omni-Changeling, Eirdu. Java ref: `ConvokeAbility.java`. Tests + commit.
+- [ ] Task 12: Add `GrantTemporaryTriggeredAbility` effect — Create a delayed trigger that grants "whenever a creature you control deals combat damage to a player, draw a card" until EOT. Update: **flitterwing_nuisance**. Also needs cost for "remove a counter from this creature". Java uses `CreateDelayedTriggeredAbilityEffect`. Add engine test. ~1 card fixed.
 
-- [x] Task 2.11: Add `StaticEffect::DamageDoublingFromType` - double damage from chosen type. Update Collective Inferno. Tests + commit.
+- [ ] Task 13: Add `CopyNextSpell` effect — Create a delayed trigger: "when you next cast an instant or sorcery this turn, copy it." Update: **rimefire_torque**. Java uses `CopyNextSpellEffect`. Builds on existing Conspire spell-copy infrastructure. Add engine test. ~1 card fixed.
 
-- [x] Task 2.12: Add `StaticEffect::ManaDoublingBasicLands` - basic lands produce double mana. Update Lavaleaper. Tests + commit.
+- [ ] Task 14: Add `CopySpellWithModification` effect — Copy a spell and add keywords (wither) to both original and copy. Update: **spinerock_tyrant** (copy single-target instant/sorcery, both gain wither). Extends Task 13. Add engine test. ~1 card fixed.
 
-- [x] Task 2.13: Add `StaticEffect::EnhancedManaProduction { filter, mana }` - enchanted land produces additional mana. Update Shimmerwilds Growth. Tests + commit.
+- [ ] Task 15: Add `VariableBlightCost` — Variable additional cost: put any number of -1/-1 counters on your creatures, scale damage by that count. Update: **soul_immolation** (blight X, deal X damage to opponents and their creatures). Java uses `VariableCostImpl`. Add engine test. ~1 card fixed.
 
-- [x] Task 2.14: Add `StaticEffect::TriggerDoubling { filter }` - triggered abilities of matching permanents trigger additional time. Update Twinflame Travelers. Tests + commit.
+- [ ] Task 16: Add `OpponentRevealsExileCast` effect — Target opponent reveals X cards from library (X = dynamic count), you exile one, may cast it. Update: **taster_of_wares** (X = Goblins you control). Java uses custom effect. Add engine test. ~1 card fixed.
 
-- [x] Task 2.15: Implement Conspire mechanic - tap two creatures sharing a color to copy spell. Update Raiding Schemes. Tests + commit.
+- [ ] Task 17: Add `MassExileAndCast` effect — Each opponent exiles from library until MV threshold, you may cast exiled cards. Update: **dream_harvest** (opponents exile until MV 5+). Java uses custom effect. Add engine test. ~1 card fixed.
 
-### Phase 3: Complex Engine Systems (Higher Effort)
+- [ ] Task 18: Add `DealDamageWithDelayedExile` effect — Deal X damage to creature, create delayed trigger: when it dies this turn, exile cards = its power, choose one to cast. Update: **end_blaze_epiphany**. Java uses complex custom effect. Add engine test. ~1 card fixed.
 
-- [x] Task 3.1: Implement basic replacement effect pipeline - hook into event system for enters-with-counters and death replacement. Java ref: `ReplacementEffectImpl.java`. Tests + commit.
+### Tier 4: Hard — requires new engine subsystems
 
-- [x] Task 3.2: Implement Transform/DFC basics - card can transform into back face. Update Eirdu/Isilu. Tests + commit.
+- [ ] Task 19: Add `FigureOfFableTransform` / `LevelUp` effect — Conditional self-transformation: check current types, change types/P/T/keywords. Update: **figure_of_fable** (Scout->Soldier 4/5, Soldier->Avatar 7/8 with protection). Java uses class-level system. Add engine test. ~1 card (2 Custom instances) fixed.
 
-- [x] Task 3.3: Implement enter-as-copy - clone creature on ETB. Update Omni-Changeling. Java ref: `CopyEffect.java`. Tests + commit.
+- [ ] Task 20: Add `WinnowingEffect` — For each player, choose one creature, sacrifice all others that don't share a creature type. Update: **winnowing**. Java uses `SharesCreatureTypePredicate`. Add engine test. ~1 card fixed.
 
-- [x] Task 3.4: Implement graveyard-ETB copy trigger (once per turn). Update Twilight Diviner. Tests + commit.
+- [ ] Task 21: Add `GlenElendrasAnswer` — Counter all spells and abilities opponents control on the stack, create tokens. Update: **glen_elendras_answer**. Java uses mass countering. Add engine test. ~1 card fixed.
 
-- [x] Task 3.5: Add dynamic boost based on toughness-power difference. Update Doran Besieged by Time. Tests + commit.
+- [ ] Task 22: Add `MassBecomeCopy` effect — Each nonland permanent you control becomes a copy of target. Update: **mirrorform**. Java uses complex copy effects. Add engine test. ~1 card fixed.
 
-- [x] Task 3.6: Add conditional cost reduction for toughness > power creatures. Update Doran. Tests + commit.
+- [ ] Task 23: Add exile-with-dream-counters system — Replacement effect: instants/sorceries you cast go to exile with dream counters instead of graveyard. Static ability: cast exiled spells with dream counters for free. Update: **goliath_daydreamer** (2 Custom instances). Java uses `AsThoughEffectImpl` + replacement. Add engine test. ~1 card (2 Custom instances) fixed.
 
-- [x] Task 3.7: Implement complex multi-part effects for remaining ECL cards with unique Custom strings. Tests + commit.
+### Tier 5: Hard — StaticEffect::Custom eliminations
 
-### Phase 4: Verification & Cleanup
+- [ ] Task 24: Add `CastFromExileWithCounterCost` static effect — Allow casting creature spells exiled by this source by removing 3 counters from creatures you control. Update: **dawnhand_dissident**. Java uses `AsThoughEffectImpl` + `RemoveCounterCost`. Add engine test. ~1 card fixed.
 
-- [x] Task 4.1: Run full test suite, fix any failures
-- [x] Task 4.2: Run `cargo check` on all crates, fix warnings
-- [x] Task 4.3: Audit ECL set - count remaining Custom fallbacks, verify reduction
-- [x] Task 4.4: Update ROADMAP.md with completed items and new counts
+- [ ] Task 25: Add `GrantPersist` static effect — "Each other nontoken creature you control has persist." Needs persist keyword enforcement (return with -1/-1 counter on death). Update: **eirdu_carrier_of_dawn**. Java uses `GainAbilityAllEffect` with persist. Add engine test. ~1 card fixed.
+
+- [ ] Task 26: Add `BoostPerTurnEvent` static effect — Dynamic +X/+X where X = creatures that entered the battlefield this turn. Needs per-turn event counting watcher. Update: **kinbinding**. Java uses `KinbindingWatcher` + `DynamicValue`. Add engine test. ~1 card fixed.
+
+- [ ] Task 27: Add `CastExiledOncePerTurn` static effect — Once per turn, you may cast exiled spells with MV <= count of permanents matching filter, without paying mana cost. Update: **maralen_fae_ascendant**. Java uses `AsThoughEffectImpl` + `OnceEachTurnCastWatcher`. Add engine test. ~1 card fixed.
+
+- [ ] Task 28: Add `ReplaceTokenCreation` static effect — First time you would create tokens each turn, instead create token copies of equipped creature. Update: **mirrormind_crown**. Java uses `ReplacementEffectImpl`. Add engine test. ~1 card fixed.
+
+- [ ] Task 29: Add `BecomesCreatureAttached` static effect — Enchanted creature loses all abilities and becomes a colorless 1/1 Noggle. Update: **noggle_the_mind**. Java uses `BecomesCreatureAttachedEffect`. Add engine test. ~1 card fixed.
+
+- [ ] Task 30: Add `HexproofFromOwnColors` static effect — Each other creature you control has hexproof from each of its colors. Update: **tam_mindful_first_year**. Java uses `HexproofBaseAbility.getFromColor()`. Add engine test. ~1 card fixed.
+
+### Verification
+
+- [ ] Task 31: Final verification — Run `cargo check -p mtg-cards`, `cargo test --lib -p mtg-engine`, `cargo test`, verify all pass. Count remaining Custom fallbacks in ECL. Update ROADMAP.md with results.
+
+## Task Dependencies
+
+```
+Task 1 (ConditionalEffect) <- Tasks 10 (conditional tokens — may be subsumed)
+Task 13 (CopyNextSpell) <- Task 14 (CopySpellWithModification extends it)
+Tasks 1-10 are independent of each other
+Tasks 11-18 are independent of each other
+Tasks 19-23 are independent of each other
+Tasks 24-30 are independent of each other
+Task 31 depends on all others
+```
+
+## Priority Order (recommended implementation sequence)
+
+**Start with highest-impact, lowest-effort tasks:**
+1. Task 1 (ConditionalEffect) — fixes 4 cards at once
+2. Task 2 (AddSubtype) — simple, fixes curious_colossus
+3. Task 3 (SearchLibraryVivid) — extends existing Vivid infra
+4. Task 4 (MillAndSelect) — straightforward new effect
+5. Task 5 (MillAndReturnType) — similar to Task 4
+6. Task 6 (BoostDualTargetDynamic) — new but uses existing patterns
+7. Task 7 (RevealFromLibraryVivid) — extends Vivid + library
+8. Task 8 (CompareAndBoost) — standalone complex effect
+9. Task 9 (ExileTopAndPlayDynamic) — extends impulse draw
+10. Task 11 (IfResolvedNTimes) — needs watcher system
+11. Task 12 (GrantTemporaryTriggeredAbility) — extends delayed triggers
+12. Task 13 (CopyNextSpell) — builds on Conspire
+13. Task 14 (CopySpellWithModification) — extends Task 13
+14. Task 15 (VariableBlightCost) — variable cost system
+15. Tasks 16-18 (opponent library effects) — complex new effects
+16. Tasks 19-23 (hard engine work) — significant new subsystems
+17. Tasks 24-30 (StaticEffect::Custom) — each needs unique engine feature
+18. Task 31 (verification)
 
 ## Notes
 
-### Key Decisions
-1. **ECL focus first** - ECL has the fewest Custom fallbacks (88 vs 401 for FDN), making it the best target for "complete a set" milestone
-2. **Engine features before card fixes** - Adding typed Effect variants first, then batch-updating cards that use them
-3. **Commit after each item** - Per the plan, commit after each task to maintain clean history
-4. **Tests before implementation** - Per the plan, write tests before implementing changes (TDD)
-5. **Read Java source** - For each new engine feature, read the corresponding Java XMage implementation to shape the Rust version
-
-### Dependencies
-- Task 0.1 (commit existing) has no dependencies
-- Phase 1 tasks are independent of each other
-- Task 2.1 (LoseAllAbilities) should come before 2.2 (SetPowerToughnessAll) since Curious Colossus needs both
-- Task 3.1 (replacement effects) blocks Renew/Endure mechanics (TDM, not ECL)
-- Task 3.2 (Transform) is independent but complex
-- Task 3.3 (enter-as-copy) depends on CreateTokenCopy infrastructure (already done)
-
-### Risk Areas
-- **Replacement effect pipeline** (Task 3.1) is architecturally complex - may need to be broken into sub-tasks
-- **Transform/DFC** (Task 3.2) requires significant engine changes (dual-faced card data, transform action)
-- **Convoke** (Task 2.10) requires changes to mana payment system which is delicate
-- **Generic stubs** (Phase 1) require manual Oracle text lookup per card - time-consuming but straightforward
-- **Some Custom strings may be truly unique** and need new one-off Effect variants
-
-### Metrics to Track
-- ECL Custom fallback count: 68 Effect::Custom + 20 StaticEffect::Custom = 88 (starting point)
-- Final ECL Custom fallback count: 37 Effect::Custom + 7 StaticEffect::Custom = 44 (50% reduction)
-- Total Custom across all sets: 940 → 815 (13.3% reduction)
-- Tests passing: 584 total (493 engine + 52 AI + 20 cards + 19 integration)
-
-## Tasks Completed
-
-- Task 0.1: Committed cost reduction system (game.rs + mana.rs) — Mana::reduce_generic(), Game::calculate_cost_reduction(), integration into legal actions and spell payment. 3 tests.
-- Task 1.1: Audited all 88 ECL Custom fallbacks. Found: 18 generic placeholders (14 unique cards), ~3 simple replacements, ~8 partial replacements, ~22 need new engine features. Key finding: ALL 14 generic-placeholder cards need complex new engine features (replacement effects, transform, delayed triggers, watcher patterns, etc.), not simple stub replacement.
-- Task 1.2: Replaced all 18 generic placeholders across 14 ECL cards with descriptive Oracle-text Custom strings. Added missing card data for Grub and Spinerock. Replaced some effects with typed variants (Mill, ChooseCreatureType, AddCountersSelf, RemoveCounters, BlightOpponents, Equip). 0 generic placeholders remain.
-- Task 1.3: Replaced Custom strings with typed Effect variants on 4 cards: (1) champions_of_the_shoal: Custom→TapTarget+AddCounters("stun") with proper TargetSpec; (2) ajani_outland_chaperone: Custom→CreateToken("1/1 Kithkin"), added 2 missing loyalty abilities; (3) swat_away: restructured from misplaced Custom to CostReduction static+PutOnLibrary spell; (4) goatnap: added missing UntapTarget+GainKeywordEot("haste"). Net: +7 typed effects, -1 Custom. ECL now at 48 Effect::Custom + 20 StaticEffect::Custom = 68 unique Custom lines.
-- Task 2.1: Added Effect::LoseAllAbilities (one-shot) and StaticEffect::LoseAllAbilities (continuous) to engine. One-shot version sets removed_keywords=all() and clears ability store; continuous version reapplied each recalculation cycle. Added abilities_lost field to Permanent. Updated 4 ECL cards: Abigale (ETB), Curious Colossus (ETB), Noggle the Mind (static aura), Retched Wretch (dies). 7 new tests. Net: -3 Effect::Custom, -1 StaticEffect::Custom (but +1 Custom kept for type/P/T changes on Curious Colossus and Noggle). 325 total engine tests passing.
-- Task 2.2: Added 3 new effect variants: (1) Effect::SetBasePowerToughnessAll — one-shot mass base P/T setting for all creatures matching filter (modifies card.power/toughness directly); (2) Effect::LoseAllAbilitiesAll — one-shot mass ability removal for all matching creatures; (3) StaticEffect::SetBasePowerToughness — continuous base P/T override (Layer 7b) using new base_power_override/base_toughness_override fields on Permanent. Updated Curious Colossus to use lose_all_abilities_all + set_base_pt_all instead of old broken LoseAllAbilities with player targeting. Updated Noggle the Mind to use StaticEffect::set_base_pt for continuous 1/1 override. 7 new tests covering mass effects, continuous aura, layer interaction with boosts, and aura removal reset. 332 engine tests passing.
-- Task 2.3: Added Effect::PutFromHandToBattlefield with fields: max_mana_value (fixed/X_VALUE), max_mv_dynamic (evaluate_count_filter for dynamic MV), tapped, attacking, haste, sacrifice_eot. Three helper constructors: put_from_hand_with_haste_sacrifice(), put_from_hand_tapped_attacking(), put_from_hand_tapped_attacking_dynamic(). Added "attacking creatures you control" pattern to evaluate_count_filter. Updated Meek Attack (Custom→put_from_hand_with_haste_sacrifice(2)) and Kinscaer Sentry (Custom→put_from_hand_tapped_attacking_dynamic("attacking creatures you control")). 11 new tests. Net: -2 Effect::Custom. 343 engine tests passing.
-- Task 2.4: Added StaticEffect::CantUntap { filter } to prevent permanents from untapping during untap step. Added cant_untap field to Permanent struct, CantUntap variant to StaticEffect enum with cant_untap() helper, integration into apply_continuous_effects (Step 2d) and turn_based_actions (Untap). Updated Blossombind ECL card (Custom→cant_untap("enchanted creature")). 8 new tests covering: direct flag, aura enchantment, self filter, aura removal reset, selective targeting. Net: -1 StaticEffect::Custom. 351 engine tests passing.
-- Task 2.5: Added Effect::ChooseTypeAndReturnFromGraveyard — compound effect combining creature type choice with mass graveyard reanimation. Needed because sorceries (like Bloodline Bidding) don't have a permanent on the battlefield, so ChooseCreatureType can't store chosen_type for a separate ReturnAllTypeFromGraveyard to read. Follows the ChooseTypeAndDrawPerPermanent pattern: choice + action in one effect resolution. Updated Bloodline Bidding ECL card (removed choose_creature_type() + Custom pair, replaced with single choose_type_and_return_from_graveyard()). 7 new tests covering: multiple matching creatures, non-matching type filtering, non-creature card filtering, empty graveyard, different type index selection, helper constructor, controller-only scope. Net: -1 Effect::Custom, -1 ChooseCreatureType. 358 engine tests passing.
-- Task 2.6: Added Effect::ChooseTypeAndGrantKeywords { keywords, other_only } — compound effect that chooses a creature type then grants specified keywords to matching permanents you control until end of turn. Uses granted_keywords field (cleared at EOT). Supports other_only flag to exclude source permanent (for "other permanents you control" wording). Changeling creatures also match any chosen type. Updated Selfless Safewright ECL card (removed choose_creature_type() + Custom pair, replaced with single choose_type_and_grant_keywords(["hexproof", "indestructible"], true)). 8 new tests covering: matching creatures granted both keywords, source exclusion with other_only, source inclusion without other_only, non-matching type filtering, opponent creature filtering, single keyword granting, helper constructor, end-of-turn cleanup. Net: -1 Effect::Custom, -1 ChooseCreatureType. 366 engine tests passing.
-- Task 2.7: Added StaticEffect::SetPowerToColorCount — continuous static effect (Layer 7b) that sets a creature's base power to the number of distinct colors among permanents its controller controls. Uses existing count_colors_among_permanents() function and base_power_override mechanism. Added helper constructor set_power_to_color_count(). Updated Squawkroaster ECL card (Custom→set_power_to_color_count()). 8 new tests covering: zero colors, single color, three colors, all five colors, multicolored permanents, duplicate color deduplication, opponent permanents excluded, helper constructor. Net: -1 StaticEffect::Custom. 374 engine tests passing.
-- Task 2.8: Added StaticEffect::AssignDamageWithToughness { filter, condition } — creature assigns combat damage equal to toughness rather than power. Supports unconditional variant and conditional "toughness_greater_than_power" variant. Added assign_damage_with_toughness bool field to Permanent struct. Modified assign_combat_damage() and assign_blocker_damage() in combat.rs to use toughness when flag is set. Applied after all P/T effects in apply_continuous_effects (Step 8) so condition checks use final P/T. Added helper constructors: assign_damage_with_toughness() (unconditional) and assign_damage_with_toughness_if_greater() (conditional). Updated Bark of Doran ECL card (Custom→assign_damage_with_toughness_if_greater("equipped creature")). 13 new tests: 5 combat unit tests (attacker/blocker with/without flag, trample interaction) + 8 integration tests (unconditional flag, conditional T>P/P>T/equal, flag cleared on recalc, unequipped creature, both helper constructors). Net: -1 StaticEffect::Custom. 387 engine tests passing.
-- Task 2.9: Added Effect::BecomesCreature { power, toughness } — one-shot effect that temporarily makes the source permanent become a creature until end of turn. Added added_card_types field to Permanent for temporary type additions, and base_power_eot/base_toughness_eot for temporary P/T setting (takes priority over base_*_override from continuous effects). Updated is_creature(), is_artifact(), is_enchantment(), has_card_type() to check added_card_types. Cleanup step clears all temporary type/P/T changes. Added helper constructor becomes_creature(). Updated Firdoch Core ECL card (Custom→becomes_creature(4, 4)). 9 new tests covering: type addition, P/T setting, cleanup revert, counter interaction, no-double-type for existing creatures, continuous boost interaction, has_card_type check, helper constructor, EOT priority over override. Net: -1 Effect::Custom. 396 engine tests passing.
-- Task 2.10: Implemented Convoke cost payment mechanic. Added 3 new methods to Game: spell_has_convoke() (checks keyword + GrantConvoke static effects), calculate_convoke_mana() (counts untapped creatures as virtual mana — colored creatures produce any, colorless produce generic), pay_convoke_cost() (taps creatures to produce mana, prioritizing colored needs then generic). Added Mana::can_pay_with_convoke() for affordability checks. Added StaticEffect::GrantConvoke { filter } with grant_convoke() helper for "creature spells you cast have convoke" effects (Eirdu). Modified compute_legal_actions to check convoke affordability (hand + exile). Modified cast_spell to tap creatures and add convoke mana to pool before try_pay. Updated 5 ECL cards: Omni-Changeling (Custom→CONVOKE keyword), Eirdu (Custom→grant_convoke("creature spells")), Harmonized Crescendo (added missing CONVOKE keyword), Lofty Dreams (added missing CONVOKE keyword), Winnowing (added CONVOKE keyword, removed "Convoke." prefix from Custom text). 14 new tests covering: keyword detection, grant detection, mana calculation (untapped/tapped/colorless/opponent exclusion), affordability checks, legal actions with convoke, spell casting with creature tapping, colored mana payment, helper constructor. Net: -1 StaticEffect::Custom, +CONVOKE keyword on 3 cards. 410 engine tests passing.
-- Task 2.11: Added StaticEffect::DamageDoublingFromType — doubles all damage dealt by sources the controller controls of the chosen creature type. Stored as (PlayerId, SubType) pairs on GameState.damage_doublings, rebuilt each apply_continuous_effects cycle (Step 9). Added get_damage_multiplier() helper to Game. Applied multiplier to all damage pathways: combat (attacker + blocker), DealDamage, DealDamageAll, DealDamageOpponents, DealDamageVivid, Fight, Bite. Multiple doublings stack multiplicatively. Changeling creatures match any chosen type. Updated Collective Inferno ECL card (Custom→damage_doubling_from_type()). 9 new tests covering: matching type doubling, non-matching type, opponent creature exclusion, changeling matching, enchantment removal revert, multiplicative stacking, no chosen type, player damage doubling, helper constructor. Net: -1 StaticEffect::Custom. 395+9=404 engine tests passing (486 total across all crates).
-- Task 2.12: Added StaticEffect::ManaDoublingBasicLands — basic lands produce one additional mana of the same type when tapped. Tracked as u32 counter on GameState.mana_doubling_basic_lands, rebuilt each apply_continuous_effects cycle. Applied in activate_mana_ability: checks if source permanent is a basic land (has SuperType::Basic + is_land()), then adds extra copies of produced mana for each active doubler. Multiple doublers stack additively (N doublers = base + N extra copies). Applies to ALL players' basic lands (matching Lavaleaper's Oracle text). Added mana_doubling_basic_lands() helper constructor. Updated Lavaleaper ECL card (Custom→mana_doubling_basic_lands()). 8 new tests covering: basic land doubled, nonbasic not doubled, opponent basic lands also doubled, multiple doublers stacking, removal reverts, no effect without doubler, different colored mana, helper constructor. Net: -1 StaticEffect::Custom. 403 engine tests passing (494 total across all crates).
-- Task 2.13: Added StaticEffect::EnhancedManaProduction — enchanted land produces one additional mana of the aura's chosen color when tapped. Added chosen_color: Option<ManaColor> field to Permanent for "choose a color" effects. Added Effect::ChooseColor for ETB color selection (5-color menu via choose_option). Added Mana::of_color() helper. Tracked as Vec<(aura_id, land_id, color)> on GameState.enhanced_mana_productions, rebuilt each apply_continuous_effects cycle. Applied in activate_mana_ability: for each aura pointing at the tapped land, adds 1 mana of the chosen color. Multiple auras on the same land stack (each adds its own chosen color). Updated Shimmerwilds Growth ECL card (Custom→enters_battlefield_triggered ChooseColor + static EnhancedManaProduction). 10 new tests covering: enchanted land produces additional mana, non-enchanted land unaffected, works on nonbasic lands, removal reverts, multiple auras on same land, same-color stacking, no effect without aura, helper constructors (StaticEffect + Effect + Mana::of_color). Net: -1 StaticEffect::Custom. 413 engine tests passing (504 total across all crates).
-- Task 2.14: Added StaticEffect::TriggerDoubling { filter } — triggered abilities of matching permanents the controller controls trigger an additional time. Added trigger_doubling() helper constructor. Tracked as Vec<(source_id, controller, filter)> on GameState.trigger_doublings, rebuilt each apply_continuous_effects cycle. Applied in check_triggered_abilities after collecting triggers but before pushing to stack: iterates over collected triggers, checks if source permanent matches any doubling filter (using find_matching_permanents/matches_filter), duplicates matching triggers. Supports "other" exclusion (doubler's own triggers not doubled), controller scoping (only controller's permanents matched), subtype matching, and Changeling. Multiple doublers stack additively. Updated Twinflame Travelers ECL card (Custom→trigger_doubling("other Elementals you control")). 9 new tests covering: matching Elemental ETB doubled, non-matching type, self-exclusion via "other", opponent exclusion, removal reverts, multiple doublers stacking, changeling matching, no doubling without doubler, helper constructor. Net: -1 StaticEffect::Custom. 422 engine tests passing (513 total across all crates).
-- Task 2.15: Implemented Conspire mechanic — tap two untapped creatures sharing a color with the spell to copy it on the stack. Added CONSPIRE keyword flag (bit 47), StaticEffect::GrantConspire { filter } with grant_conspire() helper, spell_has_conspire() (checks keyword + GrantConspire static effects), count_conspire_eligible_creatures() (counts untapped creatures sharing color with spell), pay_conspire_cost() (taps 2 eligible creatures), copy_spell_on_stack() (basic spell copy on stack with same targets/X). Added "noncreature spells" filter to spell_matches_cost_filter. Integrated into cast_spell: after putting spell on stack, checks conspire eligibility and asks player via choose_use, then pays cost and copies. Updated Raiding Schemes ECL card (Custom→grant_conspire("noncreature spells")). Updated ROADMAP.md spell copying + additional costs rows. 10 new tests covering: keyword detection, no-keyword detection, eligible creature color matching, tapped creature exclusion, opponent creature exclusion, no-matching-color, grant via static effect (noncreature only), copy_spell_on_stack creates copy, helper constructor, pay_conspire taps exactly 2. Net: -1 StaticEffect::Custom. 432 engine tests passing (523 total across all crates).
-- Task 3.1: Implemented enters-with-counters replacement effect. Added StaticEffect::EntersWithCounters { counter_type, count } variant with enters_with_counters() helper constructor. Added check_enters_with_counters() method to Game (mirrors check_enters_tapped pattern). Hooked into all 9 ETB paths in game.rs: play_land, resolve_top_of_stack (permanent spells), Reanimate, Flicker, ReturnFromExileTapped, ReturnFromGraveyardToBattlefield, PutCardFromHandOntoBattlefield, FlickerUntilEndOfTurn, FlickerEndStep return. Updated 15 ECL cards from incorrect enters_battlefield_triggered+add_counters pattern to correct static_ability+EntersWithCounters: Brambleback Brute, Burdened Stoneback, Encumbered Reejerey, Gnarlbark Elm, Heirloom Auntie, Moonlit Lamenter, Reluctant Dounguard, Bristlebane Battler, Glen Elendra Guardian, Loch Mare, Moonshadow, Reaping Willow, Creakwood Safewright, Hovel Hurler, Slumbering Walker. Updated 5 registry test assertions. 7 new tests covering: -1/-1 counters with P/T verification, +1/+1 counters, no-op without ability, multiple counter types, helper constructor, 6 M1M1 on large creature, stun counters. Net: -15 incorrect ETB triggers converted to proper replacement effects. 439 engine tests passing (530 total across all crates).
-- Task 3.2: Implemented Transform/DFC system. Added back_face: Option<Box<CardData>> field to CardData for double-faced cards. Added front_face: Option<Box<CardData>> field to Permanent for storing original face when transformed. Added Permanent::can_transform() and Permanent::transform() methods that swap card characteristics while preserving counters, damage, tapped state, and controller. Added Effect::TransformSelf variant with transform_self() helper. Implemented transform logic in game.rs: swaps card data, re-registers abilities in ability store, emits Transformed event. Added PrecombatMainPre event emission at beginning of first main phase for "at the beginning of your first main phase" triggers. Updated Eirdu/Isilu ECL card: Eirdu now has full back face (Isilu, Carrier of Twilight with persist static + transform trigger), both faces use DoIfCostPaid({B}/{W}) + TransformSelf for the "you may pay to transform" trigger. Note: Figure of Fable is NOT a DFC — it's a level-up style card using activated abilities for type changes (already implemented). 9 new tests covering: swap characteristics, round-trip transform, counter preservation, tapped state preservation, no-back-face no-op, object ID preservation, ability re-registration, helper constructor, can_transform check. 448 engine tests passing (539 total across all crates).
-- Task 3.3: Implemented enter-as-copy replacement effect. Added StaticEffect::EnterAsACopy { filter, add_keywords } variant with enter_as_a_copy() helper constructor. Added check_enter_as_copy() method to Game — checks for EnterAsACopy static ability, presents eligible creatures as choices (with "Don't copy" option), replaces permanent's card data with the copy's preserving ID/owner, re-keys abilities, adds specified keywords. Hooked into resolve_top_of_stack (before check_enters_tapped/check_enters_with_counters). Also added "changeling" to keyword_from_name(). Updated Omni-Changeling ECL card (Custom→enter_as_a_copy("creature", &["changeling"])). 9 new tests covering: copies name/P/T, adds specified keywords, preserves ID/owner, don't-copy keeps original, no-creatures no-op, copies source keywords, copies subtypes, registers abilities, helper constructor. Net: -1 StaticEffect::Custom. 457 engine tests passing (548 total across all crates).
-- Task 3.4: Implemented graveyard-ETB copy trigger with once-per-turn limiting. Added TriggerScope enum (SelfOnly, OtherControlled, Any) and trigger_scope/triggers_per_turn/trigger_from_zone fields to Ability. Added enters_battlefield_from() event helper with from_zone tracking. Fixed check_triggered_abilities to properly scope ETB and Dies triggers using TriggerScope instead of hardcoded self-only matching — other_creature_etb_triggered now fires correctly for other creatures you control. Added once-per-turn enforcement via trigger_counts_this_turn HashMap on GameState (cleared each turn). Added Effect::CreateTokenCopyOfTriggering — creates a token copy of the creature that triggered the ability (using event target_id auto-passed to triggered ability targets). Fixed Reanimate bug: was missing ETB event emission; now emits enters_battlefield_from with Zone::Graveyard. Updated graveyard→battlefield ETB events (ReturnAllTypeFromGraveyard, ChooseTypeAndReturnFromGraveyard) to use enters_battlefield_from. Added Ability::other_creature_etb_from_graveyard_triggered() and set_once_per_turn() helpers. Updated Twilight Diviner ECL card (Custom→other_creature_etb_from_graveyard_triggered + create_token_copy_of_triggering + set_once_per_turn). 10 new tests covering: other creature ETB triggers correctly, does not trigger for self, does not trigger for opponent's creatures, graveyard ETB fires from graveyard, does not fire from hand, once-per-turn blocks second trigger, once-per-turn resets on new turn, token copy copies P/T/keywords, reanimate emits ETB event with from_zone, helper constructors. Net: -1 Effect::Custom. 467 engine tests passing (558 total across all crates).
-- Task 3.5: Added dynamic boost based on toughness-power difference.
-- Task 3.7: Added 4 new engine features (BounceAll, ExileFromOpponentLibrary, BecomeAllColors, CostReductionDynamic) and updated 10 ECL cards to replace Custom strings with typed variants. New engine features: (1) Effect::BounceAll { filter } — return all permanents matching filter to owners' hands, with "non-{Type}" negation support in matches_filter; (2) Effect::ExileFromOpponentLibrary { count } — exile top N cards of each opponent's library; (3) Effect::BecomeAllColors — target becomes all colors until EOT (new all_colors_until_eot field on Permanent, cleared at cleanup); (4) StaticEffect::CostReductionDynamic { filter, value_source } — reduce cost by dynamic value (e.g. "greatest mana value among Elementals you control"), also scans card's own abilities for self-cost-reduction from hand. Added "greatest mana value among" pattern to evaluate_count_filter. Updated 10 ECL cards: Boulder Dash (Custom→dual DealDamage with Pair targeting), Maralen (Custom→exile_from_opponent_library(2)), Tam (Custom→become_all_colors()), Puca's Eye (Custom→choose_color()), Ajani -2 (Custom→deal_damage(4) with tapped creature target), Grub transform (Custom→return_from_graveyard()), Sunderflock cost (Custom→cost_reduction_dynamic), Sunderflock ETB (Custom→bounce_all), Oko (Custom→triggered with do_if_cost_paid+transform_self), Meander's Guide (Custom→tap_target with PermanentFiltered). 11 new tests. Net: -10 Effect::Custom, -1 StaticEffect::Custom. ECL now at 37 Effect::Custom + 7 StaticEffect::Custom = 44 total Custom. 493 engine tests passing (584 total across all crates).
-- Task 3.6: Added optional `condition` field to `CostReduction` variant with `"toughness_greater_than_power"` condition. Added `cost_reduction_if_toughness_greater()` helper constructor. Updated `calculate_cost_reduction()` in game.rs to check condition against card P/T. Updated Doran, Besieged by Time ECL card (Custom→cost_reduction_if_toughness_greater). Fixed pre-existing bug: missing `}` for for-loop in cost_reduction_applied_in_legal_actions test. Updated all CostReduction struct literals across 4 set files to include `condition: None`. 7 new tests covering: toughness > power gets reduction, power > toughness no reduction, equal no reduction, noncreature no reduction, legal actions with reduction, legal actions without reduction, helper constructor. Net: -1 StaticEffect::Custom. 482 engine tests passing (573 total across all crates). Added Effect::BoostByToughnessMinusPower — computes X = max(0, toughness - power) and gives +X/+X via P1P1 counters (same simplification as BoostUntilEndOfTurn). Emits BlockerDeclared events in declare_blockers_step. Extended check_triggered_abilities to handle AttackerDeclared/BlockerDeclared with full TriggerScope (was hardcoded SelfOnly for AttackerDeclared, BlockerDeclared not handled). Added Ability::controlled_creature_attacks_or_blocks_triggered() helper (TriggerScope::Any, both events). Updated Doran, Besieged by Time ECL card (Custom→boost_by_toughness_minus_power() with new helper). 8 new tests covering: effect applies toughness-power diff (+4/+4 on 1/5), no boost when equal, no boost when power > toughness, helper constructor, controlled creature attack trigger for other creature, opponent creature exclusion, blocker trigger fires, helper constructor for trigger. Net: -1 Effect::Custom. 475 engine tests passing (566 total across all crates).
-- Task 4.1: Ran full test suite — 584 tests pass (493 engine, 52 AI, 20 cards, 19 integration), 0 failures.
-- Task 4.2: Ran `cargo check` — suppressed 2 dead_code warnings on minimax SearchNode scaffolding with `#[allow(dead_code)]`. Zero warnings.
-- Task 4.3: Audited ECL Custom fallbacks. Final count: 37 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 44 total. Reduced from 88 (50% reduction). Total across all sets: 815 (from 940).
-- Task 4.4: Updated ROADMAP.md with current counts, completed items, and ECL parity session summary.
+- All 44 ECL Custom fallbacks have corresponding Java XMage implementations that can be used as reference
+- The plan explicitly says "do not implement any new sets" — focus only on engine features + ECL card updates
+- Each task should: read Java source -> add engine feature with tests -> update ECL card(s) -> commit
+- The guardrails warn about `rg -c "Effect::Custom"` double-counting StaticEffect::Custom
+- Always verify with `cargo check -p mtg-cards` and `cargo test --lib -p mtg-engine`
+- Card oracle text should be verified against scryfall.com before changes
+- Some tasks may be combined if the engine feature serves multiple cards
+- Hardest tasks (19-30) each fix only 1 card — consider if all are worth implementing vs. keeping as Custom

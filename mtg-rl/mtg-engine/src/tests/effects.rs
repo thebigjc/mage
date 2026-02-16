@@ -1174,3 +1174,217 @@ fn become_all_colors_helper_constructor() {
     let effect = Effect::become_all_colors();
     assert!(matches!(effect, Effect::BecomeAllColors));
 }
+
+#[cfg(test)]
+#[test]
+fn conditional_target_is_subtype_true() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+
+    let mut game = Game::new_two_player(
+        config,
+        vec![
+            (p1, Box::new(AlwaysPassPlayer)),
+            (p2, Box::new(AlwaysPassPlayer)),
+        ],
+    );
+
+    let goat_id = ObjectId::new();
+    let mut goat = CardData::new(goat_id, p2, "Mountain Goat");
+    goat.card_types = vec![CardType::Creature];
+    goat.subtypes = vec![SubType::Goat];
+    goat.power = Some(1);
+    goat.toughness = Some(1);
+    goat.keywords = KeywordAbilities::empty();
+    game.state.battlefield.add(Permanent::new(goat, p2));
+
+    game.execute_effects(
+        &[Effect::conditional("target is a Goat", vec![Effect::boost_until_eot(3, 0)], vec![])],
+        p1, &[goat_id], None, None,
+    );
+
+    let perm = game.state.battlefield.get(goat_id).unwrap();
+    assert_eq!(perm.power(), 4);
+    assert_eq!(perm.toughness(), 4);
+}
+
+#[cfg(test)]
+#[test]
+fn conditional_target_is_subtype_false() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+
+    let mut game = Game::new_two_player(
+        config,
+        vec![
+            (p1, Box::new(AlwaysPassPlayer)),
+            (p2, Box::new(AlwaysPassPlayer)),
+        ],
+    );
+
+    let bear_id = ObjectId::new();
+    let mut bear = CardData::new(bear_id, p2, "Grizzly Bears");
+    bear.card_types = vec![CardType::Creature];
+    bear.subtypes = vec![SubType::Bear];
+    bear.power = Some(2);
+    bear.toughness = Some(2);
+    bear.keywords = KeywordAbilities::empty();
+    game.state.battlefield.add(Permanent::new(bear, p2));
+
+    game.execute_effects(
+        &[Effect::conditional("target is a Goat", vec![Effect::boost_until_eot(3, 0)], vec![])],
+        p1, &[bear_id], None, None,
+    );
+
+    let perm = game.state.battlefield.get(bear_id).unwrap();
+    assert_eq!(perm.power(), 2);
+    assert_eq!(perm.toughness(), 2);
+}
+
+#[cfg(test)]
+#[test]
+fn conditional_count_lands_and_or_treefolk_true() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+
+    let mut game = Game::new_two_player(
+        config,
+        vec![
+            (p1, Box::new(AlwaysPassPlayer)),
+            (p2, Box::new(AlwaysPassPlayer)),
+        ],
+    );
+
+    for i in 0..6 {
+        let land_id = ObjectId::new();
+        let mut land = CardData::new(land_id, p1, &format!("Forest {i}"));
+        land.card_types = vec![CardType::Land];
+        game.state.battlefield.add(Permanent::new(land, p1));
+    }
+    let tree_id = ObjectId::new();
+    let mut tree = CardData::new(tree_id, p1, "Treefolk Warrior");
+    tree.card_types = vec![CardType::Creature];
+    tree.subtypes = vec![SubType::Treefolk];
+    tree.power = Some(3);
+    tree.toughness = Some(4);
+    tree.keywords = KeywordAbilities::empty();
+    game.state.battlefield.add(Permanent::new(tree, p1));
+
+    game.execute_effects(
+        &[Effect::conditional("you control 7 or more lands and/or Treefolk",
+            vec![Effect::gain_life(5)], vec![])],
+        p1, &[], None, None,
+    );
+
+    assert_eq!(game.state.players.get(&p1).unwrap().life, 25);
+}
+
+#[cfg(test)]
+#[test]
+fn conditional_count_lands_and_or_treefolk_false() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+
+    let mut game = Game::new_two_player(
+        config,
+        vec![
+            (p1, Box::new(AlwaysPassPlayer)),
+            (p2, Box::new(AlwaysPassPlayer)),
+        ],
+    );
+
+    for i in 0..3 {
+        let land_id = ObjectId::new();
+        let mut land = CardData::new(land_id, p1, &format!("Forest {i}"));
+        land.card_types = vec![CardType::Land];
+        game.state.battlefield.add(Permanent::new(land, p1));
+    }
+
+    game.execute_effects(
+        &[Effect::conditional("you control 7 or more lands and/or Treefolk",
+            vec![Effect::gain_life(5)], vec![Effect::lose_life(1)])],
+        p1, &[], None, None,
+    );
+
+    assert_eq!(game.state.players.get(&p1).unwrap().life, 19);
+}
+
+#[cfg(test)]
+#[test]
+fn conditional_you_control_a_merfolk() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+
+    let mut game = Game::new_two_player(
+        config,
+        vec![
+            (p1, Box::new(AlwaysPassPlayer)),
+            (p2, Box::new(AlwaysPassPlayer)),
+        ],
+    );
+
+    let merfolk_id = ObjectId::new();
+    let mut merfolk = CardData::new(merfolk_id, p1, "Silvergill Adept");
+    merfolk.card_types = vec![CardType::Creature];
+    merfolk.subtypes = vec![SubType::Merfolk];
+    merfolk.power = Some(2);
+    merfolk.toughness = Some(1);
+    merfolk.keywords = KeywordAbilities::empty();
+    game.state.battlefield.add(Permanent::new(merfolk, p1));
+
+    let hand_before = game.state.players.get(&p1).unwrap().hand.len();
+    let source_id = ObjectId::new();
+    game.execute_effects(
+        &[Effect::conditional("you control a Merfolk", vec![Effect::draw_cards(1)], vec![])],
+        p1, &[], Some(source_id), None,
+    );
+
+    assert_eq!(game.state.players.get(&p1).unwrap().hand.len(), hand_before + 1);
+}
+
+#[cfg(test)]
+#[test]
+fn conditional_helper_constructor() {
+    let effect = Effect::conditional("target is a Goat", vec![Effect::gain_life(2)], vec![]);
+    assert!(matches!(effect, Effect::Conditional { .. }));
+}

@@ -747,6 +747,10 @@ impl Game {
     /// Evaluate a condition string for conditional static effects.
     /// Returns true if the condition is currently met.
     fn evaluate_condition(&self, source_id: ObjectId, controller: PlayerId, condition: &str) -> bool {
+        self.evaluate_condition_with_targets(source_id, controller, condition, &[])
+    }
+
+    fn evaluate_condition_with_targets(&self, source_id: ObjectId, controller: PlayerId, condition: &str, targets: &[ObjectId]) -> bool {
         let cond_lower = condition.to_lowercase();
 
         // "your turn" — controller is the active player
@@ -759,6 +763,34 @@ impl Game {
             return self.state.battlefield.get(source_id)
                 .map(|p| !p.tapped)
                 .unwrap_or(false);
+        }
+
+        // "target is a {Type}" — first target has the specified subtype
+        if cond_lower.starts_with("target is a ") || cond_lower.starts_with("target is an ") {
+            let type_str = if cond_lower.starts_with("target is an ") {
+                &condition[13..]
+            } else {
+                &condition[12..]
+            };
+            let subtype = crate::constants::SubType::by_description(type_str);
+            if let Some(&target_id) = targets.first() {
+                return self.state.battlefield.get(target_id)
+                    .map(|p| p.has_subtype(&subtype))
+                    .unwrap_or(false);
+            }
+            return false;
+        }
+
+        // "you control N or more {filter}" — count permanents matching filter
+        if let Some(rest) = cond_lower.strip_prefix("you control ") {
+            if let Some(idx) = rest.find(" or more ") {
+                let n_str = &rest[..idx];
+                let filter = &condition[("you control ".len() + idx + " or more ".len())..];
+                if let Ok(n) = n_str.parse::<u32>() {
+                    let count = self.count_permanents_matching(controller, filter);
+                    return count >= n;
+                }
+            }
         }
 
         // "you control a {Type}" — controller has a permanent of that type
@@ -783,6 +815,44 @@ impl Game {
         }
 
         false // unknown condition
+    }
+
+    fn count_permanents_matching(&self, controller: PlayerId, filter: &str) -> u32 {
+        let filter_lower = filter.to_lowercase();
+        self.state.battlefield.iter()
+            .filter(|p| p.controller == controller)
+            .filter(|p| {
+                if filter_lower.contains(" and/or ") {
+                    let parts: Vec<&str> = filter.split(" and/or ").collect();
+                    parts.iter().any(|part| self.permanent_matches_filter_part(p, part.trim()))
+                } else if filter_lower.contains(" or ") {
+                    let parts: Vec<&str> = filter.split(" or ").collect();
+                    parts.iter().any(|part| self.permanent_matches_filter_part(p, part.trim()))
+                } else {
+                    self.permanent_matches_filter_part(p, filter)
+                }
+            })
+            .count() as u32
+    }
+
+    fn permanent_matches_filter_part(&self, perm: &crate::permanent::Permanent, filter_part: &str) -> bool {
+        let part_lower = filter_part.trim().to_lowercase();
+        if part_lower == "lands" || part_lower == "land" {
+            return perm.card.card_types.contains(&crate::constants::CardType::Land);
+        }
+        if part_lower == "creatures" || part_lower == "creature" {
+            return perm.card.card_types.contains(&crate::constants::CardType::Creature);
+        }
+        if part_lower == "artifacts" || part_lower == "artifact" {
+            return perm.card.card_types.contains(&crate::constants::CardType::Artifact);
+        }
+        if part_lower == "enchantments" || part_lower == "enchantment" {
+            return perm.card.card_types.contains(&crate::constants::CardType::Enchantment);
+        }
+        let trimmed = filter_part.trim();
+        let singular = trimmed.strip_suffix('s').unwrap_or(trimmed);
+        let subtype = crate::constants::SubType::by_description(singular);
+        perm.has_subtype(&subtype)
     }
 
     /// Evaluate a dynamic value source string and return the computed value.
@@ -4431,6 +4501,14 @@ impl Game {
                         self.execute_effects(if_paid, controller, targets, source, None);
                     } else {
                         self.execute_effects(if_not_paid, controller, targets, source, None);
+                    }
+                }
+                Effect::Conditional { condition, if_true, if_false } => {
+                    let source_id = source.unwrap_or(ObjectId::new());
+                    if self.evaluate_condition_with_targets(source_id, controller, condition, targets) {
+                        self.execute_effects(if_true, controller, targets, source, None);
+                    } else {
+                        self.execute_effects(if_false, controller, targets, source, None);
                     }
                 }
                 Effect::ChooseCreatureType { restricted } => {
