@@ -31,15 +31,15 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 - [x] Task 7: Fix 2 `single_match` → `if let` warnings in game.rs
 - [x] Task 8: Fix 2 `assign_op_pattern` → `+=` warnings in game.rs
 - [x] Task 9: Fix remaining one-off warnings in game.rs: needless_borrow, len_zero, needless_range_loop, let_and_return, manual_map, iter_cloned_collect, useless_format, useless_conversion, manual_pattern_char_comparison
-- [ ] Task 10: Review `if_same_then_else` at game.rs:684 — determine if it's a logic bug or just duplicate code, fix accordingly
-- [ ] Task 11: Review `only_used_in_recursion` at combat.rs:234 — determine if parameter is needed, fix or suppress
-- [ ] Task 12: Run `cargo test --lib` after game.rs fixes to verify no regressions
+- [x] Task 10: Review `if_same_then_else` at game.rs:684 — was a logic bug: non-creature cards were incorrectly counted when filter contained both "creature" and "card". Fixed by restructuring conditionals.
+- [x] Task 11: Fix `only_used_in_recursion` in filters.rs:311 — prefixed `you` → `_you` in `predicate_matches_card` since the parameter is only passed through recursive And/Or/Not arms and never directly used (cards don't have controllers).
+- [ ] Task 12: Fix `collapsible_if` in combat.rs:234 + run `cargo test --lib` to verify no regressions
 
 ### Phase 3: Other mtg-engine files (10 warnings)
 - [ ] Task 13: Fix `large_enum_variant` in zones.rs:451 — either Box<CardData> in StackItemKind::Spell or `#[allow]` with justification
 - [ ] Task 14: Fix `uninlined_format_args` in constants.rs, mana.rs, events.rs
 - [ ] Task 15: Fix `should_implement_trait` in filters.rs:178 — rename `not()` or add `#[allow]` with justification
-- [ ] Task 16: Fix remaining filters.rs warnings (format args, map_or, only_used_in_recursion)
+- [ ] Task 16: Fix remaining filters.rs warnings (map_or → is_some_and)
 - [ ] Task 17: Fix `unnecessary_lazy_evaluations` in watchers.rs:181
 
 ### Phase 4: mtg-cards crate (13 warnings)
@@ -60,12 +60,12 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 - [ ] Task 28: Run `cargo test --lib` and `cargo test --release` to confirm all tests still pass
 
 ## Completed This Iteration
-- Task 9: Fixed 11 one-off clippy warnings in game.rs: needless_borrow (2462), len_zero (3263, 6246), needless_range_loop (4050), useless_conversion (5322), let_and_return (5467), manual_map (6059, 6140), iter_cloned_collect (6448), useless_format (6462), manual_pattern_char_comparison (6725). All 576 tests pass.
+- Task 11: Fixed `only_used_in_recursion` in filters.rs:311 — prefixed `you` → `_you` in `predicate_matches_card`. The parameter is kept for API consistency with `predicate_matches_permanent` (which does use it for controller checks), but `_you` suppresses the warning since cards don't have controllers. Also corrected Task 12 description — it was actually a `collapsible_if` in combat.rs:234, not `only_used_in_recursion`.
 
 ## Notes
 
 1. All 576 engine tests still pass after fixes.
 2. Task 2 found 13 uninlined_format_args in game.rs (not ~20 as estimated). Includes 4 with `:?` debug format which inline as `{var:?}`.
 5. Task 3 found 11 `map_or(false, ...)` in game.rs (not ~13 as estimated). 2 more in filters.rs covered by Task 16.
-3. The `only_used_in_recursion` warning is in filters.rs:311 — `predicate_matches_card` function where `you: PlayerId` is only passed through recursive calls but never used directly.
+3. The `only_used_in_recursion` warning was in filters.rs:311, not combat.rs:234 as originally listed. combat.rs:234 is a `collapsible_if`.
 4. mtg-ai has 3 `manual_repeat_n` warnings and mtg-python has 2 warnings (type_complexity, useless_conversion) — these were not in the original task list and should be added.

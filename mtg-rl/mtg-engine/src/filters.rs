@@ -308,7 +308,7 @@ pub fn predicate_matches_permanent(pred: &Predicate, perm: &Permanent, you: Play
 }
 
 /// Evaluate a predicate against a card (not on the battlefield).
-pub fn predicate_matches_card(pred: &Predicate, card: &CardData, you: PlayerId) -> bool {
+pub fn predicate_matches_card(pred: &Predicate, card: &CardData, _you: PlayerId) -> bool {
     match pred {
         Predicate::HasCardType(ct) => card.card_types.contains(ct),
         Predicate::NotCardType(ct) => !card.card_types.contains(ct),
@@ -338,9 +338,9 @@ pub fn predicate_matches_card(pred: &Predicate, card: &CardData, you: PlayerId) 
         Predicate::IsUntapped => true,
         Predicate::IsToken => false,
         Predicate::IsNontoken => true,
-        Predicate::And(preds) => preds.iter().all(|p| predicate_matches_card(p, card, you)),
-        Predicate::Or(preds) => preds.iter().any(|p| predicate_matches_card(p, card, you)),
-        Predicate::Not(p) => !predicate_matches_card(p, card, you),
+        Predicate::And(preds) => preds.iter().all(|p| predicate_matches_card(p, card, _you)),
+        Predicate::Or(preds) => preds.iter().any(|p| predicate_matches_card(p, card, _you)),
+        Predicate::Not(p) => !predicate_matches_card(p, card, _you),
         Predicate::All => true,
         Predicate::None => false,
     }
