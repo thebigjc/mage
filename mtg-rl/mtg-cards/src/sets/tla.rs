@@ -2201,7 +2201,7 @@ fn wartime_protestors(id: ObjectId, owner: PlayerId) -> CardData {
         subtypes: vec![SubType::Human, SubType::Rebel, SubType::Ally],
         power: Some(4), toughness: Some(4),
         rarity: Rarity::Rare,
-        keywords: KeywordAbilities::HASTE | KeywordAbilities::HASTE,
+        keywords: KeywordAbilities::HASTE,
         ..Default::default() }
 }
 
@@ -2354,7 +2354,7 @@ fn aang_at_the_crossroads(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Creature],
         supertypes: vec![SuperType::Legendary],
         rarity: Rarity::Rare,
-        keywords: KeywordAbilities::FLYING | KeywordAbilities::FLYING | KeywordAbilities::VIGILANCE,
+        keywords: KeywordAbilities::FLYING,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
@@ -2529,7 +2529,7 @@ fn appa_loyal_sky_bison(id: ObjectId, owner: PlayerId) -> CardData {
         supertypes: vec![SuperType::Legendary],
         power: Some(4), toughness: Some(4),
         rarity: Rarity::Uncommon,
-        keywords: KeywordAbilities::FLYING | KeywordAbilities::FLYING,
+        keywords: KeywordAbilities::FLYING,
         ..Default::default() }
 }
 
@@ -2560,7 +2560,7 @@ fn avatar_aang(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Creature],
         supertypes: vec![SuperType::Legendary],
         rarity: Rarity::Mythic,
-        keywords: KeywordAbilities::FLYING | KeywordAbilities::FLYING,
+        keywords: KeywordAbilities::FLYING,
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
@@ -3335,7 +3335,7 @@ fn lo_and_li_twin_tutors(id: ObjectId, owner: PlayerId) -> CardData {
         supertypes: vec![SuperType::Legendary],
         power: Some(2), toughness: Some(2),
         rarity: Rarity::Uncommon,
-        keywords: KeywordAbilities::LIFELINK | KeywordAbilities::LIFELINK,
+
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",

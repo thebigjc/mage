@@ -3823,7 +3823,7 @@ fn trystan_callous_cultivator(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Creature],
         supertypes: vec![SuperType::Legendary],
         rarity: Rarity::Rare,
-        keywords: KeywordAbilities::DEATHTOUCH | KeywordAbilities::DEATHTOUCH,
+        keywords: KeywordAbilities::DEATHTOUCH,
         ..Default::default() }
 }
 

@@ -3890,7 +3890,7 @@ fn inspiring_paladin(id: ObjectId, owner: PlayerId) -> CardData {
         subtypes: vec![SubType::Human, SubType::Knight],
         power: Some(3), toughness: Some(3),
         rarity: Rarity::Common,
-        keywords: KeywordAbilities::FIRST_STRIKE | KeywordAbilities::FIRST_STRIKE,
+
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
