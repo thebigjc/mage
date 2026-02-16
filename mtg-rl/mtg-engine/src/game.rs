@@ -1714,7 +1714,7 @@ impl Game {
         }
 
         // Check delayed triggers against events
-        let mut delayed_fired: Vec<(usize, crate::state::DelayedTrigger)> = Vec::new();
+        let mut delayed_fired: Vec<(usize, crate::state::DelayedTrigger, Option<ObjectId>)> = Vec::new();
         for event in self.event_log.iter() {
             for (idx, dt) in self.state.delayed_triggers.iter().enumerate() {
                 if dt.event_type != event.event_type {
@@ -1738,6 +1738,26 @@ impl Game {
                         }
                     }
                 }
+                if dt.copy_spell {
+                    if let Some(pid) = event.player_id {
+                        if pid != dt.controller {
+                            continue;
+                        }
+                    } else {
+                        continue;
+                    }
+                    if let Some(spell_id) = event.target_id {
+                        if let Some(card) = self.state.card_store.get(spell_id) {
+                            if !card.is_instant() && !card.is_sorcery() {
+                                continue;
+                            }
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        continue;
+                    }
+                }
                 if let Some(ref _filter) = dt.controller_filter {
                     if let Some(source_id) = event.target_id {
                         if let Some(perm) = self.state.battlefield.get(source_id) {
@@ -1754,13 +1774,13 @@ impl Game {
                         continue;
                     }
                 }
-                delayed_fired.push((idx, dt.clone()));
+                delayed_fired.push((idx, dt.clone(), event.target_id));
             }
         }
         // Remove fired trigger-only-once entries (reverse order to preserve indices)
         let mut indices_to_remove: Vec<usize> = delayed_fired.iter()
-            .filter(|(_, dt)| dt.trigger_only_once)
-            .map(|(idx, _)| *idx)
+            .filter(|(_, dt, _)| dt.trigger_only_once)
+            .map(|(idx, _, _)| *idx)
             .collect();
         indices_to_remove.sort_unstable();
         indices_to_remove.dedup();
@@ -1768,8 +1788,14 @@ impl Game {
             self.state.delayed_triggers.remove(idx);
         }
         // Execute delayed trigger effects
-        for (_, dt) in &delayed_fired {
-            self.execute_effects(&dt.effects, dt.controller, &dt.targets, dt.source, None);
+        for (_, dt, event_target) in &delayed_fired {
+            if dt.copy_spell {
+                if let Some(spell_id) = event_target {
+                    self.copy_spell_on_stack(*spell_id, dt.controller);
+                }
+            } else {
+                self.execute_effects(&dt.effects, dt.controller, &dt.targets, dt.source, None);
+            }
         }
 
         // Clear event log after processing
@@ -4978,6 +5004,7 @@ impl Game {
                         trigger_only_once: true,
                         created_turn: self.state.turn_number,
                         controller_filter: None,
+                        copy_spell: false,
                     });
                 }
                 Effect::GrantTriggeredAbilityUntilEOT { event_type, filter, trigger_effects } => {
@@ -4993,6 +5020,22 @@ impl Game {
                         trigger_only_once: false,
                         created_turn: self.state.turn_number,
                         controller_filter: Some(filter.clone()),
+                        copy_spell: false,
+                    });
+                }
+                Effect::CopyNextSpell => {
+                    self.state.delayed_triggers.push(crate::state::DelayedTrigger {
+                        event_type: EventType::SpellCast,
+                        watching: None,
+                        effects: vec![],
+                        controller,
+                        source,
+                        targets: vec![],
+                        duration: crate::state::DelayedDuration::EndOfTurn,
+                        trigger_only_once: true,
+                        created_turn: self.state.turn_number,
+                        controller_filter: None,
+                        copy_spell: true,
                     });
                 }
                 Effect::ExileTopAndPlay { count, duration, without_mana } => {
@@ -5182,6 +5225,7 @@ impl Game {
                             trigger_only_once: true,
                             created_turn: self.state.turn_number,
                             controller_filter: None,
+                            copy_spell: false,
                         });
                     }
                 }
@@ -5400,6 +5444,7 @@ impl Game {
                                         trigger_only_once: true,
                                         created_turn: self.state.turn_number,
                                         controller_filter: None,
+                                        copy_spell: false,
                                     });
                                 }
                             }
@@ -5640,6 +5685,7 @@ impl Game {
                                             trigger_only_once: true,
                                             created_turn: self.state.turn_number,
                                             controller_filter: None,
+                                            copy_spell: false,
                                         });
                                     }
                                 }

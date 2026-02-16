@@ -9,8 +9,8 @@ IN_PROGRESS
 ## Analysis
 
 ### Current State
-- **Engine tests**: 519 (mtg-engine), all passing
-- **ECL Custom fallbacks**: 33 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 40 total
+- **Engine tests**: 525 (mtg-engine), all passing
+- **ECL Custom fallbacks**: 32 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 39 total
 - **Other sets**: FDN 336, TLA 199, TDM 110 (these are out of scope per the plan)
 
 ### Goal
@@ -73,9 +73,9 @@ Group the 44 fallbacks by what engine feature they need. Implement the engine fe
 
 - [x] Task 11: Add `IfAbilityResolvedNTimes` effect — Added `Effect::IfAbilityResolvedNTimes { resolution_number, effects }` variant. Added `ability_resolution_counts_this_turn` to GameState, tracked in `resolve_top_of_stack`, reset at turn start. Added `resolving_ability_id` transient field on Game for effect context. Updated **soulbright_seeker** from `Effect::Custom` to `Effect::if_resolved_n_times(3, vec![Effect::add_mana(Mana::red(4))])`. 3 new tests (519 engine total). 1 Effect::Custom eliminated.
 
-- [ ] Task 12: Add `GrantTemporaryTriggeredAbility` effect — Create a delayed trigger that grants "whenever a creature you control deals combat damage to a player, draw a card" until EOT. Update: **flitterwing_nuisance**. Also needs cost for "remove a counter from this creature". Java uses `CreateDelayedTriggeredAbilityEffect`. Add engine test. ~1 card fixed.
+- [x] Task 12: Add `GrantTriggeredAbilityUntilEOT` effect — Added `Effect::GrantTriggeredAbilityUntilEOT { event_type, filter, trigger_effects }` variant. Added `controller_filter` field to `DelayedTrigger` for filtering by controller's creatures. Support "any" counter type in `Cost::RemoveCounters`. Updated **flitterwing_nuisance**: enters with -1/-1 counter, remove-any-counter cost, grants combat-damage-draw to creatures you control. 3 new tests (522 engine total). 1 Effect::Custom eliminated.
 
-- [ ] Task 13: Add `CopyNextSpell` effect — Create a delayed trigger: "when you next cast an instant or sorcery this turn, copy it." Update: **rimefire_torque**. Java uses `CopyNextSpellEffect`. Builds on existing Conspire spell-copy infrastructure. Add engine test. ~1 card fixed.
+- [x] Task 13: Add `CopyNextSpell` effect — Added `Effect::CopyNextSpell` variant. Creates a delayed trigger on SpellCast with `copy_spell: true` flag. Added `copy_spell` boolean to `DelayedTrigger` struct. Delayed trigger handler checks that the cast spell is instant/sorcery and was cast by the trigger's controller, then calls `copy_spell_on_stack`. Updated **rimefire_torque**: moved RemoveCounters from effects to costs, replaced Effect::Custom with Effect::copy_next_spell(). 3 new tests (525 engine total). 1 Effect::Custom eliminated.
 
 - [ ] Task 14: Add `CopySpellWithModification` effect — Copy a spell and add keywords (wither) to both original and copy. Update: **spinerock_tyrant** (copy single-target instant/sorcery, both gain wither). Extends Task 13. Add engine test. ~1 card fixed.
 
@@ -154,8 +154,7 @@ Task 31 depends on all others
 18. Task 31 (verification)
 
 ## Completed This Iteration
-- Task 10: Already covered by Task 1. Both tend_the_sprigs and wanderwine_farewell use typed effects (conditional + create_token), no Custom remaining.
-- Task 11: Added `Effect::IfAbilityResolvedNTimes` for tracking Nth ability resolution per turn. Added `ability_resolution_counts_this_turn` HashMap to GameState, incremented in `resolve_top_of_stack`, cleared at turn start. Added `resolving_ability_id` to Game struct for effect-resolution context. Updated soulbright_seeker. 3 new tests (519 engine total). 1 Effect::Custom eliminated.
+- Task 13: Added `Effect::CopyNextSpell` for "copy next instant/sorcery" delayed triggers. Added `copy_spell` flag to `DelayedTrigger` struct. Handler filters for instant/sorcery by controller, then calls `copy_spell_on_stack`. Updated rimefire_torque: moved RemoveCounters to costs, replaced Custom with copy_next_spell(). 3 new tests (525 engine total). 1 Effect::Custom eliminated.
 
 ## Notes
 

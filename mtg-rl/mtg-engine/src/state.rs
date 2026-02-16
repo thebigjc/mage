@@ -202,6 +202,9 @@ pub struct DelayedTrigger {
     /// If set, the event's source (target_id) must be a permanent controlled
     /// by this trigger's controller matching the given filter (e.g. "creatures you control").
     pub controller_filter: Option<String>,
+    /// If true, instead of executing `effects`, copy the spell that triggered this
+    /// (the spell from the SpellCast event) onto the stack under the controller.
+    pub copy_spell: bool,
 }
 
 /// Describes where a specific game object currently exists.

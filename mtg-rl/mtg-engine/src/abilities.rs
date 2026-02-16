@@ -476,6 +476,11 @@ pub enum Effect {
         trigger_effects: Vec<Effect>,
     },
 
+    /// "When you next cast an instant or sorcery spell this turn, copy that spell.
+    /// You may choose new targets for the copy."
+    /// Creates a delayed trigger on SpellCast that copies the next matching spell.
+    CopyNextSpell,
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1556,6 +1561,10 @@ impl Effect {
             filter: filter.to_string(),
             trigger_effects,
         }
+    }
+
+    pub fn copy_next_spell() -> Self {
+        Effect::CopyNextSpell
     }
 }
 

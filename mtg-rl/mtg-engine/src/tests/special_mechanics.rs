@@ -2179,3 +2179,87 @@ use crate::types::{ObjectId, PlayerId};
             "Should exile 0 cards when creature had no counters");
         assert_eq!(game.state.players.get(&p1).unwrap().library.len(), 5);
     }
+
+    #[test]
+    fn copy_next_spell_creates_delayed_trigger() {
+        let (mut game, p1, _p2) = setup();
+        assert_eq!(game.state.delayed_triggers.len(), 0);
+        game.execute_effects(
+            &[Effect::copy_next_spell()],
+            p1, &[], None, None,
+        );
+        assert_eq!(game.state.delayed_triggers.len(), 1);
+        let dt = &game.state.delayed_triggers[0];
+        assert_eq!(dt.event_type, EventType::SpellCast);
+        assert!(dt.copy_spell);
+        assert!(dt.trigger_only_once);
+        assert_eq!(dt.controller, p1);
+    }
+
+    #[test]
+    fn copy_next_spell_copies_instant_on_stack() {
+        let (mut game, p1, _p2) = setup();
+        game.execute_effects(
+            &[Effect::copy_next_spell()],
+            p1, &[], None, None,
+        );
+        assert_eq!(game.state.delayed_triggers.len(), 1);
+
+        let spell_id = ObjectId::new();
+        let mut spell_card = CardData::new(spell_id, p1, "Lightning Bolt");
+        spell_card.card_types = vec![CardType::Instant];
+        spell_card.abilities = vec![Ability::spell(spell_id, vec![Effect::deal_damage(3)], crate::abilities::TargetSpec::CreatureOrPlayer)];
+        game.state.card_store.insert(spell_card.clone());
+
+        let stack_item = crate::zones::StackItem {
+            id: spell_id,
+            kind: crate::zones::StackItemKind::Spell { card: spell_card },
+            controller: p1,
+            targets: vec![],
+            countered: false,
+            x_value: None,
+            exile_on_resolve: false,
+        };
+        game.state.stack.push(stack_item);
+        assert_eq!(game.state.stack.len(), 1);
+
+        game.emit_event(GameEvent::spell_cast(spell_id, p1, crate::constants::Zone::Hand));
+        game.check_triggered_abilities();
+
+        assert_eq!(game.state.stack.len(), 2, "Stack should have original + copy");
+        assert_eq!(game.state.delayed_triggers.len(), 0, "Trigger should fire once and be removed");
+    }
+
+    #[test]
+    fn copy_next_spell_ignores_creature_spell() {
+        let (mut game, p1, _p2) = setup();
+        game.execute_effects(
+            &[Effect::copy_next_spell()],
+            p1, &[], None, None,
+        );
+        assert_eq!(game.state.delayed_triggers.len(), 1);
+
+        let creature_id = ObjectId::new();
+        let mut creature_card = CardData::new(creature_id, p1, "Grizzly Bears");
+        creature_card.card_types = vec![CardType::Creature];
+        creature_card.power = Some(2);
+        creature_card.toughness = Some(2);
+        game.state.card_store.insert(creature_card.clone());
+
+        let stack_item = crate::zones::StackItem {
+            id: creature_id,
+            kind: crate::zones::StackItemKind::Spell { card: creature_card },
+            controller: p1,
+            targets: vec![],
+            countered: false,
+            x_value: None,
+            exile_on_resolve: false,
+        };
+        game.state.stack.push(stack_item);
+
+        game.emit_event(GameEvent::spell_cast(creature_id, p1, crate::constants::Zone::Hand));
+        game.check_triggered_abilities();
+
+        assert_eq!(game.state.stack.len(), 1, "Creature should not be copied");
+        assert_eq!(game.state.delayed_triggers.len(), 1, "Trigger should still be active");
+    }

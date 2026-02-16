@@ -3489,7 +3489,6 @@ fn rhys_the_evermore(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [TYPE+COPY] Choose creature type, charge counters on type ETB, remove 3 charges then copy next spell
 fn rimefire_torque(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Rimefire Torque".into(),
         mana_cost: ManaCost::parse("{1}{U}"),
@@ -3506,8 +3505,8 @@ fn rimefire_torque(id: ObjectId, owner: PlayerId) -> CardData {
                     TargetSpec::None),
             Ability::activated(id,
                     "{T}, Remove three charge counters from Rimefire Torque: When you next cast an instant or sorcery spell this turn, copy that spell. You may choose new targets for the copy.",
-                    vec![Cost::tap_self()],
-                    vec![Effect::RemoveCounters { counter_type: "charge".into(), count: 3 }, Effect::Custom("Copy next instant/sorcery spell this turn.".into())],
+                    vec![Cost::tap_self(), Cost::remove_counters("charge", 3)],
+                    vec![Effect::copy_next_spell()],
                     TargetSpec::None),
         ],
         ..Default::default() }

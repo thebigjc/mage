@@ -496,7 +496,7 @@ Priority ordered by cards-unblocked per effort.
 
 9. **Planeswalker system** — Loyalty abilities, can-be-attacked, damage redirection. **~10+ cards.**
 
-10. **Spell/permanent copy** — **PARTIAL (2026-02-15).** Token copy done (CreateTokenCopy + TokenModification). Enter-as-copy done (EnterAsACopy). Basic spell copy on stack done (Conspire). Still needs Fork/Reverberate-style targeting. **~1 remaining card.**
+10. **Spell/permanent copy** — **PARTIAL (2026-02-16).** Token copy done (CreateTokenCopy + TokenModification). Enter-as-copy done (EnterAsACopy). Basic spell copy on stack done (Conspire). CopyNextSpell delayed trigger done (rimefire_torque). Still needs Fork/Reverberate-style targeting and CopySpellWithModification (spinerock_tyrant). **~1 remaining card.**
 
 11. ~~**Delayed triggers**~~ — **DONE (2026-02-14).** `DelayedTrigger` struct, `CreateDelayedTrigger` effect, event-driven firing, duration expiration. 4 unit tests.
 
