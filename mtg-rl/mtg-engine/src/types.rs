@@ -76,3 +76,9 @@ impl Default for AbilityId {
         Self::new()
     }
 }
+
+impl fmt::Display for AbilityId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", &self.0.to_string()[..8])
+    }
+}

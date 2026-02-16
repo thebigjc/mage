@@ -66,8 +66,8 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 ### Phase 1: Type System Reform (Highest Impact)
 
 #### 1A: Error Handling Foundation
-- [ ] Task 1.1: Define `GameError` enum in mtg-engine using `thiserror` (already a dependency). Variants: `InvalidPlayer`, `InvalidObject`, `InvalidZone`, `InvalidTarget`, `InvalidAction`, `GameStateCorruption`, `AbilityResolutionError`
-- [ ] Task 1.2: Add `GameResult<T> = Result<T, GameError>` type alias
+- [x] Task 1.1: Define `GameError` enum in mtg-engine using `thiserror` (already a dependency). Variants: `InvalidPlayer`, `InvalidObject`, `InvalidZone`, `InvalidTarget`, `InvalidAction`, `GameStateCorruption`, `AbilityResolutionError`
+- [x] Task 1.2: Add `EngineResult<T> = Result<T, GameError>` type alias (renamed from `GameResult` to avoid conflict with existing `GameResult` struct)
 - [ ] Task 1.3: Replace `.unwrap()` calls in game.rs (7 calls) with proper error handling using `?` or `.ok_or(GameError::...)`
 - [ ] Task 1.4: Replace `.unwrap()` calls in combat.rs, state.rs, and other engine files (~17 calls)
 - [ ] Task 1.5: Replace `.unwrap()` calls in mtg-cards production code (~38 calls, mostly in registry)
@@ -154,4 +154,11 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
   - 1x `redundant_closure` (`|| make_game()` → `make_game`)
 - Workspace now has zero clippy warnings across all targets
 - All 595 tests still passing
+
+### Iteration 3 — Tasks 1.1 + 1.2: GameError Enum & EngineResult Type Alias
+- Created `mtg-engine/src/error.rs` with `GameError` enum (7 variants) using `thiserror`
+- Added `EngineResult<T> = Result<T, GameError>` type alias (not `GameResult` — that name is taken by the game-outcome struct)
+- Added `Display` impl for `AbilityId` (needed by `thiserror` `#[error]` formatting)
+- Added `pub mod error` to `lib.rs`
+- All 576 engine tests passing, zero clippy warnings, full workspace compiles clean
 
