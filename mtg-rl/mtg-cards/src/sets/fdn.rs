@@ -4,6 +4,7 @@
 use crate::cards::basic_lands;
 use crate::registry::CardRegistry;
 use mtg_engine::abilities::{Ability, Cost, Effect, StaticEffect, TargetSpec};
+use mtg_engine::filters::Filter;
 use mtg_engine::card::CardData;
 use mtg_engine::constants::*;
 use mtg_engine::events::EventType;
@@ -2875,7 +2876,7 @@ fn ball_lightning(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "At the beginning of the end step, sacrifice Ball Lightning.",
                 vec![EventType::EndStep],
-                vec![Effect::Sacrifice { filter: "self".into() }],
+                vec![Effect::Sacrifice { filter: Filter::parse("self") }],
                 TargetSpec::None),
         ],
         ..Default::default() }

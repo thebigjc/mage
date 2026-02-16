@@ -1411,7 +1411,7 @@ fn aggressive_negotiations(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Aggressive Negotiations".into(), mana_cost: ManaCost::parse("{1}{B}"),
         card_types: vec![CardType::Sorcery], rarity: Rarity::Uncommon,
         abilities: vec![Ability::spell(id,
-            vec![Effect::Sacrifice { filter: "creature".into() }],
+            vec![Effect::Sacrifice { filter: Filter::parse("creature") }],
             TargetSpec::None)],
         ..Default::default() }
 }
@@ -1701,7 +1701,7 @@ fn bone_cairn_butcher(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Bone-Cairn Butcher enters, each opponent sacrifices a creature.",
-                vec![Effect::Sacrifice { filter: "opponent creature".into() }],
+                vec![Effect::Sacrifice { filter: Filter::parse("opponent creature") }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -3024,7 +3024,7 @@ fn mardu_monument(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this artifact enters, search your library for a basic Mountain, Plains, or Swamp card, reveal it, put it into your hand, then shuffle.",
-                    vec![Effect::SearchLibrary { filter: "basic Mountain, Plains, or Swamp card".into() }],
+                    vec![Effect::SearchLibrary { filter: Filter::parse("basic Mountain, Plains, or Swamp card") }],
                     TargetSpec::None),
             Ability::activated(id,
                     "{2}{R}{W}{B}, {T}, Sacrifice this artifact: Create three 1/1 red Warrior creature tokens. They gain menace and haste until end of turn. Activate only as a sorcery.",
@@ -3848,7 +3848,7 @@ fn jeskai_monument(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "When this artifact enters, search your library for a basic Island, Mountain, or Plains card, reveal it, put it into your hand, then shuffle.",
                 vec![EventType::EnteredTheBattlefield],
-                vec![Effect::SearchLibrary { filter: "basic Island, Mountain, or Plains card".into() }],
+                vec![Effect::SearchLibrary { filter: Filter::parse("basic Island, Mountain, or Plains card") }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -4148,7 +4148,7 @@ fn sultai_monument(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "When this artifact enters, search your library for a basic Swamp, Forest, or Island card, reveal it, put it into your hand, then shuffle.",
                 vec![EventType::EnteredTheBattlefield],
-                vec![Effect::SearchLibrary { filter: "basic Swamp, Forest, or Island card".into() }],
+                vec![Effect::SearchLibrary { filter: Filter::parse("basic Swamp, Forest, or Island card") }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -4178,7 +4178,7 @@ fn temur_monument(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "When this artifact enters, search your library for a basic Forest, Island, or Mountain card, reveal it, put it into your hand, then shuffle.",
                 vec![EventType::EnteredTheBattlefield],
-                vec![Effect::SearchLibrary { filter: "basic Forest, Island, or Mountain card".into() }],
+                vec![Effect::SearchLibrary { filter: Filter::parse("basic Forest, Island, or Mountain card") }],
                 TargetSpec::None),
         ],
         ..Default::default() }

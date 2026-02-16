@@ -75,7 +75,7 @@ pub enum Cost {
     /// Used by cards like "behold a Kithkin or pay {2}".
     BeholdOrPay { creature_type: String, mana: Mana },
     /// Tap N other untapped creatures you control matching a filter.
-    TapCreatures { filter: String, count: u32 },
+    TapCreatures { filter: Filter, count: u32 },
     /// A custom/complex cost (described by text).
 
     Custom(String),
@@ -120,7 +120,7 @@ pub enum Effect {
     /// Exile target permanent.
     Exile,
     /// Sacrifice a permanent (owner chooses).
-    Sacrifice { filter: String },
+    Sacrifice { filter: Filter },
     /// Return target permanent to hand.
     Bounce,
     /// Return all permanents matching filter to their owners' hands.
@@ -153,7 +153,7 @@ pub enum Effect {
     /// Scry N (look at top N, put any on bottom in any order).
     Scry { count: u32 },
     /// Search library for a card.
-    SearchLibrary { filter: String },
+    SearchLibrary { filter: Filter },
     /// Look at the top N cards of your library. You may reveal a card matching
     /// the filter from among them and put it into your hand. Put the rest on
     /// the bottom of your library in a random order.
@@ -1254,7 +1254,7 @@ impl Effect {
     /// "Search library for a card."
     pub fn search_library(filter: &str) -> Self {
         Effect::SearchLibrary {
-            filter: filter.to_string(),
+            filter: Filter::parse(filter),
         }
     }
 
@@ -2007,7 +2007,7 @@ impl Cost {
 
     /// Tap N other creatures matching a filter.
     pub fn tap_creatures(filter: &str, count: u32) -> Self {
-        Cost::TapCreatures { filter: filter.to_string(), count }
+        Cost::TapCreatures { filter: Filter::parse(filter), count }
     }
 }
 

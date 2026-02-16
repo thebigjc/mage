@@ -4024,16 +4024,9 @@ impl Game {
                     }
                 }
                 Cost::TapCreatures { filter, count } => {
-                    let f_lower = filter.to_lowercase();
                     let candidates: Vec<ObjectId> = self.state.battlefield.iter()
                         .filter(|perm| perm.controller == player_id && !perm.tapped && perm.id() != source_id && perm.is_creature())
-                        .filter(|perm| {
-                            if f_lower.contains("elf") {
-                                self.state.card_store.get(perm.id()).is_some_and(|c| c.subtypes.iter().any(|st| st.to_string().to_lowercase() == "elf") || c.keywords.contains(crate::constants::KeywordAbilities::CHANGELING))
-                            } else {
-                                true
-                            }
-                        })
+                        .filter(|perm| filter.matches_permanent(perm, player_id))
                         .map(|perm| perm.id())
                         .collect();
                     if (candidates.len() as u32) < *count {
@@ -4689,7 +4682,7 @@ impl Game {
                         .collect();
                     for opp in opponents {
                         let matching: Vec<ObjectId> = self.state.battlefield.iter()
-                            .filter(|p| p.controller == opp && Self::matches_filter(p, filter))
+                            .filter(|p| p.controller == opp && filter.matches_permanent(p, controller))
                             .map(|p| p.id())
                             .collect();
                         if let Some(&victim_id) = matching.first() {
@@ -4759,7 +4752,7 @@ impl Game {
                         let lib_cards: Vec<ObjectId> = player.library.iter().copied().collect();
                         let found = lib_cards.iter().find(|&&card_id| {
                             self.state.card_store.get(card_id)
-                                .map(|c| Self::card_matches_filter(c, filter))
+                                .map(|c| filter.matches_card(c, controller))
                                 .unwrap_or(false)
                         }).copied();
                         if let Some(card_id) = found {
@@ -6101,7 +6094,7 @@ impl Game {
                                     self.state.delayed_triggers.push(crate::state::DelayedTrigger {
                                         event_type: EventType::EndStep,
                                         watching: None,
-                                        effects: vec![Effect::Sacrifice { filter: "self".into() }],
+                                        effects: vec![Effect::Sacrifice { filter: crate::filters::Filter::parse("self") }],
                                         controller,
                                         source: Some(token_id),
                                         targets: vec![token_id],
@@ -6342,7 +6335,7 @@ impl Game {
                                         self.state.delayed_triggers.push(crate::state::DelayedTrigger {
                                             event_type: crate::events::EventType::EndStep,
                                             watching: None,
-                                            effects: vec![Effect::Sacrifice { filter: "self".into() }],
+                                            effects: vec![Effect::Sacrifice { filter: crate::filters::Filter::parse("self") }],
                                             controller,
                                             source: Some(card_id),
                                             targets: vec![card_id],
