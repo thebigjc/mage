@@ -2459,7 +2459,7 @@ impl Game {
 
             // Assign attacker damage
             let attacker_dmg =
-                combat::assign_combat_damage(&group, attacker_info, &blocker_refs, is_first_strike);
+                combat::assign_combat_damage(group, attacker_info, &blocker_refs, is_first_strike);
 
             let attacker_mult = self.get_damage_multiplier(group.attacker_id);
             for (target_id, amount, is_player) in &attacker_dmg {
@@ -3260,7 +3260,7 @@ impl Game {
         // Discard cost (e.g., "Discard a card.")
         if cost.contains("iscard") {
             if let Some(player) = self.state.players.get(&payer) {
-                if player.hand.len() > 0 {
+                if !player.hand.is_empty() {
                     // Discard a card (pick first card in hand for simplicity)
                     let card_id = *player.hand.iter().next().unwrap();
                     let player = self.state.players.get_mut(&payer).unwrap();
@@ -4047,8 +4047,8 @@ impl Game {
                     if (candidates.len() as u32) < *count {
                         return false;
                     }
-                    for i in 0..*count as usize {
-                        if let Some(perm) = self.state.battlefield.get_mut(candidates[i]) {
+                    for candidate in candidates.iter().take(*count as usize) {
+                        if let Some(perm) = self.state.battlefield.get_mut(*candidate) {
                             perm.tap();
                         }
                     }
@@ -5319,7 +5319,7 @@ impl Game {
                         0
                     };
                     if let Some(chosen) = options.get(choice_idx) {
-                        let subtype = crate::constants::SubType::Custom(chosen.description.clone().into());
+                        let subtype = crate::constants::SubType::Custom(chosen.description.clone());
                         if let Some(source_id) = source {
                             if let Some(perm) = self.state.battlefield.get_mut(source_id) {
                                 perm.chosen_type = Some(subtype);
@@ -5464,9 +5464,8 @@ impl Game {
                                 if p.controller != controller {
                                     return false;
                                 }
-                                let has_type = p.card.subtypes.contains(&target_subtype)
-                                    || (p.is_creature() && p.has_keyword(crate::constants::KeywordAbilities::CHANGELING));
-                                has_type
+                                p.card.subtypes.contains(&target_subtype)
+                                    || (p.is_creature() && p.has_keyword(crate::constants::KeywordAbilities::CHANGELING))
                             })
                             .map(|p| p.id())
                             .collect();
@@ -6056,11 +6055,7 @@ impl Game {
                     let count = resolve_x(*count);
                     for &target_id in targets {
                         // Get the source permanent's card data to copy
-                        let source_card = if let Some(perm) = self.state.battlefield.get(target_id) {
-                            Some(perm.card.clone())
-                        } else {
-                            None
-                        };
+                        let source_card = self.state.battlefield.get(target_id).map(|perm| perm.card.clone());
                         if let Some(source) = source_card {
                             for _ in 0..count {
                                 let token_id = ObjectId::new();
@@ -6137,11 +6132,7 @@ impl Game {
                 Effect::CreateTokenCopyOfTriggering => {
                     self.mark_tokens_created(controller);
                     for &target_id in targets {
-                        let source_card = if let Some(perm) = self.state.battlefield.get(target_id) {
-                            Some(perm.card.clone())
-                        } else {
-                            None
-                        };
+                        let source_card = self.state.battlefield.get(target_id).map(|perm| perm.card.clone());
                         if let Some(src) = source_card {
                             let token_id = ObjectId::new();
                             let mut token_card = src.clone();
@@ -6243,7 +6234,7 @@ impl Game {
                 }
                 Effect::BoostDualTargetDynamic { value_source } => {
                     let amount = self.evaluate_count_filter(value_source, controller) as i32;
-                    if targets.len() >= 1 {
+                    if !targets.is_empty() {
                         if let Some(perm) = self.state.battlefield.get_mut(targets[0]) {
                             perm.continuous_boost_power += amount;
                         }
@@ -6445,7 +6436,7 @@ impl Game {
                     }
                 }
                 Effect::Winnowing => {
-                    let all_players: Vec<PlayerId> = self.state.turn_order.iter().copied().collect();
+                    let all_players: Vec<PlayerId> = self.state.turn_order.to_vec();
                     let mut chosen_per_player: Vec<(PlayerId, ObjectId)> = Vec::new();
                     for &pid in &all_players {
                         let creatures: Vec<ObjectId> = self.state.battlefield.iter()
@@ -6459,7 +6450,7 @@ impl Game {
                         let chosen_id = if let Some(dm) = self.decision_makers.get_mut(&controller) {
                             let targets = dm.choose_targets(&view, crate::constants::Outcome::Benefit,
                                 &crate::decision::TargetRequirement {
-                                    description: format!("Choose a creature controlled by player"),
+                                    description: "Choose a creature controlled by player".to_string(),
                                     legal_targets: creatures.clone(),
                                     min_targets: 1, max_targets: 1,
                                     required: true,
@@ -6722,7 +6713,7 @@ impl Game {
         // Parse "with keyword1[, keyword2...]" or "with keyword1 and keyword2"
         if let Some(with_pos) = rest.to_lowercase().find("with ") {
             let kw_str = &rest[with_pos + 5..];
-            for part in kw_str.split(|c: char| c == ',' || c == '&') {
+            for part in kw_str.split([',', '&']) {
                 let part = part.trim().trim_start_matches("and ").trim();
                 if let Some(kw) = crate::constants::KeywordAbilities::keyword_from_name(part) {
                     keywords |= kw;
