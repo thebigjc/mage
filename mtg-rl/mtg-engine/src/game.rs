@@ -3103,22 +3103,20 @@ impl Game {
         }
 
         // Pay additional casting costs (behold, etc.)
-        if !card_data.additional_costs.is_empty() {
-            if !self.pay_costs(player_id, card_id, &card_data.additional_costs) {
-                // Cannot pay additional costs — put card back
-                if from_graveyard {
-                    if let Some(player) = self.state.players.get_mut(&player_id) {
-                        player.graveyard.add(card_id);
-                    }
-                } else if from_exile {
-                    self.state.exile.exile(card_id);
-                } else {
-                    if let Some(player) = self.state.players.get_mut(&player_id) {
-                        player.hand.add(card_id);
-                    }
+        if !card_data.additional_costs.is_empty()
+            && !self.pay_costs(player_id, card_id, &card_data.additional_costs)
+        {
+            // Cannot pay additional costs — put card back
+            if from_graveyard {
+                if let Some(player) = self.state.players.get_mut(&player_id) {
+                    player.graveyard.add(card_id);
                 }
-                return;
+            } else if from_exile {
+                self.state.exile.exile(card_id);
+            } else if let Some(player) = self.state.players.get_mut(&player_id) {
+                player.hand.add(card_id);
             }
+            return;
         }
 
         let x_value = if let Some(blight_x) = self.variable_blight_amount.take() {
@@ -4025,14 +4023,12 @@ impl Game {
                     }
                     if !candidates.is_empty() {
                         // Behold is free; prefer it over paying mana
-                    } else {
-                        if let Some(player) = self.state.players.get_mut(&player_id) {
-                            if !player.mana_pool.try_pay(mana) {
-                                return false;
-                            }
-                        } else {
+                    } else if let Some(player) = self.state.players.get_mut(&player_id) {
+                        if !player.mana_pool.try_pay(mana) {
                             return false;
                         }
+                    } else {
+                        return false;
                     }
                 }
                 Cost::TapCreatures { filter, count } => {
