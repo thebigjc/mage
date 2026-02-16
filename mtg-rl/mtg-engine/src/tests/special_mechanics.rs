@@ -2475,3 +2475,96 @@ use crate::types::{ObjectId, PlayerId};
         assert_eq!(game.state.players.get(&p2).unwrap().library.len(), 0);
         assert_eq!(game.state.impulse_playable.len(), 1);
     }
+
+    #[test]
+    fn deal_damage_with_delayed_exile_creates_trigger() {
+        let (mut game, p1, p2) = setup_impulse_game();
+
+        let creature_id = ObjectId::new();
+        let mut card = CardData::new(creature_id, p2, "Target Beast");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(3);
+        card.toughness = Some(5);
+        game.state.card_store.insert(card.clone());
+        let perm = Permanent::new(card, p2);
+        game.state.battlefield.add(perm);
+
+        game.execute_effects(
+            &[Effect::deal_damage_with_delayed_exile()],
+            p1, &[creature_id], None, Some(4),
+        );
+
+        let perm = game.state.battlefield.get(creature_id).unwrap();
+        assert_eq!(perm.damage, 4, "Should have taken 4 damage");
+
+        assert_eq!(game.state.delayed_triggers.len(), 1);
+        let dt = &game.state.delayed_triggers[0];
+        assert_eq!(dt.event_type, EventType::Dies);
+        assert_eq!(dt.watching, Some(creature_id));
+        assert_eq!(dt.stored_value, Some(3), "Should store creature power of 3");
+        assert!(dt.trigger_only_once);
+    }
+
+    #[test]
+    fn deal_damage_with_delayed_exile_fires_on_death() {
+        let (mut game, p1, p2) = setup_impulse_game();
+
+        let creature_id = ObjectId::new();
+        let mut card = CardData::new(creature_id, p2, "Doomed Beast");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(3);
+        card.toughness = Some(2);
+        game.state.card_store.insert(card.clone());
+        let perm = Permanent::new(card, p2);
+        game.state.battlefield.add(perm);
+
+        add_library_cards(&mut game, p1, 5);
+
+        game.execute_effects(
+            &[Effect::deal_damage_with_delayed_exile()],
+            p1, &[creature_id], None, Some(3),
+        );
+
+        assert_eq!(game.state.delayed_triggers.len(), 1);
+
+        game.state.battlefield.remove(creature_id);
+        game.emit_event(GameEvent::dies(creature_id, p2, 0));
+        game.check_triggered_abilities();
+
+        assert_eq!(game.state.delayed_triggers.len(), 0, "Trigger should be consumed");
+        assert_eq!(game.state.exile.len(), 3, "Should exile 3 cards (creature power)");
+        assert_eq!(game.state.impulse_playable.len(), 1, "Only one card should be impulse-playable");
+        let ip = &game.state.impulse_playable[0];
+        assert_eq!(ip.player_id, p1);
+        assert!(!ip.without_mana, "Should require paying mana");
+        assert_eq!(ip.duration, crate::state::ImpulseDuration::UntilEndOfNextTurn);
+    }
+
+    #[test]
+    fn deal_damage_with_delayed_exile_no_fire_if_survives() {
+        let (mut game, p1, p2) = setup_impulse_game();
+
+        let creature_id = ObjectId::new();
+        let mut card = CardData::new(creature_id, p2, "Tough Beast");
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(4);
+        card.toughness = Some(10);
+        game.state.card_store.insert(card.clone());
+        let perm = Permanent::new(card, p2);
+        game.state.battlefield.add(perm);
+
+        add_library_cards(&mut game, p1, 5);
+
+        game.execute_effects(
+            &[Effect::deal_damage_with_delayed_exile()],
+            p1, &[creature_id], None, Some(3),
+        );
+
+        assert_eq!(game.state.delayed_triggers.len(), 1);
+        assert_eq!(game.state.exile.len(), 0);
+        assert_eq!(game.state.impulse_playable.len(), 0);
+
+        game.check_triggered_abilities();
+        assert_eq!(game.state.exile.len(), 0, "No exile if creature survives");
+        assert_eq!(game.state.impulse_playable.len(), 0);
+    }

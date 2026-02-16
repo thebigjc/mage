@@ -9,8 +9,8 @@ IN_PROGRESS
 ## Analysis
 
 ### Current State
-- **Engine tests**: 537 (mtg-engine), all passing
-- **ECL Custom fallbacks**: 29 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 36 total
+- **Engine tests**: 540 (mtg-engine), all passing
+- **ECL Custom fallbacks**: 28 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 35 total
 - **Other sets**: FDN 336, TLA 199, TDM 110 (these are out of scope per the plan)
 
 ### Goal
@@ -85,7 +85,7 @@ Group the 44 fallbacks by what engine feature they need. Implement the engine fe
 
 - [x] Task 17: Add `OpponentsExileUntilMVAndCast` effect — Each opponent exiles from library until total MV >= threshold, controller may cast exiled cards without mana until EOT. Updated: **dream_harvest** (opponents exile until MV 5+, free cast). Added Effect::OpponentsExileUntilMVAndCast variant, builder, game.rs resolution handler. 3 new tests (537 engine total). 1 Effect::Custom eliminated.
 
-- [ ] Task 18: Add `DealDamageWithDelayedExile` effect — Deal X damage to creature, create delayed trigger: when it dies this turn, exile cards = its power, choose one to cast. Update: **end_blaze_epiphany**. Java uses complex custom effect. Add engine test. ~1 card fixed.
+- [x] Task 18: Add `DealDamageWithDelayedExile` effect — Deal X damage to target creature, create delayed trigger watching for death. When creature dies, exile cards from library equal to its power, choose one to play until end of next turn. Added `Effect::DealDamageWithDelayedExile`, `Effect::ExileTopChooseOneAndPlay`, `stored_value` field on `DelayedTrigger` for passing last-known info through triggers. Updated **end_blaze_epiphany** (replaced Effect::Custom, fixed rarity to Rare, added TargetSpec::Creature). 3 new tests (540 engine total). 1 Effect::Custom eliminated.
 
 ### Tier 4: Hard — requires new engine subsystems
 
@@ -154,7 +154,7 @@ Task 31 depends on all others
 18. Task 31 (verification)
 
 ## Completed This Iteration
-- Task 17: Added `Effect::OpponentsExileUntilMVAndCast` for mass opponent-library-exile effects. Each opponent exiles cards from library until total MV >= threshold, all exiled cards become free-cast impulse-playable until EOT. Updated dream_harvest (replaced Effect::Custom). 3 new tests (537 engine total). 1 Effect::Custom eliminated.
+- Task 18: Added `Effect::DealDamageWithDelayedExile` and `Effect::ExileTopChooseOneAndPlay` for damage-with-delayed-exile-on-death effects. Added `stored_value: Option<i32>` field to `DelayedTrigger` to pass last-known creature power through trigger firing. Updated end_blaze_epiphany (replaced Effect::Custom, fixed rarity Common→Rare, added TargetSpec::Creature). 3 new tests (540 engine total). 1 Effect::Custom eliminated.
 
 ## Notes
 

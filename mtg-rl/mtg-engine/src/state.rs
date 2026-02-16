@@ -208,6 +208,9 @@ pub struct DelayedTrigger {
     /// If true, instead of executing `effects`, copy the spell that triggered this
     /// (the spell from the SpellCast event) onto the stack under the controller.
     pub copy_spell: bool,
+    /// Optional stored numeric value (e.g. creature's power at trigger creation time).
+    /// Used by effects that need last-known information when the trigger fires.
+    pub stored_value: Option<i32>,
 }
 
 /// Describes where a specific game object currently exists.

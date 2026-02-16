@@ -512,6 +512,18 @@ pub enum Effect {
         mv_threshold: u32,
     },
 
+    /// Deal X damage to target creature. Create a delayed trigger: when that creature
+    /// dies this turn, exile cards from the top of your library equal to its power,
+    /// then choose one — you may play it until end of your next turn.
+    DealDamageWithDelayedExile,
+
+    /// Exile top N cards, choose one, you may play it until the specified duration.
+    /// The rest remain in exile but are not playable.
+    ExileTopChooseOneAndPlay {
+        count: u32,
+        duration: String,
+    },
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1343,6 +1355,10 @@ impl Effect {
             duration: "until_triggered".into(),
             watch_target: false,
         }
+    }
+
+    pub fn deal_damage_with_delayed_exile() -> Self {
+        Effect::DealDamageWithDelayedExile
     }
 
     /// "Exile the top N cards. You may play them until end of turn."

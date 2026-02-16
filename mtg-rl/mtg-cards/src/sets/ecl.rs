@@ -4180,15 +4180,14 @@ fn dream_harvest(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [DELAYED+IMPULSE] X damage, delayed trigger on creature death, exile cards equal to power, play until next turn end
 fn end_blaze_epiphany(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "End-Blaze Epiphany".into(), mana_cost: ManaCost::parse("{X}{R}"),
         card_types: vec![CardType::Instant],
-        rarity: Rarity::Common,
+        rarity: Rarity::Rare,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::Custom("End-Blaze Epiphany deals X damage to target creature. When that creature dies this turn, exile a number of cards from the top of your library equal to its power, then choose a card exiled this way. Un".into())],
-                TargetSpec::None),
+                vec![Effect::deal_damage_with_delayed_exile()],
+                TargetSpec::Creature),
         ],
         ..Default::default() }
 }

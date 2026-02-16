@@ -1819,7 +1819,8 @@ impl Game {
                     self.copy_spell_on_stack(*spell_id, dt.controller);
                 }
             } else {
-                self.execute_effects(&dt.effects, dt.controller, &dt.targets, dt.source, None);
+                let x_val = dt.stored_value.map(|v| v.max(0) as u32);
+                self.execute_effects(&dt.effects, dt.controller, &dt.targets, dt.source, x_val);
             }
         }
 
@@ -5099,6 +5100,7 @@ impl Game {
                         created_turn: self.state.turn_number,
                         controller_filter: None,
                         copy_spell: false,
+                        stored_value: None,
                     });
                 }
                 Effect::GrantTriggeredAbilityUntilEOT { event_type, filter, trigger_effects } => {
@@ -5115,6 +5117,7 @@ impl Game {
                         created_turn: self.state.turn_number,
                         controller_filter: Some(filter.clone()),
                         copy_spell: false,
+                        stored_value: None,
                     });
                 }
                 Effect::CopyNextSpell => {
@@ -5130,6 +5133,7 @@ impl Game {
                         created_turn: self.state.turn_number,
                         controller_filter: None,
                         copy_spell: true,
+                        stored_value: None,
                     });
                 }
                 Effect::CopyTriggeringSpell { keywords, single_target_only } => {
@@ -5452,6 +5456,7 @@ impl Game {
                             created_turn: self.state.turn_number,
                             controller_filter: None,
                             copy_spell: false,
+                            stored_value: None,
                         });
                     }
                 }
@@ -5671,6 +5676,7 @@ impl Game {
                                         created_turn: self.state.turn_number,
                                         controller_filter: None,
                                         copy_spell: false,
+                                        stored_value: None,
                                     });
                                 }
                             }
@@ -5912,11 +5918,76 @@ impl Game {
                                             created_turn: self.state.turn_number,
                                             controller_filter: None,
                                             copy_spell: false,
+                                            stored_value: None,
                                         });
                                     }
                                 }
                             }
                         }
+                    }
+                }
+                Effect::DealDamageWithDelayedExile => {
+                    let base_dmg = resolve_x(crate::abilities::X_VALUE);
+                    let mult = source.map(|s| self.get_damage_multiplier(s)).unwrap_or(1);
+                    let dmg = base_dmg * mult;
+                    for &target_id in targets {
+                        let creature_power = self.state.battlefield.get(target_id)
+                            .map(|p| p.power())
+                            .unwrap_or(0);
+                        if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                            perm.apply_damage(dmg);
+                        }
+                        self.state.delayed_triggers.push(crate::state::DelayedTrigger {
+                            event_type: EventType::Dies,
+                            watching: Some(target_id),
+                            effects: vec![Effect::ExileTopChooseOneAndPlay {
+                                count: crate::abilities::X_VALUE,
+                                duration: "until_end_of_next_turn".into(),
+                            }],
+                            controller,
+                            source,
+                            targets: vec![],
+                            duration: crate::state::DelayedDuration::EndOfTurn,
+                            trigger_only_once: true,
+                            created_turn: self.state.turn_number,
+                            controller_filter: None,
+                            copy_spell: false,
+                            stored_value: Some(creature_power),
+                        });
+                    }
+                }
+                Effect::ExileTopChooseOneAndPlay { count, duration } => {
+                    let n = resolve_x(*count) as usize;
+                    let dur = match duration.as_str() {
+                        "until_end_of_next_turn" => crate::state::ImpulseDuration::UntilEndOfNextTurn,
+                        _ => crate::state::ImpulseDuration::EndOfTurn,
+                    };
+                    let mut exiled = Vec::new();
+                    for _ in 0..n {
+                        let card_id = self.state.players.get_mut(&controller)
+                            .and_then(|p| p.library.draw());
+                        if let Some(id) = card_id {
+                            self.state.exile.exile(id);
+                            self.state.set_zone(id, crate::constants::Zone::Exile, None);
+                            exiled.push(id);
+                        }
+                    }
+                    if !exiled.is_empty() {
+                        let chosen = exiled.iter().copied()
+                            .max_by_key(|&id| {
+                                self.state.card_store.get(id)
+                                    .map(|c| c.mana_value())
+                                    .unwrap_or(0)
+                            })
+                            .unwrap_or(exiled[0]);
+                        let turn = self.state.turn_number;
+                        self.state.impulse_playable.push(crate::state::ImpulsePlayable {
+                            card_id: chosen,
+                            player_id: controller,
+                            duration: dur,
+                            created_turn: turn,
+                            without_mana: false,
+                        });
                     }
                 }
                 _ => {
