@@ -2636,9 +2636,7 @@ fn evershrikes_gift(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [COND] Multi-level activated abilities changing type/base P/T
 fn figure_of_fable(id: ObjectId, owner: PlayerId) -> CardData {
-    // 1/1 Kithkin {G/W}. 3 level-up activated abilities: 2/3 Scout, 4/5 Soldier, 7/8 Avatar with protection.
     CardData { id, owner, name: "Figure of Fable".into(),
         mana_cost: ManaCost::parse("{G/W}"),
         card_types: vec![CardType::Creature],
@@ -2649,17 +2647,25 @@ fn figure_of_fable(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "{G/W}: This creature becomes a Kithkin Scout with base power and toughness 2/3.",
                 vec![Cost::pay_mana("{G/W}")],
-                vec![Effect::SetPowerToughness { power: 2, toughness: 3 }],
+                vec![Effect::set_subtypes_self(vec!["Kithkin", "Scout"]),
+                     Effect::set_pt(2, 3)],
                 TargetSpec::None),
             Ability::activated(id,
                 "{1}{G/W}{G/W}: If this creature is a Scout, it becomes a Kithkin Soldier with base power and toughness 4/5.",
                 vec![Cost::pay_mana("{1}{G/W}{G/W}")],
-                vec![Effect::Custom("If Scout: becomes Kithkin Soldier 4/5.".into())],
+                vec![Effect::conditional("source is a Scout",
+                    vec![Effect::set_subtypes_self(vec!["Kithkin", "Soldier"]),
+                         Effect::set_pt(4, 5)],
+                    vec![])],
                 TargetSpec::None),
             Ability::activated(id,
                 "{3}{G/W}{G/W}{G/W}: If this creature is a Soldier, it becomes a Kithkin Avatar 7/8 with protection from each opponent.",
                 vec![Cost::pay_mana("{3}{G/W}{G/W}{G/W}")],
-                vec![Effect::Custom("If Soldier: becomes Kithkin Avatar 7/8 with protection.".into())],
+                vec![Effect::conditional("source is a Soldier",
+                    vec![Effect::set_subtypes_self(vec!["Kithkin", "Avatar"]),
+                         Effect::set_pt(7, 8),
+                         Effect::GainKeyword { keyword: "protection".into() }],
+                    vec![])],
                 TargetSpec::None),
         ],
         ..Default::default() }

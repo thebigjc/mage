@@ -223,6 +223,8 @@ pub enum Effect {
     LoseAllAbilitiesAll { filter: String },
     /// Add a subtype to all creatures matching filter ("becomes X in addition to its other types").
     AddSubtypeAll { subtype: String, filter: String },
+    /// Replace the source permanent's subtypes with the given list (for level-up / figure cards).
+    SetSubtypesSelf { subtypes: Vec<String> },
 
     // -- Control --
     /// Gain control of target.
@@ -1543,6 +1545,12 @@ impl Effect {
         Effect::AddSubtypeAll {
             subtype: subtype.to_string(),
             filter: filter.to_string(),
+        }
+    }
+
+    pub fn set_subtypes_self(subtypes: Vec<&str>) -> Self {
+        Effect::SetSubtypesSelf {
+            subtypes: subtypes.into_iter().map(|s| s.to_string()).collect(),
         }
     }
 

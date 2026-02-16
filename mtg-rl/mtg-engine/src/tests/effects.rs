@@ -1942,3 +1942,133 @@ fn while_source_controlled_impulse_expires_when_source_leaves() {
     });
     assert!(!has_cast_bolt, "should not be able to cast exiled card after source leaves battlefield");
 }
+
+#[test]
+fn set_subtypes_self_replaces_subtypes() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let mut game = Game::new_two_player(config, vec![
+        (p1, Box::new(AlwaysPassPlayer)),
+        (p2, Box::new(AlwaysPassPlayer)),
+    ]);
+
+    let mut creature = make_creature("Test Kithkin", p1, 1, 1);
+    creature.subtypes = vec![SubType::Kithkin];
+    let cid = creature.id;
+    game.state.battlefield.add(Permanent::new(creature, p1));
+
+    game.execute_effects(
+        &[Effect::set_subtypes_self(vec!["Kithkin", "Scout"])],
+        p1, &[], Some(cid), None,
+    );
+
+    let perm = game.state.battlefield.get(cid).unwrap();
+    assert_eq!(perm.card.subtypes.len(), 2);
+    assert!(perm.has_subtype(&SubType::Scout));
+    assert!(perm.has_subtype(&SubType::Kithkin));
+}
+
+#[test]
+fn set_power_toughness_falls_back_to_source() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let mut game = Game::new_two_player(config, vec![
+        (p1, Box::new(AlwaysPassPlayer)),
+        (p2, Box::new(AlwaysPassPlayer)),
+    ]);
+
+    let creature = make_creature("Test Creature", p1, 1, 1);
+    let cid = creature.id;
+    game.state.battlefield.add(Permanent::new(creature, p1));
+
+    game.execute_effects(
+        &[Effect::set_pt(4, 5)],
+        p1, &[], Some(cid), None,
+    );
+
+    let perm = game.state.battlefield.get(cid).unwrap();
+    assert_eq!(perm.power(), 4);
+    assert_eq!(perm.toughness(), 5);
+}
+
+#[test]
+fn conditional_source_is_a_type_level_up() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let mut game = Game::new_two_player(config, vec![
+        (p1, Box::new(AlwaysPassPlayer)),
+        (p2, Box::new(AlwaysPassPlayer)),
+    ]);
+
+    let mut creature = make_creature("Figure", p1, 1, 1);
+    creature.subtypes = vec![SubType::Kithkin];
+    let cid = creature.id;
+    game.state.battlefield.add(Permanent::new(creature, p1));
+
+    game.execute_effects(
+        &[Effect::conditional("source is a Scout",
+            vec![Effect::set_subtypes_self(vec!["Kithkin", "Soldier"]),
+                 Effect::set_pt(4, 5)],
+            vec![])],
+        p1, &[], Some(cid), None,
+    );
+    let perm = game.state.battlefield.get(cid).unwrap();
+    assert_eq!(perm.power(), 1, "should not transform: not a Scout yet");
+
+    game.execute_effects(
+        &[Effect::set_subtypes_self(vec!["Kithkin", "Scout"]),
+          Effect::set_pt(2, 3)],
+        p1, &[], Some(cid), None,
+    );
+    let perm = game.state.battlefield.get(cid).unwrap();
+    assert_eq!(perm.power(), 2);
+    assert!(perm.has_subtype(&SubType::Scout));
+
+    game.execute_effects(
+        &[Effect::conditional("source is a Scout",
+            vec![Effect::set_subtypes_self(vec!["Kithkin", "Soldier"]),
+                 Effect::set_pt(4, 5)],
+            vec![])],
+        p1, &[], Some(cid), None,
+    );
+    let perm = game.state.battlefield.get(cid).unwrap();
+    assert_eq!(perm.power(), 4);
+    assert_eq!(perm.toughness(), 5);
+    assert!(perm.has_subtype(&SubType::Soldier));
+    assert!(!perm.has_subtype(&SubType::Scout), "Scout subtype should be replaced");
+
+    game.execute_effects(
+        &[Effect::conditional("source is a Soldier",
+            vec![Effect::set_subtypes_self(vec!["Kithkin", "Avatar"]),
+                 Effect::set_pt(7, 8),
+                 Effect::GainKeyword { keyword: "protection".into() }],
+            vec![])],
+        p1, &[], Some(cid), None,
+    );
+    let perm = game.state.battlefield.get(cid).unwrap();
+    assert_eq!(perm.power(), 7);
+    assert_eq!(perm.toughness(), 8);
+    assert!(perm.has_subtype(&SubType::Avatar));
+    assert!(perm.keywords().contains(KeywordAbilities::PROTECTION));
+}

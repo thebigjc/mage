@@ -770,6 +770,19 @@ impl Game {
                 .unwrap_or(false);
         }
 
+        // "source is a {Type}" — source permanent has the specified subtype
+        if cond_lower.starts_with("source is a ") || cond_lower.starts_with("source is an ") {
+            let type_str = if cond_lower.starts_with("source is an ") {
+                &condition[13..]
+            } else {
+                &condition[12..]
+            };
+            let subtype = crate::constants::SubType::by_description(type_str);
+            return self.state.battlefield.get(source_id)
+                .map(|p| p.has_subtype(&subtype))
+                .unwrap_or(false);
+        }
+
         // "target is a {Type}" — first target has the specified subtype
         if cond_lower.starts_with("target is a ") || cond_lower.starts_with("target is an ") {
             let type_str = if cond_lower.starts_with("target is an ") {
@@ -4235,9 +4248,13 @@ impl Game {
                     }
                 }
                 Effect::GainKeyword { keyword } => {
-                    // Grant keyword permanently (via granted_keywords, which persists)
                     if let Some(kw) = crate::constants::KeywordAbilities::keyword_from_name(keyword) {
-                        for &target_id in targets {
+                        let effective_targets: Vec<ObjectId> = if targets.is_empty() {
+                            source.into_iter().collect()
+                        } else {
+                            targets.to_vec()
+                        };
+                        for target_id in effective_targets {
                             if let Some(perm) = self.state.battlefield.get_mut(target_id) {
                                 perm.granted_keywords |= kw;
                             }
@@ -4427,20 +4444,15 @@ impl Game {
                     }
                 }
                 Effect::SetPowerToughness { power, toughness } => {
-                    // Set base P/T (simplified: adjust via counters to reach target)
-                    for &target_id in targets {
+                    let effective_targets: Vec<ObjectId> = if targets.is_empty() {
+                        source.into_iter().collect()
+                    } else {
+                        targets.to_vec()
+                    };
+                    for target_id in effective_targets {
                         if let Some(perm) = self.state.battlefield.get_mut(target_id) {
-                            let current_p = perm.power();
-                            let current_t = perm.toughness();
-                            let dp = *power - current_p;
-                            let dt = *toughness - current_t;
-                            // Use counters to approximate (imperfect but functional)
-                            if dp > 0 {
-                                perm.add_counters(CounterType::P1P1, dp as u32);
-                            } else if dp < 0 {
-                                perm.add_counters(CounterType::M1M1, (-dp) as u32);
-                            }
-                            let _ = dt; // Toughness adjustment via counters is coupled with power
+                            perm.card.power = Some(*power);
+                            perm.card.toughness = Some(*toughness);
                         }
                     }
                 }
@@ -4490,6 +4502,15 @@ impl Game {
                             if !perm.card.subtypes.contains(&st) {
                                 perm.card.subtypes.push(st.clone());
                             }
+                        }
+                    }
+                }
+                Effect::SetSubtypesSelf { subtypes } => {
+                    if let Some(src) = source {
+                        if let Some(perm) = self.state.battlefield.get_mut(src) {
+                            perm.card.subtypes = subtypes.iter()
+                                .map(|s| crate::constants::SubType::by_description(s))
+                                .collect();
                         }
                     }
                 }
