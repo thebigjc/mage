@@ -616,6 +616,9 @@ impl KeywordAbilities {
             "undying" => Some(KeywordAbilities::UNDYING),
             "persist" => Some(KeywordAbilities::PERSIST),
             "changeling" => Some(KeywordAbilities::CHANGELING),
+            "wither" => Some(KeywordAbilities::WITHER),
+            "infect" => Some(KeywordAbilities::INFECT),
+            "shadow" => Some(KeywordAbilities::SHADOW),
             _ => None,
         }
     }

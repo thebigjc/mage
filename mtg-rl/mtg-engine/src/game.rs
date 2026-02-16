@@ -1201,6 +1201,29 @@ impl Game {
         }
     }
 
+    fn find_triggering_spell(&self, controller: PlayerId) -> Option<ObjectId> {
+        for item in self.state.stack.iter() {
+            if let crate::zones::StackItemKind::Spell { card } = &item.kind {
+                if item.controller == controller && (card.is_instant() || card.is_sorcery()) {
+                    return Some(item.id);
+                }
+            }
+        }
+        None
+    }
+
+    fn grant_keywords_to_spell(&mut self, spell_id: ObjectId, keywords: &[String]) {
+        if let Some(item) = self.state.stack.get_mut(spell_id) {
+            if let crate::zones::StackItemKind::Spell { card } = &mut item.kind {
+                for kw_name in keywords {
+                    if let Some(flag) = crate::constants::KeywordAbilities::keyword_from_name(kw_name) {
+                        card.keywords |= flag;
+                    }
+                }
+            }
+        }
+    }
+
     /// Check if a spell/card matches a cost reduction filter string.
     fn spell_matches_cost_filter(&self, card: &crate::card::CardData, filter: &str) -> bool {
         let lower = filter.to_lowercase();
@@ -5037,6 +5060,30 @@ impl Game {
                         controller_filter: None,
                         copy_spell: true,
                     });
+                }
+                Effect::CopyTriggeringSpell { keywords, single_target_only } => {
+                    let spell_id = self.find_triggering_spell(controller);
+                    if let Some(sid) = spell_id {
+                        let should_copy = if *single_target_only {
+                            self.state.stack.get(sid)
+                                .map(|item| item.targets.len() == 1)
+                                .unwrap_or(false)
+                        } else {
+                            true
+                        };
+                        if should_copy {
+                            if !keywords.is_empty() {
+                                self.grant_keywords_to_spell(sid, keywords);
+                            }
+                            self.copy_spell_on_stack(sid, controller);
+                            if !keywords.is_empty() {
+                                if let Some(top) = self.state.stack.top() {
+                                    let copy_id = top.id;
+                                    self.grant_keywords_to_spell(copy_id, keywords);
+                                }
+                            }
+                        }
+                    }
                 }
                 Effect::ExileTopAndPlay { count, duration, without_mana } => {
                     let n = resolve_x(*count) as usize;

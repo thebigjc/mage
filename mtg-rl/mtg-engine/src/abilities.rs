@@ -481,6 +481,15 @@ pub enum Effect {
     /// Creates a delayed trigger on SpellCast that copies the next matching spell.
     CopyNextSpell,
 
+    /// Copy the spell that triggered this ability (must be on the stack).
+    /// Used by permanents with "whenever you cast [spell], copy it" triggers.
+    /// `keywords`: keywords to grant to both original and copy (e.g. "wither").
+    /// `single_target_only`: if true, only copies spells with exactly one target.
+    CopyTriggeringSpell {
+        keywords: Vec<String>,
+        single_target_only: bool,
+    },
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1565,6 +1574,13 @@ impl Effect {
 
     pub fn copy_next_spell() -> Self {
         Effect::CopyNextSpell
+    }
+
+    pub fn copy_triggering_spell(keywords: Vec<&str>, single_target_only: bool) -> Self {
+        Effect::CopyTriggeringSpell {
+            keywords: keywords.into_iter().map(|s| s.to_string()).collect(),
+            single_target_only,
+        }
     }
 }
 

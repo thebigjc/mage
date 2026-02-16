@@ -3624,8 +3624,8 @@ fn spinerock_tyrant(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::spell_cast_triggered(id,
                     "Whenever you cast an instant or sorcery spell that targets only a single target, you may copy that spell. You may choose new targets for the copy. Both spells gain wither.",
-                    vec![Effect::Custom("Copy single-target instant/sorcery, both gain wither.".into())],
-                    TargetSpec::None),
+                    vec![Effect::copy_triggering_spell(vec!["wither"], true)],
+                    TargetSpec::None).set_optional(),
         ],
         ..Default::default() }
 }

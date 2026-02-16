@@ -2263,3 +2263,116 @@ use crate::types::{ObjectId, PlayerId};
         assert_eq!(game.state.stack.len(), 1, "Creature should not be copied");
         assert_eq!(game.state.delayed_triggers.len(), 1, "Trigger should still be active");
     }
+
+    #[test]
+    fn copy_triggering_spell_copies_single_target_instant() {
+        let (mut game, p1, p2) = setup();
+
+        let target_id = ObjectId::new();
+        let mut target_card = CardData::new(target_id, p2, "Grizzly Bears");
+        target_card.card_types = vec![CardType::Creature];
+        target_card.power = Some(2);
+        target_card.toughness = Some(2);
+        game.state.battlefield.add(Permanent::new(target_card, p2));
+
+        let spell_id = ObjectId::new();
+        let mut spell_card = CardData::new(spell_id, p1, "Lightning Bolt");
+        spell_card.card_types = vec![CardType::Instant];
+        spell_card.abilities = vec![Ability::spell(spell_id, vec![Effect::deal_damage(3)], crate::abilities::TargetSpec::CreatureOrPlayer)];
+        game.state.card_store.insert(spell_card.clone());
+
+        let stack_item = crate::zones::StackItem {
+            id: spell_id,
+            kind: crate::zones::StackItemKind::Spell { card: spell_card },
+            controller: p1,
+            targets: vec![target_id],
+            countered: false,
+            x_value: None,
+            exile_on_resolve: false,
+        };
+        game.state.stack.push(stack_item);
+        assert_eq!(game.state.stack.len(), 1);
+
+        game.execute_effects(
+            &[Effect::copy_triggering_spell(vec!["wither"], true)],
+            p1, &[], None, None,
+        );
+
+        assert_eq!(game.state.stack.len(), 2, "Stack should have original + copy");
+
+        if let Some(top) = game.state.stack.top() {
+            if let crate::zones::StackItemKind::Spell { card } = &top.kind {
+                assert!(card.keywords.contains(KeywordAbilities::WITHER), "Copy should have wither");
+            } else {
+                panic!("Top of stack should be a spell");
+            }
+        }
+
+        if let Some(original) = game.state.stack.get(spell_id) {
+            if let crate::zones::StackItemKind::Spell { card } = &original.kind {
+                assert!(card.keywords.contains(KeywordAbilities::WITHER), "Original should have wither");
+            }
+        }
+    }
+
+    #[test]
+    fn copy_triggering_spell_skips_multi_target() {
+        let (mut game, p1, _p2) = setup();
+
+        let t1 = ObjectId::new();
+        let t2 = ObjectId::new();
+
+        let spell_id = ObjectId::new();
+        let mut spell_card = CardData::new(spell_id, p1, "Multi Target Spell");
+        spell_card.card_types = vec![CardType::Sorcery];
+        spell_card.abilities = vec![Ability::spell(spell_id, vec![Effect::deal_damage(2)], crate::abilities::TargetSpec::CreatureOrPlayer)];
+        game.state.card_store.insert(spell_card.clone());
+
+        let stack_item = crate::zones::StackItem {
+            id: spell_id,
+            kind: crate::zones::StackItemKind::Spell { card: spell_card },
+            controller: p1,
+            targets: vec![t1, t2],
+            countered: false,
+            x_value: None,
+            exile_on_resolve: false,
+        };
+        game.state.stack.push(stack_item);
+        assert_eq!(game.state.stack.len(), 1);
+
+        game.execute_effects(
+            &[Effect::copy_triggering_spell(vec!["wither"], true)],
+            p1, &[], None, None,
+        );
+
+        assert_eq!(game.state.stack.len(), 1, "Multi-target spell should NOT be copied");
+    }
+
+    #[test]
+    fn copy_triggering_spell_without_keyword_restriction() {
+        let (mut game, p1, _p2) = setup();
+
+        let spell_id = ObjectId::new();
+        let mut spell_card = CardData::new(spell_id, p1, "Divination");
+        spell_card.card_types = vec![CardType::Sorcery];
+        spell_card.abilities = vec![Ability::spell(spell_id, vec![Effect::draw_cards(3)], crate::abilities::TargetSpec::None)];
+        game.state.card_store.insert(spell_card.clone());
+
+        let stack_item = crate::zones::StackItem {
+            id: spell_id,
+            kind: crate::zones::StackItemKind::Spell { card: spell_card },
+            controller: p1,
+            targets: vec![],
+            countered: false,
+            x_value: None,
+            exile_on_resolve: false,
+        };
+        game.state.stack.push(stack_item);
+
+        game.execute_effects(
+            &[Effect::copy_triggering_spell(vec![], false)],
+            p1, &[], None, None,
+        );
+
+        assert_eq!(game.state.stack.len(), 2, "No-target spell should be copied with single_target_only=false");
+    }
