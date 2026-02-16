@@ -94,7 +94,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 ### Phase 2: Ownership & Patterns
 
 #### 2A: Iterator/Functional Patterns
-- [ ] Task 2.1: Replace imperative loops in game.rs with iterator chains where it improves clarity (`.iter().filter().map()` patterns)
+- [x] Task 2.1: Replace imperative loops in game.rs with iterator chains where it improves clarity (`.iter().filter().map()` patterns)
 - [ ] Task 2.2: Replace imperative loops in combat.rs with iterator chains
 - [ ] Task 2.3: Use `Option` and `Result` combinators (`.map()`, `.and_then()`, `.unwrap_or()`) to replace manual match/if-let chains
 
@@ -205,12 +205,21 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - All 576 engine tests passing, zero clippy warnings
 
 ## Completed This Iteration
-- Tasks 1.19 + 1.20: Audited and migrated StaticEffect::Custom usages from 36 to 3 (−33)
-  - Added 17 new StaticEffect variants: CantBeBlocked, CantBeBlockedByFilter, MustAttack, Protection, Decayed, Kicker, AnyNumberInDeck, PlayerHexproof, CantActivateAbilities, CantCastDuringYourTurn, GrantDelve, GrantFlash, PreventCombatDamageToAndFrom, PreventNoncombatDamageToOthers, GainLifeReplacement, ExileInsteadOfGraveyard, ConditionalSetBasePowerToughness, EntersWithAdditionalCounters, Affinity
-  - Migrated 19 FDN usages to typed variants (ConditionalBoostSelf, BoostPerCount, Protection, EntersTapped, Ward, Kicker, MustAttack, etc.)
-  - Migrated 13 TDM usages to typed variants (CantBeBlocked, CantCastDuringYourTurn, GrantDelve, GrantFlash, Decayed, ReplaceTokenCreation, etc.)
-  - Migrated 1 TLA usage to Affinity variant
-  - 3 remaining Custom: fellowship counter dynamic boost, Zurgo damage-trigger (mislabeled as static), Windcrag Siege modal
+- Task 2.1: Replaced imperative loops in game.rs with idiomatic iterator chains
+  - Converted 12 imperative loops across 8 functions to iterator chains:
+    - `count_conspire_eligible_creatures`: for+if+count → `.filter().count()`
+    - `find_triggering_spell`: for+match+return → `.find().map()`
+    - `find_matching_permanents`: for+push → `.filter().map().collect()`
+    - `find_ward_cost`: nested for+match → `.flat_map().find_map()`
+    - `spell_has_convoke`: triple-nested for+continue → `.filter().any()` with `.flat_map()`
+    - `calculate_convoke_mana`: for+if/else → `.filter().fold()`
+    - `calculate_cost_reduction` (card abilities part): for+continue → `.filter().flat_map().filter_map().sum()`
+    - `depluralize_type`: for+return → `.find().map()`
+    - Playable lands loop: for+if+push → `.extend(.filter().map())`
+    - SearchLibraryVivid: for+push+break → `.filter_map().take().collect()`
+    - Behold candidates (3× identical): for+nested if+push → `.filter_map().collect()` + `.extend()`
+    - Graveyard card counting: for+if+count → `.filter_map().filter().count()`
+  - Preserved all imperative loops where mutation/complex control flow makes them appropriate
   - 584 engine + 20 cards + 19 integration tests passing, zero clippy warnings
 
 ### Effect::Custom Audit Results (496 usages, 323 unique messages)

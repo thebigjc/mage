@@ -677,19 +677,10 @@ impl Game {
             let gy_count = if count_filter.message.contains("graveyard") {
                 if let Some(player) = self.state.players.get(&controller) {
                     let filter_lower = count_filter.message.to_lowercase();
-                    let mut count = 0i32;
-                    for &card_id in player.graveyard.iter() {
-                        if let Some(card) = self.state.card_store.get(card_id) {
-                            if filter_lower.contains("creature") {
-                                if card.is_creature() {
-                                    count += 1;
-                                }
-                            } else {
-                                count += 1;
-                            }
-                        }
-                    }
-                    count
+                    player.graveyard.iter()
+                        .filter_map(|&card_id| self.state.card_store.get(card_id))
+                        .filter(|card| !filter_lower.contains("creature") || card.is_creature())
+                        .count() as i32
                 } else {
                     0
                 }
@@ -1052,10 +1043,8 @@ impl Game {
             ("wolves", "Wolf"),
             ("dwarves", "Dwarf"),
         ];
-        for &(plural, singular) in irregular {
-            if lower == plural {
-                return singular.to_string();
-            }
+        if let Some(&(_, singular)) = irregular.iter().find(|&&(plural, _)| lower == plural) {
+            return singular.to_string();
         }
         let trimmed = lower.trim_end_matches('s');
         let mut chars = trimmed.chars();
@@ -1103,59 +1092,43 @@ impl Game {
                 }
             }
         }
-        for ability in &card.abilities {
-            if ability.ability_type != crate::constants::AbilityType::Static {
-                continue;
-            }
-            for effect in &ability.static_effects {
-                if let crate::abilities::StaticEffect::CostReductionDynamic { value_source, .. } = effect {
-                    let dynamic_amount = self.evaluate_count_filter(value_source, player_id);
-                    total_reduction += dynamic_amount;
+        total_reduction + card.abilities.iter()
+            .filter(|a| a.ability_type == crate::constants::AbilityType::Static)
+            .flat_map(|a| &a.static_effects)
+            .filter_map(|effect| match effect {
+                crate::abilities::StaticEffect::CostReductionDynamic { value_source, .. } => {
+                    Some(self.evaluate_count_filter(value_source, player_id))
                 }
-            }
-        }
-        total_reduction
+                _ => None,
+            })
+            .sum::<u32>()
     }
 
     pub fn spell_has_convoke(&self, player_id: PlayerId, card: &crate::card::CardData) -> bool {
         if card.keywords.contains(crate::constants::KeywordAbilities::CONVOKE) {
             return true;
         }
-        for perm in self.state.battlefield.iter() {
-            if perm.controller != player_id {
-                continue;
-            }
-            let abilities = self.state.ability_store.for_source(perm.id());
-            for ability in abilities {
-                if ability.ability_type != crate::constants::AbilityType::Static {
-                    continue;
-                }
-                for effect in &ability.static_effects {
-                    if let crate::abilities::StaticEffect::GrantConvoke { filter } = effect {
-                        if filter.matches_card_ignore_controller(card) {
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-        false
+        self.state.battlefield.iter()
+            .filter(|perm| perm.controller == player_id)
+            .any(|perm| {
+                self.state.ability_store.for_source(perm.id()).into_iter()
+                    .filter(|a| a.ability_type == crate::constants::AbilityType::Static)
+                    .flat_map(|a| &a.static_effects)
+                    .any(|effect| matches!(effect, crate::abilities::StaticEffect::GrantConvoke { filter } if filter.matches_card_ignore_controller(card)))
+            })
     }
 
     pub fn calculate_convoke_mana(&self, player_id: PlayerId) -> crate::mana::Mana {
-        let mut convoke = crate::mana::Mana::new();
-        for perm in self.state.battlefield.iter() {
-            if perm.controller != player_id || perm.tapped || !perm.is_creature() {
-                continue;
-            }
-            let colors = perm.card.colors();
-            if colors.is_empty() {
-                convoke.generic += 1;
-            } else {
-                convoke.any += 1;
-            }
-        }
-        convoke
+        self.state.battlefield.iter()
+            .filter(|perm| perm.controller == player_id && !perm.tapped && perm.is_creature())
+            .fold(crate::mana::Mana::new(), |mut convoke, perm| {
+                if perm.card.colors().is_empty() {
+                    convoke.generic += 1;
+                } else {
+                    convoke.any += 1;
+                }
+                convoke
+            })
     }
 
     fn pay_convoke_cost(&mut self, player_id: PlayerId, shortfall: &crate::mana::Mana) -> crate::mana::Mana {
@@ -1244,19 +1217,13 @@ impl Game {
     }
 
     pub fn count_conspire_eligible_creatures(&self, player_id: PlayerId, spell_colors: &[crate::constants::Color]) -> u32 {
-        let mut count = 0u32;
-        for perm in self.state.battlefield.iter() {
-            if perm.controller != player_id || perm.tapped || !perm.is_creature() {
-                continue;
-            }
-            let creature_colors = perm.card.colors();
-            let shares_color = creature_colors.iter().any(|c| spell_colors.contains(c))
-                || perm.has_keyword(crate::constants::KeywordAbilities::CHANGELING);
-            if shares_color {
-                count += 1;
-            }
-        }
-        count
+        self.state.battlefield.iter()
+            .filter(|perm| perm.controller == player_id && !perm.tapped && perm.is_creature())
+            .filter(|perm| {
+                perm.card.colors().iter().any(|c| spell_colors.contains(c))
+                    || perm.has_keyword(crate::constants::KeywordAbilities::CHANGELING)
+            })
+            .count() as u32
     }
 
     fn pay_conspire_cost(&mut self, player_id: PlayerId, spell_colors: &[crate::constants::Color]) {
@@ -1305,14 +1272,12 @@ impl Game {
     }
 
     fn find_triggering_spell(&self, controller: PlayerId) -> Option<ObjectId> {
-        for item in self.state.stack.iter() {
-            if let crate::zones::StackItemKind::Spell { card } = &item.kind {
-                if item.controller == controller && (card.is_instant() || card.is_sorcery()) {
-                    return Some(item.id);
-                }
-            }
-        }
-        None
+        self.state.stack.iter()
+            .find(|item| {
+                item.controller == controller
+                    && matches!(&item.kind, crate::zones::StackItemKind::Spell { card } if card.is_instant() || card.is_sorcery())
+            })
+            .map(|item| item.id)
     }
 
     fn grant_keywords_to_spell(&mut self, spell_id: ObjectId, keywords: &[String]) {
@@ -1374,20 +1339,12 @@ impl Game {
         let exclude_self = msg.contains("other");
         let is_attacking = msg.contains("attacking");
 
-        let mut results = Vec::new();
-        for perm in self.state.battlefield.iter() {
-            if exclude_self && perm.id() == source_id {
-                continue;
-            }
-            if is_attacking && !self.state.combat.is_attacking(perm.id()) {
-                continue;
-            }
-            if !filter.matches_permanent(perm, controller) {
-                continue;
-            }
-            results.push(perm.id());
-        }
-        results
+        self.state.battlefield.iter()
+            .filter(|perm| !(exclude_self && perm.id() == source_id))
+            .filter(|perm| !is_attacking || self.state.combat.is_attacking(perm.id()))
+            .filter(|perm| filter.matches_permanent(perm, controller))
+            .map(|perm| perm.id())
+            .collect()
     }
 
     /// Check if a permanent entering the battlefield should enter tapped.
@@ -2528,13 +2485,11 @@ impl Game {
 
         // Check for playable lands
         if can_sorcery && player.can_play_land() {
-            for &card_id in player.hand.iter() {
-                if let Some(card) = self.state.card_store.get(card_id) {
-                    if card.is_land() {
-                        actions.push(crate::decision::PlayerAction::PlayLand { card_id });
-                    }
-                }
-            }
+            actions.extend(
+                player.hand.iter()
+                    .filter(|&&card_id| self.state.card_store.get(card_id).is_some_and(|c| c.is_land()))
+                    .map(|&card_id| crate::decision::PlayerAction::PlayLand { card_id })
+            );
         }
 
         // Check for castable spells
@@ -3133,16 +3088,12 @@ impl Game {
 
     /// Find the ward cost for a permanent (from its static abilities).
     fn find_ward_cost(&self, permanent_id: ObjectId) -> Option<String> {
-        for ability in self.state.ability_store.for_source(permanent_id) {
-            for effect in &ability.static_effects {
-                if let StaticEffect::Ward { cost } = effect {
-                    return Some(cost.clone());
-                }
-            }
-        }
-        // Also check if ward is granted via continuous keywords but has no explicit cost
-        // (e.g., GrantKeyword "ward" — in this case we can't enforce it without a cost value)
-        None
+        self.state.ability_store.for_source(permanent_id).into_iter()
+            .flat_map(|a| &a.static_effects)
+            .find_map(|effect| match effect {
+                StaticEffect::Ward { cost } => Some(cost.clone()),
+                _ => None,
+            })
     }
 
     /// Try to pay a ward cost. Returns true if the cost was paid.
@@ -3846,28 +3797,28 @@ impl Game {
                 }
                 Cost::Behold(creature_type) => {
                     let ct_lower = creature_type.to_lowercase();
-                    let mut candidates: Vec<ObjectId> = Vec::new();
-                    for perm in self.state.battlefield.controlled_by(player_id) {
-                        if perm.id() != source_id {
-                            if let Some(card) = self.state.card_store.get(perm.id()) {
-                                if card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
-                                    || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING) {
-                                    candidates.push(perm.id());
-                                }
-                            }
-                        }
-                    }
+                    let mut candidates: Vec<ObjectId> = self.state.battlefield.controlled_by(player_id)
+                        .filter(|perm| perm.id() != source_id)
+                        .filter_map(|perm| {
+                            self.state.card_store.get(perm.id()).and_then(|card| {
+                                (card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
+                                    || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING))
+                                .then_some(perm.id())
+                            })
+                        })
+                        .collect();
                     if let Some(player) = self.state.players.get(&player_id) {
-                        for &card_id in player.hand.iter() {
-                            if card_id != source_id {
-                                if let Some(card) = self.state.card_store.get(card_id) {
-                                    if card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
-                                        || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING) {
-                                        candidates.push(card_id);
-                                    }
-                                }
-                            }
-                        }
+                        candidates.extend(
+                            player.hand.iter()
+                                .filter(|&&card_id| card_id != source_id)
+                                .filter_map(|&card_id| {
+                                    self.state.card_store.get(card_id).and_then(|card| {
+                                        (card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
+                                            || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING))
+                                        .then_some(card_id)
+                                    })
+                                })
+                        );
                     }
                     if candidates.is_empty() {
                         return false;
@@ -3875,28 +3826,28 @@ impl Game {
                 }
                 Cost::BeholdAndExile(creature_type) => {
                     let ct_lower = creature_type.to_lowercase();
-                    let mut candidates: Vec<ObjectId> = Vec::new();
-                    for perm in self.state.battlefield.controlled_by(player_id) {
-                        if perm.id() != source_id {
-                            if let Some(card) = self.state.card_store.get(perm.id()) {
-                                if card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
-                                    || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING) {
-                                    candidates.push(perm.id());
-                                }
-                            }
-                        }
-                    }
+                    let mut candidates: Vec<ObjectId> = self.state.battlefield.controlled_by(player_id)
+                        .filter(|perm| perm.id() != source_id)
+                        .filter_map(|perm| {
+                            self.state.card_store.get(perm.id()).and_then(|card| {
+                                (card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
+                                    || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING))
+                                .then_some(perm.id())
+                            })
+                        })
+                        .collect();
                     if let Some(player) = self.state.players.get(&player_id) {
-                        for &card_id in player.hand.iter() {
-                            if card_id != source_id {
-                                if let Some(card) = self.state.card_store.get(card_id) {
-                                    if card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
-                                        || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING) {
-                                        candidates.push(card_id);
-                                    }
-                                }
-                            }
-                        }
+                        candidates.extend(
+                            player.hand.iter()
+                                .filter(|&&card_id| card_id != source_id)
+                                .filter_map(|&card_id| {
+                                    self.state.card_store.get(card_id).and_then(|card| {
+                                        (card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
+                                            || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING))
+                                        .then_some(card_id)
+                                    })
+                                })
+                        );
                     }
                     if candidates.is_empty() {
                         return false;
@@ -3916,28 +3867,28 @@ impl Game {
                 }
                 Cost::BeholdOrPay { creature_type, mana } => {
                     let ct_lower = creature_type.to_lowercase();
-                    let mut candidates: Vec<ObjectId> = Vec::new();
-                    for perm in self.state.battlefield.controlled_by(player_id) {
-                        if perm.id() != source_id {
-                            if let Some(card) = self.state.card_store.get(perm.id()) {
-                                if card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
-                                    || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING) {
-                                    candidates.push(perm.id());
-                                }
-                            }
-                        }
-                    }
+                    let mut candidates: Vec<ObjectId> = self.state.battlefield.controlled_by(player_id)
+                        .filter(|perm| perm.id() != source_id)
+                        .filter_map(|perm| {
+                            self.state.card_store.get(perm.id()).and_then(|card| {
+                                (card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
+                                    || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING))
+                                .then_some(perm.id())
+                            })
+                        })
+                        .collect();
                     if let Some(player) = self.state.players.get(&player_id) {
-                        for &card_id in player.hand.iter() {
-                            if card_id != source_id {
-                                if let Some(card) = self.state.card_store.get(card_id) {
-                                    if card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
-                                        || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING) {
-                                        candidates.push(card_id);
-                                    }
-                                }
-                            }
-                        }
+                        candidates.extend(
+                            player.hand.iter()
+                                .filter(|&&card_id| card_id != source_id)
+                                .filter_map(|&card_id| {
+                                    self.state.card_store.get(card_id).and_then(|card| {
+                                        (card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
+                                            || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING))
+                                        .then_some(card_id)
+                                    })
+                                })
+                        );
                     }
                     if !candidates.is_empty() {
                         // Behold is free; prefer it over paying mana
@@ -5083,18 +5034,14 @@ impl Game {
                     let found = if x > 0 {
                         if let Some(player) = self.state.players.get(&controller) {
                             let lib_cards: Vec<ObjectId> = player.library.iter().copied().collect();
-                            let mut result: Vec<ObjectId> = Vec::new();
-                            for &card_id in &lib_cards {
-                                if result.len() >= x {
-                                    break;
-                                }
-                                if let Some(c) = self.state.card_store.get(card_id) {
-                                    if crate::filters::Filter::parse("basic land").matches_card_ignore_controller(c) {
-                                        result.push(card_id);
-                                    }
-                                }
-                            }
-                            result
+                            lib_cards.iter()
+                                .filter_map(|&card_id| {
+                                    self.state.card_store.get(card_id)
+                                        .filter(|c| crate::filters::Filter::parse("basic land").matches_card_ignore_controller(c))
+                                        .map(|_| card_id)
+                                })
+                                .take(x)
+                                .collect()
                         } else { vec![] }
                     } else { vec![] };
                     if let Some(player) = self.state.players.get_mut(&controller) {
