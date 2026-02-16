@@ -4,10 +4,10 @@ use crate::game::*;
 use crate::abilities::{Ability, Effect, TargetSpec};
 use crate::card::CardData;
 use crate::constants::{CardType, Outcome, PhaseStep, TurnPhase};
-use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
+use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerAgent, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
 use crate::events::{EventType, GameEvent};
 use crate::permanent::Permanent;
-use crate::types::{ObjectId, PlayerId};
+use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
 #[cfg(test)]
     /// Decision maker that always passes and says yes to optional triggers.
@@ -61,8 +61,8 @@ use crate::types::{ObjectId, PlayerId};
     }
 
     fn setup(
-        p1_dm: Box<dyn PlayerDecisionMaker>,
-        p2_dm: Box<dyn PlayerDecisionMaker>,
+        p1_dm: PlayerAgent,
+        p2_dm: PlayerAgent,
     ) -> (Game, PlayerId, PlayerId) {
         let p1 = PlayerId::new();
         let p2 = PlayerId::new();
@@ -71,7 +71,7 @@ use crate::types::{ObjectId, PlayerId};
                 PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
                 PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
             ],
-            starting_life: 20,
+            starting_life: Life::new(20),
         };
         let game = Game::new_two_player(config, vec![(p1, p1_dm), (p2, p2_dm)]);
         (game, p1, p2)
@@ -80,16 +80,16 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn etb_trigger_fires_and_resolves() {
         let (mut game, p1, _p2) = setup(
-            Box::new(TriggerTestPlayer::passive()),
-            Box::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
         );
 
         // Create a creature with an ETB trigger: "When this enters, gain 3 life"
         let card_id = ObjectId::new();
         let mut card = CardData::new(card_id, p1, "Soul Warden");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(1);
-        card.toughness = Some(1);
+        card.power = Some(Power::new(1));
+        card.toughness = Some(Toughness::new(1));
         card.abilities.push(Ability::triggered(
             card_id,
             "When Soul Warden enters the battlefield, you gain 3 life.",
@@ -133,16 +133,16 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn attack_trigger_fires() {
         let (mut game, p1, p2) = setup(
-            Box::new(TriggerTestPlayer::attacker()),
-            Box::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::attacker()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
         );
 
         // Create creature with attack trigger: "Whenever this attacks, each opponent loses 1 life"
         let card_id = ObjectId::new();
         let mut card = CardData::new(card_id, p1, "Pulse Tracker");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(1);
-        card.toughness = Some(1);
+        card.power = Some(Power::new(1));
+        card.toughness = Some(Toughness::new(1));
         card.abilities.push(Ability::triggered(
             card_id,
             "Whenever Pulse Tracker attacks, each opponent loses 1 life.",
@@ -182,16 +182,16 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn life_gain_trigger_fires() {
         let (mut game, p1, _p2) = setup(
-            Box::new(TriggerTestPlayer::passive()),
-            Box::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
         );
 
         // Create "Ajani's Pridemate" — whenever you gain life, put a +1/+1 counter
         let card_id = ObjectId::new();
         let mut card = CardData::new(card_id, p1, "Ajani's Pridemate");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(2);
-        card.toughness = Some(2);
+        card.power = Some(Power::new(2));
+        card.toughness = Some(Toughness::new(2));
         card.abilities.push(Ability::triggered(
             card_id,
             "Whenever you gain life, put a +1/+1 counter on Ajani's Pridemate.",
@@ -228,16 +228,16 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn optional_trigger_not_forced() {
         let (mut game, p1, _p2) = setup(
-            Box::new(TriggerTestPlayer::passive()),
-            Box::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
         );
 
         // A "may" trigger that the player says yes to (TriggerTestPlayer says yes)
         let card_id = ObjectId::new();
         let mut card = CardData::new(card_id, p1, "Optional Creature");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(1);
-        card.toughness = Some(1);
+        card.power = Some(Power::new(1));
+        card.toughness = Some(Toughness::new(1));
         let ability = Ability::triggered(
             card_id,
             "When Optional Creature enters, you may gain 2 life.",
@@ -267,16 +267,16 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn trigger_only_fires_for_own_permanent() {
         let (mut game, p1, p2) = setup(
-            Box::new(TriggerTestPlayer::passive()),
-            Box::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
         );
 
         // p1's creature has attack trigger
         let card_id = ObjectId::new();
         let mut card = CardData::new(card_id, p1, "TriggerCreature");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(2);
-        card.toughness = Some(2);
+        card.power = Some(Power::new(2));
+        card.toughness = Some(Toughness::new(2));
         card.abilities.push(Ability::triggered(
             card_id,
             "Whenever TriggerCreature attacks, gain 1 life.",
@@ -297,8 +297,8 @@ use crate::types::{ObjectId, PlayerId};
         let other_id = ObjectId::new();
         let mut other = CardData::new(other_id, p2, "Other");
         other.card_types = vec![CardType::Creature];
-        other.power = Some(1);
-        other.toughness = Some(1);
+        other.power = Some(Power::new(1));
+        other.toughness = Some(Toughness::new(1));
         let mut perm2 = Permanent::new(other, p2);
         perm2.remove_summoning_sickness();
         game.state.battlefield.add(perm2);
@@ -355,11 +355,11 @@ use crate::types::{ObjectId, PlayerId};
                 PlayerConfig { name: "Player1".into(), deck: make_deck2(p1) },
                 PlayerConfig { name: "Player2".into(), deck: make_deck2(p2) },
             ],
-            starting_life: 20,
+            starting_life: Life::new(20),
         };
         let game = Game::new_two_player(
             config,
-            vec![(p1, Box::new(PassivePlayer)), (p2, Box::new(PassivePlayer))],
+            vec![(p1, PlayerAgent::new(PassivePlayer)), (p2, PlayerAgent::new(PassivePlayer))],
         );
         (game, p1, p2)
     }
@@ -371,8 +371,8 @@ use crate::types::{ObjectId, PlayerId};
         // Create a creature with "When this creature dies, draw a card"
         let mut card = CardData::new(ObjectId::new(), p1, "Doomed Traveler");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(1);
-        card.toughness = Some(1);
+        card.power = Some(Power::new(1));
+        card.toughness = Some(Toughness::new(1));
         let id = card.id;
         card.abilities = vec![
             Ability::triggered(id, "When Doomed Traveler dies, draw a card.",
@@ -403,15 +403,15 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn dies_trigger_fires_on_destroy_effect() {
         let (mut game, p1, p2) = setup(
-            Box::new(PassivePlayer),
-            Box::new(PassivePlayer),
+            PlayerAgent::new(PassivePlayer),
+            PlayerAgent::new(PassivePlayer),
         );
 
         // Create a creature with dies trigger controlled by p2
         let mut card = CardData::new(ObjectId::new(), p2, "Blood Artist");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(0);
-        card.toughness = Some(1);
+        card.power = Some(Power::new(0));
+        card.toughness = Some(Toughness::new(1));
         let id = card.id;
         card.abilities = vec![
             Ability::triggered(id, "When Blood Artist dies, opponent loses 1 life.",
@@ -443,15 +443,15 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn dies_trigger_only_for_dying_creature() {
         let (mut game, p1, _p2) = setup(
-            Box::new(PassivePlayer),
-            Box::new(PassivePlayer),
+            PlayerAgent::new(PassivePlayer),
+            PlayerAgent::new(PassivePlayer),
         );
 
         // Creature A has a dies trigger
         let mut card_a = CardData::new(ObjectId::new(), p1, "Creature A");
         card_a.card_types = vec![CardType::Creature];
-        card_a.power = Some(1);
-        card_a.toughness = Some(1);
+        card_a.power = Some(Power::new(1));
+        card_a.toughness = Some(Toughness::new(1));
         let id_a = card_a.id;
         card_a.abilities = vec![
             Ability::triggered(id_a, "When this dies, draw a card.",
@@ -468,8 +468,8 @@ use crate::types::{ObjectId, PlayerId};
         // Creature B has NO dies trigger
         let mut card_b = CardData::new(ObjectId::new(), p1, "Creature B");
         card_b.card_types = vec![CardType::Creature];
-        card_b.power = Some(1);
-        card_b.toughness = Some(1);
+        card_b.power = Some(Power::new(1));
+        card_b.toughness = Some(Toughness::new(1));
         let id_b = card_b.id;
         let perm_b = Permanent::new(card_b, p1);
         game.state.battlefield.add(perm_b);
@@ -506,11 +506,11 @@ use crate::types::{ObjectId, PlayerId};
                 PlayerConfig { name: "A".into(), deck: make_deck(p1) },
                 PlayerConfig { name: "B".into(), deck: make_deck(p2) },
             ],
-            starting_life: 20,
+            starting_life: Life::new(20),
         };
         let mut game = Game::new_two_player(
             config,
-            vec![(p1, Box::new(PassivePlayer)), (p2, Box::new(PassivePlayer))],
+            vec![(p1, PlayerAgent::new(PassivePlayer)), (p2, PlayerAgent::new(PassivePlayer))],
         );
         game.state.active_player = p1;
         game.state.priority_player = p1;
@@ -519,8 +519,8 @@ use crate::types::{ObjectId, PlayerId};
         let creature_id = ObjectId::new();
         let mut card = CardData::new(creature_id, p1, "Upkeep Healer");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(1);
-        card.toughness = Some(1);
+        card.power = Some(Power::new(1));
+        card.toughness = Some(Toughness::new(1));
         let perm = Permanent::new(card.clone(), p1);
         game.state.battlefield.add(perm);
         game.state.card_store.insert(card);
@@ -559,11 +559,11 @@ use crate::types::{ObjectId, PlayerId};
                 PlayerConfig { name: "A".into(), deck: make_deck(p1) },
                 PlayerConfig { name: "B".into(), deck: make_deck(p2) },
             ],
-            starting_life: 20,
+            starting_life: Life::new(20),
         };
         let mut game = Game::new_two_player(
             config,
-            vec![(p1, Box::new(PassivePlayer)), (p2, Box::new(PassivePlayer))],
+            vec![(p1, PlayerAgent::new(PassivePlayer)), (p2, PlayerAgent::new(PassivePlayer))],
         );
         game.state.active_player = p1;
         game.state.priority_player = p1;
@@ -572,8 +572,8 @@ use crate::types::{ObjectId, PlayerId};
         let creature_id = ObjectId::new();
         let mut card = CardData::new(creature_id, p1, "End Step Draw");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(2);
-        card.toughness = Some(2);
+        card.power = Some(Power::new(2));
+        card.toughness = Some(Toughness::new(2));
         let perm = Permanent::new(card.clone(), p1);
         game.state.battlefield.add(perm);
         game.state.card_store.insert(card);
@@ -612,11 +612,11 @@ use crate::types::{ObjectId, PlayerId};
                 PlayerConfig { name: "A".into(), deck: make_deck(p1) },
                 PlayerConfig { name: "B".into(), deck: make_deck(p2) },
             ],
-            starting_life: 20,
+            starting_life: Life::new(20),
         };
         let mut game = Game::new_two_player(
             config,
-            vec![(p1, Box::new(PassivePlayer)), (p2, Box::new(PassivePlayer))],
+            vec![(p1, PlayerAgent::new(PassivePlayer)), (p2, PlayerAgent::new(PassivePlayer))],
         );
         game.state.active_player = p1;
         game.state.priority_player = p1;
@@ -625,8 +625,8 @@ use crate::types::{ObjectId, PlayerId};
         let creature_id = ObjectId::new();
         let mut card = CardData::new(creature_id, p2, "Opponent Healer");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(1);
-        card.toughness = Some(1);
+        card.power = Some(Power::new(1));
+        card.toughness = Some(Toughness::new(1));
         let perm = Permanent::new(card.clone(), p2);
         game.state.battlefield.add(perm);
         game.state.card_store.insert(card);
@@ -659,7 +659,7 @@ use crate::types::{ObjectId, PlayerId};
         let p1 = PlayerId::new();
         let p2 = PlayerId::new();
         let config = GameConfig {
-            starting_life: 20,
+            starting_life: Life::new(20),
             players: vec![
                 PlayerConfig { name: "P1".into(), deck: vec![] },
                 PlayerConfig { name: "P2".into(), deck: vec![] },
@@ -668,8 +668,8 @@ use crate::types::{ObjectId, PlayerId};
         let mut game = Game::new_two_player(
             config,
             vec![
-                (p1, Box::new(PassivePlayer)),
-                (p2, Box::new(PassivePlayer)),
+                (p1, PlayerAgent::new(PassivePlayer)),
+                (p2, PlayerAgent::new(PassivePlayer)),
             ],
         );
         game.state.active_player = p1;
@@ -694,8 +694,8 @@ use crate::types::{ObjectId, PlayerId};
         let creature_id = ObjectId::new();
         let mut card = CardData::new(creature_id, p1, "Doomed Creature");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(2);
-        card.toughness = Some(2);
+        card.power = Some(Power::new(2));
+        card.toughness = Some(Toughness::new(2));
         let perm = Permanent::new(card.clone(), p1);
         game.state.battlefield.add(perm);
         game.state.card_store.insert(card);
@@ -730,16 +730,16 @@ use crate::types::{ObjectId, PlayerId};
         let watched_id = ObjectId::new();
         let mut watched_card = CardData::new(watched_id, p1, "Watched");
         watched_card.card_types = vec![CardType::Creature];
-        watched_card.power = Some(2);
-        watched_card.toughness = Some(2);
+        watched_card.power = Some(Power::new(2));
+        watched_card.toughness = Some(Toughness::new(2));
         game.state.battlefield.add(Permanent::new(watched_card.clone(), p1));
         game.state.card_store.insert(watched_card);
 
         let other_id = ObjectId::new();
         let mut other_card = CardData::new(other_id, p2, "Other");
         other_card.card_types = vec![CardType::Creature];
-        other_card.power = Some(2);
-        other_card.toughness = Some(2);
+        other_card.power = Some(Power::new(2));
+        other_card.toughness = Some(Toughness::new(2));
         game.state.battlefield.add(Permanent::new(other_card.clone(), p2));
         game.state.card_store.insert(other_card);
 
@@ -816,15 +816,15 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn other_creature_etb_trigger_fires() {
         let (mut game, p1, _p2) = setup(
-            Box::new(TriggerTestPlayer::passive()),
-            Box::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
         );
 
         let warden_id = ObjectId::new();
         let mut warden = CardData::new(warden_id, p1, "Warden");
         warden.card_types = vec![CardType::Creature];
-        warden.power = Some(1);
-        warden.toughness = Some(1);
+        warden.power = Some(Power::new(1));
+        warden.toughness = Some(Toughness::new(1));
         warden.abilities.push(Ability::other_creature_etb_triggered(
             warden_id,
             "Whenever another creature enters under your control, gain 1 life.",
@@ -840,8 +840,8 @@ use crate::types::{ObjectId, PlayerId};
         let bear_id = ObjectId::new();
         let mut bear = CardData::new(bear_id, p1, "Bear");
         bear.card_types = vec![CardType::Creature];
-        bear.power = Some(2);
-        bear.toughness = Some(2);
+        bear.power = Some(Power::new(2));
+        bear.toughness = Some(Toughness::new(2));
         game.state.card_store.insert(bear.clone());
         let perm2 = Permanent::new(bear, p1);
         game.state.battlefield.add(perm2);
@@ -858,15 +858,15 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn other_creature_etb_does_not_trigger_for_self() {
         let (mut game, p1, _p2) = setup(
-            Box::new(TriggerTestPlayer::passive()),
-            Box::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
         );
 
         let warden_id = ObjectId::new();
         let mut warden = CardData::new(warden_id, p1, "Warden");
         warden.card_types = vec![CardType::Creature];
-        warden.power = Some(1);
-        warden.toughness = Some(1);
+        warden.power = Some(Power::new(1));
+        warden.toughness = Some(Toughness::new(1));
         warden.abilities.push(Ability::other_creature_etb_triggered(
             warden_id,
             "Whenever another creature enters under your control, gain 1 life.",
@@ -887,15 +887,15 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn other_creature_etb_does_not_trigger_for_opponent() {
         let (mut game, p1, p2) = setup(
-            Box::new(TriggerTestPlayer::passive()),
-            Box::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
         );
 
         let warden_id = ObjectId::new();
         let mut warden = CardData::new(warden_id, p1, "Warden");
         warden.card_types = vec![CardType::Creature];
-        warden.power = Some(1);
-        warden.toughness = Some(1);
+        warden.power = Some(Power::new(1));
+        warden.toughness = Some(Toughness::new(1));
         warden.abilities.push(Ability::other_creature_etb_triggered(
             warden_id,
             "Whenever another creature enters under your control, gain 1 life.",
@@ -911,8 +911,8 @@ use crate::types::{ObjectId, PlayerId};
         let bear_id = ObjectId::new();
         let mut bear = CardData::new(bear_id, p2, "Bear");
         bear.card_types = vec![CardType::Creature];
-        bear.power = Some(2);
-        bear.toughness = Some(2);
+        bear.power = Some(Power::new(2));
+        bear.toughness = Some(Toughness::new(2));
         game.state.card_store.insert(bear.clone());
         let perm2 = Permanent::new(bear, p2);
         game.state.battlefield.add(perm2);
@@ -926,15 +926,15 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn graveyard_etb_trigger_fires_from_graveyard() {
         let (mut game, p1, _p2) = setup(
-            Box::new(TriggerTestPlayer::passive()),
-            Box::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
         );
 
         let diviner_id = ObjectId::new();
         let mut diviner = CardData::new(diviner_id, p1, "Diviner");
         diviner.card_types = vec![CardType::Creature];
-        diviner.power = Some(3);
-        diviner.toughness = Some(3);
+        diviner.power = Some(Power::new(3));
+        diviner.toughness = Some(Toughness::new(3));
         diviner.abilities.push(
             Ability::other_creature_etb_from_graveyard_triggered(
                 diviner_id,
@@ -952,8 +952,8 @@ use crate::types::{ObjectId, PlayerId};
         let bear_id = ObjectId::new();
         let mut bear = CardData::new(bear_id, p1, "Bear");
         bear.card_types = vec![CardType::Creature];
-        bear.power = Some(2);
-        bear.toughness = Some(2);
+        bear.power = Some(Power::new(2));
+        bear.toughness = Some(Toughness::new(2));
         game.state.card_store.insert(bear.clone());
         let perm2 = Permanent::new(bear, p1);
         game.state.battlefield.add(perm2);
@@ -971,15 +971,15 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn graveyard_etb_trigger_does_not_fire_from_hand() {
         let (mut game, p1, _p2) = setup(
-            Box::new(TriggerTestPlayer::passive()),
-            Box::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
         );
 
         let diviner_id = ObjectId::new();
         let mut diviner = CardData::new(diviner_id, p1, "Diviner");
         diviner.card_types = vec![CardType::Creature];
-        diviner.power = Some(3);
-        diviner.toughness = Some(3);
+        diviner.power = Some(Power::new(3));
+        diviner.toughness = Some(Toughness::new(3));
         diviner.abilities.push(
             Ability::other_creature_etb_from_graveyard_triggered(
                 diviner_id,
@@ -997,8 +997,8 @@ use crate::types::{ObjectId, PlayerId};
         let bear_id = ObjectId::new();
         let mut bear = CardData::new(bear_id, p1, "Bear");
         bear.card_types = vec![CardType::Creature];
-        bear.power = Some(2);
-        bear.toughness = Some(2);
+        bear.power = Some(Power::new(2));
+        bear.toughness = Some(Toughness::new(2));
         game.state.card_store.insert(bear.clone());
         let perm2 = Permanent::new(bear, p1);
         game.state.battlefield.add(perm2);
@@ -1012,15 +1012,15 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn once_per_turn_trigger_only_fires_once() {
         let (mut game, p1, _p2) = setup(
-            Box::new(TriggerTestPlayer::passive()),
-            Box::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
         );
 
         let diviner_id = ObjectId::new();
         let mut diviner = CardData::new(diviner_id, p1, "Diviner");
         diviner.card_types = vec![CardType::Creature];
-        diviner.power = Some(3);
-        diviner.toughness = Some(3);
+        diviner.power = Some(Power::new(3));
+        diviner.toughness = Some(Toughness::new(3));
         diviner.abilities.push(
             Ability::other_creature_etb_from_graveyard_triggered(
                 diviner_id,
@@ -1038,8 +1038,8 @@ use crate::types::{ObjectId, PlayerId};
         let bear1_id = ObjectId::new();
         let mut bear1 = CardData::new(bear1_id, p1, "Bear1");
         bear1.card_types = vec![CardType::Creature];
-        bear1.power = Some(2);
-        bear1.toughness = Some(2);
+        bear1.power = Some(Power::new(2));
+        bear1.toughness = Some(Toughness::new(2));
         game.state.card_store.insert(bear1.clone());
         let perm2 = Permanent::new(bear1, p1);
         game.state.battlefield.add(perm2);
@@ -1054,8 +1054,8 @@ use crate::types::{ObjectId, PlayerId};
         let bear2_id = ObjectId::new();
         let mut bear2 = CardData::new(bear2_id, p1, "Bear2");
         bear2.card_types = vec![CardType::Creature];
-        bear2.power = Some(2);
-        bear2.toughness = Some(2);
+        bear2.power = Some(Power::new(2));
+        bear2.toughness = Some(Toughness::new(2));
         game.state.card_store.insert(bear2.clone());
         let perm3 = Permanent::new(bear2, p1);
         game.state.battlefield.add(perm3);
@@ -1070,15 +1070,15 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn once_per_turn_resets_on_new_turn() {
         let (mut game, p1, _p2) = setup(
-            Box::new(TriggerTestPlayer::passive()),
-            Box::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
         );
 
         let diviner_id = ObjectId::new();
         let mut diviner = CardData::new(diviner_id, p1, "Diviner");
         diviner.card_types = vec![CardType::Creature];
-        diviner.power = Some(3);
-        diviner.toughness = Some(3);
+        diviner.power = Some(Power::new(3));
+        diviner.toughness = Some(Toughness::new(3));
         diviner.abilities.push(
             Ability::other_creature_etb_from_graveyard_triggered(
                 diviner_id,
@@ -1096,8 +1096,8 @@ use crate::types::{ObjectId, PlayerId};
         let bear1_id = ObjectId::new();
         let mut bear1 = CardData::new(bear1_id, p1, "Bear1");
         bear1.card_types = vec![CardType::Creature];
-        bear1.power = Some(2);
-        bear1.toughness = Some(2);
+        bear1.power = Some(Power::new(2));
+        bear1.toughness = Some(Toughness::new(2));
         game.state.card_store.insert(bear1.clone());
         let perm2 = Permanent::new(bear1, p1);
         game.state.battlefield.add(perm2);
@@ -1113,8 +1113,8 @@ use crate::types::{ObjectId, PlayerId};
         let bear2_id = ObjectId::new();
         let mut bear2 = CardData::new(bear2_id, p1, "Bear2");
         bear2.card_types = vec![CardType::Creature];
-        bear2.power = Some(2);
-        bear2.toughness = Some(2);
+        bear2.power = Some(Power::new(2));
+        bear2.toughness = Some(Toughness::new(2));
         game.state.card_store.insert(bear2.clone());
         let perm3 = Permanent::new(bear2, p1);
         game.state.battlefield.add(perm3);
@@ -1130,15 +1130,15 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn create_token_copy_of_triggering_copies_creature() {
         let (mut game, p1, _p2) = setup(
-            Box::new(TriggerTestPlayer::passive()),
-            Box::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
         );
 
         let diviner_id = ObjectId::new();
         let mut diviner = CardData::new(diviner_id, p1, "Diviner");
         diviner.card_types = vec![CardType::Creature];
-        diviner.power = Some(3);
-        diviner.toughness = Some(3);
+        diviner.power = Some(Power::new(3));
+        diviner.toughness = Some(Toughness::new(3));
         diviner.abilities.push(
             Ability::other_creature_etb_from_graveyard_triggered(
                 diviner_id,
@@ -1156,8 +1156,8 @@ use crate::types::{ObjectId, PlayerId};
         let dragon_id = ObjectId::new();
         let mut dragon = CardData::new(dragon_id, p1, "Big Dragon");
         dragon.card_types = vec![CardType::Creature];
-        dragon.power = Some(5);
-        dragon.toughness = Some(5);
+        dragon.power = Some(Power::new(5));
+        dragon.toughness = Some(Toughness::new(5));
         dragon.keywords = crate::constants::KeywordAbilities::FLYING;
         game.state.card_store.insert(dragon.clone());
         let perm2 = Permanent::new(dragon, p1);
@@ -1174,8 +1174,8 @@ use crate::types::{ObjectId, PlayerId};
             .collect();
         assert_eq!(tokens.len(), 1, "Should create exactly one token copy");
         let token = &tokens[0];
-        assert_eq!(token.card.power, Some(5));
-        assert_eq!(token.card.toughness, Some(5));
+        assert_eq!(token.card.power, Some(Power::new(5)));
+        assert_eq!(token.card.toughness, Some(Toughness::new(5)));
         assert!(token.card.keywords.contains(crate::constants::KeywordAbilities::FLYING));
         assert_eq!(token.controller, p1);
     }
@@ -1183,15 +1183,15 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn reanimate_emits_etb_event() {
         let (mut game, p1, _p2) = setup(
-            Box::new(TriggerTestPlayer::passive()),
-            Box::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
         );
 
         let warden_id = ObjectId::new();
         let mut warden = CardData::new(warden_id, p1, "Warden");
         warden.card_types = vec![CardType::Creature];
-        warden.power = Some(1);
-        warden.toughness = Some(1);
+        warden.power = Some(Power::new(1));
+        warden.toughness = Some(Toughness::new(1));
         warden.abilities.push(Ability::enters_battlefield_triggered(
             warden_id,
             "When enters, gain 3 life.",
@@ -1254,15 +1254,15 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn controlled_creature_attacks_trigger_fires_for_other_creature() {
         let (mut game, p1, _p2) = setup(
-            Box::new(TriggerTestPlayer::passive()),
-            Box::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
         );
 
         let doran_id = ObjectId::new();
         let mut doran = CardData::new(doran_id, p1, "Doran");
         doran.card_types = vec![CardType::Creature];
-        doran.power = Some(0);
-        doran.toughness = Some(5);
+        doran.power = Some(Power::new(0));
+        doran.toughness = Some(Toughness::new(5));
         doran.abilities.push(Ability::controlled_creature_attacks_or_blocks_triggered(
             doran_id,
             "Whenever a creature you control attacks or blocks, you gain 1 life.",
@@ -1280,8 +1280,8 @@ use crate::types::{ObjectId, PlayerId};
         let other_id = ObjectId::new();
         let mut other = CardData::new(other_id, p1, "Other Creature");
         other.card_types = vec![CardType::Creature];
-        other.power = Some(2);
-        other.toughness = Some(2);
+        other.power = Some(Power::new(2));
+        other.toughness = Some(Toughness::new(2));
         game.state.card_store.insert(other.clone());
         let mut perm2 = Permanent::new(other, p1);
         perm2.remove_summoning_sickness();
@@ -1302,15 +1302,15 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn controlled_creature_attacks_trigger_not_for_opponent() {
         let (mut game, p1, p2) = setup(
-            Box::new(TriggerTestPlayer::passive()),
-            Box::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
         );
 
         let doran_id = ObjectId::new();
         let mut doran = CardData::new(doran_id, p1, "Doran");
         doran.card_types = vec![CardType::Creature];
-        doran.power = Some(0);
-        doran.toughness = Some(5);
+        doran.power = Some(Power::new(0));
+        doran.toughness = Some(Toughness::new(5));
         doran.abilities.push(Ability::controlled_creature_attacks_or_blocks_triggered(
             doran_id,
             "Whenever a creature you control attacks or blocks, you gain 1 life.",
@@ -1327,8 +1327,8 @@ use crate::types::{ObjectId, PlayerId};
         let enemy_id = ObjectId::new();
         let mut enemy = CardData::new(enemy_id, p2, "Enemy Creature");
         enemy.card_types = vec![CardType::Creature];
-        enemy.power = Some(3);
-        enemy.toughness = Some(3);
+        enemy.power = Some(Power::new(3));
+        enemy.toughness = Some(Toughness::new(3));
         game.state.card_store.insert(enemy.clone());
         let mut perm2 = Permanent::new(enemy, p2);
         perm2.remove_summoning_sickness();
@@ -1347,15 +1347,15 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn blocker_declared_trigger_fires() {
         let (mut game, p1, _p2) = setup(
-            Box::new(TriggerTestPlayer::passive()),
-            Box::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
+            PlayerAgent::new(TriggerTestPlayer::passive()),
         );
 
         let doran_id = ObjectId::new();
         let mut doran = CardData::new(doran_id, p1, "Doran");
         doran.card_types = vec![CardType::Creature];
-        doran.power = Some(0);
-        doran.toughness = Some(5);
+        doran.power = Some(Power::new(0));
+        doran.toughness = Some(Toughness::new(5));
         doran.abilities.push(Ability::controlled_creature_attacks_or_blocks_triggered(
             doran_id,
             "Whenever a creature you control attacks or blocks, you gain 1 life.",
@@ -1372,8 +1372,8 @@ use crate::types::{ObjectId, PlayerId};
         let blocker_id = ObjectId::new();
         let mut blocker = CardData::new(blocker_id, p1, "Blocker");
         blocker.card_types = vec![CardType::Creature];
-        blocker.power = Some(1);
-        blocker.toughness = Some(4);
+        blocker.power = Some(Power::new(1));
+        blocker.toughness = Some(Toughness::new(4));
         game.state.card_store.insert(blocker.clone());
         let perm2 = Permanent::new(blocker, p1);
         game.state.battlefield.add(perm2);
@@ -1416,8 +1416,8 @@ use crate::types::{ObjectId, PlayerId};
         let creature_id = ObjectId::new();
         let mut card = CardData::new(creature_id, p1, "Attacker");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(2);
-        card.toughness = Some(2);
+        card.power = Some(Power::new(2));
+        card.toughness = Some(Toughness::new(2));
         let perm = Permanent::new(card.clone(), p1);
         game.state.battlefield.add(perm);
         game.state.card_store.insert(card);
@@ -1461,16 +1461,16 @@ use crate::types::{ObjectId, PlayerId};
         let creature1_id = ObjectId::new();
         let mut c1 = CardData::new(creature1_id, p1, "Attacker A");
         c1.card_types = vec![CardType::Creature];
-        c1.power = Some(2);
-        c1.toughness = Some(2);
+        c1.power = Some(Power::new(2));
+        c1.toughness = Some(Toughness::new(2));
         game.state.battlefield.add(Permanent::new(c1.clone(), p1));
         game.state.card_store.insert(c1);
 
         let creature2_id = ObjectId::new();
         let mut c2 = CardData::new(creature2_id, p1, "Attacker B");
         c2.card_types = vec![CardType::Creature];
-        c2.power = Some(3);
-        c2.toughness = Some(3);
+        c2.power = Some(Power::new(3));
+        c2.toughness = Some(Toughness::new(3));
         game.state.battlefield.add(Permanent::new(c2.clone(), p1));
         game.state.card_store.insert(c2);
 
@@ -1512,8 +1512,8 @@ use crate::types::{ObjectId, PlayerId};
         let opp_creature = ObjectId::new();
         let mut oc = CardData::new(opp_creature, p2, "Enemy");
         oc.card_types = vec![CardType::Creature];
-        oc.power = Some(4);
-        oc.toughness = Some(4);
+        oc.power = Some(Power::new(4));
+        oc.toughness = Some(Toughness::new(4));
         game.state.battlefield.add(Permanent::new(oc.clone(), p2));
         game.state.card_store.insert(oc);
 

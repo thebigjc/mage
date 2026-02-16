@@ -13,7 +13,7 @@ use crate::constants::{AbilityType, Zone};
 use crate::events::{EventType, GameEvent};
 use crate::filters::Filter;
 use crate::mana::Mana;
-use crate::types::{AbilityId, ObjectId};
+use crate::types::{AbilityId, ObjectId, Power, Toughness};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -198,13 +198,13 @@ pub enum Effect {
 
     // -- Stats --
     /// Give +N/+M until end of turn.
-    BoostUntilEndOfTurn { power: i32, toughness: i32 },
+    BoostUntilEndOfTurn { power: Power, toughness: Toughness },
     /// Give +N/+M permanently (e.g. from counters, applied differently).
-    BoostPermanent { power: i32, toughness: i32 },
+    BoostPermanent { power: Power, toughness: Toughness },
     /// Give all matching creatures +N/+M until end of turn.
-    BoostAllUntilEndOfTurn { filter: Filter, power: i32, toughness: i32 },
+    BoostAllUntilEndOfTurn { filter: Filter, power: Power, toughness: Toughness },
     /// Set power and toughness.
-    SetPowerToughness { power: i32, toughness: i32 },
+    SetPowerToughness { power: Power, toughness: Toughness },
     /// Give target creature +X/+X until end of turn, where X = |toughness - power|.
     BoostByToughnessMinusPower,
 
@@ -221,7 +221,7 @@ pub enum Effect {
     LoseAllAbilities,
     /// Set base power and toughness of all creatures matching filter.
     /// Used for mass P/T setting effects like "each creature target opponent controls has base power and toughness 1/1".
-    SetBasePowerToughnessAll { power: i32, toughness: i32, filter: Filter },
+    SetBasePowerToughnessAll { power: Power, toughness: Toughness, filter: Filter },
     /// Remove all abilities from all creatures matching filter.
     LoseAllAbilitiesAll { filter: Filter },
     /// Add a subtype to all creatures matching filter ("becomes X in addition to its other types").
@@ -448,8 +448,8 @@ pub enum Effect {
     /// Sets base power/toughness and adds the Creature card type.
     /// Retains existing types (e.g. artifact stays artifact).
     BecomesCreature {
-        power: i32,
-        toughness: i32,
+        power: Power,
+        toughness: Toughness,
     },
 
     // -- Transform (DFC) --
@@ -1088,7 +1088,7 @@ impl Effect {
 
     /// "Target creature gets +N/+M until end of turn."
     pub fn boost_until_eot(power: i32, toughness: i32) -> Self {
-        Effect::BoostUntilEndOfTurn { power, toughness }
+        Effect::BoostUntilEndOfTurn { power: Power::new(power), toughness: Toughness::new(toughness) }
     }
 
     pub fn boost_by_toughness_minus_power() -> Self {
@@ -1097,15 +1097,15 @@ impl Effect {
 
     /// "Target creature gets +N/+M."
     pub fn boost_permanent(power: i32, toughness: i32) -> Self {
-        Effect::BoostPermanent { power, toughness }
+        Effect::BoostPermanent { power: Power::new(power), toughness: Toughness::new(toughness) }
     }
 
     /// "Creatures [matching filter] get +N/+M until end of turn."
     pub fn boost_all_eot(filter: &str, power: i32, toughness: i32) -> Self {
         Effect::BoostAllUntilEndOfTurn {
             filter: Filter::parse(filter),
-            power,
-            toughness,
+            power: Power::new(power),
+            toughness: Toughness::new(toughness),
         }
     }
 
@@ -1259,7 +1259,7 @@ impl Effect {
 
     /// "Set power and toughness."
     pub fn set_pt(power: i32, toughness: i32) -> Self {
-        Effect::SetPowerToughness { power, toughness }
+        Effect::SetPowerToughness { power: Power::new(power), toughness: Toughness::new(toughness) }
     }
 
     /// "Destroy all creatures" (or other filter).
@@ -1587,8 +1587,8 @@ impl Effect {
     /// Set base P/T of all creatures matching a filter.
     pub fn set_base_pt_all(power: i32, toughness: i32, filter: &str) -> Self {
         Effect::SetBasePowerToughnessAll {
-            power,
-            toughness,
+            power: Power::new(power),
+            toughness: Toughness::new(toughness),
             filter: Filter::parse(filter),
         }
     }
@@ -1636,7 +1636,7 @@ impl Effect {
     }
 
     pub fn becomes_creature(power: i32, toughness: i32) -> Self {
-        Effect::BecomesCreature { power, toughness }
+        Effect::BecomesCreature { power: Power::new(power), toughness: Toughness::new(toughness) }
     }
 
     pub fn put_from_hand_tapped_attacking_dynamic(dynamic_source: &str) -> Self {
@@ -1763,8 +1763,8 @@ impl StaticEffect {
     pub fn boost_controlled(filter: &str, power: i32, toughness: i32) -> Self {
         StaticEffect::Boost {
             filter: Filter::parse(filter),
-            power,
-            toughness,
+            power: Power::new(power),
+            toughness: Toughness::new(toughness),
         }
     }
 
@@ -1845,8 +1845,8 @@ impl StaticEffect {
     pub fn set_base_pt(filter: &str, power: i32, toughness: i32) -> Self {
         StaticEffect::SetBasePowerToughness {
             filter: Filter::parse(filter),
-            power,
-            toughness,
+            power: Power::new(power),
+            toughness: Toughness::new(toughness),
         }
     }
 
@@ -1937,8 +1937,8 @@ impl StaticEffect {
         StaticEffect::BoostPerTurnEvent {
             filter: Filter::parse(filter),
             event: event.to_string(),
-            power_per,
-            toughness_per,
+            power_per: Power::new(power_per),
+            toughness_per: Toughness::new(toughness_per),
         }
     }
 
@@ -2079,8 +2079,8 @@ pub enum StaticEffect {
     /// Boost P/T of matching permanents.
     Boost {
         filter: Filter,
-        power: i32,
-        toughness: i32,
+        power: Power,
+        toughness: Toughness,
     },
     /// Grant a keyword to matching permanents.
     GrantKeyword {
@@ -2140,7 +2140,7 @@ pub enum StaticEffect {
     },
     /// This creature can't be blocked by creatures with power less than or equal to N (daunt).
     CantBeBlockedByPowerLessOrEqual {
-        power: i32,
+        power: Power,
     },
     /// This creature must be blocked if able.
     MustBeBlocked,
@@ -2160,14 +2160,14 @@ pub enum StaticEffect {
     },
     /// Conditional P/T boost on self when a condition is met.
     ConditionalBoostSelf {
-        power: i32,
-        toughness: i32,
+        power: Power,
+        toughness: Toughness,
         condition: String,
     },
     BoostPerCount {
         count_filter: Filter,
-        power_per: i32,
-        toughness_per: i32,
+        power_per: Power,
+        toughness_per: Toughness,
     },
     /// Target/enchanted creature loses all abilities (continuous version for auras).
     LoseAllAbilities {
@@ -2176,8 +2176,8 @@ pub enum StaticEffect {
     /// Set base power and toughness of matching permanents (Layer 7b continuous override).
     SetBasePowerToughness {
         filter: Filter,
-        power: i32,
-        toughness: i32,
+        power: Power,
+        toughness: Toughness,
     },
     /// Prevent matching permanents from untapping during their controller's untap step.
     CantUntap {
@@ -2226,8 +2226,8 @@ pub enum StaticEffect {
     BoostPerTurnEvent {
         filter: Filter,
         event: String,
-        power_per: i32,
-        toughness_per: i32,
+        power_per: Power,
+        toughness_per: Toughness,
     },
     /// Once each turn, you may cast a spell from this source's exile zone without paying
     /// its mana cost if its mana value is <= the count of permanents matching the filter.
@@ -2273,8 +2273,8 @@ pub enum StaticEffect {
         filter: Filter,
     },
     ConditionalSetBasePowerToughness {
-        power: i32,
-        toughness: i32,
+        power: Power,
+        toughness: Toughness,
         condition: String,
     },
     EntersWithAdditionalCounters {
@@ -2434,8 +2434,8 @@ mod tests {
             "Other creatures you control get +1/+1.",
             vec![StaticEffect::Boost {
                 filter: crate::filters::Filter::parse("other creatures you control"),
-                power: 1,
-                toughness: 1,
+                power: Power::new(1),
+                toughness: Toughness::new(1),
             }],
         );
 
@@ -2468,7 +2468,7 @@ mod tests {
             source,
             "{1}{G}: +1/+1",
             vec![Cost::Mana(Mana { green: 1, generic: 1, ..Default::default() })],
-            vec![Effect::BoostUntilEndOfTurn { power: 1, toughness: 1 }],
+            vec![Effect::BoostUntilEndOfTurn { power: Power::new(1), toughness: Toughness::new(1) }],
             TargetSpec::None,
         );
 

@@ -8,10 +8,11 @@ use mtg_engine::abilities::{Ability, Effect, TargetSpec};
 use mtg_engine::card::CardData;
 use mtg_engine::constants::{CardType, KeywordAbilities, PhaseStep, Zone};
 use mtg_engine::counters::CounterType;
+use mtg_engine::decision::PlayerAgent;
 use mtg_engine::game::{Game, GameConfig, PlayerConfig};
 use mtg_engine::mana::{Mana, ManaCost};
 use mtg_engine::permanent::Permanent;
-use mtg_engine::types::{ObjectId, PlayerId};
+use mtg_engine::types::{Life, ObjectId, PlayerId, Power, Toughness};
 
 /// Which player in a two-player test.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -47,7 +48,7 @@ pub struct GameTest {
     stop_turn: u32,
     stop_step: PhaseStep,
     /// Starting life total.
-    starting_life: i32,
+    starting_life: Life,
     /// The game (created on execute).
     game: Option<Game>,
     /// Card registry: name -> factory function for known cards.
@@ -70,7 +71,7 @@ impl GameTest {
             choices_b: Vec::new(),
             stop_turn: 1,
             stop_step: PhaseStep::Cleanup,
-            starting_life: 20,
+            starting_life: Life::new(20),
             game: None,
             card_factories: std::collections::HashMap::new(),
         };
@@ -126,8 +127,8 @@ impl GameTest {
             card.mana_cost = ManaCost::parse("{1}{G}");
             card.card_types = vec![CardType::Creature];
             card.subtypes = vec![mtg_engine::constants::SubType::Bear];
-            card.power = Some(2);
-            card.toughness = Some(2);
+            card.power = Some(Power::new(2));
+            card.toughness = Some(Toughness::new(2));
             card.keywords = KeywordAbilities::empty();
             card
         }));
@@ -151,8 +152,8 @@ impl GameTest {
             card.mana_cost = ManaCost::parse("{G}");
             card.card_types = vec![CardType::Creature];
             card.subtypes = vec![mtg_engine::constants::SubType::Elf];
-            card.power = Some(1);
-            card.toughness = Some(1);
+            card.power = Some(Power::new(1));
+            card.toughness = Some(Toughness::new(1));
             card.keywords = KeywordAbilities::empty();
             let mana_ability = Ability::mana_ability(id, "{T}: Add {G}", Mana::green(1));
             card.abilities.push(mana_ability);
@@ -166,7 +167,7 @@ impl GameTest {
             card.card_types = vec![CardType::Instant];
             card.abilities.push(Ability::spell(
                 id,
-                vec![Effect::BoostUntilEndOfTurn { power: 3, toughness: 3 }],
+                vec![Effect::BoostUntilEndOfTurn { power: Power::new(3), toughness: Toughness::new(3) }],
                 TargetSpec::Creature,
             ));
             card
@@ -243,8 +244,8 @@ impl GameTest {
             card.mana_cost = ManaCost::parse("{3}{R}");
             card.card_types = vec![CardType::Creature];
             card.subtypes = vec![mtg_engine::constants::SubType::Giant];
-            card.power = Some(3);
-            card.toughness = Some(3);
+            card.power = Some(Power::new(3));
+            card.toughness = Some(Toughness::new(3));
             card.keywords = KeywordAbilities::empty();
             card
         }));
@@ -255,8 +256,8 @@ impl GameTest {
             card.mana_cost = ManaCost::parse("{3}{W}{W}");
             card.card_types = vec![CardType::Creature];
             card.subtypes = vec![mtg_engine::constants::SubType::Angel];
-            card.power = Some(4);
-            card.toughness = Some(4);
+            card.power = Some(Power::new(4));
+            card.toughness = Some(Toughness::new(4));
             card.keywords = KeywordAbilities::FLYING | KeywordAbilities::VIGILANCE;
             card
         }));
@@ -382,7 +383,7 @@ impl GameTest {
 
     /// Set starting life total.
     pub fn set_starting_life(&mut self, life: i32) {
-        self.starting_life = life;
+        self.starting_life = Life::new(life);
     }
 
     // ── Execute ──────────────────────────────────────────────────────
@@ -443,8 +444,8 @@ impl GameTest {
         let mut game = Game::new_two_player(
             config,
             vec![
-                (p1, Box::new(player_a)),
-                (p2, Box::new(player_b)),
+                (p1, PlayerAgent::new(player_a)),
+                (p2, PlayerAgent::new(player_b)),
             ],
         );
 

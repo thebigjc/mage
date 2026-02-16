@@ -6,7 +6,7 @@ use crate::filters::Filter;
 use crate::card::CardData;
 use crate::constants::{CardType, KeywordAbilities, Outcome, SubType};
 use crate::counters::CounterType;
-use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
+use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerAgent, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
 use crate::mana::{Mana, ManaCost};
 use crate::permanent::Permanent;
 use crate::types::{ObjectId, PlayerId};
@@ -56,13 +56,13 @@ use crate::abilities::X_VALUE;
                 PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
                 PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
             ],
-            starting_life: 20,
+            starting_life: Life::new(20),
         };
         let game = Game::new_two_player(
             config,
             vec![
-                (p1, Box::new(LastCardPicker)),
-                (p2, Box::new(LastCardPicker)),
+                (p1, PlayerAgent::new(LastCardPicker)),
+                (p2, PlayerAgent::new(LastCardPicker)),
             ],
         );
         (game, p1, p2)
@@ -72,8 +72,8 @@ use crate::abilities::X_VALUE;
         let id = ObjectId::new();
         let mut card = CardData::new(id, owner, name);
         card.card_types = vec![CardType::Creature];
-        card.power = Some(2);
-        card.toughness = Some(2);
+        card.power = Some(Power::new(2));
+        card.toughness = Some(Toughness::new(2));
         card.keywords = KeywordAbilities::empty();
         game.state.battlefield.add(Permanent::new(card, owner));
         id
@@ -220,16 +220,16 @@ use crate::abilities::X_VALUE;
         let p2 = PlayerId::new();
 
         let config = GameConfig {
-            starting_life: 20,
+            starting_life: Life::new(20),
             players: vec![
                 PlayerConfig { name: "P1".into(), deck: vec![] },
                 PlayerConfig { name: "P2".into(), deck: vec![] },
             ],
         };
 
-        let dms: Vec<(PlayerId, Box<dyn PlayerDecisionMaker>)> = vec![
-            (p1, Box::new(XChooserPlayer { x_choice })),
-            (p2, Box::new(XChooserPlayer { x_choice: 0 })),
+        let dms: Vec<(PlayerId, PlayerAgent)> = vec![
+            (p1, PlayerAgent::new(XChooserPlayer { x_choice })),
+            (p2, PlayerAgent::new(XChooserPlayer { x_choice: 0 })),
         ];
 
         (Game::new_two_player(config, dms), p1, p2)
@@ -257,8 +257,8 @@ use crate::abilities::X_VALUE;
         let creature_id = ObjectId::new();
         let mut creature = CardData::new(creature_id, p2, "Big Beast");
         creature.card_types = vec![CardType::Creature];
-        creature.power = Some(5);
-        creature.toughness = Some(5);
+        creature.power = Some(Power::new(5));
+        creature.toughness = Some(Toughness::new(5));
         game.state.battlefield.add(crate::permanent::Permanent::new(creature.clone(), p2));
         game.state.card_store.insert(creature);
         game.state.set_zone(creature_id, crate::constants::Zone::Battlefield, None);
@@ -426,15 +426,15 @@ use crate::abilities::X_VALUE;
         let p1 = PlayerId::new();
         let p2 = PlayerId::new();
         let config = GameConfig {
-            starting_life: 20,
+            starting_life: Life::new(20),
             players: vec![
                 PlayerConfig { name: "P1".into(), deck: vec![] },
                 PlayerConfig { name: "P2".into(), deck: vec![] },
             ],
         };
         let game = Game::new_two_player(config, vec![
-            (p1, Box::new(AlwaysPassDM)),
-            (p2, Box::new(AlwaysPassDM)),
+            (p1, PlayerAgent::new(AlwaysPassDM)),
+            (p2, PlayerAgent::new(AlwaysPassDM)),
         ]);
         (game, p1, p2)
     }
@@ -448,8 +448,8 @@ use crate::abilities::X_VALUE;
         let mut lord = CardData::new(lord_id, p1, "Elf Cost Reducer");
         lord.card_types = vec![CardType::Creature];
         lord.subtypes = vec![SubType::Elf];
-        lord.power = Some(1);
-        lord.toughness = Some(1);
+        lord.power = Some(Power::new(1));
+        lord.toughness = Some(Toughness::new(1));
         lord.abilities = vec![Ability::static_ability(lord_id,
             "Elf spells you cast cost {1} less.",
             vec![StaticEffect::CostReduction { filter: Filter::parse("Elf"), amount: 1, condition: None }])];
@@ -493,8 +493,8 @@ use crate::abilities::X_VALUE;
         let mut lord = CardData::new(lord_id, p1, "Elf Cost Reducer");
         lord.card_types = vec![CardType::Creature];
         lord.subtypes = vec![SubType::Elf];
-        lord.power = Some(1);
-        lord.toughness = Some(1);
+        lord.power = Some(Power::new(1));
+        lord.toughness = Some(Toughness::new(1));
         lord.abilities = vec![Ability::static_ability(lord_id,
             "Elf spells cost {1} less.",
             vec![StaticEffect::CostReduction { filter: Filter::parse("Elf"), amount: 1, condition: None }])];
@@ -533,8 +533,8 @@ use crate::abilities::X_VALUE;
         let doran_id = ObjectId::new();
         let mut doran = CardData::new(doran_id, p1, "Doran");
         doran.card_types = vec![CardType::Creature];
-        doran.power = Some(0);
-        doran.toughness = Some(5);
+        doran.power = Some(Power::new(0));
+        doran.toughness = Some(Toughness::new(5));
         doran.abilities = vec![Ability::static_ability(doran_id,
             "Creature spells with toughness > power cost {1} less.",
             vec![StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1)])];
@@ -548,8 +548,8 @@ use crate::abilities::X_VALUE;
         let high_tough_id = ObjectId::new();
         let mut high_tough = CardData::new(high_tough_id, p1, "Wall");
         high_tough.card_types = vec![CardType::Creature];
-        high_tough.power = Some(0);
-        high_tough.toughness = Some(4);
+        high_tough.power = Some(Power::new(0));
+        high_tough.toughness = Some(Toughness::new(4));
         high_tough.mana_cost = ManaCost::parse("{2}{W}");
 
         let reduction = game.calculate_cost_reduction(p1, &high_tough);
@@ -563,8 +563,8 @@ use crate::abilities::X_VALUE;
         let doran_id = ObjectId::new();
         let mut doran = CardData::new(doran_id, p1, "Doran");
         doran.card_types = vec![CardType::Creature];
-        doran.power = Some(0);
-        doran.toughness = Some(5);
+        doran.power = Some(Power::new(0));
+        doran.toughness = Some(Toughness::new(5));
         doran.abilities = vec![Ability::static_ability(doran_id,
             "Creature spells with toughness > power cost {1} less.",
             vec![StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1)])];
@@ -578,8 +578,8 @@ use crate::abilities::X_VALUE;
         let aggro_id = ObjectId::new();
         let mut aggro = CardData::new(aggro_id, p1, "Aggro Creature");
         aggro.card_types = vec![CardType::Creature];
-        aggro.power = Some(4);
-        aggro.toughness = Some(2);
+        aggro.power = Some(Power::new(4));
+        aggro.toughness = Some(Toughness::new(2));
         aggro.mana_cost = ManaCost::parse("{2}{R}");
 
         let reduction = game.calculate_cost_reduction(p1, &aggro);
@@ -593,8 +593,8 @@ use crate::abilities::X_VALUE;
         let doran_id = ObjectId::new();
         let mut doran = CardData::new(doran_id, p1, "Doran");
         doran.card_types = vec![CardType::Creature];
-        doran.power = Some(0);
-        doran.toughness = Some(5);
+        doran.power = Some(Power::new(0));
+        doran.toughness = Some(Toughness::new(5));
         doran.abilities = vec![Ability::static_ability(doran_id,
             "Creature spells with toughness > power cost {1} less.",
             vec![StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1)])];
@@ -608,8 +608,8 @@ use crate::abilities::X_VALUE;
         let equal_id = ObjectId::new();
         let mut equal = CardData::new(equal_id, p1, "Bear");
         equal.card_types = vec![CardType::Creature];
-        equal.power = Some(2);
-        equal.toughness = Some(2);
+        equal.power = Some(Power::new(2));
+        equal.toughness = Some(Toughness::new(2));
         equal.mana_cost = ManaCost::parse("{1}{G}");
 
         let reduction = game.calculate_cost_reduction(p1, &equal);
@@ -623,8 +623,8 @@ use crate::abilities::X_VALUE;
         let doran_id = ObjectId::new();
         let mut doran = CardData::new(doran_id, p1, "Doran");
         doran.card_types = vec![CardType::Creature];
-        doran.power = Some(0);
-        doran.toughness = Some(5);
+        doran.power = Some(Power::new(0));
+        doran.toughness = Some(Toughness::new(5));
         doran.abilities = vec![Ability::static_ability(doran_id,
             "Creature spells with toughness > power cost {1} less.",
             vec![StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1)])];
@@ -653,8 +653,8 @@ use crate::abilities::X_VALUE;
         let doran_id = ObjectId::new();
         let mut doran = CardData::new(doran_id, p1, "Doran");
         doran.card_types = vec![CardType::Creature];
-        doran.power = Some(0);
-        doran.toughness = Some(5);
+        doran.power = Some(Power::new(0));
+        doran.toughness = Some(Toughness::new(5));
         doran.abilities = vec![Ability::static_ability(doran_id,
             "Creature spells with toughness > power cost {1} less.",
             vec![StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1)])];
@@ -668,8 +668,8 @@ use crate::abilities::X_VALUE;
         let wall_id = ObjectId::new();
         let mut wall = CardData::new(wall_id, p1, "Wall of Stone");
         wall.card_types = vec![CardType::Creature];
-        wall.power = Some(0);
-        wall.toughness = Some(4);
+        wall.power = Some(Power::new(0));
+        wall.toughness = Some(Toughness::new(4));
         wall.mana_cost = ManaCost::parse("{2}{W}");
         game.state.card_store.insert(wall.clone());
         game.state.players.get_mut(&p1).unwrap().hand.add(wall_id);
@@ -693,8 +693,8 @@ use crate::abilities::X_VALUE;
         let doran_id = ObjectId::new();
         let mut doran = CardData::new(doran_id, p1, "Doran");
         doran.card_types = vec![CardType::Creature];
-        doran.power = Some(0);
-        doran.toughness = Some(5);
+        doran.power = Some(Power::new(0));
+        doran.toughness = Some(Toughness::new(5));
         doran.abilities = vec![Ability::static_ability(doran_id,
             "Creature spells with toughness > power cost {1} less.",
             vec![StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1)])];
@@ -708,8 +708,8 @@ use crate::abilities::X_VALUE;
         let aggro_id = ObjectId::new();
         let mut aggro = CardData::new(aggro_id, p1, "Aggro Creature");
         aggro.card_types = vec![CardType::Creature];
-        aggro.power = Some(3);
-        aggro.toughness = Some(1);
+        aggro.power = Some(Power::new(3));
+        aggro.toughness = Some(Toughness::new(1));
         aggro.mana_cost = ManaCost::parse("{2}{R}");
         game.state.card_store.insert(aggro.clone());
         game.state.players.get_mut(&p1).unwrap().hand.add(aggro_id);
@@ -743,8 +743,8 @@ use crate::abilities::X_VALUE;
         let creature_id = ObjectId::new();
         let mut creature = CardData::new(creature_id, p1, "Blight Target");
         creature.card_types = vec![CardType::Creature];
-        creature.power = Some(2);
-        creature.toughness = Some(5);
+        creature.power = Some(Power::new(2));
+        creature.toughness = Some(Toughness::new(5));
         game.state.battlefield.add(Permanent::new(creature.clone(), p1));
         game.state.card_store.insert(creature);
 
@@ -776,16 +776,16 @@ use crate::abilities::X_VALUE;
         let my_creature_id = ObjectId::new();
         let mut my_creature = CardData::new(my_creature_id, p1, "My Creature");
         my_creature.card_types = vec![CardType::Creature];
-        my_creature.power = Some(3);
-        my_creature.toughness = Some(4);
+        my_creature.power = Some(Power::new(3));
+        my_creature.toughness = Some(Toughness::new(4));
         game.state.battlefield.add(Permanent::new(my_creature.clone(), p1));
         game.state.card_store.insert(my_creature);
 
         let opp_creature_id = ObjectId::new();
         let mut opp_creature = CardData::new(opp_creature_id, p2, "Opp Creature");
         opp_creature.card_types = vec![CardType::Creature];
-        opp_creature.power = Some(3);
-        opp_creature.toughness = Some(5);
+        opp_creature.power = Some(Power::new(3));
+        opp_creature.toughness = Some(Toughness::new(5));
         game.state.battlefield.add(Permanent::new(opp_creature.clone(), p2));
         game.state.card_store.insert(opp_creature);
 

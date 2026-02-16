@@ -268,9 +268,9 @@ pub fn assign_combat_damage(
     }
 
     let power = if attacker.assign_damage_with_toughness {
-        attacker.toughness().max(0) as u32
+        attacker.toughness().as_u32_saturating()
     } else {
-        attacker.power().max(0) as u32
+        attacker.power().as_u32_saturating()
     };
     if power == 0 {
         return results;
@@ -300,7 +300,7 @@ pub fn assign_combat_damage(
                 // With deathtouch, 1 damage is lethal
                 1u32.saturating_sub(blocker_perm.damage)
             } else {
-                let toughness = blocker_perm.toughness().max(0) as u32;
+                let toughness = blocker_perm.toughness().as_u32_saturating();
                 toughness.saturating_sub(blocker_perm.damage)
             };
 
@@ -340,9 +340,9 @@ pub fn assign_blocker_damage(
     }
 
     if blocker.assign_damage_with_toughness {
-        blocker.toughness().max(0) as u32
+        blocker.toughness().as_u32_saturating()
     } else {
-        blocker.power().max(0) as u32
+        blocker.power().as_u32_saturating()
     }
 }
 
@@ -351,6 +351,7 @@ mod tests {
     use super::*;
     use crate::card::CardData;
     use crate::constants::{CardType, KeywordAbilities};
+    use crate::types::{Power, Toughness};
 
     fn make_creature(
         name: &str,
@@ -361,8 +362,8 @@ mod tests {
         let owner = PlayerId::new();
         let mut card = CardData::new(ObjectId::new(), owner, name);
         card.card_types = vec![CardType::Creature];
-        card.power = Some(power);
-        card.toughness = Some(toughness);
+        card.power = Some(Power::new(power));
+        card.toughness = Some(Toughness::new(toughness));
         card.keywords = keywords;
         Permanent::new(card, owner)
     }
@@ -600,8 +601,8 @@ mod tests {
         let owner = PlayerId::new();
         let mut black_card = CardData::new(ObjectId::new(), owner, "Black Creature");
         black_card.card_types = vec![CardType::Creature];
-        black_card.power = Some(2);
-        black_card.toughness = Some(2);
+        black_card.power = Some(Power::new(2));
+        black_card.toughness = Some(Toughness::new(2));
         black_card.color_identity = vec![crate::constants::Color::Black];
         let black = Permanent::new(black_card, owner);
         assert!(can_block(&black, &attacker));
@@ -609,8 +610,8 @@ mod tests {
         // Artifact creature can block
         let mut art_card = CardData::new(ObjectId::new(), owner, "Artifact Creature");
         art_card.card_types = vec![CardType::Creature, CardType::Artifact];
-        art_card.power = Some(2);
-        art_card.toughness = Some(2);
+        art_card.power = Some(Power::new(2));
+        art_card.toughness = Some(Toughness::new(2));
         let artifact = Permanent::new(art_card, owner);
         assert!(can_block(&artifact, &attacker));
     }

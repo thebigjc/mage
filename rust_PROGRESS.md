@@ -12,7 +12,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 
 ### Current State (Baseline)
 
-- **576 engine tests passing**, 19 mtg-tests passing (595 total)
+- **599 engine tests passing**, 20 mtg-cards tests, 52 mtg-ai tests, 19 mtg-tests passing (690 total)
 - **~34,000 lines** in mtg-engine, **~21,000 lines** in mtg-cards, **~3,000 lines** in mtg-ai
 - **1,328 card implementations** across 4 sets (FDN, TLA, TDM, ECL)
 - **Performance**: ~599 games/sec single-threaded, ~2,119/sec parallel (updated from benchmarks)
@@ -101,7 +101,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 #### 2B: Newtype Validation
 - [x] Task 2.4: Add validation to `ObjectId`, `PlayerId` constructors (ensure non-nil UUIDs)
 - [x] Task 2.5: Create `Power(i32)`, `Toughness(i32)`, `Life(i32)` newtypes for game values with appropriate `impl`s
-- [ ] Task 2.6: Propagate newtypes through CardData, Permanent, and game logic
+- [x] Task 2.6: Propagate newtypes through CardData, Permanent, and game logic
 
 #### 2C: Enum-Based Dispatch
 - [ ] Task 2.7: Replace `Box<dyn PlayerDecisionMaker>` with `PlayerAgent` enum wrapping the 4 known implementations (RandomPlayer, HeuristicPlayer, MinimaxPlayer, ScriptedPlayer) — eliminates vtable overhead
@@ -205,6 +205,21 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - All 576 engine tests passing, zero clippy warnings
 
 ## Completed This Iteration
+- Task 2.6: Propagated Power/Toughness/Life newtypes through entire codebase
+  - **CardData**: Changed `power: Option<i32>` → `Option<Power>`, `toughness: Option<i32>` → `Option<Toughness>`
+  - **Player**: Changed `life: i32` → `Life`
+  - **Permanent**: Changed continuous_boost_power/toughness, base_power/toughness_override, cant_be_blocked_by_power_leq fields
+  - **GameConfig**: Changed `starting_life: i32` → `Life`
+  - **Effect/StaticEffect**: Changed power/toughness fields in BoostUntilEndOfTurn, SetPowerToughness, BecomesCreature, Boost, BoostAllUntilEndOfTurn, etc.
+  - **EffectModification**: Changed ModifyPowerToughness, SetBasePowerToughness, SetPowerToughness, ModifyPowerToughnessAll fields
+  - **game.rs**: Updated ~68 type mismatches including local variables, arithmetic, method calls
+  - **combat.rs, filters.rs**: Updated type comparisons and filter evaluations
+  - **mtg-cards (4 set files)**: Updated ~1,576 card factory functions with Power::new()/Toughness::new() wrapping
+  - **Test files (12 files)**: Added imports and wrapped literals across all test modules
+  - **mtg-tests/concurrency.rs**: Updated Life/Power/Toughness usage
+  - 690 tests passing (599 engine + 20 cards + 52 AI + 19 integration), zero clippy warnings
+
+### Previous Iteration
 - Task 2.5: Created Power, Toughness, Life newtypes in mtg-engine/src/types.rs
   - Used `game_value_newtype!` macro to define all three types with shared operator impls
   - Private `i32` inner field with `#[repr(transparent)]` for zero-cost abstraction

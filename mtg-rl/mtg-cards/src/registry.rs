@@ -110,6 +110,7 @@ impl Default for CardRegistry {
 mod tests {
     use super::*;
     use mtg_engine::constants::{CardType, KeywordAbilities, SubType};
+    use mtg_engine::types::{Power, Toughness};
 
     #[test]
     fn registry_create_and_lookup() {
@@ -157,8 +158,8 @@ mod tests {
 
         // Test Dawn's Light Archer - has Flash + Reach
         let archer = registry.create("Dawn's Light Archer", id, owner).unwrap();
-        assert_eq!(archer.power, Some(4));
-        assert_eq!(archer.toughness, Some(2));
+        assert_eq!(archer.power, Some(Power::new(4)));
+        assert_eq!(archer.toughness, Some(Toughness::new(2)));
         assert!(archer.keywords.contains(KeywordAbilities::FLASH));
         assert!(archer.keywords.contains(KeywordAbilities::REACH));
 
@@ -170,8 +171,8 @@ mod tests {
 
         // Test Bloom Tender
         let bloom = registry.create("Bloom Tender", id, owner).unwrap();
-        assert_eq!(bloom.power, Some(1));
-        assert_eq!(bloom.toughness, Some(1));
+        assert_eq!(bloom.power, Some(Power::new(1)));
+        assert_eq!(bloom.toughness, Some(Toughness::new(1)));
     }
 
     #[test]
@@ -182,22 +183,22 @@ mod tests {
 
         // Savannah Lions — vanilla 2/1 Cat for {W}
         let lions = registry.create("Savannah Lions", id, owner).unwrap();
-        assert_eq!(lions.power, Some(2));
-        assert_eq!(lions.toughness, Some(1));
+        assert_eq!(lions.power, Some(Power::new(2)));
+        assert_eq!(lions.toughness, Some(Toughness::new(1)));
 
         // Gigantosaurus — 10/10 for {G}{G}{G}{G}{G}
         let giga = registry.create("Gigantosaurus", id, owner).unwrap();
-        assert_eq!(giga.power, Some(10));
-        assert_eq!(giga.toughness, Some(10));
+        assert_eq!(giga.power, Some(Power::new(10)));
+        assert_eq!(giga.toughness, Some(Toughness::new(10)));
 
         // Heartfire Immolator — 2/2 with Prowess
         let hf = registry.create("Heartfire Immolator", id, owner).unwrap();
-        assert_eq!(hf.power, Some(2));
+        assert_eq!(hf.power, Some(Power::new(2)));
         assert!(hf.keywords.contains(KeywordAbilities::PROWESS));
 
         // Gleaming Barrier — 0/4 wall with Defender
         let barrier = registry.create("Gleaming Barrier", id, owner).unwrap();
-        assert_eq!(barrier.toughness, Some(4));
+        assert_eq!(barrier.toughness, Some(Toughness::new(4)));
         assert!(barrier.keywords.contains(KeywordAbilities::DEFENDER));
         assert!(barrier.card_types.contains(&CardType::Artifact));
 
@@ -211,7 +212,7 @@ mod tests {
 
         // Shivan Dragon — 5/5 Dragon with Flying
         let shivan = registry.create("Shivan Dragon", id, owner).unwrap();
-        assert_eq!(shivan.power, Some(5));
+        assert_eq!(shivan.power, Some(Power::new(5)));
         assert!(shivan.keywords.contains(KeywordAbilities::FLYING));
     }
 
@@ -223,15 +224,15 @@ mod tests {
 
         // Vampire Nighthawk — 2/3 flying deathtouch lifelink
         let vn = registry.create("Vampire Nighthawk", id, owner).unwrap();
-        assert_eq!(vn.power, Some(2));
-        assert_eq!(vn.toughness, Some(3));
+        assert_eq!(vn.power, Some(Power::new(2)));
+        assert_eq!(vn.toughness, Some(Toughness::new(3)));
         assert!(vn.keywords.contains(KeywordAbilities::FLYING));
         assert!(vn.keywords.contains(KeywordAbilities::DEATHTOUCH));
         assert!(vn.keywords.contains(KeywordAbilities::LIFELINK));
 
         // Death Baron — 2/2 Zombie Wizard lord
         let db = registry.create("Death Baron", id, owner).unwrap();
-        assert_eq!(db.power, Some(2));
+        assert_eq!(db.power, Some(Power::new(2)));
         assert!(db.subtypes.contains(&SubType::Zombie));
 
         // Abrade — modal instant
@@ -244,8 +245,8 @@ mod tests {
 
         // Fog Bank — 0/2 Wall with defender and flying
         let fb = registry.create("Fog Bank", id, owner).unwrap();
-        assert_eq!(fb.power, Some(0));
-        assert_eq!(fb.toughness, Some(2));
+        assert_eq!(fb.power, Some(Power::new(0)));
+        assert_eq!(fb.toughness, Some(Toughness::new(2)));
         assert!(fb.keywords.contains(KeywordAbilities::DEFENDER));
         assert!(fb.keywords.contains(KeywordAbilities::FLYING));
 
@@ -306,27 +307,27 @@ mod tests {
         let rr = registry.create("Riverguard's Reflexes", id, owner).unwrap();
         assert!(rr.card_types.contains(&CardType::Instant));
         assert_eq!(rr.abilities[0].effects.len(), 3);
-        assert!(matches!(rr.abilities[0].effects[0], Effect::BoostUntilEndOfTurn { power: 2, toughness: 2 }));
+        assert!(matches!(rr.abilities[0].effects[0], Effect::BoostUntilEndOfTurn { power, toughness } if power == Power::new(2) && toughness == Toughness::new(2)));
         assert!(matches!(rr.abilities[0].effects[1], Effect::GainKeywordUntilEndOfTurn { ref keyword } if keyword == "first_strike"));
         assert!(matches!(rr.abilities[0].effects[2], Effect::UntapTarget));
         assert!(matches!(rr.abilities[0].targets, TargetSpec::Creature));
 
         // Morcant's Loyalist — lord + dies trigger
         let ml = registry.create("Morcant's Loyalist", id, owner).unwrap();
-        assert_eq!(ml.power, Some(3));
-        assert_eq!(ml.toughness, Some(2));
+        assert_eq!(ml.power, Some(Power::new(3)));
+        assert_eq!(ml.toughness, Some(Toughness::new(2)));
         assert!(ml.abilities.len() >= 2);
         // First ability: static boost to other Elves
         assert!(matches!(&ml.abilities[0].static_effects[..],
-            [StaticEffect::Boost { ref filter, power: 1, toughness: 1 }] if filter.message.contains("Elf")));
+            [StaticEffect::Boost { ref filter, power, toughness }] if filter.message.contains("Elf") && *power == Power::new(1) && *toughness == Toughness::new(1)));
         // Second ability: dies trigger returns from GY
         assert!(matches!(ml.abilities[1].effects[..], [Effect::ReturnFromGraveyard]));
 
         // Gallant Fowlknight — ETB with boost_all + grant_keyword_all
         let gf = registry.create("Gallant Fowlknight", id, owner).unwrap();
-        assert_eq!(gf.power, Some(3));
+        assert_eq!(gf.power, Some(Power::new(3)));
         assert_eq!(gf.abilities[0].effects.len(), 2);
-        assert!(matches!(gf.abilities[0].effects[0], Effect::BoostAllUntilEndOfTurn { ref filter, power: 1, toughness: 0 } if filter.message.contains("creature")));
+        assert!(matches!(gf.abilities[0].effects[0], Effect::BoostAllUntilEndOfTurn { ref filter, power, toughness } if filter.message.contains("creature") && power == Power::new(1) && toughness == Toughness::new(0)));
         assert!(matches!(gf.abilities[0].effects[1], Effect::GrantKeywordAllUntilEndOfTurn { ref filter, ref keyword } if filter.message.contains("Kithkin") && keyword == "first_strike"));
     }
 
@@ -339,22 +340,22 @@ mod tests {
 
         // Hovel Hurler — 6/7 Giant, ETB with 2 -1/-1 counters, activated remove counter + boost+fly
         let hh = registry.create("Hovel Hurler", id, owner).unwrap();
-        assert_eq!(hh.power, Some(6));
-        assert_eq!(hh.toughness, Some(7));
+        assert_eq!(hh.power, Some(Power::new(6)));
+        assert_eq!(hh.toughness, Some(Toughness::new(7)));
         assert_eq!(hh.abilities.len(), 2);
         // ETB: enters with 2 -1/-1 counters (replacement effect via static ability)
         assert!(matches!(hh.abilities[0].static_effects[..],
             [StaticEffect::EntersWithCounters { ref counter_type, count: 2 }] if counter_type == "-1/-1"));
         // Activated: remove counter cost, +1/+0 + flying EOT
         assert!(matches!(&hh.abilities[1].costs[1], Cost::RemoveCounters(ref ct, 1) if ct == "-1/-1"));
-        assert!(matches!(hh.abilities[1].effects[0], Effect::BoostUntilEndOfTurn { power: 1, toughness: 0 }));
+        assert!(matches!(hh.abilities[1].effects[0], Effect::BoostUntilEndOfTurn { power, toughness } if power == Power::new(1) && toughness == Toughness::new(0)));
         assert!(matches!(hh.abilities[1].effects[1], Effect::GainKeywordUntilEndOfTurn { ref keyword } if keyword == "flying"));
         assert!(matches!(hh.abilities[1].targets, TargetSpec::CreatureYouControl));
 
         // Glen Elendra Guardian — 3/4 Flash Flying, ETB with 1 counter, activated counter+draw
         let ge = registry.create("Glen Elendra Guardian", id, owner).unwrap();
-        assert_eq!(ge.power, Some(3));
-        assert_eq!(ge.toughness, Some(4));
+        assert_eq!(ge.power, Some(Power::new(3)));
+        assert_eq!(ge.toughness, Some(Toughness::new(4)));
         assert!(ge.keywords.contains(KeywordAbilities::FLASH));
         assert!(ge.keywords.contains(KeywordAbilities::FLYING));
         assert_eq!(ge.abilities.len(), 2);
@@ -365,8 +366,8 @@ mod tests {
 
         // Loch Mare — 4/5, ETB with 3 counters, 2 activated abilities
         let lm = registry.create("Loch Mare", id, owner).unwrap();
-        assert_eq!(lm.power, Some(4));
-        assert_eq!(lm.toughness, Some(5));
+        assert_eq!(lm.power, Some(Power::new(4)));
+        assert_eq!(lm.toughness, Some(Toughness::new(5)));
         assert_eq!(lm.abilities.len(), 3);
         // ETB: enters with 3 -1/-1 counters (replacement effect via static ability)
         assert!(matches!(lm.abilities[0].static_effects[..],
@@ -381,8 +382,8 @@ mod tests {
 
         // Reaping Willow — 3/6 Lifelink, ETB with 2 counters, activated reanimate
         let rw = registry.create("Reaping Willow", id, owner).unwrap();
-        assert_eq!(rw.power, Some(3));
-        assert_eq!(rw.toughness, Some(6));
+        assert_eq!(rw.power, Some(Power::new(3)));
+        assert_eq!(rw.toughness, Some(Toughness::new(6)));
         assert!(rw.keywords.contains(KeywordAbilities::LIFELINK));
         assert_eq!(rw.abilities.len(), 2);
         assert!(matches!(rw.abilities[0].static_effects[..],
@@ -393,8 +394,8 @@ mod tests {
 
         // Creakwood Safewright — 5/5, ETB with 3 counters, end step remove counter
         let cs = registry.create("Creakwood Safewright", id, owner).unwrap();
-        assert_eq!(cs.power, Some(5));
-        assert_eq!(cs.toughness, Some(5));
+        assert_eq!(cs.power, Some(Power::new(5)));
+        assert_eq!(cs.toughness, Some(Toughness::new(5)));
         assert_eq!(cs.abilities.len(), 2);
         assert!(matches!(cs.abilities[0].static_effects[..],
             [StaticEffect::EntersWithCounters { ref counter_type, count: 3 }] if counter_type == "-1/-1"));

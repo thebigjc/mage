@@ -13,7 +13,7 @@ use crate::constants::{
     CardType, Color, KeywordAbilities, Rarity, SubType, SuperType,
 };
 use crate::mana::ManaCost;
-use crate::types::{ObjectId, PlayerId};
+use crate::types::{ObjectId, PlayerId, Power, Toughness};
 use serde::{Deserialize, Serialize};
 
 /// Static card data — the "blueprint" for creating a card in a game.
@@ -37,9 +37,9 @@ pub struct CardData {
     /// Subtypes (creature types, land types, spell types, etc.).
     pub subtypes: Vec<SubType>,
     /// Base power for creatures. None for non-creatures.
-    pub power: Option<i32>,
+    pub power: Option<Power>,
     /// Base toughness for creatures. None for non-creatures.
-    pub toughness: Option<i32>,
+    pub toughness: Option<Toughness>,
     /// Keyword abilities (flying, trample, etc.) as bitflags.
     pub keywords: KeywordAbilities,
     /// Color identity (for Commander; also used as card colors when set explicitly).
@@ -180,8 +180,8 @@ mod tests {
         card.mana_cost = ManaCost::parse("{1}{G}");
         card.card_types = vec![CardType::Creature];
         card.subtypes = vec![SubType::Bear];
-        card.power = Some(2);
-        card.toughness = Some(2);
+        card.power = Some(Power::new(2));
+        card.toughness = Some(Toughness::new(2));
 
         assert!(card.is_creature());
         assert!(!card.is_land());

@@ -4,9 +4,9 @@ use crate::game::*;
 use crate::abilities::{Ability, StaticEffect};
 use crate::card::CardData;
 use crate::constants::{CardType, KeywordAbilities, Outcome, SubType};
-use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
+use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerAgent, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
 use crate::permanent::Permanent;
-use crate::types::{ObjectId, PlayerId};
+use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
 
 #[cfg(test)]
     /// Decision maker that attacks with all creatures.
@@ -92,8 +92,8 @@ use crate::types::{ObjectId, PlayerId};
     ) -> CardData {
         let mut card = CardData::new(ObjectId::new(), owner, name);
         card.card_types = vec![CardType::Creature];
-        card.power = Some(power);
-        card.toughness = Some(toughness);
+        card.power = Some(Power::new(power));
+        card.toughness = Some(Toughness::new(toughness));
         card.keywords = keywords;
         card
     }
@@ -109,8 +109,8 @@ use crate::types::{ObjectId, PlayerId};
     }
 
     fn setup_combat_game(
-        p1_dm: Box<dyn PlayerDecisionMaker>,
-        p2_dm: Box<dyn PlayerDecisionMaker>,
+        p1_dm: PlayerAgent,
+        p2_dm: PlayerAgent,
     ) -> (Game, PlayerId, PlayerId) {
         let p1 = PlayerId::new();
         let p2 = PlayerId::new();
@@ -125,7 +125,7 @@ use crate::types::{ObjectId, PlayerId};
                     deck: make_deck(p2),
                 },
             ],
-            starting_life: 20,
+            starting_life: Life::new(20),
         };
         let game = Game::new_two_player(config, vec![(p1, p1_dm), (p2, p2_dm)]);
         (game, p1, p2)
@@ -153,8 +153,8 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn unblocked_attacker_deals_damage_to_player() {
         let (mut game, p1, p2) = setup_combat_game(
-            Box::new(AttackAllPlayer),
-            Box::new(BlockAllPlayer),
+            PlayerAgent::new(AttackAllPlayer),
+            PlayerAgent::new(BlockAllPlayer),
         );
 
         // Add a 3/3 creature for p1 (attacker)
@@ -185,8 +185,8 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn vigilance_does_not_tap_attacker() {
         let (mut game, p1, _p2) = setup_combat_game(
-            Box::new(AttackAllPlayer),
-            Box::new(BlockAllPlayer),
+            PlayerAgent::new(AttackAllPlayer),
+            PlayerAgent::new(BlockAllPlayer),
         );
 
         let vig_id = add_creature(&mut game, p1, "Vigilant", 2, 2, KeywordAbilities::VIGILANCE);
@@ -202,8 +202,8 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn blocked_creature_deals_damage_to_blocker() {
         let (mut game, p1, p2) = setup_combat_game(
-            Box::new(AttackAllPlayer),
-            Box::new(BlockAllPlayer),
+            PlayerAgent::new(AttackAllPlayer),
+            PlayerAgent::new(BlockAllPlayer),
         );
 
         let attacker_id = add_creature(&mut game, p1, "Attacker", 3, 3, KeywordAbilities::empty());
@@ -230,8 +230,8 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn lifelink_gains_life_on_combat_damage() {
         let (mut game, p1, p2) = setup_combat_game(
-            Box::new(AttackAllPlayer),
-            Box::new(BlockAllPlayer),
+            PlayerAgent::new(AttackAllPlayer),
+            PlayerAgent::new(BlockAllPlayer),
         );
 
         add_creature(&mut game, p1, "Lifelinker", 4, 4, KeywordAbilities::LIFELINK);
@@ -240,7 +240,7 @@ use crate::types::{ObjectId, PlayerId};
         game.state.priority_player = p1;
 
         // Reduce p1 life to verify gain
-        game.state.players.get_mut(&p1).unwrap().life = 15;
+        game.state.players.get_mut(&p1).unwrap().life = Life::new(15);
 
         game.declare_attackers_step(p1);
         game.declare_blockers_step(p1);
@@ -254,8 +254,8 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn first_strike_deals_damage_first() {
         let (mut game, p1, p2) = setup_combat_game(
-            Box::new(AttackAllPlayer),
-            Box::new(BlockAllPlayer),
+            PlayerAgent::new(AttackAllPlayer),
+            PlayerAgent::new(BlockAllPlayer),
         );
 
         let fs_id = add_creature(&mut game, p1, "FirstStriker", 3, 2, KeywordAbilities::FIRST_STRIKE);
@@ -285,8 +285,8 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn trample_overflow_to_player() {
         let (mut game, p1, p2) = setup_combat_game(
-            Box::new(AttackAllPlayer),
-            Box::new(BlockAllPlayer),
+            PlayerAgent::new(AttackAllPlayer),
+            PlayerAgent::new(BlockAllPlayer),
         );
 
         add_creature(&mut game, p1, "Trampler", 5, 5, KeywordAbilities::TRAMPLE);
@@ -306,8 +306,8 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn end_combat_clears_state() {
         let (mut game, p1, _p2) = setup_combat_game(
-            Box::new(AttackAllPlayer),
-            Box::new(BlockAllPlayer),
+            PlayerAgent::new(AttackAllPlayer),
+            PlayerAgent::new(BlockAllPlayer),
         );
 
         add_creature(&mut game, p1, "Bear", 2, 2, KeywordAbilities::empty());
@@ -325,8 +325,8 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn defender_cannot_attack() {
         let (mut game, p1, p2) = setup_combat_game(
-            Box::new(AttackAllPlayer),
-            Box::new(BlockAllPlayer),
+            PlayerAgent::new(AttackAllPlayer),
+            PlayerAgent::new(BlockAllPlayer),
         );
 
         // Only a defender creature
@@ -344,8 +344,8 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn summoning_sick_creature_cannot_attack() {
         let (mut game, p1, p2) = setup_combat_game(
-            Box::new(AttackAllPlayer),
-            Box::new(BlockAllPlayer),
+            PlayerAgent::new(AttackAllPlayer),
+            PlayerAgent::new(BlockAllPlayer),
         );
 
         // Add creature WITH summoning sickness (don't remove it)
@@ -365,8 +365,8 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn haste_bypasses_summoning_sickness() {
         let (mut game, p1, p2) = setup_combat_game(
-            Box::new(AttackAllPlayer),
-            Box::new(BlockAllPlayer),
+            PlayerAgent::new(AttackAllPlayer),
+            PlayerAgent::new(BlockAllPlayer),
         );
 
         // Add creature with haste and summoning sickness
@@ -387,8 +387,8 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn flying_cannot_be_blocked_by_ground() {
         let (mut game, p1, p2) = setup_combat_game(
-            Box::new(AttackAllPlayer),
-            Box::new(BlockAllPlayer),
+            PlayerAgent::new(AttackAllPlayer),
+            PlayerAgent::new(BlockAllPlayer),
         );
 
         add_creature(&mut game, p1, "Flyer", 3, 3, KeywordAbilities::FLYING);
@@ -408,8 +408,8 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn reach_can_block_flying() {
         let (mut game, p1, p2) = setup_combat_game(
-            Box::new(AttackAllPlayer),
-            Box::new(BlockAllPlayer),
+            PlayerAgent::new(AttackAllPlayer),
+            PlayerAgent::new(BlockAllPlayer),
         );
 
         let flyer_id = add_creature(&mut game, p1, "Flyer", 2, 2, KeywordAbilities::FLYING);
@@ -435,8 +435,8 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn multiple_attackers_deal_combined_damage() {
         let (mut game, p1, p2) = setup_combat_game(
-            Box::new(AttackAllPlayer),
-            Box::new(BlockAllPlayer),
+            PlayerAgent::new(AttackAllPlayer),
+            PlayerAgent::new(BlockAllPlayer),
         );
 
         add_creature(&mut game, p1, "Bear1", 2, 2, KeywordAbilities::empty());
@@ -525,8 +525,8 @@ use crate::types::{ObjectId, PlayerId};
     }
 
     fn setup_game(
-        p1_dm: Box<dyn PlayerDecisionMaker>,
-        p2_dm: Box<dyn PlayerDecisionMaker>,
+        p1_dm: PlayerAgent,
+        p2_dm: PlayerAgent,
     ) -> (Game, PlayerId, PlayerId) {
         let p1 = PlayerId::new();
         let p2 = PlayerId::new();
@@ -535,7 +535,7 @@ use crate::types::{ObjectId, PlayerId};
                 PlayerConfig { name: "Attacker".to_string(), deck: make_deck2(p1) },
                 PlayerConfig { name: "Defender".to_string(), deck: make_deck2(p2) },
             ],
-            starting_life: 20,
+            starting_life: Life::new(20),
         };
         let game = Game::new_two_player(config, vec![(p1, p1_dm), (p2, p2_dm)]);
         (game, p1, p2)
@@ -552,8 +552,8 @@ use crate::types::{ObjectId, PlayerId};
     ) -> ObjectId {
         let mut card = CardData::new(ObjectId::new(), owner, name);
         card.card_types = vec![CardType::Creature];
-        card.power = Some(power);
-        card.toughness = Some(toughness);
+        card.power = Some(Power::new(power));
+        card.toughness = Some(Toughness::new(toughness));
         card.keywords = keywords;
         let id = card.id;
         let ability = Ability::static_ability(id, "", static_effects);
@@ -569,13 +569,13 @@ use crate::types::{ObjectId, PlayerId};
     fn daunt_blocks_low_power_creatures() {
         // Creature with "can't be blocked by power 2 or less" (daunt)
         let (mut game, p1, p2) = setup_game(
-            Box::new(AttackAllPlayer),
-            Box::new(BlockOnePerAttackerPlayer),
+            PlayerAgent::new(AttackAllPlayer),
+            PlayerAgent::new(BlockOnePerAttackerPlayer),
         );
 
         let attacker_id = add_creature_with_static(
             &mut game, p1, "Daunt Creature", 4, 4, KeywordAbilities::empty(),
-            vec![StaticEffect::CantBeBlockedByPowerLessOrEqual { power: 2 }],
+            vec![StaticEffect::CantBeBlockedByPowerLessOrEqual { power: Power::new(2) }],
         );
         let small_blocker = add_creature(&mut game, p2, "Small Blocker", 2, 2, KeywordAbilities::empty());
         let big_blocker = add_creature(&mut game, p2, "Big Blocker", 3, 3, KeywordAbilities::empty());
@@ -600,8 +600,8 @@ use crate::types::{ObjectId, PlayerId};
     #[test]
     fn cant_be_blocked_by_more_than_one() {
         let (mut game, p1, p2) = setup_game(
-            Box::new(AttackAllPlayer),
-            Box::new(BlockAllMultiplePlayer),
+            PlayerAgent::new(AttackAllPlayer),
+            PlayerAgent::new(BlockAllMultiplePlayer),
         );
 
         let attacker_id = add_creature_with_static(
@@ -629,8 +629,8 @@ use crate::types::{ObjectId, PlayerId};
     fn menace_single_blocker_removed() {
         // Menace: must be blocked by 2+ creatures. A single blocker should be removed.
         let (mut game, p1, p2) = setup_game(
-            Box::new(AttackAllPlayer),
-            Box::new(BlockOnePerAttackerPlayer),
+            PlayerAgent::new(AttackAllPlayer),
+            PlayerAgent::new(BlockOnePerAttackerPlayer),
         );
 
         let attacker_id = add_creature(&mut game, p1, "Menace Creature", 3, 3, KeywordAbilities::MENACE);
@@ -652,8 +652,8 @@ use crate::types::{ObjectId, PlayerId};
     fn menace_two_blockers_allowed() {
         // Menace with 2 blockers: should be allowed
         let (mut game, p1, p2) = setup_game(
-            Box::new(AttackAllPlayer),
-            Box::new(BlockAllMultiplePlayer),
+            PlayerAgent::new(AttackAllPlayer),
+            PlayerAgent::new(BlockAllMultiplePlayer),
         );
 
         let attacker_id = add_creature(&mut game, p1, "Menace Creature", 3, 3, KeywordAbilities::MENACE);
@@ -676,8 +676,8 @@ use crate::types::{ObjectId, PlayerId};
     fn must_be_blocked_flag_set() {
         // MustBeBlocked static effect sets the flag on the permanent
         let (mut game, p1, _p2) = setup_game(
-            Box::new(AttackAllPlayer),
-            Box::new(BlockOnePerAttackerPlayer),
+            PlayerAgent::new(AttackAllPlayer),
+            PlayerAgent::new(BlockOnePerAttackerPlayer),
         );
 
         let creature_id = add_creature_with_static(
@@ -695,8 +695,8 @@ use crate::types::{ObjectId, PlayerId};
     fn must_be_blocked_info_in_attacker_info() {
         // The must_be_blocked flag should be available in AttackerInfo
         let (mut game, p1, p2) = setup_game(
-            Box::new(AttackAllPlayer),
-            Box::new(BlockOnePerAttackerPlayer),
+            PlayerAgent::new(AttackAllPlayer),
+            PlayerAgent::new(BlockOnePerAttackerPlayer),
         );
 
         let _lure_id = add_creature_with_static(
@@ -754,17 +754,17 @@ use crate::types::{ObjectId, PlayerId};
                 PlayerConfig { name: "P1".into(), deck },
                 PlayerConfig { name: "P2".into(), deck: deck2 },
             ],
-            starting_life: 20,
+            starting_life: Life::new(20),
         };
-        let game = Game::new_two_player(config, vec![(p1, Box::new(PassPlayer)), (p2, Box::new(PassPlayer))]);
+        let game = Game::new_two_player(config, vec![(p1, PlayerAgent::new(PassPlayer)), (p2, PlayerAgent::new(PassPlayer))]);
         (game, p1, p2)
     }
 
     fn add_creature3(game: &mut Game, owner: PlayerId, name: &str, power: i32, toughness: i32) -> ObjectId {
         let mut card = CardData::new(ObjectId::new(), owner, name);
         card.card_types = vec![CardType::Creature];
-        card.power = Some(power);
-        card.toughness = Some(toughness);
+        card.power = Some(Power::new(power));
+        card.toughness = Some(Toughness::new(toughness));
         let id = card.id;
         game.state.battlefield.add(Permanent::new(card, owner));
         id

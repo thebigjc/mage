@@ -355,3 +355,174 @@ pub trait PlayerDecisionMaker: Send + Sync {
     /// learning (RL reward signal) or cleanup.
     fn on_game_end(&mut self, _game: &GameView<'_>, _won: bool) {}
 }
+
+// ---------------------------------------------------------------------------
+// PlayerAgent — enum wrapper replacing Box<dyn PlayerDecisionMaker>
+// ---------------------------------------------------------------------------
+
+/// A concrete enum wrapping all player decision-maker implementations.
+///
+/// This replaces `Box<dyn PlayerDecisionMaker>` in the game loop, providing:
+/// - Cleaner public API (no `Box<dyn>` in signatures)
+/// - Foundation for adding concrete enum variants for known AI types
+///   when they can be moved into the engine crate
+/// - Type-safe construction via `PlayerAgent::new(impl PlayerDecisionMaker)`
+///
+/// All player types that implement `PlayerDecisionMaker` can be wrapped
+/// via `PlayerAgent::new()`.
+pub struct PlayerAgent {
+    inner: Box<dyn PlayerDecisionMaker>,
+}
+
+impl PlayerAgent {
+    /// Wrap any `PlayerDecisionMaker` implementation in a `PlayerAgent`.
+    pub fn new(dm: impl PlayerDecisionMaker + 'static) -> Self {
+        PlayerAgent {
+            inner: Box::new(dm),
+        }
+    }
+}
+
+impl PlayerDecisionMaker for PlayerAgent {
+    fn priority(
+        &mut self,
+        game: &GameView<'_>,
+        legal_actions: &[PlayerAction],
+    ) -> PlayerAction {
+        self.inner.priority(game, legal_actions)
+    }
+
+    fn choose_targets(
+        &mut self,
+        game: &GameView<'_>,
+        outcome: Outcome,
+        requirement: &TargetRequirement,
+    ) -> Vec<ObjectId> {
+        self.inner.choose_targets(game, outcome, requirement)
+    }
+
+    fn choose_use(
+        &mut self,
+        game: &GameView<'_>,
+        outcome: Outcome,
+        message: &str,
+    ) -> bool {
+        self.inner.choose_use(game, outcome, message)
+    }
+
+    fn choose_mode(
+        &mut self,
+        game: &GameView<'_>,
+        modes: &[NamedChoice],
+    ) -> usize {
+        self.inner.choose_mode(game, modes)
+    }
+
+    fn select_attackers(
+        &mut self,
+        game: &GameView<'_>,
+        possible_attackers: &[ObjectId],
+        possible_defenders: &[ObjectId],
+    ) -> Vec<(ObjectId, ObjectId)> {
+        self.inner
+            .select_attackers(game, possible_attackers, possible_defenders)
+    }
+
+    fn select_blockers(
+        &mut self,
+        game: &GameView<'_>,
+        attackers: &[AttackerInfo],
+    ) -> Vec<(ObjectId, ObjectId)> {
+        self.inner.select_blockers(game, attackers)
+    }
+
+    fn assign_damage(
+        &mut self,
+        game: &GameView<'_>,
+        assignment: &DamageAssignment,
+    ) -> Vec<(ObjectId, u32)> {
+        self.inner.assign_damage(game, assignment)
+    }
+
+    fn choose_mulligan(
+        &mut self,
+        game: &GameView<'_>,
+        hand: &[ObjectId],
+    ) -> bool {
+        self.inner.choose_mulligan(game, hand)
+    }
+
+    fn choose_cards_to_put_back(
+        &mut self,
+        game: &GameView<'_>,
+        hand: &[ObjectId],
+        count: usize,
+    ) -> Vec<ObjectId> {
+        self.inner.choose_cards_to_put_back(game, hand, count)
+    }
+
+    fn choose_discard(
+        &mut self,
+        game: &GameView<'_>,
+        hand: &[ObjectId],
+        count: usize,
+    ) -> Vec<ObjectId> {
+        self.inner.choose_discard(game, hand, count)
+    }
+
+    fn choose_amount(
+        &mut self,
+        game: &GameView<'_>,
+        message: &str,
+        min: u32,
+        max: u32,
+    ) -> u32 {
+        self.inner.choose_amount(game, message, min, max)
+    }
+
+    fn choose_mana_payment(
+        &mut self,
+        game: &GameView<'_>,
+        unpaid: &UnpaidMana,
+        mana_abilities: &[PlayerAction],
+    ) -> Option<PlayerAction> {
+        self.inner.choose_mana_payment(game, unpaid, mana_abilities)
+    }
+
+    fn choose_replacement_effect(
+        &mut self,
+        game: &GameView<'_>,
+        effects: &[ReplacementEffectChoice],
+    ) -> usize {
+        self.inner.choose_replacement_effect(game, effects)
+    }
+
+    fn choose_pile(
+        &mut self,
+        game: &GameView<'_>,
+        outcome: Outcome,
+        message: &str,
+        pile1: &[ObjectId],
+        pile2: &[ObjectId],
+    ) -> bool {
+        self.inner.choose_pile(game, outcome, message, pile1, pile2)
+    }
+
+    fn choose_option(
+        &mut self,
+        game: &GameView<'_>,
+        outcome: Outcome,
+        message: &str,
+        options: &[NamedChoice],
+    ) -> usize {
+        self.inner.choose_option(game, outcome, message, options)
+    }
+
+    fn on_game_start(&mut self, game: &GameView<'_>, player_id: PlayerId) {
+        self.inner.on_game_start(game, player_id);
+    }
+
+    fn on_game_end(&mut self, game: &GameView<'_>, won: bool) {
+        self.inner.on_game_end(game, won);
+    }
+}

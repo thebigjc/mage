@@ -1,10 +1,11 @@
 // Tests extracted from game.rs
 
 use crate::game::*;
+use crate::decision::PlayerAgent;
 use crate::abilities::Effect;
 use crate::card::CardData;
 use crate::permanent::Permanent;
-use crate::types::{ObjectId, PlayerId};
+use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
 #[cfg(test)]
 
@@ -30,8 +31,8 @@ use crate::types::{ObjectId, PlayerId};
     fn make_game() -> (Game, PlayerId, PlayerId) {
         let p1 = PlayerId::new();
         let p2 = PlayerId::new();
-        let config = GameConfig { players: vec![PlayerConfig { name: "P1".into(), deck: vec![] }, PlayerConfig { name: "P2".into(), deck: vec![] }], starting_life: 20 };
-        let game = Game::new_two_player(config, vec![(p1, Box::new(PassPlayer)), (p2, Box::new(PassPlayer))]);
+        let config = GameConfig { players: vec![PlayerConfig { name: "P1".into(), deck: vec![] }, PlayerConfig { name: "P2".into(), deck: vec![] }], starting_life: Life::new(20) };
+        let game = Game::new_two_player(config, vec![(p1, PlayerAgent::new(PassPlayer)), (p2, PlayerAgent::new(PassPlayer))]);
         (game, p1, p2)
     }
 
@@ -45,7 +46,7 @@ use crate::types::{ObjectId, PlayerId};
             id: src_id, owner: p1, name: "Goblin Lord".into(),
             card_types: vec![crate::constants::CardType::Creature],
             subtypes: vec![crate::constants::SubType::Goblin],
-            power: Some(3), toughness: Some(3),
+            power: Some(Power::new(3)), toughness: Some(Toughness::new(3)),
             keywords: crate::constants::KeywordAbilities::MENACE,
             ..Default::default()
         };
@@ -81,7 +82,7 @@ use crate::types::{ObjectId, PlayerId};
             id: src_id, owner: p1, name: "Big Dragon".into(),
             card_types: vec![crate::constants::CardType::Creature],
             subtypes: vec![crate::constants::SubType::Custom("Dragon".into())],
-            power: Some(5), toughness: Some(5),
+            power: Some(Power::new(5)), toughness: Some(Toughness::new(5)),
             keywords: crate::constants::KeywordAbilities::FLYING,
             ..Default::default()
         };
@@ -108,7 +109,7 @@ use crate::types::{ObjectId, PlayerId};
             id: src_id, owner: p1, name: "Elf Warrior".into(),
             card_types: vec![crate::constants::CardType::Creature],
             subtypes: vec![crate::constants::SubType::Elf, crate::constants::SubType::Warrior],
-            power: Some(2), toughness: Some(2),
+            power: Some(Power::new(2)), toughness: Some(Toughness::new(2)),
             ..Default::default()
         };
         let perm = Permanent::new(src_card.clone(), p1);
@@ -134,7 +135,7 @@ use crate::types::{ObjectId, PlayerId};
         let src_card = CardData {
             id: src_id, owner: p1, name: "Bear".into(),
             card_types: vec![crate::constants::CardType::Creature],
-            power: Some(2), toughness: Some(2),
+            power: Some(Power::new(2)), toughness: Some(Toughness::new(2)),
             ..Default::default()
         };
         let perm = Permanent::new(src_card.clone(), p1);
@@ -161,7 +162,7 @@ use crate::types::{ObjectId, PlayerId};
             id: creature_id, owner: p1, name: "Siege Rhino".into(),
             card_types: vec![crate::constants::CardType::Creature],
             subtypes: vec![crate::constants::SubType::Rhino],
-            power: Some(4), toughness: Some(5),
+            power: Some(Power::new(4)), toughness: Some(Toughness::new(5)),
             keywords: crate::constants::KeywordAbilities::TRAMPLE,
             ..Default::default()
         };
@@ -194,8 +195,8 @@ use crate::types::{ObjectId, PlayerId};
         assert_eq!(tokens.len(), 2, "should have 2 token copies");
         for t in &tokens {
             assert_eq!(t.card.name, "Siege Rhino", "tokens should be copies of equipped creature");
-            assert_eq!(t.card.power, Some(4));
-            assert_eq!(t.card.toughness, Some(5));
+            assert_eq!(t.card.power, Some(Power::new(4)));
+            assert_eq!(t.card.toughness, Some(Toughness::new(5)));
             assert!(t.has_keyword(crate::constants::KeywordAbilities::TRAMPLE));
         }
     }
@@ -210,7 +211,7 @@ use crate::types::{ObjectId, PlayerId};
         let creature_card = CardData {
             id: creature_id, owner: p1, name: "Angel".into(),
             card_types: vec![crate::constants::CardType::Creature],
-            power: Some(4), toughness: Some(4),
+            power: Some(Power::new(4)), toughness: Some(Toughness::new(4)),
             keywords: crate::constants::KeywordAbilities::FLYING,
             ..Default::default()
         };

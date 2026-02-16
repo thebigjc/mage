@@ -623,6 +623,7 @@ mod tests {
     use super::*;
     use crate::card::CardData;
     use crate::constants::{CardType, KeywordAbilities};
+    use crate::types::{Power, Toughness};
 
     fn make_id() -> ObjectId {
         ObjectId::new()
@@ -725,8 +726,8 @@ mod tests {
         let owner = make_player();
         let mut card = CardData::new(make_id(), owner, "Bear");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(2);
-        card.toughness = Some(2);
+        card.power = Some(Power::new(2));
+        card.toughness = Some(Toughness::new(2));
         card.keywords = KeywordAbilities::empty();
 
         let perm = Permanent::new(card.clone(), owner);
@@ -752,12 +753,12 @@ mod tests {
 
         let mut card1 = CardData::new(make_id(), p1, "Bear");
         card1.card_types = vec![CardType::Creature];
-        card1.power = Some(2);
-        card1.toughness = Some(2);
+        card1.power = Some(Power::new(2));
+        card1.toughness = Some(Toughness::new(2));
         let mut card2 = CardData::new(make_id(), p2, "Bird");
         card2.card_types = vec![CardType::Creature];
-        card2.power = Some(1);
-        card2.toughness = Some(1);
+        card2.power = Some(Power::new(1));
+        card2.toughness = Some(Toughness::new(1));
 
         bf.add(Permanent::new(card1, p1));
         bf.add(Permanent::new(card2, p2));

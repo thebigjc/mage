@@ -4,7 +4,7 @@ use crate::game::*;
 use crate::abilities::{Ability, Cost, Effect, TargetSpec};
 use crate::card::CardData;
 use crate::constants::{CardType, SubType};
-use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
+use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerAgent, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
 use crate::filters::Filter;
 use crate::types::{ObjectId, PlayerId};
 
@@ -36,15 +36,15 @@ use crate::types::{ObjectId, PlayerId};
         let p1 = PlayerId::new();
         let p2 = PlayerId::new();
         let config = GameConfig {
-            starting_life: 20,
+            starting_life: Life::new(20),
             players: vec![
                 PlayerConfig { name: "P1".into(), deck: vec![] },
                 PlayerConfig { name: "P2".into(), deck: vec![] },
             ],
         };
         let game = Game::new_two_player(config, vec![
-            (p1, Box::new(AlwaysPassDM)),
-            (p2, Box::new(AlwaysPassDM)),
+            (p1, PlayerAgent::new(AlwaysPassDM)),
+            (p2, PlayerAgent::new(AlwaysPassDM)),
         ]);
         (game, p1, p2)
     }
@@ -57,8 +57,8 @@ use crate::types::{ObjectId, PlayerId};
         let creature_id = ObjectId::new();
         let mut card = CardData::new(creature_id, p1, "Self Tapper");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(2);
-        card.toughness = Some(2);
+        card.power = Some(Power::new(2));
+        card.toughness = Some(Toughness::new(2));
         card.abilities = vec![Ability::activated(creature_id,
             "Pay 1: Tap this creature.",
             vec![Cost::pay_mana("{1}")],
@@ -99,22 +99,22 @@ use crate::types::{ObjectId, PlayerId};
         let mut goblin1 = CardData::new(goblin1_id, p1, "Goblin Warrior");
         goblin1.card_types = vec![CardType::Creature];
         goblin1.subtypes = vec![SubType::Goblin, SubType::Warrior];
-        goblin1.power = Some(2);
-        goblin1.toughness = Some(1);
+        goblin1.power = Some(Power::new(2));
+        goblin1.toughness = Some(Toughness::new(1));
 
         let goblin2_id = ObjectId::new();
         let mut goblin2 = CardData::new(goblin2_id, p1, "Goblin Shaman");
         goblin2.card_types = vec![CardType::Creature];
         goblin2.subtypes = vec![SubType::Goblin];
-        goblin2.power = Some(1);
-        goblin2.toughness = Some(1);
+        goblin2.power = Some(Power::new(1));
+        goblin2.toughness = Some(Toughness::new(1));
 
         let elf_id = ObjectId::new();
         let mut elf = CardData::new(elf_id, p1, "Llanowar Elves");
         elf.card_types = vec![CardType::Creature];
         elf.subtypes = vec![SubType::Elf];
-        elf.power = Some(1);
-        elf.toughness = Some(1);
+        elf.power = Some(Power::new(1));
+        elf.toughness = Some(Toughness::new(1));
 
         game.state.card_store.insert(goblin1.clone());
         game.state.card_store.insert(goblin2.clone());
@@ -152,8 +152,8 @@ use crate::types::{ObjectId, PlayerId};
             let mut elf = CardData::new(elf_id, p1, &format!("Dead Elf {i}"));
             elf.card_types = vec![CardType::Creature];
             elf.subtypes = vec![SubType::Elf];
-            elf.power = Some(1);
-            elf.toughness = Some(1);
+            elf.power = Some(Power::new(1));
+            elf.toughness = Some(Toughness::new(1));
             game.state.card_store.insert(elf.clone());
             game.state.players.get_mut(&p1).unwrap().graveyard.add(elf_id);
         }
@@ -184,8 +184,8 @@ use crate::types::{ObjectId, PlayerId};
         let creature_id = ObjectId::new();
         let mut card = CardData::new(creature_id, p1, "Seeker");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(2);
-        card.toughness = Some(1);
+        card.power = Some(Power::new(2));
+        card.toughness = Some(Toughness::new(1));
         let ability = Ability::activated(creature_id,
             "{R}: Grant trample. 3rd time adds RRRR.",
             vec![],
@@ -222,8 +222,8 @@ use crate::types::{ObjectId, PlayerId};
         let creature_id = ObjectId::new();
         let mut card = CardData::new(creature_id, p1, "Seeker");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(2);
-        card.toughness = Some(1);
+        card.power = Some(Power::new(2));
+        card.toughness = Some(Toughness::new(1));
         let ability = Ability::activated(creature_id,
             "{R}: Grant trample. 3rd time adds RRRR.",
             vec![],
@@ -257,8 +257,8 @@ use crate::types::{ObjectId, PlayerId};
         let creature_id = ObjectId::new();
         let mut card = CardData::new(creature_id, p1, "Seeker");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(2);
-        card.toughness = Some(1);
+        card.power = Some(Power::new(2));
+        card.toughness = Some(Toughness::new(1));
         let ability = Ability::activated(creature_id,
             "3rd time adds RRRR.",
             vec![],

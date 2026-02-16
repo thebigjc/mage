@@ -9,7 +9,7 @@
 use crate::constants::Zone;
 use crate::counters::{CounterType, Counters};
 use crate::mana_pool::ManaPool;
-use crate::types::{ObjectId, PlayerId};
+use crate::types::{Life, ObjectId, PlayerId};
 use crate::zones::{CommandZone, Graveyard, Hand, Library};
 use serde::{Deserialize, Serialize};
 
@@ -23,7 +23,7 @@ pub struct Player {
 
     // ── Life and counters ────────────────────────────────────────────────
     /// Current life total.
-    pub life: i32,
+    pub life: Life,
     /// Counters on this player (poison, energy, experience, etc.).
     pub counters: Counters,
 
@@ -86,7 +86,7 @@ impl Player {
         Player {
             id,
             name: name.to_string(),
-            life: 20,
+            life: Life::new(20),
             counters: Counters::new(),
             library: Library::new(),
             hand: Hand::new(),
@@ -112,19 +112,19 @@ impl Player {
     // ── Life ─────────────────────────────────────────────────────────────
 
     /// Gain life. Returns the new life total.
-    pub fn gain_life(&mut self, amount: u32) -> i32 {
+    pub fn gain_life(&mut self, amount: u32) -> Life {
         self.life += amount as i32;
         self.life
     }
 
     /// Lose life. Returns the new life total.
-    pub fn lose_life(&mut self, amount: u32) -> i32 {
+    pub fn lose_life(&mut self, amount: u32) -> Life {
         self.life -= amount as i32;
         self.life
     }
 
     /// Set life total directly (for effects like "your life total becomes N").
-    pub fn set_life(&mut self, amount: i32) -> i32 {
+    pub fn set_life(&mut self, amount: Life) -> Life {
         self.life = amount;
         self.life
     }
@@ -253,7 +253,7 @@ mod tests {
     #[test]
     fn starting_values() {
         let p = make_player();
-        assert_eq!(p.life, 20);
+        assert_eq!(p.life, Life::new(20));
         assert_eq!(p.lands_per_turn, 1);
         assert_eq!(p.max_hand_size, 7);
         assert!(!p.has_lost());
@@ -263,11 +263,11 @@ mod tests {
     #[test]
     fn life_changes() {
         let mut p = make_player();
-        assert_eq!(p.gain_life(5), 25);
-        assert_eq!(p.lose_life(10), 15);
+        assert_eq!(p.gain_life(5), Life::new(25));
+        assert_eq!(p.lose_life(10), Life::new(15));
         assert_eq!(p.damage(3), 3);
-        assert_eq!(p.life, 12);
-        assert_eq!(p.set_life(1), 1);
+        assert_eq!(p.life, Life::new(12));
+        assert_eq!(p.set_life(Life::new(1)), Life::new(1));
     }
 
     #[test]

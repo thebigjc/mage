@@ -6,11 +6,11 @@ use crate::card::CardData;
 use crate::constants::{CardType, KeywordAbilities, Outcome, PhaseStep, SubType, TurnPhase};
 use crate::events::{EventType, GameEvent};
 use crate::counters::CounterType;
-use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
+use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerAgent, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
 use crate::filters::Filter;
 use crate::mana::{Mana, ManaCost};
 use crate::permanent::Permanent;
-use crate::types::{ObjectId, PlayerId};
+use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
 
 
 #[cfg(test)]
@@ -49,11 +49,11 @@ use crate::types::{ObjectId, PlayerId};
                 PlayerConfig { name: "A".into(), deck: make_deck(p1) },
                 PlayerConfig { name: "B".into(), deck: make_deck(p2) },
             ],
-            starting_life: 20,
+            starting_life: Life::new(20),
         };
         let game = Game::new_two_player(config, vec![
-            (p1, Box::new(AlwaysPassPlayer)),
-            (p2, Box::new(AlwaysPassPlayer)),
+            (p1, PlayerAgent::new(AlwaysPassPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
         ]);
         (game, p1, p2)
     }
@@ -63,8 +63,8 @@ use crate::types::{ObjectId, PlayerId};
         let mut card = CardData::new(id, owner, name);
         card.card_types = vec![CardType::Creature];
         card.mana_cost = ManaCost::parse(mana);
-        card.power = Some(2);
-        card.toughness = Some(2);
+        card.power = Some(Power::new(2));
+        card.toughness = Some(Toughness::new(2));
         card.keywords = KeywordAbilities::empty();
         game.state.battlefield.add(Permanent::new(card, owner));
         id
@@ -197,8 +197,8 @@ use crate::types::{ObjectId, PlayerId};
             let id = ObjectId::new();
             let mut card = CardData::new(id, p1, &format!("Creature {i}"));
             card.card_types = vec![CardType::Creature];
-            card.power = Some(1);
-            card.toughness = Some(1);
+            card.power = Some(Power::new(1));
+            card.toughness = Some(Toughness::new(1));
             game.state.card_store.insert(card);
             game.state.set_zone(id, crate::constants::Zone::Library, Some(p1));
             if let Some(player) = game.state.players.get_mut(&p1) {
@@ -259,8 +259,8 @@ use crate::types::{ObjectId, PlayerId};
         let id = ObjectId::new();
         let mut card = CardData::new(id, p1, "Creature");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(1);
-        card.toughness = Some(1);
+        card.power = Some(Power::new(1));
+        card.toughness = Some(Toughness::new(1));
         game.state.card_store.insert(card);
         game.state.set_zone(id, crate::constants::Zone::Library, Some(p1));
         if let Some(player) = game.state.players.get_mut(&p1) {
@@ -352,19 +352,19 @@ use crate::types::{ObjectId, PlayerId};
                 PlayerConfig { name: "A".into(), deck: make_deck2(p1) },
                 PlayerConfig { name: "B".into(), deck: make_deck2(p2) },
             ],
-            starting_life: 20,
+            starting_life: Life::new(20),
         };
         let mut game = Game::new_two_player(config, vec![
-            (p1, Box::new(AlwaysPayPlayer)),
-            (p2, Box::new(NeverPayPlayer)),
+            (p1, PlayerAgent::new(AlwaysPayPlayer)),
+            (p2, PlayerAgent::new(NeverPayPlayer)),
         ]);
 
         // Add a creature for source
         let src_id = ObjectId::new();
         let mut card = CardData::new(src_id, p1, "Source");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(2);
-        card.toughness = Some(2);
+        card.power = Some(Power::new(2));
+        card.toughness = Some(Toughness::new(2));
         card.keywords = KeywordAbilities::empty();
         game.state.battlefield.add(Permanent::new(card, p1));
 
@@ -391,19 +391,19 @@ use crate::types::{ObjectId, PlayerId};
                 PlayerConfig { name: "A".into(), deck: make_deck(p1) },
                 PlayerConfig { name: "B".into(), deck: make_deck(p2) },
             ],
-            starting_life: 20,
+            starting_life: Life::new(20),
         };
         let mut game = Game::new_two_player(config, vec![
-            (p1, Box::new(NeverPayPlayer)),
-            (p2, Box::new(NeverPayPlayer)),
+            (p1, PlayerAgent::new(NeverPayPlayer)),
+            (p2, PlayerAgent::new(NeverPayPlayer)),
         ]);
 
         // Add a creature for source
         let src_id = ObjectId::new();
         let mut card = CardData::new(src_id, p1, "Source");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(5);
-        card.toughness = Some(4);
+        card.power = Some(Power::new(5));
+        card.toughness = Some(Toughness::new(4));
         card.keywords = KeywordAbilities::empty();
         game.state.battlefield.add(Permanent::new(card, p1));
 
@@ -465,13 +465,13 @@ use crate::types::{ObjectId, PlayerId};
                 PlayerConfig { name: "Alice".into(), deck: make_deck3(p1) },
                 PlayerConfig { name: "Bob".into(), deck: make_deck3(p2) },
             ],
-            starting_life: 20,
+            starting_life: Life::new(20),
         };
         let game = Game::new_two_player(
             config,
             vec![
-                (p1, Box::new(OptionPicker(pick_index))),
-                (p2, Box::new(OptionPicker(0))),
+                (p1, PlayerAgent::new(OptionPicker(pick_index))),
+                (p2, PlayerAgent::new(OptionPicker(0))),
             ],
         );
         (game, p1, p2)
@@ -588,11 +588,11 @@ use crate::types::{ObjectId, PlayerId};
                 PlayerConfig { name: "Player1".into(), deck: make_deck4(p1) },
                 PlayerConfig { name: "Player2".into(), deck: make_deck4(p2) },
             ],
-            starting_life: 20,
+            starting_life: Life::new(20),
         };
         let game = Game::new_two_player(
             config,
-            vec![(p1, Box::new(PassivePlayer)), (p2, Box::new(PassivePlayer))],
+            vec![(p1, PlayerAgent::new(PassivePlayer)), (p2, PlayerAgent::new(PassivePlayer))],
         );
         (game, p1, p2)
     }
@@ -644,8 +644,8 @@ use crate::types::{ObjectId, PlayerId};
 
         let mut card = CardData::new(ObjectId::new(), p1, "Grizzly Bears");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(2);
-        card.toughness = Some(2);
+        card.power = Some(Power::new(2));
+        card.toughness = Some(Toughness::new(2));
         let id = card.id;
         let perm = Permanent::new(card, p1);
         game.state.battlefield.add(perm);
@@ -662,7 +662,7 @@ use crate::types::{ObjectId, PlayerId};
         let p2 = PlayerId::new();
 
         let config = GameConfig {
-            starting_life: 20,
+            starting_life: Life::new(20),
             players: vec![
                 PlayerConfig { name: "P1".into(), deck: vec![] },
                 PlayerConfig { name: "P2".into(), deck: vec![] },
@@ -671,8 +671,8 @@ use crate::types::{ObjectId, PlayerId};
         let mut game = Game::new_two_player(
             config,
             vec![
-                (p1, Box::new(PassivePlayer)),
-                (p2, Box::new(PassivePlayer)),
+                (p1, PlayerAgent::new(PassivePlayer)),
+                (p2, PlayerAgent::new(PassivePlayer)),
             ],
         );
         game.state.active_player = p1;
@@ -690,8 +690,8 @@ use crate::types::{ObjectId, PlayerId};
             let id = ObjectId::new();
             let mut card = CardData::new(id, player, &format!("Library Card {i}"));
             card.card_types = vec![CardType::Creature];
-            card.power = Some(2);
-            card.toughness = Some(2);
+            card.power = Some(Power::new(2));
+            card.toughness = Some(Toughness::new(2));
             card.mana_cost = ManaCost::parse("{1}{R}");
             game.state.card_store.insert(card);
             game.state.players.get_mut(&player).unwrap().library.put_on_top(id);
@@ -871,7 +871,7 @@ use crate::types::{ObjectId, PlayerId};
         let p1 = PlayerId::new();
         let p2 = PlayerId::new();
         let config = GameConfig {
-            starting_life: 20,
+            starting_life: Life::new(20),
             players: vec![
                 PlayerConfig { name: "P1".into(), deck: vec![] },
                 PlayerConfig { name: "P2".into(), deck: vec![] },
@@ -880,8 +880,8 @@ use crate::types::{ObjectId, PlayerId};
         let mut game = Game::new_two_player(
             config,
             vec![
-                (p1, Box::new(PassivePlayer)),
-                (p2, Box::new(PassivePlayer)),
+                (p1, PlayerAgent::new(PassivePlayer)),
+                (p2, PlayerAgent::new(PassivePlayer)),
             ],
         );
         game.state.active_player = p1;
@@ -897,8 +897,8 @@ use crate::types::{ObjectId, PlayerId};
         let mut card = CardData::new(id, owner, name);
         card.card_types = vec![CardType::Creature];
         card.subtypes = vec![subtype];
-        card.power = Some(1);
-        card.toughness = Some(1);
+        card.power = Some(Power::new(1));
+        card.toughness = Some(Toughness::new(1));
         game.state.card_store.insert(card);
         let card_clone = game.state.card_store.get(id).unwrap().clone();
         let perm = Permanent::new(card_clone, owner);
@@ -911,8 +911,8 @@ use crate::types::{ObjectId, PlayerId};
         let mut card = CardData::new(id, owner, name);
         card.card_types = vec![CardType::Creature];
         card.subtypes = vec![subtype];
-        card.power = Some(1);
-        card.toughness = Some(1);
+        card.power = Some(Power::new(1));
+        card.toughness = Some(Toughness::new(1));
         game.state.card_store.insert(card);
         game.state.players.get_mut(&owner).unwrap().hand.add(id);
         id
@@ -1040,8 +1040,8 @@ use crate::types::{ObjectId, PlayerId};
         card.card_types = vec![CardType::Creature];
         card.subtypes = vec![SubType::Shapeshifter];
         card.keywords = KeywordAbilities::CHANGELING;
-        card.power = Some(1);
-        card.toughness = Some(1);
+        card.power = Some(Power::new(1));
+        card.toughness = Some(Toughness::new(1));
         game.state.card_store.insert(card);
         let card_clone = game.state.card_store.get(changeling_id).unwrap().clone();
         let perm = Permanent::new(card_clone, p1);
@@ -1082,10 +1082,10 @@ use crate::types::{ObjectId, PlayerId};
     fn blight_opponents_puts_counter() {
         let p1 = PlayerId::new();
         let p2 = PlayerId::new();
-        let config = GameConfig { players: vec![PlayerConfig { name: "P1".into(), deck: vec![] }, PlayerConfig { name: "P2".into(), deck: vec![] }], starting_life: 20 };
+        let config = GameConfig { players: vec![PlayerConfig { name: "P1".into(), deck: vec![] }, PlayerConfig { name: "P2".into(), deck: vec![] }], starting_life: Life::new(20) };
         let mut game = Game::new_two_player(config, vec![
-            (p1, Box::new(PassPlayer)),
-            (p2, Box::new(PassPlayer)),
+            (p1, PlayerAgent::new(PassPlayer)),
+            (p2, PlayerAgent::new(PassPlayer)),
         ]);
 
         // Give opponent a creature
@@ -1093,7 +1093,7 @@ use crate::types::{ObjectId, PlayerId};
         let card = CardData {
             id: opp_creature, owner: p2, name: "Bear".into(),
             card_types: vec![crate::constants::CardType::Creature],
-            power: Some(3), toughness: Some(3),
+            power: Some(Power::new(3)), toughness: Some(Toughness::new(3)),
             ..Default::default()
         };
         let perm = crate::permanent::Permanent::new(card.clone(), p2);
@@ -1113,10 +1113,10 @@ use crate::types::{ObjectId, PlayerId};
     fn gain_all_creature_types() {
         let p1 = PlayerId::new();
         let p2 = PlayerId::new();
-        let config = GameConfig { players: vec![PlayerConfig { name: "P1".into(), deck: vec![] }, PlayerConfig { name: "P2".into(), deck: vec![] }], starting_life: 20 };
+        let config = GameConfig { players: vec![PlayerConfig { name: "P1".into(), deck: vec![] }, PlayerConfig { name: "P2".into(), deck: vec![] }], starting_life: Life::new(20) };
         let mut game = Game::new_two_player(config, vec![
-            (p1, Box::new(PassPlayer)),
-            (p2, Box::new(PassPlayer)),
+            (p1, PlayerAgent::new(PassPlayer)),
+            (p2, PlayerAgent::new(PassPlayer)),
         ]);
 
         let creature_id = ObjectId::new();
@@ -1124,7 +1124,7 @@ use crate::types::{ObjectId, PlayerId};
             id: creature_id, owner: p1, name: "Type Gainer".into(),
             card_types: vec![crate::constants::CardType::Creature],
             subtypes: vec![crate::constants::SubType::Human],
-            power: Some(2), toughness: Some(2),
+            power: Some(Power::new(2)), toughness: Some(Toughness::new(2)),
             ..Default::default()
         };
         let perm = crate::permanent::Permanent::new(card.clone(), p1);
@@ -1164,13 +1164,13 @@ use crate::types::{ObjectId, PlayerId};
                 PlayerConfig { name: "Alice".into(), deck: make_deck5(p1) },
                 PlayerConfig { name: "Bob".into(), deck: make_deck5(p2) },
             ],
-            starting_life: 20,
+            starting_life: Life::new(20),
         };
         let game = Game::new_two_player(
             config,
             vec![
-                (p1, Box::new(OptionPicker(pick_index))),
-                (p2, Box::new(OptionPicker(0))),
+                (p1, PlayerAgent::new(OptionPicker(pick_index))),
+                (p2, PlayerAgent::new(OptionPicker(0))),
             ],
         );
         (game, p1, p2)
@@ -1180,8 +1180,8 @@ use crate::types::{ObjectId, PlayerId};
         let mut card = CardData::new(ObjectId::new(), owner, name);
         card.card_types = vec![CardType::Creature];
         card.subtypes = vec![SubType::by_description(subtype)];
-        card.power = Some(power);
-        card.toughness = Some(toughness);
+        card.power = Some(Power::new(power));
+        card.toughness = Some(Toughness::new(toughness));
         card
     }
 
@@ -1319,8 +1319,8 @@ use crate::types::{ObjectId, PlayerId};
     fn make_creature(name: &str, owner: PlayerId, power: i32, toughness: i32) -> CardData {
         let mut card = CardData::new(ObjectId::new(), owner, name);
         card.card_types = vec![CardType::Creature];
-        card.power = Some(power);
-        card.toughness = Some(toughness);
+        card.power = Some(Power::new(power));
+        card.toughness = Some(Toughness::new(toughness));
         card
     }
 
@@ -1345,13 +1345,13 @@ use crate::types::{ObjectId, PlayerId};
                 PlayerConfig { name: "Alice".to_string(), deck: make_deck6(p1) },
                 PlayerConfig { name: "Bob".to_string(), deck: make_deck6(p2) },
             ],
-            starting_life: 20,
+            starting_life: Life::new(20),
         };
         let game = Game::new_two_player(
             config,
             vec![
-                (p1, Box::new(AlwaysPassPlayer)),
-                (p2, Box::new(AlwaysPassPlayer)),
+                (p1, PlayerAgent::new(AlwaysPassPlayer)),
+                (p2, PlayerAgent::new(AlwaysPassPlayer)),
             ],
         );
         (game, p1, p2)
@@ -1451,8 +1451,8 @@ use crate::types::{ObjectId, PlayerId};
 
         let mut card = CardData::new(ObjectId::new(), p1, "Artifact Creature");
         card.card_types = vec![CardType::Artifact, CardType::Creature];
-        card.power = Some(2);
-        card.toughness = Some(3);
+        card.power = Some(Power::new(2));
+        card.toughness = Some(Toughness::new(3));
         let card_id = card.id;
         game.state.battlefield.add(Permanent::new(card, p1));
 
@@ -1482,8 +1482,8 @@ use crate::types::{ObjectId, PlayerId};
         );
 
         if let Some(perm) = game.state.battlefield.get_mut(artifact_id) {
-            perm.continuous_boost_power = 2;
-            perm.continuous_boost_toughness = 1;
+            perm.continuous_boost_power = Power::new(2);
+            perm.continuous_boost_toughness = Toughness::new(1);
         }
         
         let perm = game.state.battlefield.get(artifact_id).unwrap();
@@ -1528,10 +1528,10 @@ use crate::types::{ObjectId, PlayerId};
         card.card_types = vec![CardType::Artifact];
         let mut perm = Permanent::new(card, owner);
 
-        perm.base_power_override = Some(2);
-        perm.base_toughness_override = Some(2);
-        perm.base_power_eot = Some(5);
-        perm.base_toughness_eot = Some(5);
+        perm.base_power_override = Some(Power::new(2));
+        perm.base_toughness_override = Some(Toughness::new(2));
+        perm.base_power_eot = Some(Power::new(5));
+        perm.base_toughness_eot = Some(Toughness::new(5));
 
         assert_eq!(perm.power(), 5, "EOT base should take priority over continuous override");
         assert_eq!(perm.toughness(), 5, "EOT base should take priority over continuous override");
@@ -1543,8 +1543,8 @@ use crate::types::{ObjectId, PlayerId};
         let (mut game, p1, _p2) = setup2();
         let mut card = CardData::new(ObjectId::new(), p1, "Brambleback Brute");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(4);
-        card.toughness = Some(5);
+        card.power = Some(Power::new(4));
+        card.toughness = Some(Toughness::new(5));
         let id = card.id;
         card.abilities = vec![
             Ability::static_ability(id,
@@ -1571,8 +1571,8 @@ use crate::types::{ObjectId, PlayerId};
         let (mut game, p1, _p2) = setup2();
         let mut card = CardData::new(ObjectId::new(), p1, "Workhorse");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(0);
-        card.toughness = Some(0);
+        card.power = Some(Power::new(0));
+        card.toughness = Some(Toughness::new(0));
         let id = card.id;
         card.abilities = vec![
             Ability::static_ability(id,
@@ -1597,8 +1597,8 @@ use crate::types::{ObjectId, PlayerId};
         let (mut game, p1, _p2) = setup2();
         let mut card = CardData::new(ObjectId::new(), p1, "Grizzly Bears");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(2);
-        card.toughness = Some(2);
+        card.power = Some(Power::new(2));
+        card.toughness = Some(Toughness::new(2));
         let id = card.id;
         let perm = Permanent::new(card, p1);
         game.state.battlefield.add(perm);
@@ -1616,8 +1616,8 @@ use crate::types::{ObjectId, PlayerId};
         let (mut game, p1, _p2) = setup2();
         let mut card = CardData::new(ObjectId::new(), p1, "Multi Counter");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(3);
-        card.toughness = Some(3);
+        card.power = Some(Power::new(3));
+        card.toughness = Some(Toughness::new(3));
         let id = card.id;
         card.abilities = vec![
             Ability::static_ability(id, "Enters with counters.",
@@ -1654,8 +1654,8 @@ use crate::types::{ObjectId, PlayerId};
         let (mut game, p1, _p2) = setup2();
         let mut card = CardData::new(ObjectId::new(), p1, "Moonshadow");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(7);
-        card.toughness = Some(7);
+        card.power = Some(Power::new(7));
+        card.toughness = Some(Toughness::new(7));
         let id = card.id;
         card.abilities = vec![
             Ability::static_ability(id,
@@ -1680,8 +1680,8 @@ use crate::types::{ObjectId, PlayerId};
         let (mut game, p1, _p2) = setup2();
         let mut card = CardData::new(ObjectId::new(), p1, "Stunned Creature");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(3);
-        card.toughness = Some(3);
+        card.power = Some(Power::new(3));
+        card.toughness = Some(Toughness::new(3));
         let id = card.id;
         card.abilities = vec![
             Ability::static_ability(id,
@@ -1704,15 +1704,15 @@ use crate::types::{ObjectId, PlayerId};
         let mut front = CardData::new(id, owner, "Front Face");
         front.card_types = vec![CardType::Creature];
         front.subtypes = vec![SubType::Elf];
-        front.power = Some(3);
-        front.toughness = Some(3);
+        front.power = Some(Power::new(3));
+        front.toughness = Some(Toughness::new(3));
         front.keywords = KeywordAbilities::FLYING;
 
         let mut back = CardData::new(id, owner, "Back Face");
         back.card_types = vec![CardType::Creature];
         back.subtypes = vec![SubType::Goblin];
-        back.power = Some(5);
-        back.toughness = Some(5);
+        back.power = Some(Power::new(5));
+        back.toughness = Some(Toughness::new(5));
         back.keywords = KeywordAbilities::DEATHTOUCH;
 
         front.back_face = Some(Box::new(back));
@@ -1811,8 +1811,8 @@ use crate::types::{ObjectId, PlayerId};
 
         let mut card = CardData::new(ObjectId::new(), p1, "Regular Creature");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(2);
-        card.toughness = Some(2);
+        card.power = Some(Power::new(2));
+        card.toughness = Some(Toughness::new(2));
         let card_id = card.id;
         game.state.battlefield.add(Permanent::new(card, p1));
 
@@ -1844,8 +1844,8 @@ use crate::types::{ObjectId, PlayerId};
         let id = ObjectId::new();
         let mut front = CardData::new(id, p1, "Front");
         front.card_types = vec![CardType::Creature];
-        front.power = Some(2);
-        front.toughness = Some(2);
+        front.power = Some(Power::new(2));
+        front.toughness = Some(Toughness::new(2));
         front.abilities = vec![
             Ability::static_ability(id, "Flying.",
                 vec![StaticEffect::GrantKeyword { filter: Filter::parse("self"), keyword: "flying".into() }]),
@@ -1853,8 +1853,8 @@ use crate::types::{ObjectId, PlayerId};
 
         let mut back = CardData::new(id, p1, "Back");
         back.card_types = vec![CardType::Creature];
-        back.power = Some(4);
-        back.toughness = Some(4);
+        back.power = Some(Power::new(4));
+        back.toughness = Some(Toughness::new(4));
         back.abilities = vec![
             Ability::static_ability(id, "Deathtouch.",
                 vec![StaticEffect::GrantKeyword { filter: Filter::parse("self"), keyword: "deathtouch".into() }]),
@@ -1895,8 +1895,8 @@ use crate::types::{ObjectId, PlayerId};
 
         let mut card2 = CardData::new(ObjectId::new(), owner, "No DFC");
         card2.card_types = vec![CardType::Creature];
-        card2.power = Some(1);
-        card2.toughness = Some(1);
+        card2.power = Some(Power::new(1));
+        card2.toughness = Some(Toughness::new(1));
         let perm2 = Permanent::new(card2, owner);
         assert!(!perm2.can_transform());
     }
@@ -1907,8 +1907,8 @@ use crate::types::{ObjectId, PlayerId};
         let id = ObjectId::new();
         let mut card = CardData::new(id, owner, name);
         card.card_types = vec![CardType::Creature];
-        card.power = Some(power);
-        card.toughness = Some(toughness);
+        card.power = Some(Power::new(power));
+        card.toughness = Some(Toughness::new(toughness));
         card.keywords = keywords;
         for ab in &card.abilities {
             game.state.ability_store.add(ab.clone());
@@ -1923,8 +1923,8 @@ use crate::types::{ObjectId, PlayerId};
         let mut card = CardData::new(id, owner, "Clone");
         card.card_types = vec![CardType::Creature];
         card.subtypes = vec![SubType::Shapeshifter];
-        card.power = Some(0);
-        card.toughness = Some(0);
+        card.power = Some(Power::new(0));
+        card.toughness = Some(Toughness::new(0));
         card.abilities = vec![
             Ability::static_ability(id,
                 "Enter as a copy of any creature, except it has changeling.",
@@ -1946,8 +1946,8 @@ use crate::types::{ObjectId, PlayerId};
         game.check_enter_as_copy(clone_id);
         let perm = game.state.battlefield.get(clone_id).unwrap();
         assert_eq!(perm.name(), "Big Dragon");
-        assert_eq!(perm.card.power, Some(5));
-        assert_eq!(perm.card.toughness, Some(5));
+        assert_eq!(perm.card.power, Some(Power::new(5)));
+        assert_eq!(perm.card.toughness, Some(Toughness::new(5)));
     }
 
     #[test]
@@ -1981,8 +1981,8 @@ use crate::types::{ObjectId, PlayerId};
         game.check_enter_as_copy(clone_id);
         let perm = game.state.battlefield.get(clone_id).unwrap();
         assert_eq!(perm.name(), "Clone");
-        assert_eq!(perm.card.power, Some(0));
-        assert_eq!(perm.card.toughness, Some(0));
+        assert_eq!(perm.card.power, Some(Power::new(0)));
+        assert_eq!(perm.card.toughness, Some(Toughness::new(0)));
     }
 
     #[test]
@@ -1992,7 +1992,7 @@ use crate::types::{ObjectId, PlayerId};
         game.check_enter_as_copy(clone_id);
         let perm = game.state.battlefield.get(clone_id).unwrap();
         assert_eq!(perm.name(), "Clone");
-        assert_eq!(perm.card.power, Some(0));
+        assert_eq!(perm.card.power, Some(Power::new(0)));
     }
 
     #[test]
@@ -2014,8 +2014,8 @@ use crate::types::{ObjectId, PlayerId};
         let mut target = CardData::new(target_id, p1, "Elf Warrior");
         target.card_types = vec![CardType::Creature];
         target.subtypes = vec![SubType::Elf, SubType::Warrior];
-        target.power = Some(2);
-        target.toughness = Some(2);
+        target.power = Some(Power::new(2));
+        target.toughness = Some(Toughness::new(2));
         game.state.battlefield.add(Permanent::new(target, p1));
         game.state.set_zone(target_id, crate::constants::Zone::Battlefield, None);
         let clone_id = add_copy_creature(&mut game, p1);
@@ -2031,8 +2031,8 @@ use crate::types::{ObjectId, PlayerId};
         let target_id = ObjectId::new();
         let mut target = CardData::new(target_id, p1, "Able Creature");
         target.card_types = vec![CardType::Creature];
-        target.power = Some(2);
-        target.toughness = Some(2);
+        target.power = Some(Power::new(2));
+        target.toughness = Some(Toughness::new(2));
         target.abilities = vec![
             Ability::enters_battlefield_triggered(target_id,
                 "When this creature enters, draw a card.",
@@ -2094,8 +2094,8 @@ use crate::types::{ObjectId, PlayerId};
         let source_id = ObjectId::new();
         let mut source_card = CardData::new(source_id, p1, "Trigger Source");
         source_card.card_types = vec![CardType::Creature];
-        source_card.power = Some(3);
-        source_card.toughness = Some(4);
+        source_card.power = Some(Power::new(3));
+        source_card.toughness = Some(Toughness::new(4));
         let mut trigger = Ability::triggered(source_id,
             "Whenever a creature you control dies, exile X cards.",
             vec![EventType::Dies],
@@ -2112,8 +2112,8 @@ use crate::types::{ObjectId, PlayerId};
         let creature_id = ObjectId::new();
         let mut creature = CardData::new(creature_id, p1, "Dying Creature");
         creature.card_types = vec![CardType::Creature];
-        creature.power = Some(2);
-        creature.toughness = Some(2);
+        creature.power = Some(Power::new(2));
+        creature.toughness = Some(Toughness::new(2));
         game.state.card_store.insert(creature.clone());
         let mut creature_perm = Permanent::new(creature, p1);
         creature_perm.counters.add(CounterType::M1M1, 2);
@@ -2142,8 +2142,8 @@ use crate::types::{ObjectId, PlayerId};
         let source_id = ObjectId::new();
         let mut source_card = CardData::new(source_id, p1, "Trigger Source");
         source_card.card_types = vec![CardType::Creature];
-        source_card.power = Some(3);
-        source_card.toughness = Some(4);
+        source_card.power = Some(Power::new(3));
+        source_card.toughness = Some(Toughness::new(4));
         let mut trigger = Ability::triggered(source_id,
             "Whenever a creature you control dies, exile X cards.",
             vec![EventType::Dies],
@@ -2160,8 +2160,8 @@ use crate::types::{ObjectId, PlayerId};
         let creature_id = ObjectId::new();
         let mut creature = CardData::new(creature_id, p1, "Dying Creature");
         creature.card_types = vec![CardType::Creature];
-        creature.power = Some(2);
-        creature.toughness = Some(2);
+        creature.power = Some(Power::new(2));
+        creature.toughness = Some(Toughness::new(2));
         game.state.card_store.insert(creature.clone());
         let creature_perm = Permanent::new(creature, p1);
         game.state.battlefield.add(creature_perm);
@@ -2241,8 +2241,8 @@ use crate::types::{ObjectId, PlayerId};
         let creature_id = ObjectId::new();
         let mut creature_card = CardData::new(creature_id, p1, "Grizzly Bears");
         creature_card.card_types = vec![CardType::Creature];
-        creature_card.power = Some(2);
-        creature_card.toughness = Some(2);
+        creature_card.power = Some(Power::new(2));
+        creature_card.toughness = Some(Toughness::new(2));
         game.state.card_store.insert(creature_card.clone());
 
         let stack_item = crate::zones::StackItem {
@@ -2270,8 +2270,8 @@ use crate::types::{ObjectId, PlayerId};
         let target_id = ObjectId::new();
         let mut target_card = CardData::new(target_id, p2, "Grizzly Bears");
         target_card.card_types = vec![CardType::Creature];
-        target_card.power = Some(2);
-        target_card.toughness = Some(2);
+        target_card.power = Some(Power::new(2));
+        target_card.toughness = Some(Toughness::new(2));
         game.state.battlefield.add(Permanent::new(target_card, p2));
 
         let spell_id = ObjectId::new();
@@ -2384,7 +2384,7 @@ use crate::types::{ObjectId, PlayerId};
         let mut c1 = CardData::new(id1, p2, "Small Creature");
         c1.card_types = vec![CardType::Creature];
         c1.mana_cost = ManaCost::parse("{1}{G}");
-        c1.power = Some(2); c1.toughness = Some(2);
+        c1.power = Some(Power::new(2)); c1.toughness = Some(Toughness::new(2));
         game.state.card_store.insert(c1);
         game.state.players.get_mut(&p2).unwrap().library.put_on_top(id1);
 
@@ -2392,7 +2392,7 @@ use crate::types::{ObjectId, PlayerId};
         let mut c2 = CardData::new(id2, p2, "Big Creature");
         c2.card_types = vec![CardType::Creature];
         c2.mana_cost = ManaCost::parse("{3}{R}{R}");
-        c2.power = Some(5); c2.toughness = Some(5);
+        c2.power = Some(Power::new(5)); c2.toughness = Some(Toughness::new(5));
         game.state.card_store.insert(c2);
         game.state.players.get_mut(&p2).unwrap().library.put_on_top(id2);
 
@@ -2416,7 +2416,7 @@ use crate::types::{ObjectId, PlayerId};
         let mut c1 = CardData::new(id1, p2, "One Drop");
         c1.card_types = vec![CardType::Creature];
         c1.mana_cost = ManaCost::parse("{G}");
-        c1.power = Some(1); c1.toughness = Some(1);
+        c1.power = Some(Power::new(1)); c1.toughness = Some(Toughness::new(1));
         game.state.card_store.insert(c1);
         game.state.players.get_mut(&p2).unwrap().library.put_on_top(id1);
 
@@ -2424,7 +2424,7 @@ use crate::types::{ObjectId, PlayerId};
         let mut c2 = CardData::new(id2, p2, "Two Drop");
         c2.card_types = vec![CardType::Creature];
         c2.mana_cost = ManaCost::parse("{1}{U}");
-        c2.power = Some(2); c2.toughness = Some(1);
+        c2.power = Some(Power::new(2)); c2.toughness = Some(Toughness::new(1));
         game.state.card_store.insert(c2);
         game.state.players.get_mut(&p2).unwrap().library.put_on_top(id2);
 
@@ -2432,7 +2432,7 @@ use crate::types::{ObjectId, PlayerId};
         let mut c3 = CardData::new(id3, p2, "Three Drop");
         c3.card_types = vec![CardType::Creature];
         c3.mana_cost = ManaCost::parse("{2}{B}");
-        c3.power = Some(3); c3.toughness = Some(2);
+        c3.power = Some(Power::new(3)); c3.toughness = Some(Toughness::new(2));
         game.state.card_store.insert(c3);
         game.state.players.get_mut(&p2).unwrap().library.put_on_top(id3);
 
@@ -2460,7 +2460,7 @@ use crate::types::{ObjectId, PlayerId};
         let mut c1 = CardData::new(id1, p2, "Tiny");
         c1.card_types = vec![CardType::Creature];
         c1.mana_cost = ManaCost::parse("{W}");
-        c1.power = Some(1); c1.toughness = Some(1);
+        c1.power = Some(Power::new(1)); c1.toughness = Some(Toughness::new(1));
         game.state.card_store.insert(c1);
         game.state.players.get_mut(&p2).unwrap().library.put_on_top(id1);
 
@@ -2482,8 +2482,8 @@ use crate::types::{ObjectId, PlayerId};
         let creature_id = ObjectId::new();
         let mut card = CardData::new(creature_id, p2, "Target Beast");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(3);
-        card.toughness = Some(5);
+        card.power = Some(Power::new(3));
+        card.toughness = Some(Toughness::new(5));
         game.state.card_store.insert(card.clone());
         let perm = Permanent::new(card, p2);
         game.state.battlefield.add(perm);
@@ -2511,8 +2511,8 @@ use crate::types::{ObjectId, PlayerId};
         let creature_id = ObjectId::new();
         let mut card = CardData::new(creature_id, p2, "Doomed Beast");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(3);
-        card.toughness = Some(2);
+        card.power = Some(Power::new(3));
+        card.toughness = Some(Toughness::new(2));
         game.state.card_store.insert(card.clone());
         let perm = Permanent::new(card, p2);
         game.state.battlefield.add(perm);
@@ -2546,8 +2546,8 @@ use crate::types::{ObjectId, PlayerId};
         let creature_id = ObjectId::new();
         let mut card = CardData::new(creature_id, p2, "Tough Beast");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(4);
-        card.toughness = Some(10);
+        card.power = Some(Power::new(4));
+        card.toughness = Some(Toughness::new(10));
         game.state.card_store.insert(card.clone());
         let perm = Permanent::new(card, p2);
         game.state.battlefield.add(perm);
@@ -2618,8 +2618,8 @@ use crate::types::{ObjectId, PlayerId};
         let creature_id = ObjectId::new();
         let mut creature_card = CardData::new(creature_id, p1, "Grizzly Bears");
         creature_card.card_types = vec![CardType::Creature];
-        creature_card.power = Some(2);
-        creature_card.toughness = Some(2);
+        creature_card.power = Some(Power::new(2));
+        creature_card.toughness = Some(Toughness::new(2));
         game.state.card_store.insert(creature_card.clone());
 
         let stack_item = crate::zones::StackItem {
@@ -2674,16 +2674,16 @@ use crate::types::{ObjectId, PlayerId};
         let source_id = ObjectId::new();
         let mut source_card = CardData::new(source_id, p1, "Dawnhand Dissident");
         source_card.card_types = vec![CardType::Creature];
-        source_card.power = Some(1);
-        source_card.toughness = Some(2);
+        source_card.power = Some(Power::new(1));
+        source_card.toughness = Some(Toughness::new(2));
         game.state.card_store.insert(source_card.clone());
         game.state.battlefield.add(Permanent::new(source_card, p1));
 
         let gy_card_id = ObjectId::new();
         let mut gy_card = CardData::new(gy_card_id, p1, "Grizzly Bears");
         gy_card.card_types = vec![CardType::Creature];
-        gy_card.power = Some(2);
-        gy_card.toughness = Some(2);
+        gy_card.power = Some(Power::new(2));
+        gy_card.toughness = Some(Toughness::new(2));
         game.state.card_store.insert(gy_card);
         game.state.players.get_mut(&p2).unwrap().graveyard.add(gy_card_id);
         game.state.set_zone(gy_card_id, crate::constants::Zone::Graveyard, Some(p2));
@@ -2709,8 +2709,8 @@ use crate::types::{ObjectId, PlayerId};
         let source_id = ObjectId::new();
         let mut source_card = CardData::new(source_id, p1, "Dawnhand Dissident");
         source_card.card_types = vec![CardType::Creature];
-        source_card.power = Some(1);
-        source_card.toughness = Some(2);
+        source_card.power = Some(Power::new(1));
+        source_card.toughness = Some(Toughness::new(2));
         source_card.abilities = vec![
             Ability::static_ability(source_id,
                 "Cast exiled creatures by removing 3 counters.",
@@ -2726,8 +2726,8 @@ use crate::types::{ObjectId, PlayerId};
         let mut exiled_card = CardData::new(exiled_id, p1, "Runeclaw Bear");
         exiled_card.card_types = vec![CardType::Creature];
         exiled_card.mana_cost = ManaCost::parse("{1}{G}");
-        exiled_card.power = Some(2);
-        exiled_card.toughness = Some(2);
+        exiled_card.power = Some(Power::new(2));
+        exiled_card.toughness = Some(Toughness::new(2));
         game.state.card_store.insert(exiled_card);
         game.state.exile.exile_to_zone(exiled_id, source_id, "Exiled with Dawnhand Dissident");
         game.state.set_zone(exiled_id, crate::constants::Zone::Exile, None);
@@ -2735,8 +2735,8 @@ use crate::types::{ObjectId, PlayerId};
         let helper_id = ObjectId::new();
         let mut helper_card = CardData::new(helper_id, p1, "Helper Creature");
         helper_card.card_types = vec![CardType::Creature];
-        helper_card.power = Some(3);
-        helper_card.toughness = Some(3);
+        helper_card.power = Some(Power::new(3));
+        helper_card.toughness = Some(Toughness::new(3));
         game.state.card_store.insert(helper_card.clone());
         let mut helper_perm = Permanent::new(helper_card, p1);
         helper_perm.counters.add(CounterType::P1P1, 4);
@@ -2767,8 +2767,8 @@ use crate::types::{ObjectId, PlayerId};
         let source_id = ObjectId::new();
         let mut source_card = CardData::new(source_id, p1, "Dawnhand Dissident");
         source_card.card_types = vec![CardType::Creature];
-        source_card.power = Some(1);
-        source_card.toughness = Some(2);
+        source_card.power = Some(Power::new(1));
+        source_card.toughness = Some(Toughness::new(2));
         source_card.abilities = vec![
             Ability::static_ability(source_id,
                 "Cast exiled creatures by removing 3 counters.",
@@ -2784,8 +2784,8 @@ use crate::types::{ObjectId, PlayerId};
         let mut exiled_card = CardData::new(exiled_id, p1, "Grizzly Bears");
         exiled_card.card_types = vec![CardType::Creature];
         exiled_card.mana_cost = ManaCost::parse("{1}{G}");
-        exiled_card.power = Some(2);
-        exiled_card.toughness = Some(2);
+        exiled_card.power = Some(Power::new(2));
+        exiled_card.toughness = Some(Toughness::new(2));
         game.state.card_store.insert(exiled_card);
         game.state.exile.exile_to_zone(exiled_id, source_id, "Exiled with Dawnhand Dissident");
         game.state.set_zone(exiled_id, crate::constants::Zone::Exile, None);
@@ -2793,8 +2793,8 @@ use crate::types::{ObjectId, PlayerId};
         let helper_id = ObjectId::new();
         let mut helper_card = CardData::new(helper_id, p1, "Counter Creature");
         helper_card.card_types = vec![CardType::Creature];
-        helper_card.power = Some(3);
-        helper_card.toughness = Some(3);
+        helper_card.power = Some(Power::new(3));
+        helper_card.toughness = Some(Toughness::new(3));
         game.state.card_store.insert(helper_card.clone());
         let mut helper_perm = Permanent::new(helper_card, p1);
         helper_perm.counters.add(CounterType::P1P1, 5);
@@ -2825,8 +2825,8 @@ use crate::types::{ObjectId, PlayerId};
         let mut source_card = CardData::new(source_id, p1, "Maralen Test");
         source_card.card_types = vec![CardType::Creature];
         source_card.subtypes = vec![SubType::Elf, SubType::Faerie];
-        source_card.power = Some(4);
-        source_card.toughness = Some(5);
+        source_card.power = Some(Power::new(4));
+        source_card.toughness = Some(Toughness::new(5));
         source_card.abilities = vec![
             Ability::static_ability(source_id,
                 "Once each turn, cast exiled spell with MV <= Elves and Faeries.",
@@ -2877,8 +2877,8 @@ use crate::types::{ObjectId, PlayerId};
         let mut source_card = CardData::new(source_id, p1, "Maralen Test");
         source_card.card_types = vec![CardType::Creature];
         source_card.subtypes = vec![SubType::Elf, SubType::Faerie];
-        source_card.power = Some(4);
-        source_card.toughness = Some(5);
+        source_card.power = Some(Power::new(4));
+        source_card.toughness = Some(Toughness::new(5));
         source_card.abilities = vec![
             Ability::static_ability(source_id,
                 "Once each turn, cast exiled spell with MV <= Elves and Faeries.",
@@ -2927,8 +2927,8 @@ use crate::types::{ObjectId, PlayerId};
         let mut source_card = CardData::new(source_id, p1, "Maralen Test");
         source_card.card_types = vec![CardType::Creature];
         source_card.subtypes = vec![SubType::Elf, SubType::Faerie];
-        source_card.power = Some(4);
-        source_card.toughness = Some(5);
+        source_card.power = Some(Power::new(4));
+        source_card.toughness = Some(Toughness::new(5));
         source_card.abilities = vec![
             Ability::static_ability(source_id,
                 "Once each turn, cast exiled spell with MV <= Elves and Faeries.",

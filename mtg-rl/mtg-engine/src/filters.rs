@@ -649,10 +649,10 @@ pub fn predicate_matches_permanent(pred: &Predicate, perm: &Permanent, you: Play
         Predicate::IsMonocolored => perm.card.colors().len() == 1,
         Predicate::HasKeyword(kw) => perm.has_keyword(*kw),
         Predicate::PowerCompare(cmp, val) => {
-            perm.is_creature() && cmp.compare(perm.power(), *val)
+            perm.is_creature() && cmp.compare(perm.power().get(), *val)
         }
         Predicate::ToughnessCompare(cmp, val) => {
-            perm.is_creature() && cmp.compare(perm.toughness(), *val)
+            perm.is_creature() && cmp.compare(perm.toughness().get(), *val)
         }
         Predicate::ManaValueCompare(cmp, val) => {
             cmp.compare(perm.card.mana_value() as i32, *val)
@@ -713,10 +713,10 @@ pub fn predicate_matches_card(pred: &Predicate, card: &CardData, _you: PlayerId)
         Predicate::IsMonocolored => card.colors().len() == 1,
         Predicate::HasKeyword(kw) => card.keywords.contains(*kw),
         Predicate::PowerCompare(cmp, val) => {
-            card.power.is_some_and(|p| cmp.compare(p, *val))
+            card.power.is_some_and(|p| cmp.compare(p.get(), *val))
         }
         Predicate::ToughnessCompare(cmp, val) => {
-            card.toughness.is_some_and(|t| cmp.compare(t, *val))
+            card.toughness.is_some_and(|t| cmp.compare(t.get(), *val))
         }
         Predicate::ManaValueCompare(cmp, val) => {
             cmp.compare(card.mana_value() as i32, *val)
@@ -746,14 +746,14 @@ mod tests {
     use crate::constants::{CardType, Color, KeywordAbilities, SubType};
     use crate::mana::ManaCost;
     use crate::permanent::Permanent;
-    use crate::types::{ObjectId, PlayerId};
+    use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
     fn make_creature(name: &str, power: i32, toughness: i32, kw: KeywordAbilities) -> Permanent {
         let owner = PlayerId::new();
         let mut card = CardData::new(ObjectId::new(), owner, name);
         card.card_types = vec![CardType::Creature];
-        card.power = Some(power);
-        card.toughness = Some(toughness);
+        card.power = Some(Power::new(power));
+        card.toughness = Some(Toughness::new(toughness));
         card.keywords = kw;
         Permanent::new(card, owner)
     }
@@ -834,8 +834,8 @@ mod tests {
         let mut card = CardData::new(ObjectId::new(), owner, "Expensive");
         card.card_types = vec![CardType::Creature];
         card.mana_cost = ManaCost::parse("{3}{R}{R}");
-        card.power = Some(4);
-        card.toughness = Some(4);
+        card.power = Some(Power::new(4));
+        card.toughness = Some(Toughness::new(4));
         let perm = Permanent::new(card, owner);
 
         let pred = Predicate::ManaValueCompare(ComparisonType::LessOrEqual, 3);
@@ -990,8 +990,8 @@ mod tests {
         let mut card = CardData::new(ObjectId::new(), owner, "Elf Warrior");
         card.card_types = vec![CardType::Creature];
         card.subtypes = vec![SubType::Elf, SubType::Warrior];
-        card.power = Some(2);
-        card.toughness = Some(2);
+        card.power = Some(Power::new(2));
+        card.toughness = Some(Toughness::new(2));
         let perm = Permanent::new(card, owner);
 
         assert!(Filter::parse("Elf").matches_permanent_ignore_controller(&perm));

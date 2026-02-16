@@ -11,6 +11,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion, BatchSize
 
 use mtg_engine::card::CardData;
 use mtg_engine::constants::{CardType, KeywordAbilities};
+use mtg_engine::decision::PlayerAgent;
 use mtg_engine::game::{Game, GameConfig, PlayerConfig};
 use mtg_engine::permanent::Permanent;
 use mtg_engine::types::{ObjectId, PlayerId};
@@ -62,8 +63,8 @@ fn make_game() -> Game {
     Game::new_two_player(
         config,
         vec![
-            (p1, Box::new(RandomPlayer::with_seed(42))),
-            (p2, Box::new(RandomPlayer::with_seed(43))),
+            (p1, PlayerAgent::new(RandomPlayer::with_seed(42))),
+            (p2, PlayerAgent::new(RandomPlayer::with_seed(43))),
         ],
     )
 }
@@ -81,8 +82,8 @@ fn make_populated_state() -> Game {
     let mut game = Game::new_two_player(
         config,
         vec![
-            (p1, Box::new(RandomPlayer::with_seed(42))),
-            (p2, Box::new(RandomPlayer::with_seed(43))),
+            (p1, PlayerAgent::new(RandomPlayer::with_seed(42))),
+            (p2, PlayerAgent::new(RandomPlayer::with_seed(43))),
         ],
     );
 
@@ -194,8 +195,8 @@ fn bench_parallel_games(c: &mut Criterion) {
                     let mut game = Game::new_two_player(
                         config,
                         vec![
-                            (p1, Box::new(RandomPlayer::with_seed(seed))),
-                            (p2, Box::new(RandomPlayer::with_seed(seed + 100))),
+                            (p1, PlayerAgent::new(RandomPlayer::with_seed(seed))),
+                            (p2, PlayerAgent::new(RandomPlayer::with_seed(seed + 100))),
                         ],
                     );
                     game.run()
@@ -223,8 +224,8 @@ fn bench_parallel_games(c: &mut Criterion) {
                     let mut game = Game::new_two_player(
                         config,
                         vec![
-                            (p1, Box::new(RandomPlayer::with_seed(seed))),
-                            (p2, Box::new(RandomPlayer::with_seed(seed + 100))),
+                            (p1, PlayerAgent::new(RandomPlayer::with_seed(seed))),
+                            (p2, PlayerAgent::new(RandomPlayer::with_seed(seed + 100))),
                         ],
                     );
                     game.run()

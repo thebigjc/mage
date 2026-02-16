@@ -4,7 +4,7 @@
 use crate::card::CardData;
 use crate::constants::{CardType, Color, KeywordAbilities, ManaColor, SubType, SuperType};
 use crate::counters::{CounterType, Counters};
-use crate::types::{ObjectId, PlayerId};
+use crate::types::{ObjectId, PlayerId, Power, Toughness};
 use serde::{Deserialize, Serialize};
 
 /// A permanent on the battlefield. Contains the card data plus battlefield state.
@@ -47,9 +47,9 @@ pub struct Permanent {
     /// Color chosen via "As ~ enters, choose a color" effects.
     pub chosen_color: Option<ManaColor>,
     /// P/T boost from continuous effects (recalculated each time effects are applied).
-    pub continuous_boost_power: i32,
+    pub continuous_boost_power: Power,
     /// Toughness boost from continuous effects (recalculated each time effects are applied).
-    pub continuous_boost_toughness: i32,
+    pub continuous_boost_toughness: Toughness,
     /// Keywords granted by continuous effects from other permanents (static abilities).
     /// Distinct from `granted_keywords` which tracks one-shot until-end-of-turn effects.
     pub continuous_keywords: KeywordAbilities,
@@ -62,7 +62,7 @@ pub struct Permanent {
     pub max_blocked_by: Option<u32>,
     /// This creature can't be blocked by creatures with power <= this value (daunt).
     /// Set by CantBeBlockedByPowerLessOrEqual static effect.
-    pub cant_be_blocked_by_power_leq: Option<i32>,
+    pub cant_be_blocked_by_power_leq: Option<Power>,
     /// This creature must be blocked if able.
     /// Set by MustBeBlocked static effect.
     pub must_be_blocked: bool,
@@ -71,9 +71,9 @@ pub struct Permanent {
     pub abilities_lost: bool,
     /// Base power override from continuous effects (Layer 7b, e.g. "base power and toughness 1/1").
     /// When Some, overrides card.power in the power() calculation.
-    pub base_power_override: Option<i32>,
+    pub base_power_override: Option<Power>,
     /// Base toughness override from continuous effects (Layer 7b).
-    pub base_toughness_override: Option<i32>,
+    pub base_toughness_override: Option<Toughness>,
     /// Whether this permanent can't untap (set by continuous effects like Blossombind).
     pub cant_untap: bool,
     /// Whether this creature assigns combat damage equal to its toughness rather than its power.
@@ -82,9 +82,9 @@ pub struct Permanent {
     pub added_card_types: Vec<CardType>,
     /// Temporary base power set until end of turn (from BecomesCreature).
     /// Distinct from base_power_override (continuous effects) — this is a one-shot until-EOT change.
-    pub base_power_eot: Option<i32>,
+    pub base_power_eot: Option<Power>,
     /// Temporary base toughness set until end of turn (from BecomesCreature).
-    pub base_toughness_eot: Option<i32>,
+    pub base_toughness_eot: Option<Toughness>,
     /// Stored front face data for DFC cards when transformed.
     /// When transformed=true, card holds back face data and front_face stores original.
     /// When transformed=false, this is None.
@@ -115,8 +115,8 @@ impl Permanent {
             original_controller: None,
             chosen_type: None,
             chosen_color: None,
-            continuous_boost_power: 0,
-            continuous_boost_toughness: 0,
+            continuous_boost_power: Power::ZERO,
+            continuous_boost_toughness: Toughness::ZERO,
             continuous_keywords: KeywordAbilities::empty(),
             cant_attack: false,
             cant_block_from_effect: false,
@@ -271,25 +271,25 @@ impl Permanent {
     // ── Power/Toughness ────────────────────────────────────────────────
 
     /// Get the current power, including counter and continuous effect modifications.
-    pub fn power(&self) -> i32 {
+    pub fn power(&self) -> Power {
         let base = self.base_power_eot
             .or(self.base_power_override)
-            .unwrap_or(self.card.power.unwrap_or(0));
+            .unwrap_or(self.card.power.unwrap_or(Power::ZERO));
         let (counter_p, _) = self.counters.pt_modification();
         base + counter_p + self.continuous_boost_power
     }
 
     /// Get the current toughness, including counter and continuous effect modifications.
-    pub fn toughness(&self) -> i32 {
+    pub fn toughness(&self) -> Toughness {
         let base = self.base_toughness_eot
             .or(self.base_toughness_override)
-            .unwrap_or(self.card.toughness.unwrap_or(0));
+            .unwrap_or(self.card.toughness.unwrap_or(Toughness::ZERO));
         let (_, counter_t) = self.counters.pt_modification();
         base + counter_t + self.continuous_boost_toughness
     }
 
     /// Remaining toughness after damage (used for SBA lethal damage check).
-    pub fn remaining_toughness(&self) -> i32 {
+    pub fn remaining_toughness(&self) -> Toughness {
         self.toughness() - self.damage as i32
     }
 
@@ -452,8 +452,8 @@ mod tests {
         let owner = PlayerId::new();
         let mut card = CardData::new(ObjectId::new(), owner, name);
         card.card_types = vec![CardType::Creature];
-        card.power = Some(power);
-        card.toughness = Some(toughness);
+        card.power = Some(Power::new(power));
+        card.toughness = Some(Toughness::new(toughness));
         card.keywords = keywords;
         Permanent::new(card, owner)
     }
@@ -547,8 +547,8 @@ mod tests {
         let mut card = CardData::new(ObjectId::new(), owner, "Elf");
         card.card_types = vec![CardType::Creature];
         card.subtypes = vec![SubType::Elf];
-        card.power = Some(1);
-        card.toughness = Some(1);
+        card.power = Some(Power::new(1));
+        card.toughness = Some(Toughness::new(1));
         let perm = Permanent::new(card, owner);
         assert!(perm.has_subtype(&SubType::Elf));
         assert!(!perm.has_subtype(&SubType::Goblin));

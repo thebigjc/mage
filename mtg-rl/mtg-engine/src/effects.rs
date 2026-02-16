@@ -18,7 +18,7 @@
 // Ported from mage.abilities.effects.*.
 
 use crate::constants::{Duration, KeywordAbilities, Layer, SubLayer};
-use crate::types::{ObjectId, PlayerId};
+use crate::types::{ObjectId, PlayerId, Power, Toughness};
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
@@ -100,26 +100,26 @@ pub enum EffectModification {
     /// Layer 7a: CDA-defined P/T.
     SetBasePowerToughness {
         target_id: ObjectId,
-        power: i32,
-        toughness: i32,
+        power: Power,
+        toughness: Toughness,
     },
     /// Layer 7b: Set P/T to specific value (overriding base).
     SetPowerToughness {
         target_id: ObjectId,
-        power: i32,
-        toughness: i32,
+        power: Power,
+        toughness: Toughness,
     },
     /// Layer 7c: Modify P/T by amount.
     ModifyPowerToughness {
         target_id: ObjectId,
-        power: i32,
-        toughness: i32,
+        power: Power,
+        toughness: Toughness,
     },
     /// Layer 7c: Modify P/T for all matching permanents.
     ModifyPowerToughnessAll {
         filter: String,
-        power: i32,
-        toughness: i32,
+        power: Power,
+        toughness: Toughness,
         controller: Option<PlayerId>,
     },
     /// Layer 7e: Switch power and toughness.
@@ -149,8 +149,8 @@ impl ContinuousEffect {
         source_id: ObjectId,
         controller: PlayerId,
         target_id: ObjectId,
-        power: i32,
-        toughness: i32,
+        power: Power,
+        toughness: Toughness,
         timestamp: u64,
     ) -> Self {
         ContinuousEffect {
@@ -416,7 +416,7 @@ mod tests {
         let target = ObjectId::new();
         let controller = PlayerId::new();
 
-        let effect = ContinuousEffect::boost_until_eot(source, controller, target, 2, 2, 0);
+        let effect = ContinuousEffect::boost_until_eot(source, controller, target, Power::new(2), Toughness::new(2), 0);
 
         assert_eq!(effect.layer, Layer::PTChanging);
         assert_eq!(effect.sub_layer, Some(SubLayer::ModifyPT7c));
@@ -458,7 +458,7 @@ mod tests {
         let controller = PlayerId::new();
 
         let ts = mgr.next_timestamp();
-        mgr.add(ContinuousEffect::boost_until_eot(source, controller, target, 1, 1, ts));
+        mgr.add(ContinuousEffect::boost_until_eot(source, controller, target, Power::new(1), Toughness::new(1), ts));
 
         let ts = mgr.next_timestamp();
         mgr.add(ContinuousEffect::grant_keyword_until_eot(
@@ -487,10 +487,10 @@ mod tests {
 
         // Add effects with different timestamps
         let ts1 = mgr.next_timestamp();
-        mgr.add(ContinuousEffect::boost_until_eot(source, controller, target, 1, 1, ts1));
+        mgr.add(ContinuousEffect::boost_until_eot(source, controller, target, Power::new(1), Toughness::new(1), ts1));
 
         let ts2 = mgr.next_timestamp();
-        mgr.add(ContinuousEffect::boost_until_eot(source, controller, target, 2, 2, ts2));
+        mgr.add(ContinuousEffect::boost_until_eot(source, controller, target, Power::new(2), Toughness::new(2), ts2));
 
         let effects = mgr.effects_for_layer(Layer::PTChanging);
         assert_eq!(effects.len(), 2);
@@ -506,8 +506,8 @@ mod tests {
         let target = ObjectId::new();
         let controller = PlayerId::new();
 
-        mgr.add(ContinuousEffect::boost_until_eot(source1, controller, target, 1, 1, 0));
-        mgr.add(ContinuousEffect::boost_until_eot(source2, controller, target, 2, 2, 1));
+        mgr.add(ContinuousEffect::boost_until_eot(source1, controller, target, Power::new(1), Toughness::new(1), 0));
+        mgr.add(ContinuousEffect::boost_until_eot(source2, controller, target, Power::new(2), Toughness::new(2), 1));
 
         assert_eq!(mgr.len(), 2);
         mgr.remove_from_source(source1);

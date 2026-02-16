@@ -4,7 +4,7 @@ use crate::game::*;
 use crate::abilities::{Effect, ModalMode};
 use crate::card::CardData;
 use crate::constants::{CardType, Outcome};
-use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
+use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerAgent, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
 use crate::types::{ObjectId, PlayerId};
 
 
@@ -69,14 +69,14 @@ use crate::types::{ObjectId, PlayerId};
                 PlayerConfig { name: "Alice".into(), deck: vec![] },
                 PlayerConfig { name: "Bob".into(), deck: vec![] },
             ],
-            starting_life: 20,
+            starting_life: Life::new(20),
         };
 
         let mut game = Game::new_two_player(
             config,
             vec![
-                (p1, Box::new(PickFirstModePlayer)),
-                (p2, Box::new(PickFirstModePlayer)),
+                (p1, PlayerAgent::new(PickFirstModePlayer)),
+                (p2, PlayerAgent::new(PickFirstModePlayer)),
             ],
         );
 
@@ -112,7 +112,7 @@ use crate::types::{ObjectId, PlayerId};
                 PlayerConfig { name: "Alice".into(), deck: vec![] },
                 PlayerConfig { name: "Bob".into(), deck: vec![] },
             ],
-            starting_life: 20,
+            starting_life: Life::new(20),
         };
 
         // Give p1 some cards in library to draw from
@@ -129,11 +129,11 @@ use crate::types::{ObjectId, PlayerId};
                     PlayerConfig { name: "Alice".into(), deck: vec![] },
                     PlayerConfig { name: "Bob".into(), deck: vec![] },
                 ],
-                starting_life: 20,
+                starting_life: Life::new(20),
             },
             vec![
-                (p1, Box::new(PickFirstModePlayer)),
-                (p2, Box::new(PickFirstModePlayer)),
+                (p1, PlayerAgent::new(PickFirstModePlayer)),
+                (p2, PlayerAgent::new(PickFirstModePlayer)),
             ],
         );
 
@@ -175,11 +175,11 @@ use crate::types::{ObjectId, PlayerId};
                     PlayerConfig { name: "Alice".into(), deck: vec![] },
                     PlayerConfig { name: "Bob".into(), deck: vec![] },
                 ],
-                starting_life: 20,
+                starting_life: Life::new(20),
             },
             vec![
-                (p1, Box::new(PickSecondModePlayer)),
-                (p2, Box::new(PickSecondModePlayer)),
+                (p1, PlayerAgent::new(PickSecondModePlayer)),
+                (p2, PlayerAgent::new(PickSecondModePlayer)),
             ],
         );
 

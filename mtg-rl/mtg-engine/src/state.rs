@@ -580,6 +580,7 @@ mod tests {
     use crate::constants::{CardType, KeywordAbilities};
     use crate::counters::CounterType;
     use crate::permanent::Permanent;
+    use crate::types::{Life, Power, Toughness};
 
     fn two_player_state() -> (GameState, PlayerId, PlayerId) {
         let p1 = PlayerId::new();
@@ -615,7 +616,7 @@ mod tests {
     #[test]
     fn sba_life_loss() {
         let (mut state, p1, _p2) = two_player_state();
-        state.player_mut(p1).unwrap().life = 0;
+        state.player_mut(p1).unwrap().life = Life::new(0);
         let sba = state.check_state_based_actions();
         assert!(sba.has_actions());
         assert!(sba.players_losing.contains(&p1));
@@ -635,8 +636,8 @@ mod tests {
 
         let mut card = CardData::new(ObjectId::new(), p1, "Bear");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(2);
-        card.toughness = Some(2);
+        card.power = Some(Power::new(2));
+        card.toughness = Some(Toughness::new(2));
         card.keywords = KeywordAbilities::empty();
 
         let mut perm = Permanent::new(card, p1);
@@ -654,8 +655,8 @@ mod tests {
 
         let mut card = CardData::new(ObjectId::new(), p1, "Weird");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(3);
-        card.toughness = Some(1);
+        card.power = Some(Power::new(3));
+        card.toughness = Some(Toughness::new(1));
         card.keywords = KeywordAbilities::empty();
 
         let mut perm = Permanent::new(card, p1);
@@ -674,8 +675,8 @@ mod tests {
 
         let mut card = CardData::new(ObjectId::new(), p1, "Stuffy Doll");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(0);
-        card.toughness = Some(1);
+        card.power = Some(Power::new(0));
+        card.toughness = Some(Toughness::new(1));
         card.keywords = KeywordAbilities::INDESTRUCTIBLE;
 
         let mut perm = Permanent::new(card, p1);
@@ -725,15 +726,15 @@ mod tests {
         let mut card1 = CardData::new(ObjectId::new(), p1, "Thalia");
         card1.card_types = vec![CardType::Creature];
         card1.supertypes = vec![crate::constants::SuperType::Legendary];
-        card1.power = Some(2);
-        card1.toughness = Some(1);
+        card1.power = Some(Power::new(2));
+        card1.toughness = Some(Toughness::new(1));
         card1.keywords = KeywordAbilities::empty();
 
         let mut card2 = CardData::new(ObjectId::new(), p1, "Thalia");
         card2.card_types = vec![CardType::Creature];
         card2.supertypes = vec![crate::constants::SuperType::Legendary];
-        card2.power = Some(2);
-        card2.toughness = Some(1);
+        card2.power = Some(Power::new(2));
+        card2.toughness = Some(Toughness::new(1));
         card2.keywords = KeywordAbilities::empty();
 
         let id1 = card1.id;
@@ -760,15 +761,15 @@ mod tests {
         let mut card1 = CardData::new(ObjectId::new(), p1, "Thalia");
         card1.card_types = vec![CardType::Creature];
         card1.supertypes = vec![crate::constants::SuperType::Legendary];
-        card1.power = Some(2);
-        card1.toughness = Some(1);
+        card1.power = Some(Power::new(2));
+        card1.toughness = Some(Toughness::new(1));
         card1.keywords = KeywordAbilities::empty();
 
         let mut card2 = CardData::new(ObjectId::new(), p2, "Thalia");
         card2.card_types = vec![CardType::Creature];
         card2.supertypes = vec![crate::constants::SuperType::Legendary];
-        card2.power = Some(2);
-        card2.toughness = Some(1);
+        card2.power = Some(Power::new(2));
+        card2.toughness = Some(Toughness::new(1));
         card2.keywords = KeywordAbilities::empty();
 
         state.battlefield.add(Permanent::new(card1, p1));
@@ -785,8 +786,8 @@ mod tests {
 
         let mut card = CardData::new(ObjectId::new(), p1, "Bear");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(2);
-        card.toughness = Some(2);
+        card.power = Some(Power::new(2));
+        card.toughness = Some(Toughness::new(2));
         card.keywords = KeywordAbilities::empty();
 
         let mut perm = Permanent::new(card, p1);
@@ -806,8 +807,8 @@ mod tests {
 
         let mut card = CardData::new(ObjectId::new(), p1, "Bear");
         card.card_types = vec![CardType::Creature];
-        card.power = Some(2);
-        card.toughness = Some(2);
+        card.power = Some(Power::new(2));
+        card.toughness = Some(Toughness::new(2));
         card.keywords = KeywordAbilities::empty();
 
         let mut perm = Permanent::new(card, p1);
@@ -842,7 +843,7 @@ mod token_cleanup_tests {
     use super::*;
     use crate::card::CardData;
     use crate::constants::CardType;
-    use crate::types::{ObjectId, PlayerId};
+    use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
     fn two_player_state() -> (GameState, PlayerId, PlayerId) {
         let p1 = PlayerId::new();
@@ -892,8 +893,8 @@ mod token_cleanup_tests {
         let mut card = CardData::new(token_id, p1, "Soldier Token");
         card.card_types = vec![CardType::Creature];
         card.is_token = true;
-        card.power = Some(1);
-        card.toughness = Some(1);
+        card.power = Some(Power::new(1));
+        card.toughness = Some(Toughness::new(1));
         let perm = crate::permanent::Permanent::new(card, p1);
         state.battlefield.add(perm);
 

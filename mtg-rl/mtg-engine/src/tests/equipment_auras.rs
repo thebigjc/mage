@@ -4,11 +4,11 @@ use crate::game::*;
 use crate::abilities::{Ability, Cost, Effect, TargetSpec, StaticEffect};
 use crate::card::CardData;
 use crate::constants::{CardType, Outcome, SubType};
-use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
+use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerAgent, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
 use crate::filters::Filter;
 use crate::mana::ManaCost;
 use crate::permanent::Permanent;
-use crate::types::{ObjectId, PlayerId};
+use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
 #[cfg(test)]
     struct PassivePlayer;
@@ -38,13 +38,13 @@ use crate::types::{ObjectId, PlayerId};
                 PlayerConfig { name: "P1".into(), deck: vec![] },
                 PlayerConfig { name: "P2".into(), deck: vec![] },
             ],
-            starting_life: 20,
+            starting_life: Life::new(20),
         };
         let game = Game::new_two_player(
             config,
             vec![
-                (p1, Box::new(PassivePlayer)),
-                (p2, Box::new(PassivePlayer)),
+                (p1, PlayerAgent::new(PassivePlayer)),
+                (p2, PlayerAgent::new(PassivePlayer)),
             ],
         );
         (game, p1, p2)
@@ -54,8 +54,8 @@ use crate::types::{ObjectId, PlayerId};
         let mut card = CardData::new(id, owner, name);
         card.card_types = vec![CardType::Creature];
         card.subtypes = vec![SubType::Human];
-        card.power = Some(power);
-        card.toughness = Some(toughness);
+        card.power = Some(Power::new(power));
+        card.toughness = Some(Toughness::new(toughness));
         card
     }
 
@@ -69,8 +69,8 @@ use crate::types::{ObjectId, PlayerId};
                 "Equipped creature gets boost.",
                 vec![StaticEffect::Boost {
                     filter: Filter::parse("equipped creature"),
-                    power: power_boost,
-                    toughness: toughness_boost,
+                    power: Power::new(power_boost),
+                    toughness: Toughness::new(toughness_boost),
                 }]),
             Ability::activated(id,
                 "Equip {1}",
@@ -222,8 +222,8 @@ use crate::types::{ObjectId, PlayerId};
         let mut card = CardData::new(id, owner, "Creature");
         card.card_types = vec![CardType::Creature];
         card.subtypes = vec![SubType::Human];
-        card.power = Some(power);
-        card.toughness = Some(toughness);
+        card.power = Some(Power::new(power));
+        card.toughness = Some(Toughness::new(toughness));
         card
     }
 
@@ -236,8 +236,8 @@ use crate::types::{ObjectId, PlayerId};
                 &format!("Enchanted creature gets +{power}/+{toughness}."),
                 vec![StaticEffect::Boost {
                     filter: Filter::parse("enchanted creature"),
-                    power,
-                    toughness,
+                    power: Power::new(power),
+                    toughness: Toughness::new(toughness),
                 }]),
         ];
         card

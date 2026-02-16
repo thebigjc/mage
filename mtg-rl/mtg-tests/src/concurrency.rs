@@ -57,8 +57,9 @@ static_assertions::assert_impl_all!(mtg_ai::gym::MtgGymEnv: Send, Sync);
 mod tests {
     use mtg_engine::card::CardData;
     use mtg_engine::constants::{CardType, KeywordAbilities};
+    use mtg_engine::decision::PlayerAgent;
     use mtg_engine::game::{Game, GameConfig, PlayerConfig};
-    use mtg_engine::types::{ObjectId, PlayerId};
+    use mtg_engine::types::{ObjectId, PlayerId, Power, Toughness, Life};
     use mtg_ai::random_player::RandomPlayer;
     use rayon::prelude::*;
 
@@ -72,8 +73,8 @@ mod tests {
     fn make_creature(name: &str, owner: PlayerId, power: i32, toughness: i32) -> CardData {
         let mut card = CardData::new(ObjectId::new(), owner, name);
         card.card_types = vec![CardType::Creature];
-        card.power = Some(power);
-        card.toughness = Some(toughness);
+        card.power = Some(Power::new(power));
+        card.toughness = Some(Toughness::new(toughness));
         card.keywords = KeywordAbilities::empty();
         card
     }
@@ -97,13 +98,13 @@ mod tests {
                 PlayerConfig { name: "A".to_string(), deck: make_deck(p1) },
                 PlayerConfig { name: "B".to_string(), deck: make_deck(p2) },
             ],
-            starting_life: 20,
+            starting_life: Life::new(20),
         };
         let mut game = Game::new_two_player(
             config,
             vec![
-                (p1, Box::new(RandomPlayer::with_seed(seed))),
-                (p2, Box::new(RandomPlayer::with_seed(seed + 1000))),
+                (p1, PlayerAgent::new(RandomPlayer::with_seed(seed))),
+                (p2, PlayerAgent::new(RandomPlayer::with_seed(seed + 1000))),
             ],
         );
         game.run()
@@ -156,13 +157,13 @@ mod tests {
                 PlayerConfig { name: "A".to_string(), deck: make_deck(p1) },
                 PlayerConfig { name: "B".to_string(), deck: make_deck(p2) },
             ],
-            starting_life: 20,
+            starting_life: Life::new(20),
         };
         let game = Game::new_two_player(
             config,
             vec![
-                (p1, Box::new(RandomPlayer::with_seed(42))),
-                (p2, Box::new(RandomPlayer::with_seed(43))),
+                (p1, PlayerAgent::new(RandomPlayer::with_seed(42))),
+                (p2, PlayerAgent::new(RandomPlayer::with_seed(43))),
             ],
         );
 
@@ -170,11 +171,11 @@ mod tests {
         let mut cloned_state = game.state.clone();
 
         // Modify the cloned state
-        cloned_state.player_mut(p1).unwrap().life = 5;
+        cloned_state.player_mut(p1).unwrap().life = Life::new(5);
 
         // Original should be unchanged
         assert_eq!(game.state.player(p1).unwrap().life, original_life);
-        assert_eq!(cloned_state.player(p1).unwrap().life, 5);
+        assert_eq!(cloned_state.player(p1).unwrap().life, Life::new(5));
     }
 
     #[test]

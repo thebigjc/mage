@@ -6,11 +6,11 @@ use crate::counters::CounterType;
 use crate::constants::{SuperType, PhaseStep, Outcome};
 use crate::abilities::{Ability, Cost, TargetSpec};
 use crate::mana::Mana;
-use crate::types::PlayerId;
+use crate::types::{PlayerId, Power, Toughness, Life};
 use crate::abilities::Effect;
 use crate::card::CardData;
 use crate::constants::{CardType, KeywordAbilities};
-use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
+use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerAgent, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
 use crate::types::ObjectId;
 
 fn make_deck(owner: PlayerId) -> Vec<CardData> {
@@ -31,8 +31,8 @@ fn make_basic_land(name: &str, owner: PlayerId) -> CardData {
 fn make_creature(name: &str, owner: PlayerId, power: i32, toughness: i32) -> CardData {
     let mut card = CardData::new(ObjectId::new(), owner, name);
     card.card_types = vec![CardType::Creature];
-    card.power = Some(power);
-    card.toughness = Some(toughness);
+    card.power = Some(Power::new(power));
+    card.toughness = Some(Toughness::new(toughness));
     card.keywords = KeywordAbilities::empty();
     card
 }
@@ -70,14 +70,14 @@ fn game_creation() {
             PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
             PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
         ],
-        starting_life: 20,
+        starting_life: Life::new(20),
     };
 
     let game = Game::new_two_player(
         config,
         vec![
-            (p1, Box::new(AlwaysPassPlayer)),
-            (p2, Box::new(AlwaysPassPlayer)),
+            (p1, PlayerAgent::new(AlwaysPassPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
         ],
     );
 
@@ -99,14 +99,14 @@ fn game_runs_to_completion() {
             PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
             PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
         ],
-        starting_life: 20,
+        starting_life: Life::new(20),
     };
 
     let mut game = Game::new_two_player(
         config,
         vec![
-            (p1, Box::new(AlwaysPassPlayer)),
-            (p2, Box::new(AlwaysPassPlayer)),
+            (p1, PlayerAgent::new(AlwaysPassPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
         ],
     );
 
@@ -133,14 +133,14 @@ fn draw_cards_from_empty_library_causes_loss() {
             PlayerConfig { name: "Alice".to_string(), deck: small_deck },
             PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
         ],
-        starting_life: 20,
+        starting_life: Life::new(20),
     };
 
     let mut game = Game::new_two_player(
         config,
         vec![
-            (p1, Box::new(AlwaysPassPlayer)),
-            (p2, Box::new(AlwaysPassPlayer)),
+            (p1, PlayerAgent::new(AlwaysPassPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
         ],
     );
 
@@ -160,14 +160,14 @@ fn counter_annihilation_applied() {
             PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
             PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
         ],
-        starting_life: 20,
+        starting_life: Life::new(20),
     };
 
     let mut game = Game::new_two_player(
         config,
         vec![
-            (p1, Box::new(AlwaysPassPlayer)),
-            (p2, Box::new(AlwaysPassPlayer)),
+            (p1, PlayerAgent::new(AlwaysPassPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
         ],
     );
 
@@ -200,14 +200,14 @@ fn legend_rule_applied() {
             PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
             PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
         ],
-        starting_life: 20,
+        starting_life: Life::new(20),
     };
 
     let mut game = Game::new_two_player(
         config,
         vec![
-            (p1, Box::new(AlwaysPassPlayer)),
-            (p2, Box::new(AlwaysPassPlayer)),
+            (p1, PlayerAgent::new(AlwaysPassPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
         ],
     );
 
@@ -215,16 +215,16 @@ fn legend_rule_applied() {
     let mut card1 = CardData::new(ObjectId::new(), p1, "Thalia");
     card1.card_types = vec![CardType::Creature];
     card1.supertypes = vec![SuperType::Legendary];
-    card1.power = Some(2);
-    card1.toughness = Some(1);
+    card1.power = Some(Power::new(2));
+    card1.toughness = Some(Toughness::new(1));
     card1.keywords = KeywordAbilities::empty();
     let id1 = card1.id;
 
     let mut card2 = CardData::new(ObjectId::new(), p1, "Thalia");
     card2.card_types = vec![CardType::Creature];
     card2.supertypes = vec![SuperType::Legendary];
-    card2.power = Some(2);
-    card2.toughness = Some(1);
+    card2.power = Some(Power::new(2));
+    card2.toughness = Some(Toughness::new(1));
     card2.keywords = KeywordAbilities::empty();
 
     game.state.battlefield.add(Permanent::new(card1, p1));
@@ -251,14 +251,14 @@ fn legal_actions_include_pass() {
             PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
             PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
         ],
-        starting_life: 20,
+        starting_life: Life::new(20),
     };
 
     let game = Game::new_two_player(
         config,
         vec![
-            (p1, Box::new(AlwaysPassPlayer)),
-            (p2, Box::new(AlwaysPassPlayer)),
+            (p1, PlayerAgent::new(AlwaysPassPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
         ],
     );
 
@@ -276,14 +276,14 @@ fn mana_ability_and_spell_cast() {
             PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
             PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
         ],
-        starting_life: 20,
+        starting_life: Life::new(20),
     };
 
     let mut game = Game::new_two_player(
         config,
         vec![
-            (p1, Box::new(AlwaysPassPlayer)),
-            (p2, Box::new(AlwaysPassPlayer)),
+            (p1, PlayerAgent::new(AlwaysPassPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
         ],
     );
 
@@ -329,14 +329,14 @@ fn activated_ability_goes_on_stack() {
             PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
             PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
         ],
-        starting_life: 20,
+        starting_life: Life::new(20),
     };
 
     let mut game = Game::new_two_player(
         config,
         vec![
-            (p1, Box::new(AlwaysPassPlayer)),
-            (p2, Box::new(AlwaysPassPlayer)),
+            (p1, PlayerAgent::new(AlwaysPassPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
         ],
     );
 
@@ -405,14 +405,14 @@ fn spell_effects_execute_on_resolve() {
             PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
             PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
         ],
-        starting_life: 20,
+        starting_life: Life::new(20),
     };
 
     let mut game = Game::new_two_player(
         config,
         vec![
-            (p1, Box::new(AlwaysPassPlayer)),
-            (p2, Box::new(AlwaysPassPlayer)),
+            (p1, PlayerAgent::new(AlwaysPassPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
         ],
     );
 
@@ -474,14 +474,14 @@ fn fizzle_when_target_removed() {
             PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
             PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
         ],
-        starting_life: 20,
+        starting_life: Life::new(20),
     };
 
     let mut game = Game::new_two_player(
         config,
         vec![
-            (p1, Box::new(AlwaysPassPlayer)),
-            (p2, Box::new(AlwaysPassPlayer)),
+            (p1, PlayerAgent::new(AlwaysPassPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
         ],
     );
 

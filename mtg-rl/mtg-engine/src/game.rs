@@ -22,11 +22,11 @@ use crate::constants::AbilityType;
 use crate::card::CardData;
 use crate::constants::PhaseStep;
 use crate::counters::CounterType;
-use crate::decision::{AttackerInfo, PlayerDecisionMaker};
+use crate::decision::{AttackerInfo, PlayerAgent, PlayerDecisionMaker};
 use crate::events::{EventLog, EventType, GameEvent};
 use crate::state::{GameState, StateBasedActions};
 use crate::turn::{has_priority, PriorityTracker, TurnManager};
-use crate::types::{AbilityId, ObjectId, PlayerId};
+use crate::types::{AbilityId, Life, ObjectId, PlayerId, Power, Toughness};
 use crate::watchers::WatcherManager;
 use crate::permanent::Permanent;
 use std::collections::HashMap;
@@ -42,7 +42,7 @@ pub struct GameConfig {
     /// Player names and their decks (as CardData vectors).
     pub players: Vec<PlayerConfig>,
     /// Starting life total (default 20).
-    pub starting_life: i32,
+    pub starting_life: Life,
 }
 
 /// Configuration for a single player in a new game.
@@ -83,7 +83,7 @@ pub struct Game {
     /// The turn manager.
     pub turn_manager: TurnManager,
     /// Player decision-makers, keyed by PlayerId.
-    decision_makers: HashMap<PlayerId, Box<dyn PlayerDecisionMaker>>,
+    decision_makers: HashMap<PlayerId, PlayerAgent>,
     /// Watcher manager for event tracking.
     pub watchers: WatcherManager,
     /// Event log for tracking events that may trigger abilities.
@@ -96,7 +96,7 @@ impl Game {
     /// Create a new two-player game.
     pub fn new_two_player(
         config: GameConfig,
-        mut decision_makers: Vec<(PlayerId, Box<dyn PlayerDecisionMaker>)>,
+        mut decision_makers: Vec<(PlayerId, PlayerAgent)>,
     ) -> Self {
         assert_eq!(config.players.len(), 2, "Two-player game requires exactly 2 players");
         assert_eq!(decision_makers.len(), 2, "Two-player game requires exactly 2 decision makers");
@@ -148,7 +148,7 @@ impl Game {
         let turn_manager = TurnManager::new(player_ids.clone());
 
         // Build decision maker map
-        let dm_map: HashMap<PlayerId, Box<dyn PlayerDecisionMaker>> =
+        let dm_map: HashMap<PlayerId, PlayerAgent> =
             decision_makers.drain(..).collect();
 
         Game {
@@ -420,8 +420,8 @@ impl Game {
 
         // Step 1: Clear all continuous effects
         for perm in self.state.battlefield.iter_mut() {
-            perm.continuous_boost_power = 0;
-            perm.continuous_boost_toughness = 0;
+            perm.continuous_boost_power = Power::ZERO;
+            perm.continuous_boost_toughness = Toughness::ZERO;
             perm.continuous_keywords = KeywordAbilities::empty();
             perm.cant_attack = false;
             perm.cant_block_from_effect = false;
@@ -445,24 +445,24 @@ impl Game {
 
         // Step 2: Collect static effects from all battlefield permanents.
         // We must collect first to avoid borrow conflicts.
-        let mut boosts: Vec<(ObjectId, PlayerId, Filter, i32, i32)> = Vec::new();
+        let mut boosts: Vec<(ObjectId, PlayerId, Filter, Power, Toughness)> = Vec::new();
         let mut keyword_grants: Vec<(ObjectId, PlayerId, Filter, String)> = Vec::new();
         let mut cant_attacks: Vec<(ObjectId, PlayerId, Filter)> = Vec::new();
         let mut cant_blocks: Vec<(ObjectId, PlayerId, Filter)> = Vec::new();
         let mut max_blocked_bys: Vec<(ObjectId, u32)> = Vec::new();
-        let mut cant_blocked_by_power: Vec<(ObjectId, i32)> = Vec::new();
+        let mut cant_blocked_by_power: Vec<(ObjectId, Power)> = Vec::new();
         let mut must_be_blockeds: Vec<ObjectId> = Vec::new();
-        let mut boost_per_counts: Vec<(ObjectId, PlayerId, Filter, i32, i32)> = Vec::new();
+        let mut boost_per_counts: Vec<(ObjectId, PlayerId, Filter, Power, Toughness)> = Vec::new();
         let mut additional_land_plays: Vec<(PlayerId, u32)> = Vec::new();
         let mut conditional_keywords: Vec<(ObjectId, PlayerId, String, String)> = Vec::new();
-        let mut conditional_boosts: Vec<(ObjectId, PlayerId, i32, i32, String)> = Vec::new();
+        let mut conditional_boosts: Vec<(ObjectId, PlayerId, Power, Toughness, String)> = Vec::new();
         let mut lose_all_abilities: Vec<(ObjectId, PlayerId, Filter)> = Vec::new();
-        let mut set_base_pts: Vec<(ObjectId, PlayerId, Filter, i32, i32)> = Vec::new();
+        let mut set_base_pts: Vec<(ObjectId, PlayerId, Filter, Power, Toughness)> = Vec::new();
         let mut cant_untaps: Vec<(ObjectId, PlayerId, Filter)> = Vec::new();
         let mut set_power_color_counts: Vec<(ObjectId, PlayerId)> = Vec::new();
         let mut assign_damage_toughness: Vec<(ObjectId, PlayerId, Filter, Option<String>)> = Vec::new();
         let mut damage_doublings: Vec<(ObjectId, PlayerId)> = Vec::new();
-        let mut boost_per_turn_events: Vec<(ObjectId, PlayerId, Filter, String, i32, i32)> = Vec::new();
+        let mut boost_per_turn_events: Vec<(ObjectId, PlayerId, Filter, String, Power, Toughness)> = Vec::new();
         let mut becomes_creature_attached: Vec<(ObjectId, Vec<String>, bool)> = Vec::new();
         let mut hexproof_from_own_colors: Vec<(ObjectId, PlayerId)> = Vec::new();
 
@@ -609,7 +609,7 @@ impl Game {
         for (source_id, controller) in set_power_color_counts {
             let color_count = self.count_colors_among_permanents(controller) as i32;
             if let Some(perm) = self.state.battlefield.get_mut(source_id) {
-                perm.base_power_override = Some(color_count);
+                perm.base_power_override = Some(Power::new(color_count));
             }
         }
 
@@ -693,8 +693,8 @@ impl Game {
             let total = bf_count + gy_count;
             if total > 0 {
                 if let Some(perm) = self.state.battlefield.get_mut(source_id) {
-                    perm.continuous_boost_power += total * power_per;
-                    perm.continuous_boost_toughness += total * toughness_per;
+                    perm.continuous_boost_power += Power::new(power_per.get() * total);
+                    perm.continuous_boost_toughness += Toughness::new(toughness_per.get() * total);
                 }
             }
         }
@@ -708,8 +708,8 @@ impl Game {
                 let matching = self.find_matching_permanents(source_id, controller, &filter);
                 for target_id in matching {
                     if let Some(perm) = self.state.battlefield.get_mut(target_id) {
-                        perm.continuous_boost_power += count * power_per;
-                        perm.continuous_boost_toughness += count * toughness_per;
+                        perm.continuous_boost_power += Power::new(power_per.get() * count);
+                        perm.continuous_boost_toughness += Toughness::new(toughness_per.get() * count);
                     }
                 }
             }
@@ -809,7 +809,7 @@ impl Game {
                 if let Some(cond) = &condition {
                     if cond == "toughness_greater_than_power" {
                         if let Some(perm) = self.state.battlefield.get(target_id) {
-                            if perm.toughness() <= perm.power() {
+                            if perm.toughness().get() <= perm.power().get() {
                                 continue;
                             }
                         }
@@ -989,7 +989,7 @@ impl Game {
             let subtype = crate::constants::SubType::by_description(type_str);
             return self.state.battlefield.iter()
                 .filter(|p| p.controller == controller && p.has_subtype(&subtype))
-                .map(|p| std::cmp::max(0, p.power()) as u32)
+                .map(|p| p.power().as_u32_saturating())
                 .max()
                 .unwrap_or(0);
         }
@@ -1070,9 +1070,9 @@ impl Game {
                         if filter.matches_card_ignore_controller(card) {
                             if let Some(cond) = condition {
                                 if cond == "toughness_greater_than_power" {
-                                    let t = card.toughness.unwrap_or(0);
-                                    let p = card.power.unwrap_or(0);
-                                    if t <= p {
+                                    let t = card.toughness.unwrap_or(Toughness::ZERO);
+                                    let p = card.power.unwrap_or(Power::ZERO);
+                                    if t.get() <= p.get() {
                                         continue;
                                     }
                                 }
@@ -3666,7 +3666,7 @@ impl Game {
                     }
                     let max_x = self.state.battlefield.iter()
                         .filter(|p| p.controller == player_id && p.is_creature())
-                        .map(|p| p.toughness().max(0) as u32)
+                        .map(|p| p.toughness().as_u32_saturating())
                         .max()
                         .unwrap_or(0);
                     let view = crate::decision::GameView::placeholder();
@@ -4160,7 +4160,7 @@ impl Game {
                     for &target_id in targets {
                         if let Some(perm) = self.state.battlefield.get_mut(target_id) {
                             if *power > 0 {
-                                perm.add_counters(CounterType::P1P1, *power as u32);
+                                perm.add_counters(CounterType::P1P1, power.as_u32_saturating());
                             }
                             // Note: This is a simplification; real boost until EOT
                             // uses continuous effects, not counters
@@ -4172,7 +4172,7 @@ impl Game {
                         if let Some(perm) = self.state.battlefield.get_mut(target_id) {
                             let p = perm.power();
                             let t = perm.toughness();
-                            let diff = (t - p).max(0);
+                            let diff = std::cmp::max(0, t.get() - p.get());
                             if diff > 0 {
                                 perm.add_counters(CounterType::P1P1, diff as u32);
                             }
@@ -4686,9 +4686,9 @@ impl Game {
                     for &target_id in targets {
                         if let Some(perm) = self.state.battlefield.get_mut(target_id) {
                             if *power > 0 {
-                                perm.add_counters(CounterType::P1P1, *power as u32);
+                                perm.add_counters(CounterType::P1P1, power.as_u32_saturating());
                             } else if *power < 0 {
-                                perm.add_counters(CounterType::M1M1, (-*power) as u32);
+                                perm.add_counters(CounterType::M1M1, (-*power).as_u32_saturating());
                             }
                         }
                     }
@@ -4780,9 +4780,9 @@ impl Game {
                     for id in matching {
                         if let Some(perm) = self.state.battlefield.get_mut(id) {
                             if *power > 0 {
-                                perm.add_counters(CounterType::P1P1, *power as u32);
+                                perm.add_counters(CounterType::P1P1, power.as_u32_saturating());
                             } else if *power < 0 {
-                                perm.add_counters(CounterType::M1M1, (-*power) as u32);
+                                perm.add_counters(CounterType::M1M1, (-*power).as_u32_saturating());
                             }
                         }
                     }
@@ -4814,9 +4814,9 @@ impl Game {
                     if let (Some(fid), Some(tid)) = (fighter_id, target_id) {
                         if fid != tid {
                             let fighter_power = self.state.battlefield.get(fid)
-                                .map(|p| p.power().max(0) as u32).unwrap_or(0);
+                                .map(|p| p.power().as_u32_saturating()).unwrap_or(0);
                             let target_power = self.state.battlefield.get(tid)
-                                .map(|p| p.power().max(0) as u32).unwrap_or(0);
+                                .map(|p| p.power().as_u32_saturating()).unwrap_or(0);
                             let fighter_mult = self.get_damage_multiplier(fid);
                             let target_mult = self.get_damage_multiplier(tid);
                             if let Some(target_perm) = self.state.battlefield.get_mut(tid) {
@@ -4836,7 +4836,7 @@ impl Game {
                     if let (Some(bid), Some(tid)) = (biter_id, target_id) {
                         if bid != tid {
                             let biter_power = self.state.battlefield.get(bid)
-                                .map(|p| p.power().max(0) as u32).unwrap_or(0);
+                                .map(|p| p.power().as_u32_saturating()).unwrap_or(0);
                             let biter_mult = self.get_damage_multiplier(bid);
                             if let Some(target_perm) = self.state.battlefield.get_mut(tid) {
                                 target_perm.apply_damage(biter_power * biter_mult);
@@ -6075,8 +6075,8 @@ impl Game {
                 }
                 Effect::CompareAndBoost => {
                     if targets.len() >= 2 {
-                        let power_a = self.state.battlefield.get(targets[0]).map(|p| p.power()).unwrap_or(0);
-                        let power_b = self.state.battlefield.get(targets[1]).map(|p| p.power()).unwrap_or(0);
+                        let power_a = self.state.battlefield.get(targets[0]).map(|p| p.power()).unwrap_or(Power::ZERO);
+                        let power_b = self.state.battlefield.get(targets[1]).map(|p| p.power()).unwrap_or(Power::ZERO);
                         let x = (power_a - power_b).unsigned_abs();
                         if x > 0 {
                             self.draw_cards(controller, x);
@@ -6206,7 +6206,7 @@ impl Game {
                     for &target_id in targets {
                         let creature_power = self.state.battlefield.get(target_id)
                             .map(|p| p.power())
-                            .unwrap_or(0);
+                            .unwrap_or(Power::ZERO);
                         if let Some(perm) = self.state.battlefield.get_mut(target_id) {
                             perm.apply_damage(dmg);
                         }
@@ -6225,7 +6225,7 @@ impl Game {
                             created_turn: self.state.turn_number,
                             controller_filter: None,
                             copy_spell: false,
-                            stored_value: Some(creature_power),
+                            stored_value: Some(creature_power.get()),
                         });
                     }
                 }
@@ -6577,11 +6577,11 @@ impl Game {
         self.state.tokens_created_this_turn.insert(controller);
     }
 
-    fn parse_token_stats(token_name: &str) -> (i32, i32, crate::constants::KeywordAbilities) {
+    fn parse_token_stats(token_name: &str) -> (Power, Toughness, crate::constants::KeywordAbilities) {
         let name = token_name.trim();
         // Try to match "P/T Name..." pattern at the start
-        let mut power = 1i32;
-        let mut toughness = 1i32;
+        let mut power = Power::new(1);
+        let mut toughness = Toughness::new(1);
         let mut keywords = crate::constants::KeywordAbilities::empty();
 
         // Check for "P/T " prefix
@@ -6591,8 +6591,8 @@ impl Game {
                 let after_slash = &name[slash_pos + 1..];
                 let t_end = after_slash.find(' ').unwrap_or(after_slash.len());
                 if let Ok(t) = after_slash[..t_end].parse::<i32>() {
-                    power = p;
-                    toughness = t;
+                    power = Power::new(p);
+                    toughness = Toughness::new(t);
                     if t_end < after_slash.len() {
                         &after_slash[t_end + 1..]
                     } else {
