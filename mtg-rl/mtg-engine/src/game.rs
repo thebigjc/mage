@@ -1374,8 +1374,8 @@ impl Game {
 
         // Card type match: "artifact", "enchantment", etc.
         for ct in &card.card_types {
-            let ct_name = format!("{:?}", ct).to_lowercase();
-            if lower == ct_name || lower == format!("{} spells", ct_name) {
+            let ct_name = format!("{ct:?}").to_lowercase();
+            if lower == ct_name || lower == format!("{ct_name} spells") {
                 return true;
             }
         }
@@ -1560,7 +1560,7 @@ impl Game {
                 let name = self.state.battlefield.get(cid)
                     .map(|p| {
                         let pt = if let (Some(pow), Some(tou)) = (p.card.power, p.card.toughness) {
-                            format!(" ({}/{})", pow, tou)
+                            format!(" ({pow}/{tou})")
                         } else {
                             String::new()
                         };
@@ -1996,7 +1996,7 @@ impl Game {
                         dm.choose_use(
                             &view,
                             crate::constants::Outcome::Benefit,
-                            &format!("Use triggered ability: {}?", description),
+                            &format!("Use triggered ability: {description}?"),
                         )
                     } else {
                         false
@@ -3822,7 +3822,7 @@ impl Game {
                         let chosen = if let Some(dm) = self.decision_makers.get_mut(&player_id) {
                             let targets = dm.choose_targets(&view, crate::constants::Outcome::Detriment,
                                 &crate::decision::TargetRequirement {
-                                    description: format!("Put {} -1/-1 counters on creature you control", x),
+                                    description: format!("Put {x} -1/-1 counters on creature you control"),
                                     legal_targets: creatures.clone(),
                                     min_targets: 1, max_targets: 1,
                                     required: true,
@@ -4205,7 +4205,7 @@ impl Game {
                             }
                         }
                     }
-                    let zone_name = format!("Exiled with {}", source_name);
+                    let zone_name = format!("Exiled with {source_name}");
                     for card_id in exiled {
                         self.state.exile.exile_to_zone(card_id, src_id, &zone_name);
                         self.state.set_zone(card_id, crate::constants::Zone::Exile, None);
@@ -5381,7 +5381,7 @@ impl Game {
                                 p.card.subtypes.iter().any(|st| {
                                     match st {
                                         crate::constants::SubType::Custom(s) => s == type_name,
-                                        other => format!("{:?}", other) == *type_name,
+                                        other => format!("{other:?}") == *type_name,
                                     }
                                 })
                             })
@@ -5858,12 +5858,12 @@ impl Game {
                             if let Some(player) = self.state.players.get_mut(&pid) {
                                 player.graveyard.remove(target_id);
                             }
-                            let zone_name = format!("Exiled with {}", source_name);
+                            let zone_name = format!("Exiled with {source_name}");
                             self.state.exile.exile_to_zone(target_id, source_id, &zone_name);
                             self.state.set_zone(target_id, crate::constants::Zone::Exile, None);
                         } else if self.state.battlefield.remove(target_id).is_some() {
                             self.state.ability_store.remove_source(target_id);
-                            let zone_name = format!("Exiled with {}", source_name);
+                            let zone_name = format!("Exiled with {source_name}");
                             self.state.exile.exile_to_zone(target_id, source_id, &zone_name);
                             self.state.set_zone(target_id, crate::constants::Zone::Exile, None);
                         }
@@ -5986,7 +5986,7 @@ impl Game {
                             let chosen = if let Some(dm) = self.decision_makers.get_mut(&opp) {
                                 let targets = dm.choose_targets(&view, crate::constants::Outcome::Detriment,
                                     &crate::decision::TargetRequirement {
-                                        description: format!("Blight {} (put -1/-1 counters on creature you control)", count),
+                                        description: format!("Blight {count} (put -1/-1 counters on creature you control)"),
                                         legal_targets: creatures.clone(),
                                         min_targets: 1, max_targets: 1,
                                         required: true,
@@ -6774,7 +6774,7 @@ impl Game {
             }
         }
         for ct in &perm.card.card_types {
-            let ct_name = format!("{:?}", ct).to_lowercase();
+            let ct_name = format!("{ct:?}").to_lowercase();
             if f.contains(&ct_name) {
                 return true;
             }
@@ -6811,7 +6811,7 @@ impl Game {
         }
         // Check card types
         for ct in &card.card_types {
-            let ct_name = format!("{:?}", ct).to_lowercase();
+            let ct_name = format!("{ct:?}").to_lowercase();
             if f.contains(&ct_name) {
                 return true;
             }
@@ -6974,7 +6974,7 @@ impl Game {
             TargetSpec::OpponentCreature => "target creature you don't control".into(),
             TargetSpec::CreatureOrPlayer => "target creature or player".into(),
             TargetSpec::Permanent => "target permanent".into(),
-            TargetSpec::PermanentFiltered(f) => format!("target {}", f),
+            TargetSpec::PermanentFiltered(f) => format!("target {f}"),
             TargetSpec::Spell => "target spell".into(),
             _ => "target".into(),
         }
