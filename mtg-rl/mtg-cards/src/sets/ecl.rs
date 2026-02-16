@@ -2888,7 +2888,7 @@ fn grubs_command(id: ObjectId, owner: PlayerId) -> CardData {
                     ModalMode::new("Destroy target artifact or creature.",
                         vec![Effect::destroy()]),
                     ModalMode::new("Target player mills five cards, then puts each Goblin card milled this way into their hand.",
-                        vec![Effect::mill(5), Effect::Custom("Return milled Goblins to hand.".into())]),
+                        vec![Effect::mill_and_return_all(5, "Goblin")]),
                 ], 2, 2)],
                 TargetSpec::Custom("various".into())),
         ],

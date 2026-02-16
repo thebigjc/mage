@@ -1481,3 +1481,116 @@ fn mill_and_select_to_hand() {
     let hand_ids = game.state.players.get(&p1).unwrap().hand.as_slice().to_vec();
     assert!(hand_ids.contains(&creature_id), "The creature should be in hand");
 }
+
+#[test]
+fn mill_and_return_all_returns_matching_cards() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+
+    let mut game = Game::new_two_player(
+        config,
+        vec![
+            (p1, Box::new(AlwaysPassPlayer)),
+            (p2, Box::new(AlwaysPassPlayer)),
+        ],
+    );
+
+    let goblin1 = {
+        let mut c = CardData::new(ObjectId::new(), p1, "Goblin A");
+        c.card_types = vec![CardType::Creature];
+        c.subtypes = vec![SubType::Goblin];
+        c.power = Some(1);
+        c.toughness = Some(1);
+        c
+    };
+    let goblin2 = {
+        let mut c = CardData::new(ObjectId::new(), p1, "Goblin B");
+        c.card_types = vec![CardType::Creature];
+        c.subtypes = vec![SubType::Goblin];
+        c.power = Some(2);
+        c.toughness = Some(1);
+        c
+    };
+    let non_goblin = {
+        let mut c = CardData::new(ObjectId::new(), p1, "Elf Scout");
+        c.card_types = vec![CardType::Creature];
+        c.subtypes = vec![SubType::Elf];
+        c.power = Some(1);
+        c.toughness = Some(1);
+        c
+    };
+    let g1_id = goblin1.id;
+    let g2_id = goblin2.id;
+    let ng_id = non_goblin.id;
+
+    if let Some(player) = game.state.players.get_mut(&p1) {
+        player.library.put_on_top(g1_id);
+        game.state.card_store.insert(goblin1);
+        player.library.put_on_top(ng_id);
+        game.state.card_store.insert(non_goblin);
+        player.library.put_on_top(g2_id);
+        game.state.card_store.insert(goblin2);
+    }
+
+    let hand_before = game.state.players.get(&p1).unwrap().hand.len();
+    let lib_before = game.state.players.get(&p1).unwrap().library.len();
+
+    game.execute_effects(
+        &[Effect::mill_and_return_all(5, "Goblin")],
+        p1, &[], None, None,
+    );
+
+    let hand_after = game.state.players.get(&p1).unwrap().hand.len();
+    let lib_after = game.state.players.get(&p1).unwrap().library.len();
+    let gy_after = game.state.players.get(&p1).unwrap().graveyard.len();
+
+    assert_eq!(hand_after, hand_before + 2, "Both goblins should be in hand");
+    assert_eq!(lib_after, lib_before - 5, "5 cards milled from library");
+    assert_eq!(gy_after, 3, "3 non-goblin cards in graveyard");
+
+    let hand_ids = game.state.players.get(&p1).unwrap().hand.as_slice().to_vec();
+    assert!(hand_ids.contains(&g1_id), "Goblin A should be in hand");
+    assert!(hand_ids.contains(&g2_id), "Goblin B should be in hand");
+    assert!(!hand_ids.contains(&ng_id), "Elf should NOT be in hand");
+}
+
+#[test]
+fn mill_and_return_all_no_matches() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+
+    let mut game = Game::new_two_player(
+        config,
+        vec![
+            (p1, Box::new(AlwaysPassPlayer)),
+            (p2, Box::new(AlwaysPassPlayer)),
+        ],
+    );
+
+    let hand_before = game.state.players.get(&p1).unwrap().hand.len();
+
+    game.execute_effects(
+        &[Effect::mill_and_return_all(3, "Goblin")],
+        p1, &[], None, None,
+    );
+
+    let hand_after = game.state.players.get(&p1).unwrap().hand.len();
+    let gy_after = game.state.players.get(&p1).unwrap().graveyard.len();
+
+    assert_eq!(hand_after, hand_before, "No goblins milled, hand unchanged");
+    assert_eq!(gy_after, 3, "All 3 milled cards stay in graveyard");
+}

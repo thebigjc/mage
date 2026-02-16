@@ -3921,6 +3921,31 @@ impl Game {
                         }
                     }
                 }
+                Effect::MillAndReturnAll { count, filter } => {
+                    let mut milled = Vec::new();
+                    for _ in 0..resolve_x(*count) {
+                        let card_id = self.state.players.get_mut(&controller)
+                            .and_then(|p| p.library.draw());
+                        if let Some(card_id) = card_id {
+                            self.move_card_to_graveyard_inner(card_id, controller);
+                            milled.push(card_id);
+                        }
+                    }
+                    let matched: Vec<ObjectId> = milled.iter().filter(|&&card_id| {
+                        self.state.card_store.get(card_id)
+                            .map(|c| Self::card_matches_filter(c, filter))
+                            .unwrap_or(false)
+                    }).copied().collect();
+                    for card_id in matched {
+                        if let Some(player) = self.state.players.get_mut(&controller) {
+                            player.graveyard.remove(card_id);
+                        }
+                        if let Some(player) = self.state.players.get_mut(&controller) {
+                            player.hand.add(card_id);
+                        }
+                        self.state.set_zone(card_id, crate::constants::Zone::Hand, Some(controller));
+                    }
+                }
                 Effect::CreateToken { token_name, count } => {
                     for _ in 0..resolve_x(*count) {
                         // Create a minimal token permanent
