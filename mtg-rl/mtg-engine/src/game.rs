@@ -554,7 +554,7 @@ impl Game {
                         crate::abilities::StaticEffect::ReplaceTokenCreation => {
                             if let Some(perm) = self.state.battlefield.get(source_id) {
                                 if let Some(attached_to) = perm.attached_to {
-                                    if self.state.battlefield.get(attached_to).map_or(false, |p| p.card.card_types.contains(&crate::constants::CardType::Creature)) {
+                                    if self.state.battlefield.get(attached_to).is_some_and(|p| p.card.card_types.contains(&crate::constants::CardType::Creature)) {
                                         self.state.token_replacement_effects.push((source_id, controller, attached_to));
                                     }
                                 }
@@ -3626,15 +3626,15 @@ impl Game {
                     let has_match = self.state.battlefield.controlled_by(player_id)
                         .any(|perm| {
                             perm.id() != source_id &&
-                            self.state.card_store.get(perm.id()).map_or(false, |card| {
+                            self.state.card_store.get(perm.id()).is_some_and(|card| {
                                 card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
                                 || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING)
                             })
                         })
-                        || self.state.players.get(&player_id).map_or(false, |p| {
+                        || self.state.players.get(&player_id).is_some_and(|p| {
                             p.hand.iter().any(|&cid| {
                                 cid != source_id &&
-                                self.state.card_store.get(cid).map_or(false, |card| {
+                                self.state.card_store.get(cid).is_some_and(|card| {
                                     card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
                                     || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING)
                                 })
@@ -3647,15 +3647,15 @@ impl Game {
                     let has_match = self.state.battlefield.controlled_by(player_id)
                         .any(|perm| {
                             perm.id() != source_id &&
-                            self.state.card_store.get(perm.id()).map_or(false, |card| {
+                            self.state.card_store.get(perm.id()).is_some_and(|card| {
                                 card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
                                 || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING)
                             })
                         })
-                        || self.state.players.get(&player_id).map_or(false, |p| {
+                        || self.state.players.get(&player_id).is_some_and(|p| {
                             p.hand.iter().any(|&cid| {
                                 cid != source_id &&
-                                self.state.card_store.get(cid).map_or(false, |card| {
+                                self.state.card_store.get(cid).is_some_and(|card| {
                                     card.subtypes.iter().any(|st| st.to_string().to_lowercase() == ct_lower)
                                     || card.keywords.contains(crate::constants::KeywordAbilities::CHANGELING)
                                 })
@@ -4041,7 +4041,7 @@ impl Game {
                         .filter(|perm| perm.controller == player_id && !perm.tapped && perm.id() != source_id && perm.is_creature())
                         .filter(|perm| {
                             if f_lower.contains("elf") {
-                                self.state.card_store.get(perm.id()).map_or(false, |c| c.subtypes.iter().any(|st| st.to_string().to_lowercase() == "elf") || c.keywords.contains(crate::constants::KeywordAbilities::CHANGELING))
+                                self.state.card_store.get(perm.id()).is_some_and(|c| c.subtypes.iter().any(|st| st.to_string().to_lowercase() == "elf") || c.keywords.contains(crate::constants::KeywordAbilities::CHANGELING))
                             } else {
                                 true
                             }
@@ -5467,7 +5467,7 @@ impl Game {
                         }
                         let matching: Vec<ObjectId> = self.state.battlefield.iter()
                             .filter(|p| {
-                                if *other_only && source.map_or(false, |s| p.id() == s) {
+                                if *other_only && source.is_some_and(|s| p.id() == s) {
                                     return false;
                                 }
                                 if p.controller != controller {
@@ -6325,7 +6325,7 @@ impl Game {
                         .unwrap_or_default();
                     let eligible: Vec<ObjectId> = hand.iter().copied()
                         .filter(|&cid| {
-                            self.state.card_store.get(cid).map_or(false, |card| {
+                            self.state.card_store.get(cid).is_some_and(|card| {
                                 card.card_types.contains(&crate::constants::CardType::Creature)
                                     && card.mana_value() <= max_mv
                             })
@@ -7017,7 +7017,7 @@ impl Game {
         // source = the creature, targets[0] = opponent's creature
         if targets.len() == 1 {
             if let Some(sid) = source {
-                if state.battlefield.get(sid).map_or(false, |p| p.is_creature()) {
+                if state.battlefield.get(sid).is_some_and(|p| p.is_creature()) {
                     let tid = state.battlefield.get(targets[0]).map(|_| targets[0]);
                     return (Some(sid), tid);
                 }

@@ -24,7 +24,7 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 
 ### Phase 2: mtg-engine/src/game.rs (53 warnings — biggest file)
 - [x] Task 2: Fix ~20 `uninlined_format_args` warnings in game.rs — inline variables into format strings
-- [ ] Task 3: Fix ~13 `map_or(false, ...)` → `is_some_and(...)` warnings in game.rs
+- [x] Task 3: Fix ~13 `map_or(false, ...)` → `is_some_and(...)` warnings in game.rs
 - [ ] Task 4: Fix ~5 `unwrap_or_default` warnings in game.rs
 - [ ] Task 5: Fix 4 `unnecessary_cast` warnings in game.rs (u32→u32, usize→usize)
 - [ ] Task 6: Fix 2 `collapsible_if` + 2 `collapsible_else_if` warnings in game.rs
@@ -60,11 +60,12 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 - [ ] Task 28: Run `cargo test --lib` and `cargo test --release` to confirm all tests still pass
 
 ## Completed This Iteration
-- Task 2: Fixed 13 `uninlined_format_args` warnings in game.rs — inlined variables into format strings (e.g. `format!("{}", x)` → `format!("{x}")`). All 576 tests still pass.
+- Task 3: Fixed 11 `map_or(false, ...)` → `is_some_and(...)` in game.rs. All 576 tests still pass.
 
 ## Notes
 
 1. All 576 engine tests still pass after fixes.
 2. Task 2 found 13 uninlined_format_args in game.rs (not ~20 as estimated). Includes 4 with `:?` debug format which inline as `{var:?}`.
+5. Task 3 found 11 `map_or(false, ...)` in game.rs (not ~13 as estimated). 2 more in filters.rs covered by Task 16.
 3. The `only_used_in_recursion` warning is in filters.rs:311 — `predicate_matches_card` function where `you: PlayerId` is only passed through recursive calls but never used directly.
 4. mtg-ai has 3 `manual_repeat_n` warnings and mtg-python has 2 warnings (type_complexity, useless_conversion) — these were not in the original task list and should be added.
