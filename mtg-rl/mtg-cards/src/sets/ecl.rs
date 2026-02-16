@@ -3284,7 +3284,7 @@ fn omni_changeling(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "You may have this creature enter as a copy of any creature on the battlefield, except it has changeling.",
-                vec![StaticEffect::Custom("Enter as copy of creature with changeling.".into())]),
+                vec![StaticEffect::enter_as_a_copy("creature", &["changeling"])]),
         ],
         ..Default::default() }
 }

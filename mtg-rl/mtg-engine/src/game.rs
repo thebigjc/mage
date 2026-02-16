@@ -1235,6 +1235,116 @@ impl Game {
         }
     }
 
+    fn check_enter_as_copy(&mut self, permanent_id: ObjectId) {
+        let copy_info: Option<(String, Vec<String>)> = {
+            let abilities = self.state.ability_store.for_source(permanent_id);
+            abilities.iter()
+                .filter(|a| a.ability_type == AbilityType::Static)
+                .flat_map(|a| a.static_effects.iter())
+                .find_map(|e| {
+                    if let crate::abilities::StaticEffect::EnterAsACopy { filter, add_keywords } = e {
+                        Some((filter.clone(), add_keywords.clone()))
+                    } else {
+                        None
+                    }
+                })
+        };
+
+        let (filter, add_keywords) = match copy_info {
+            Some(info) => info,
+            None => return,
+        };
+
+        let controller = match self.state.battlefield.get(permanent_id) {
+            Some(p) => p.controller,
+            None => return,
+        };
+
+        let eligible: Vec<ObjectId> = self.state.battlefield.iter()
+            .filter(|p| p.is_creature() && p.id() != permanent_id)
+            .filter(|_p| {
+                let _f = filter.to_lowercase();
+                true
+            })
+            .map(|p| p.id())
+            .collect();
+
+        if eligible.is_empty() {
+            return;
+        }
+
+        let mut options: Vec<crate::decision::NamedChoice> = eligible.iter().enumerate()
+            .map(|(i, &cid)| {
+                let name = self.state.battlefield.get(cid)
+                    .map(|p| {
+                        let pt = if let (Some(pow), Some(tou)) = (p.card.power, p.card.toughness) {
+                            format!(" ({}/{})", pow, tou)
+                        } else {
+                            String::new()
+                        };
+                        format!("{}{}", p.name(), pt)
+                    })
+                    .unwrap_or_else(|| "Unknown".to_string());
+                crate::decision::NamedChoice { index: i, description: name }
+            })
+            .collect();
+        options.push(crate::decision::NamedChoice {
+            index: eligible.len(),
+            description: "Don't copy".to_string(),
+        });
+
+        let view = crate::decision::GameView::placeholder();
+        let choice_idx = if let Some(dm) = self.decision_makers.get_mut(&controller) {
+            dm.choose_option(&view, crate::constants::Outcome::Benefit,
+                "Choose a creature to copy", &options)
+        } else {
+            eligible.len()
+        };
+
+        if choice_idx >= eligible.len() {
+            return;
+        }
+
+        let target_id = eligible[choice_idx];
+        let source_card = match self.state.battlefield.get(target_id) {
+            Some(p) => p.card.clone(),
+            None => return,
+        };
+
+        self.state.ability_store.remove_source(permanent_id);
+
+        if let Some(perm) = self.state.battlefield.get_mut(permanent_id) {
+            let original_id = perm.card.id;
+            let original_owner = perm.card.owner;
+
+            perm.card = source_card;
+            perm.card.id = original_id;
+            perm.card.owner = original_owner;
+            perm.card.is_token = false;
+
+            for kw_name in &add_keywords {
+                if let Some(flag) = crate::constants::KeywordAbilities::keyword_from_name(kw_name) {
+                    perm.card.keywords |= flag;
+                }
+            }
+
+            perm.card.abilities = perm.card.abilities.iter().map(|ab| {
+                let mut new_ab = ab.clone();
+                new_ab.id = crate::types::AbilityId::new();
+                new_ab.source_id = original_id;
+                new_ab
+            }).collect();
+
+            perm.summoning_sick = perm.card.is_creature();
+        }
+
+        if let Some(perm) = self.state.battlefield.get(permanent_id) {
+            for ab in &perm.card.abilities {
+                self.state.ability_store.add(ab.clone());
+            }
+        }
+    }
+
     /// Check for triggered abilities that should fire from recent events.
     /// Pushes matching triggered abilities onto the stack in APNAP order.
     /// Returns true if any triggers were placed on the stack.
@@ -2600,6 +2710,7 @@ impl Game {
                     let perm = Permanent::new(card.clone(), item.controller);
                     self.state.battlefield.add(perm);
                     self.state.set_zone(item.id, crate::constants::Zone::Battlefield, None);
+                    self.check_enter_as_copy(item.id);
                     self.check_enters_tapped(item.id);
                     self.check_enters_with_counters(item.id);
 

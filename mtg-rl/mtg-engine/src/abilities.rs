@@ -1500,6 +1500,13 @@ impl StaticEffect {
             count,
         }
     }
+
+    pub fn enter_as_a_copy(filter: &str, add_keywords: &[&str]) -> Self {
+        StaticEffect::EnterAsACopy {
+            filter: filter.to_string(),
+            add_keywords: add_keywords.iter().map(|s| s.to_string()).collect(),
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1743,6 +1750,10 @@ pub enum StaticEffect {
     EntersWithCounters {
         counter_type: String,
         count: u32,
+    },
+    EnterAsACopy {
+        filter: String,
+        add_keywords: Vec<String>,
     },
     /// Custom continuous effect.
 

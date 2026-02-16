@@ -266,8 +266,9 @@ These require new engine architecture beyond adding match arms to existing funct
 - `TokenModification` enum: `AddKeyword`, `AddChangeling`, `SacrificeAtEndStep`, `EnterTappedAttacking`
 - Convenience builders: `create_token_copy()`, `create_token_copy_with_haste()`, `create_token_copy_with_changeling()`, `create_token_copy_haste_sacrifice()`
 - 4 unit tests; 5 ECL cards updated
-- **Still missing:** Copy spell on stack (Fork, Reverberate), enter-as-copy (clone creatures)
-- **Remaining blocked cards:** Mirrorform (mass copy), enter-as-copy-with-changeling, graveyard-ETB copy trigger (~3 cards)
+- **Enter-as-copy completed 2026-02-15.** `StaticEffect::EnterAsACopy { filter, add_keywords }` — replacement effect for clone creatures. Player chooses a creature on the battlefield (or declines); permanent's card data is replaced with the copy's, preserving ID/owner, adding specified keywords. 9 tests; Omni-Changeling updated.
+- **Still missing:** Copy spell on stack (Fork, Reverberate)
+- **Remaining blocked cards:** Mirrorform (mass copy), graveyard-ETB copy trigger (~2 cards)
 
 #### ~~12. Delayed Triggers~~ (DONE)
 
@@ -486,7 +487,7 @@ Priority ordered by cards-unblocked per effort.
 
 9. **Planeswalker system** — Loyalty abilities, can-be-attacked, damage redirection. **~10+ cards.**
 
-10. **Spell/permanent copy** — **PARTIAL (2026-02-15).** Token copy done (CreateTokenCopy + TokenModification). Still needs spell copy on stack and enter-as-copy. **~3 remaining cards.**
+10. **Spell/permanent copy** — **PARTIAL (2026-02-15).** Token copy done (CreateTokenCopy + TokenModification). Enter-as-copy done (EnterAsACopy). Still needs spell copy on stack. **~2 remaining cards.**
 
 11. ~~**Delayed triggers**~~ — **DONE (2026-02-14).** `DelayedTrigger` struct, `CreateDelayedTrigger` effect, event-driven firing, duration expiration. 4 unit tests.
 

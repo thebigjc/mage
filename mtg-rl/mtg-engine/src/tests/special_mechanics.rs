@@ -1758,3 +1758,170 @@ use crate::types::{ObjectId, PlayerId};
         let perm2 = Permanent::new(card2, owner);
         assert!(!perm2.can_transform());
     }
+
+    // ── Enter-as-copy tests ─────────────────────────────────────────────
+
+    fn add_creature_with_keywords(game: &mut Game, owner: PlayerId, name: &str, power: i32, toughness: i32, keywords: KeywordAbilities) -> ObjectId {
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, owner, name);
+        card.card_types = vec![CardType::Creature];
+        card.power = Some(power);
+        card.toughness = Some(toughness);
+        card.keywords = keywords;
+        for ab in &card.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+        game.state.battlefield.add(Permanent::new(card, owner));
+        game.state.set_zone(id, crate::constants::Zone::Battlefield, None);
+        id
+    }
+
+    fn add_copy_creature(game: &mut Game, owner: PlayerId) -> ObjectId {
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, owner, "Clone");
+        card.card_types = vec![CardType::Creature];
+        card.subtypes = vec![SubType::Shapeshifter];
+        card.power = Some(0);
+        card.toughness = Some(0);
+        card.abilities = vec![
+            Ability::static_ability(id,
+                "Enter as a copy of any creature, except it has changeling.",
+                vec![StaticEffect::enter_as_a_copy("creature", &["changeling"])]),
+        ];
+        for ab in &card.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+        game.state.battlefield.add(Permanent::new(card, owner));
+        game.state.set_zone(id, crate::constants::Zone::Battlefield, None);
+        id
+    }
+
+    #[test]
+    fn enter_as_copy_copies_name_and_pt() {
+        let (mut game, p1, _) = setup_game_with_picker(0);
+        add_creature_with_keywords(&mut game, p1, "Big Dragon", 5, 5, KeywordAbilities::FLYING);
+        let clone_id = add_copy_creature(&mut game, p1);
+        game.check_enter_as_copy(clone_id);
+        let perm = game.state.battlefield.get(clone_id).unwrap();
+        assert_eq!(perm.name(), "Big Dragon");
+        assert_eq!(perm.card.power, Some(5));
+        assert_eq!(perm.card.toughness, Some(5));
+    }
+
+    #[test]
+    fn enter_as_copy_adds_specified_keywords() {
+        let (mut game, p1, _) = setup_game_with_picker(0);
+        add_creature_with_keywords(&mut game, p1, "Bear", 2, 2, KeywordAbilities::empty());
+        let clone_id = add_copy_creature(&mut game, p1);
+        game.check_enter_as_copy(clone_id);
+        let perm = game.state.battlefield.get(clone_id).unwrap();
+        assert!(perm.card.keywords.contains(KeywordAbilities::CHANGELING));
+        assert_eq!(perm.name(), "Bear");
+    }
+
+    #[test]
+    fn enter_as_copy_preserves_id_and_owner() {
+        let (mut game, p1, _) = setup_game_with_picker(0);
+        add_creature_with_keywords(&mut game, p1, "Target", 3, 3, KeywordAbilities::empty());
+        let clone_id = add_copy_creature(&mut game, p1);
+        let original_owner = game.state.battlefield.get(clone_id).unwrap().card.owner;
+        game.check_enter_as_copy(clone_id);
+        let perm = game.state.battlefield.get(clone_id).unwrap();
+        assert_eq!(perm.card.id, clone_id);
+        assert_eq!(perm.card.owner, original_owner);
+    }
+
+    #[test]
+    fn enter_as_copy_dont_copy_keeps_original() {
+        let (mut game, p1, _) = setup_game_with_picker(1);
+        add_creature_with_keywords(&mut game, p1, "Target", 4, 4, KeywordAbilities::FLYING);
+        let clone_id = add_copy_creature(&mut game, p1);
+        game.check_enter_as_copy(clone_id);
+        let perm = game.state.battlefield.get(clone_id).unwrap();
+        assert_eq!(perm.name(), "Clone");
+        assert_eq!(perm.card.power, Some(0));
+        assert_eq!(perm.card.toughness, Some(0));
+    }
+
+    #[test]
+    fn enter_as_copy_no_creatures_does_nothing() {
+        let (mut game, p1, _) = setup_game_with_picker(0);
+        let clone_id = add_copy_creature(&mut game, p1);
+        game.check_enter_as_copy(clone_id);
+        let perm = game.state.battlefield.get(clone_id).unwrap();
+        assert_eq!(perm.name(), "Clone");
+        assert_eq!(perm.card.power, Some(0));
+    }
+
+    #[test]
+    fn enter_as_copy_copies_keywords_from_source() {
+        let (mut game, p1, _) = setup_game_with_picker(0);
+        add_creature_with_keywords(&mut game, p1, "Flyer", 3, 2, KeywordAbilities::FLYING | KeywordAbilities::FIRST_STRIKE);
+        let clone_id = add_copy_creature(&mut game, p1);
+        game.check_enter_as_copy(clone_id);
+        let perm = game.state.battlefield.get(clone_id).unwrap();
+        assert!(perm.card.keywords.contains(KeywordAbilities::FLYING));
+        assert!(perm.card.keywords.contains(KeywordAbilities::FIRST_STRIKE));
+        assert!(perm.card.keywords.contains(KeywordAbilities::CHANGELING));
+    }
+
+    #[test]
+    fn enter_as_copy_copies_subtypes() {
+        let (mut game, p1, _) = setup_game_with_picker(0);
+        let target_id = ObjectId::new();
+        let mut target = CardData::new(target_id, p1, "Elf Warrior");
+        target.card_types = vec![CardType::Creature];
+        target.subtypes = vec![SubType::Elf, SubType::Warrior];
+        target.power = Some(2);
+        target.toughness = Some(2);
+        game.state.battlefield.add(Permanent::new(target, p1));
+        game.state.set_zone(target_id, crate::constants::Zone::Battlefield, None);
+        let clone_id = add_copy_creature(&mut game, p1);
+        game.check_enter_as_copy(clone_id);
+        let perm = game.state.battlefield.get(clone_id).unwrap();
+        assert!(perm.card.subtypes.contains(&SubType::Elf));
+        assert!(perm.card.subtypes.contains(&SubType::Warrior));
+    }
+
+    #[test]
+    fn enter_as_copy_registers_abilities() {
+        let (mut game, p1, _) = setup_game_with_picker(0);
+        let target_id = ObjectId::new();
+        let mut target = CardData::new(target_id, p1, "Able Creature");
+        target.card_types = vec![CardType::Creature];
+        target.power = Some(2);
+        target.toughness = Some(2);
+        target.abilities = vec![
+            Ability::enters_battlefield_triggered(target_id,
+                "When this creature enters, draw a card.",
+                vec![Effect::draw_cards(1)],
+                crate::abilities::TargetSpec::None),
+        ];
+        for ab in &target.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+        game.state.battlefield.add(Permanent::new(target, p1));
+        game.state.set_zone(target_id, crate::constants::Zone::Battlefield, None);
+        let clone_id = add_copy_creature(&mut game, p1);
+        game.check_enter_as_copy(clone_id);
+        let clone_abilities = game.state.ability_store.for_source(clone_id);
+        assert!(clone_abilities.len() >= 1);
+        let has_etb = clone_abilities.iter().any(|a| {
+            a.rules_text.contains("draw a card")
+        });
+        assert!(has_etb);
+    }
+
+    #[test]
+    fn enter_as_copy_helper_constructor() {
+        let eff = StaticEffect::enter_as_a_copy("creature", &["changeling", "flying"]);
+        match eff {
+            StaticEffect::EnterAsACopy { filter, add_keywords } => {
+                assert_eq!(filter, "creature");
+                assert_eq!(add_keywords.len(), 2);
+                assert_eq!(add_keywords[0], "changeling");
+                assert_eq!(add_keywords[1], "flying");
+            }
+            _ => panic!("Expected EnterAsACopy"),
+        }
+    }
