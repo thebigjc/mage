@@ -70,7 +70,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - [x] Task 1.2: Add `EngineResult<T> = Result<T, GameError>` type alias (renamed from `GameResult` to avoid conflict with existing `GameResult` struct)
 - [x] Task 1.3: Replace `.unwrap()` calls in game.rs (7 calls) with proper error handling using `?` or `.ok_or(GameError::...)`
 - [x] Task 1.4: Replace `.unwrap()` calls in combat.rs, state.rs, and other engine files (~17 calls)
-- [ ] Task 1.5: Replace `.unwrap()` calls in mtg-cards production code (~38 calls, mostly in registry)
+- [x] Task 1.5: Replace `.unwrap()` calls in mtg-cards production code (~38 calls, mostly in registry)
 - [ ] Task 1.6: Audit and replace `panic!`/`unreachable!` in production code with proper error returns where feasible
 
 #### 1B: Typed Filter System
@@ -181,4 +181,13 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - The original estimate of "~17 production calls" was inflated — many were test code all along
 - No code changes needed; task confirmed complete by verification
 - All 576 engine tests passing, zero clippy warnings
+
+### Iteration 6 — Task 1.5: Verify zero .unwrap() in mtg-cards production code
+- Scanned all source files in mtg-cards/src/ (registry.rs, lib.rs, sets/, keywords/)
+- Found **zero `.unwrap()` calls in production code** — all 38 calls are exclusively in `#[cfg(test)]` modules (registry tests) or doc comments
+- Zero `.expect()` calls in mtg-cards production code
+- All 6 `panic!` calls in keywords/ (behold.rs, blight.rs, mobilize.rs) are in `#[cfg(test)]` modules
+- The original estimate of "~38 calls, mostly in registry" was inflated — all were test code
+- No code changes needed; task confirmed complete by verification
+- All 20 mtg-cards tests passing
 
