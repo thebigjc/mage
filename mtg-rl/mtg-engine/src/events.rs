@@ -511,7 +511,7 @@ impl GameEvent {
         if let Some(src) = source {
             event = event.source(src);
         }
-        event.data = Some(format!("{} -> {}", from_zone, to_zone));
+        event.data = Some(format!("{from_zone} -> {to_zone}"));
         event
     }
 

@@ -393,7 +393,7 @@ impl std::fmt::Display for ManaCost {
             match item {
                 ManaCostItem::Colored(c) => write!(f, "{{{}}}", c.symbol())?,
                 ManaCostItem::Colorless => write!(f, "{{C}}")?,
-                ManaCostItem::Generic(n) => write!(f, "{{{}}}", n)?,
+                ManaCostItem::Generic(n) => write!(f, "{{{n}}}")?,
                 ManaCostItem::X => write!(f, "{{X}}")?,
                 ManaCostItem::Hybrid(a, b) => write!(f, "{{{}/{}}}", a.symbol(), b.symbol())?,
                 ManaCostItem::Phyrexian(c) => write!(f, "{{{}/P}}", c.symbol())?,

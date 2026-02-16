@@ -38,7 +38,7 @@ impl fmt::Display for Zone {
             Zone::Command => "command zone",
             Zone::Outside => "outside the game",
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
