@@ -71,7 +71,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - [x] Task 1.3: Replace `.unwrap()` calls in game.rs (7 calls) with proper error handling using `?` or `.ok_or(GameError::...)`
 - [x] Task 1.4: Replace `.unwrap()` calls in combat.rs, state.rs, and other engine files (~17 calls)
 - [x] Task 1.5: Replace `.unwrap()` calls in mtg-cards production code (~38 calls, mostly in registry)
-- [ ] Task 1.6: Audit and replace `panic!`/`unreachable!` in production code with proper error returns where feasible
+- [x] Task 1.6: Audit and replace `panic!`/`unreachable!` in production code with proper error returns where feasible
 
 #### 1B: Typed Filter System
 - [ ] Task 1.7: Design and implement `Filter` enum in mtg-engine to replace string-based filters. Start with the most common patterns: creature/permanent type filters, controller filters, power/toughness comparisons
@@ -190,4 +190,20 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - The original estimate of "~38 calls, mostly in registry" was inflated — all were test code
 - No code changes needed; task confirmed complete by verification
 - All 20 mtg-cards tests passing
+
+### Iteration 7 — Task 1.6: Audit panic!/unreachable! in production code
+- Comprehensive audit of all `panic!`, `unreachable!`, `unimplemented!`, `todo!` macros across mtg-engine, mtg-cards, and mtg-ai
+- Found **zero occurrences in production code** — all instances are exclusively in `#[cfg(test)]` modules
+- Remaining `.expect()` calls (7 in production) are for true invariants:
+  - `game.rs:140` — player just inserted into state map
+  - `game.rs:2413,2420` — `pop()` after explicit `len` checks
+  - `state.rs:304,310,315` — active/priority player must exist
+  - `state.rs:343` — player must be in turn_order
+- These `.expect()` calls are appropriate: they document genuine invariants, not error-prone patterns
+- The original estimate of "57 panic!/unreachable!" was inflated — all were test code
+- No code changes needed; task confirmed complete by verification
+- All 576 engine tests passing, zero clippy warnings
+
+## Completed This Iteration
+- Task 1.6: Verified zero panic!/unreachable!/unimplemented!/todo! in production code. Phase 1A (Error Handling Foundation) is now fully complete.
 
