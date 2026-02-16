@@ -455,7 +455,7 @@ Features the Java engine has that the Rust engine lacks entirely:
 | **PreventionEffect** (damage prevention) | `mage.abilities.effects.PreventionEffect` | No equivalent |
 | **Equipment attachment** | `EquipAbility`, `AttachEffect` | **Implemented** (`Effect::Equip`, detach SBA) |
 | **Aura attachment** | `AuraReplacementEffect` | **Implemented** (auto-attach on ETB, fall-off SBA) |
-| **Planeswalker loyalty abilities** | `LoyaltyAbility`, `PayLoyaltyCost` | **Partial** (`Cost::Loyalty`, `AbilityType::LoyaltyAbility`, starting loyalty on ETB) |
+| **Planeswalker loyalty abilities** | `LoyaltyAbility`, `PayLoyaltyCost` | **Partial** (`Cost::Loyalty`, `AbilityType::LoyaltyAbility`, starting loyalty on ETB, attack target, combat damage removes loyalty) |
 | **X-cost system** | `VariableManaCost`, `ManaCostsImpl.getX()` | **Implemented** (`X_VALUE`, `StackItem.x_value`, `resolve_x()`) |
 | **Spell copying** | `CopyEffect`, `CopySpellForEachItCouldTargetEffect` | **Basic** (`copy_spell_on_stack`) — copies spell on stack with same targets; used by Conspire |
 | **Delayed triggered abilities** | `DelayedTriggeredAbility` | **Implemented** (`DelayedTrigger`, `CreateDelayedTrigger`) |
@@ -495,7 +495,7 @@ Priority ordered by cards-unblocked per effort.
 
 ### Phase 3: Advanced Systems
 
-9. **Planeswalker system** — **PARTIAL (2026-02-16).** Loyalty abilities (Cost::Loyalty, AbilityType::LoyaltyAbility), starting loyalty counters on ETB, one-per-turn sorcery-speed activation, 0-loyalty SBA. Still needed: planeswalker as attack target, combat damage removes loyalty, damage redirection. **~10+ cards.**
+9. **Planeswalker system** — **PARTIAL (2026-02-16).** Loyalty abilities (Cost::Loyalty, AbilityType::LoyaltyAbility), starting loyalty counters on ETB, one-per-turn sorcery-speed activation, 0-loyalty SBA. Planeswalker as attack target with combat damage removing loyalty counters. Still needed: damage redirection (noncombat damage can target planeswalkers directly). **~10+ cards.**
 
 10. **Spell/permanent copy** — **PARTIAL (2026-02-16).** Token copy done (CreateTokenCopy + TokenModification). Enter-as-copy done (EnterAsACopy). Basic spell copy on stack done (Conspire). CopyNextSpell delayed trigger done (rimefire_torque). Still needs Fork/Reverberate-style targeting and CopySpellWithModification (spinerock_tyrant). **~1 remaining card.**
 
@@ -555,6 +555,6 @@ After the above systems are in place, systematically replace remaining `Custom(S
 
 **Session 2026-02-16 (ECL parity — Tasks 27-30):** Added `StaticEffect::CastExiledOncePerTurn`, `StaticEffect::ReplaceTokenCreation`, `StaticEffect::BecomesCreatureAttached`, `StaticEffect::HexproofFromOwnColors`. Also added `Effect::ExileFromOpponentLibraryToSourceZone`. ECL StaticEffect::Custom reduced from 7 to 0. 12 new tests (576 engine total).
 
-**ECL parity complete (2026-02-16):** All 30 implementation tasks done. ECL Custom fallbacks reduced from 88 to 1 (98.9%). Two more effects implemented in follow-up: LookTopChosenType (Gathering Stone) and blight+token-copy attack trigger (Grub). The 1 remaining is Ajani's planeswalker ultimate (requires planeswalker system, Tier 2 feature blocking ~10+ cards across all sets). 610 engine tests, all passing. Planeswalker loyalty system now functional.
+**ECL parity complete (2026-02-16):** All 30 implementation tasks done. ECL Custom fallbacks reduced from 88 to 1 (98.9%). Two more effects implemented in follow-up: LookTopChosenType (Gathering Stone) and blight+token-copy attack trigger (Grub). The 1 remaining is Ajani's planeswalker ultimate (requires planeswalker system, Tier 2 feature blocking ~10+ cards across all sets). 613 engine tests, all passing. Planeswalker loyalty system now functional with combat targeting.
 
 See `docs/work-queue.md` for the batch-fix loop and per-set remediation docs for card-level details.

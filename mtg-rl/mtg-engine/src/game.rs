@@ -2093,8 +2093,8 @@ impl Game {
             return;
         }
 
-        // Possible defenders: opponent player IDs (as ObjectIds for the interface)
-        let possible_defenders: Vec<ObjectId> = self
+        // Possible defenders: opponent player IDs + their planeswalkers
+        let mut possible_defenders: Vec<ObjectId> = self
             .state
             .turn_order
             .iter()
@@ -2108,6 +2108,16 @@ impl Game {
             })
             .map(|&id| ObjectId::from_player(id))
             .collect();
+
+        // Add planeswalkers controlled by opponents as possible attack targets
+        let pw_defenders: Vec<ObjectId> = self
+            .state
+            .battlefield
+            .iter()
+            .filter(|p| p.controller != active_player && p.is_planeswalker())
+            .map(|p| p.id())
+            .collect();
+        possible_defenders.extend(pw_defenders);
 
         if possible_defenders.is_empty() {
             return;
@@ -2141,10 +2151,14 @@ impl Game {
                 continue;
             }
 
-            // Register attacker in combat state
+            // Register attacker in combat state.
+            // Check if the defender is a player or planeswalker.
+            let is_defending_player = self.state.battlefield.get(*defender_id)
+                .map(|p| !p.is_planeswalker())
+                .unwrap_or(true); // If not on battlefield, it's a player
             self.state
                 .combat
-                .declare_attacker(*attacker_id, *defender_id, true);
+                .declare_attacker(*attacker_id, *defender_id, is_defending_player);
 
             // Tap the attacker (unless it has vigilance)
             if let Some(perm) = self.state.battlefield.get_mut(*attacker_id) {
@@ -2175,26 +2189,46 @@ impl Game {
             return;
         }
 
-        // For each defending player, gather attacker info and ask for blocks
+        // For each defending player, gather attacker info and ask for blocks.
+        // A "defending player" is either a player being attacked directly, or the
+        // controller of a planeswalker being attacked.
         let defending_players: Vec<PlayerId> = self
             .state
             .combat
             .groups
             .iter()
-            .filter(|g| g.defending_player)
-            .map(|g| PlayerId::from_object(g.defending_id))
+            .map(|g| {
+                if g.defending_player {
+                    PlayerId::from_object(g.defending_id)
+                } else {
+                    // Planeswalker target: the controller blocks on its behalf
+                    self.state.battlefield.get(g.defending_id)
+                        .map(|p| p.controller)
+                        .unwrap_or(PlayerId::from_object(g.defending_id))
+                }
+            })
             .collect::<std::collections::HashSet<_>>()
             .into_iter()
             .collect();
 
         for def_player in defending_players {
             // Build AttackerInfo for each attacker targeting this defender
+            // (either directly or via a planeswalker they control)
             let attacker_infos: Vec<AttackerInfo> = self
                 .state
                 .combat
                 .groups
                 .iter()
-                .filter(|g| g.defending_player && PlayerId::from_object(g.defending_id) == def_player)
+                .filter(|g| {
+                    if g.defending_player {
+                        PlayerId::from_object(g.defending_id) == def_player
+                    } else {
+                        // Planeswalker: controller is the defending player
+                        self.state.battlefield.get(g.defending_id)
+                            .map(|p| p.controller == def_player)
+                            .unwrap_or(false)
+                    }
+                })
                 .map(|g| {
                     // Check if attacker has landwalk (unblockable if defender controls that land type)
                     let has_landwalk_evasion = self.state.battlefield.get(g.attacker_id)
@@ -2379,7 +2413,14 @@ impl Game {
                 dmg_event.amount = *amount as i32;
                 self.emit_event(dmg_event);
             } else if let Some(perm) = self.state.battlefield.get_mut(*target_id) {
-                perm.apply_damage(*amount);
+                if perm.is_planeswalker() {
+                    // Combat damage to planeswalker: remove loyalty counters
+                    let current_loyalty = perm.counters.get(&crate::counters::CounterType::Loyalty);
+                    let to_remove = (*amount).min(current_loyalty);
+                    perm.counters.remove(&crate::counters::CounterType::Loyalty, to_remove);
+                } else {
+                    perm.apply_damage(*amount);
+                }
             }
         }
 

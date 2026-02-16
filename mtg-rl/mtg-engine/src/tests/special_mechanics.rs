@@ -3539,3 +3539,184 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         game.process_state_based_actions();
         assert!(game.state.battlefield.get(pw_id).is_none(), "planeswalker with 0 loyalty should be gone");
     }
+
+    /// Decision maker that attacks the last defender (planeswalker) with all creatures.
+    struct AttackPlaneswalkerPlayer;
+    impl PlayerDecisionMaker for AttackPlaneswalkerPlayer {
+        fn priority(&mut self, _: &GameView<'_>, _: &[PlayerAction]) -> PlayerAction { PlayerAction::Pass }
+        fn choose_targets(&mut self, _: &GameView<'_>, _: Outcome, req: &TargetRequirement) -> Vec<ObjectId> { req.legal_targets.iter().take(1).copied().collect() }
+        fn choose_use(&mut self, _: &GameView<'_>, _: Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &GameView<'_>, _: &[NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &GameView<'_>, possible_attackers: &[ObjectId], possible_defenders: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> {
+            // Attack the last defender (planeswalker, not the player)
+            if let Some(&pw_defender) = possible_defenders.last() {
+                possible_attackers.iter().map(|&a| (a, pw_defender)).collect()
+            } else { vec![] }
+        }
+        fn select_blockers(&mut self, _: &GameView<'_>, _: &[AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &GameView<'_>, _: &DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &GameView<'_>, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &GameView<'_>, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_amount(&mut self, _: &GameView<'_>, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &GameView<'_>, _: &UnpaidMana, _: &[PlayerAction]) -> Option<PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &GameView<'_>, _: &[ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &GameView<'_>, _: Outcome, _: &str, _: &[NamedChoice]) -> usize { 0 }
+    }
+
+    #[test]
+    fn attack_planeswalker_removes_loyalty() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".into(), deck: make_deck2(p1) },
+                PlayerConfig { name: "B".into(), deck: make_deck2(p2) },
+            ],
+            starting_life: Life::new(20),
+        };
+        let mut game = Game::new_two_player(config, vec![
+            (p1, PlayerAgent::new(AttackPlaneswalkerPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
+        ]);
+
+        // Give P1 a 3/3 creature with haste
+        let creature_id = ObjectId::new();
+        let mut creature_card = CardData::new(creature_id, p1, "Attacker");
+        creature_card.card_types = vec![CardType::Creature];
+        creature_card.power = Some(Power::new(3));
+        creature_card.toughness = Some(Toughness::new(3));
+        creature_card.keywords = KeywordAbilities::HASTE;
+        game.state.card_store.insert(creature_card.clone());
+        let perm = Permanent::new(creature_card, p1);
+        game.state.battlefield.add(perm);
+
+        // Give P2 a planeswalker with 5 starting loyalty
+        let pw_id = ObjectId::new();
+        let mut pw_card = CardData::new(pw_id, p2, "Test Planeswalker");
+        pw_card.card_types = vec![CardType::Planeswalker];
+        pw_card.loyalty = Some(5);
+        game.state.card_store.insert(pw_card.clone());
+        game.state.battlefield.add(Permanent::new(pw_card, p2));
+        game.check_planeswalker_entry(pw_id);
+
+        assert_eq!(game.state.battlefield.get(pw_id).unwrap().counters.get(&CounterType::Loyalty), 5);
+
+        // Set up combat: P1 attacks P2's planeswalker
+        game.state.combat = crate::combat::CombatState::new();
+        game.state.combat.attacking_player = Some(p1);
+        game.state.combat.declare_attacker(creature_id, pw_id, false); // false = planeswalker target
+
+        // Apply combat damage (not first strike)
+        game.combat_damage_step(false);
+
+        // Planeswalker should have 5 - 3 = 2 loyalty
+        let pw = game.state.battlefield.get(pw_id).unwrap();
+        assert_eq!(pw.counters.get(&CounterType::Loyalty), 2, "3 damage should remove 3 loyalty counters");
+
+        // P2's life should be unchanged (damage went to planeswalker, not player)
+        assert_eq!(game.state.players.get(&p2).unwrap().life, 20);
+    }
+
+    #[test]
+    fn attack_planeswalker_lethal_loyalty_plus_sba() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".into(), deck: make_deck2(p1) },
+                PlayerConfig { name: "B".into(), deck: make_deck2(p2) },
+            ],
+            starting_life: Life::new(20),
+        };
+        let mut game = Game::new_two_player(config, vec![
+            (p1, PlayerAgent::new(AttackPlaneswalkerPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
+        ]);
+
+        // Give P1 a 5/5 creature with haste
+        let creature_id = ObjectId::new();
+        let mut creature_card = CardData::new(creature_id, p1, "Big Attacker");
+        creature_card.card_types = vec![CardType::Creature];
+        creature_card.power = Some(Power::new(5));
+        creature_card.toughness = Some(Toughness::new(5));
+        creature_card.keywords = KeywordAbilities::HASTE;
+        game.state.card_store.insert(creature_card.clone());
+        let perm = Permanent::new(creature_card, p1);
+        game.state.battlefield.add(perm);
+
+        // Give P2 a planeswalker with 3 starting loyalty
+        let pw_id = ObjectId::new();
+        let mut pw_card = CardData::new(pw_id, p2, "Fragile PW");
+        pw_card.card_types = vec![CardType::Planeswalker];
+        pw_card.loyalty = Some(3);
+        game.state.card_store.insert(pw_card.clone());
+        game.state.battlefield.add(Permanent::new(pw_card, p2));
+        game.check_planeswalker_entry(pw_id);
+
+        // Set up combat
+        game.state.combat = crate::combat::CombatState::new();
+        game.state.combat.attacking_player = Some(p1);
+        game.state.combat.declare_attacker(creature_id, pw_id, false);
+
+        // Apply combat damage
+        game.combat_damage_step(false);
+
+        // Planeswalker should have 0 loyalty (capped, 5 damage but only 3 counters)
+        let pw = game.state.battlefield.get(pw_id).unwrap();
+        assert_eq!(pw.counters.get(&CounterType::Loyalty), 0);
+
+        // SBA should destroy it
+        game.process_state_based_actions();
+        assert!(game.state.battlefield.get(pw_id).is_none(), "planeswalker at 0 loyalty should be destroyed by SBA");
+
+        // P2's life should still be 20
+        assert_eq!(game.state.players.get(&p2).unwrap().life, 20);
+    }
+
+    #[test]
+    fn planeswalker_appears_in_possible_defenders() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "A".into(), deck: make_deck2(p1) },
+                PlayerConfig { name: "B".into(), deck: make_deck2(p2) },
+            ],
+            starting_life: Life::new(20),
+        };
+        let mut game = Game::new_two_player(config, vec![
+            (p1, PlayerAgent::new(AttackPlaneswalkerPlayer)),
+            (p2, PlayerAgent::new(AlwaysPassPlayer)),
+        ]);
+
+        // Give P1 a haste creature
+        let creature_id = ObjectId::new();
+        let mut creature_card = CardData::new(creature_id, p1, "Hasty Bear");
+        creature_card.card_types = vec![CardType::Creature];
+        creature_card.power = Some(Power::new(2));
+        creature_card.toughness = Some(Toughness::new(2));
+        creature_card.keywords = KeywordAbilities::HASTE;
+        game.state.card_store.insert(creature_card.clone());
+        let perm = Permanent::new(creature_card, p1);
+        game.state.battlefield.add(perm);
+
+        // Give P2 a planeswalker with 4 loyalty
+        let pw_id = ObjectId::new();
+        let mut pw_card = CardData::new(pw_id, p2, "PW Target");
+        pw_card.card_types = vec![CardType::Planeswalker];
+        pw_card.loyalty = Some(4);
+        game.state.card_store.insert(pw_card.clone());
+        game.state.battlefield.add(Permanent::new(pw_card, p2));
+        game.check_planeswalker_entry(pw_id);
+
+        // Run declare_attackers_step — AttackPlaneswalkerPlayer attacks last defender (the PW)
+        game.declare_attackers_step(p1);
+
+        // Verify the attacker is targeting the planeswalker, not the player
+        assert_eq!(game.state.combat.groups.len(), 1, "should have 1 combat group");
+        let group = &game.state.combat.groups[0];
+        assert_eq!(group.defending_id, pw_id, "should be attacking the planeswalker");
+        assert!(!group.defending_player, "defending_player should be false for planeswalker");
+    }
