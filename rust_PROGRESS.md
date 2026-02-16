@@ -116,8 +116,8 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 
 ### Phase 4: Performance
 
-- [ ] Task 4.1: Profile with `cargo flamegraph` to identify hot paths
-- [ ] Task 4.2: Replace `HashMap` lookups with array indexing where keys are small integers (player indices)
+- [x] Task 4.1: Profile with `cargo flamegraph` to identify hot paths
+- [x] Task 4.2: Replace `HashMap` lookups with array indexing where keys are small integers (player indices)
 - [ ] Task 4.3: Reduce unnecessary `.clone()` calls identified by profiling
 - [ ] Task 4.4: Run benchmarks and compare against Phase 0 baseline to verify no regression
 
@@ -205,6 +205,27 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - All 576 engine tests passing, zero clippy warnings
 
 ## Completed This Iteration
+- Task 4.2: Replaced `HashMap<PlayerId, Player>` and `HashMap<PlayerId, PlayerAgent>` with `PlayerMap<V>` array-backed map
+  - Created `PlayerMap<V>` in new `mtg-engine/src/player_map.rs` — fixed 2-element array-backed map keyed by `PlayerId`
+  - **Lookups**: Simple equality branch (`if id == keys[0]`) instead of hashing — O(1) with better cache locality
+  - **API**: `get`, `get_mut`, `values`, `values_mut`, `iter`, `iter_mut`, `insert`, `contains_key`, `len`, `is_empty`
+  - **Traits**: `Index<&PlayerId>`, `IndexMut<&PlayerId>`, `IntoIterator` for `&PlayerMap<V>` and `&mut PlayerMap<V>`
+  - **Serde**: Serializes/deserializes as `HashMap<PlayerId, V>` for compatibility
+  - **GameState.players**: `HashMap<PlayerId, Player>` → `PlayerMap<Player>` (132 lookup sites in game.rs)
+  - **Game.decision_makers**: `HashMap<PlayerId, PlayerAgent>` → `PlayerMap<PlayerAgent>` (37 lookup sites in game.rs)
+  - **Total**: 169 hot-path HashMap lookups eliminated in game.rs, plus additional sites in state.rs and test files
+  - **Zero-change downstream**: All test files, mtg-cards, mtg-ai, mtg-tests, mtg-python compile unchanged thanks to matching API
+  - 618 engine + 20 cards + 52 AI + 19 integration = 709 tests passing, zero clippy warnings
+
+### Previous Iteration
+- Task 4.1: Profiled hot paths via targeted Criterion micro-benchmarks and code analysis
+  - Added 3 benchmark groups: filter_eval (6 benches), battlefield_iter (6 benches), string_alloc (3 benches)
+  - Key finding: filter.clone() in apply_continuous_effects is 4-40× more expensive than filter evaluation itself
+  - Key finding: HashMap<PlayerId, Player> has 213+ lookup sites — prime target for array indexing
+  - Created comprehensive PROFILING_REPORT.md with ranked optimization targets
+  - 705 tests passing, zero clippy warnings
+
+### Previous Iteration
 - Task 3.4: Converted CardRegistry from `HashMap<String, CardInfo>` to `HashMap<&'static str, CardInfo>`
   - **CardInfo.name**: Changed from `String` to `&'static str` — eliminates duplicate heap allocation per card
   - **CardRegistry.cards**: HashMap key changed from `String` to `&'static str` — eliminates 1,333 String allocations at registry init

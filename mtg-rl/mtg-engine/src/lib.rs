@@ -1,6 +1,7 @@
 pub mod constants;
 pub mod error;
 pub mod types;
+pub mod player_map;
 pub mod mana;
 pub mod counters;
 pub mod card;

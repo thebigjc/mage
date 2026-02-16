@@ -24,6 +24,7 @@ use crate::constants::PhaseStep;
 use crate::counters::CounterType;
 use crate::decision::{AttackerInfo, PlayerAgent, PlayerDecisionMaker};
 use crate::events::{EventLog, EventType, GameEvent};
+use crate::player_map::PlayerMap;
 use crate::state::{GameState, StateBasedActions};
 use crate::turn::{has_priority, PriorityTracker, TurnManager};
 use crate::types::{AbilityId, Life, ObjectId, PlayerId, Power, Toughness};
@@ -82,8 +83,8 @@ pub struct Game {
     pub state: GameState,
     /// The turn manager.
     pub turn_manager: TurnManager,
-    /// Player decision-makers, keyed by PlayerId.
-    decision_makers: HashMap<PlayerId, PlayerAgent>,
+    /// Player decision-makers, indexed by PlayerId.
+    decision_makers: PlayerMap<PlayerAgent>,
     /// Watcher manager for event tracking.
     pub watchers: WatcherManager,
     /// Event log for tracking events that may trigger abilities.
@@ -148,8 +149,9 @@ impl Game {
         let turn_manager = TurnManager::new(player_ids.clone());
 
         // Build decision maker map
-        let dm_map: HashMap<PlayerId, PlayerAgent> =
-            decision_makers.drain(..).collect();
+        let dm_b = decision_makers.pop().expect("checked len == 2 above");
+        let dm_a = decision_makers.pop().expect("checked len == 2 above");
+        let dm_map = PlayerMap::new(dm_a, dm_b);
 
         Game {
             state,

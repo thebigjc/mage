@@ -12,6 +12,7 @@ use crate::abilities::AbilityStore;
 use crate::combat::CombatState;
 use crate::constants::{ManaColor, PhaseStep, SubType, TurnPhase, Zone};
 use crate::player::Player;
+use crate::player_map::PlayerMap;
 use crate::types::{AbilityId, ObjectId, PlayerId};
 use crate::zones::{Battlefield, CardStore, Exile, Stack};
 use serde::{Deserialize, Serialize};
@@ -25,9 +26,9 @@ use std::collections::{HashMap, HashSet};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GameState {
     // ── Players ──────────────────────────────────────────────────────────
-    /// All players, keyed by PlayerId. Each player owns their library,
-    /// hand, graveyard, mana pool, counters, and life total.
-    pub players: HashMap<PlayerId, Player>,
+    /// All players, indexed by a fixed 2-element array.
+    /// Provides O(1) lookups via equality check instead of hashing.
+    pub players: PlayerMap<Player>,
 
     /// Turn order (player IDs in APNAP order).
     pub turn_order: Vec<PlayerId>,
@@ -236,16 +237,17 @@ pub struct ZoneLocation {
 
 impl GameState {
     /// Create a new game state for the given players (in turn order).
+    /// Requires exactly 2 players.
     pub fn new(player_names: &[(&str, PlayerId)]) -> Self {
-        let mut players = HashMap::new();
-        let mut turn_order = Vec::new();
-
-        for &(name, id) in player_names {
-            players.insert(id, Player::new(id, name));
-            turn_order.push(id);
-        }
-
-        let active = turn_order[0];
+        assert_eq!(player_names.len(), 2, "GameState::new requires exactly 2 players");
+        let (name_a, id_a) = player_names[0];
+        let (name_b, id_b) = player_names[1];
+        let players = PlayerMap::new(
+            (id_a, Player::new(id_a, name_a)),
+            (id_b, Player::new(id_b, name_b)),
+        );
+        let turn_order = vec![id_a, id_b];
+        let active = id_a;
 
         GameState {
             players,
