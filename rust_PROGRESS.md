@@ -61,7 +61,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 ### Phase 0: Infrastructure & Safety Net
 
 - [x] Task 0.1: Create a benchmark baseline snapshot (run `cargo bench` and record numbers for regression testing)
-- [ ] Task 0.2: Run `cargo clippy` on entire workspace, fix all warnings (establishes clean lint baseline)
+- [x] Task 0.2: Run `cargo clippy` on entire workspace, fix all warnings (establishes clean lint baseline)
 
 ### Phase 1: Type System Reform (Highest Impact)
 
@@ -147,4 +147,11 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - Created `mtg-rl/BENCHMARK_BASELINE.md` with full table of results
 - Key metrics: 1.67ms/game single-threaded (~599 games/sec), 4.72ms/10 parallel (~2,119 games/sec)
 - All 595 tests confirmed passing (576 engine + 19 integration)
+
+### Iteration 2 — Task 0.2: Clippy Clean Baseline
+- Fixed 3 remaining warnings in `mtg-tests/benches/game_bench.rs`:
+  - 2x `uninlined_format_args` (`format!("Bear_{}", i)` → `format!("Bear_{i}")`)
+  - 1x `redundant_closure` (`|| make_game()` → `make_game`)
+- Workspace now has zero clippy warnings across all targets
+- All 595 tests still passing
 
