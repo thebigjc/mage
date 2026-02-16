@@ -188,6 +188,8 @@ pub enum Effect {
     BoostAllUntilEndOfTurn { filter: String, power: i32, toughness: i32 },
     /// Set power and toughness.
     SetPowerToughness { power: i32, toughness: i32 },
+    /// Give target creature +X/+X until end of turn, where X = |toughness - power|.
+    BoostByToughnessMinusPower,
 
     // -- Keywords --
     /// Grant a keyword ability until end of turn.
@@ -745,6 +747,24 @@ impl Ability {
         )
     }
 
+    /// "Whenever a creature you control attacks or blocks, [effect]."
+    pub fn controlled_creature_attacks_or_blocks_triggered(
+        source_id: ObjectId,
+        rules_text: &str,
+        effects: Vec<Effect>,
+        targets: TargetSpec,
+    ) -> Self {
+        let mut ab = Ability::triggered(
+            source_id,
+            rules_text,
+            vec![EventType::AttackerDeclared, EventType::BlockerDeclared],
+            effects,
+            targets,
+        );
+        ab.trigger_scope = TriggerScope::Any;
+        ab
+    }
+
     /// "Whenever ~ deals combat damage to a player, [effect]."
     pub fn combat_damage_to_player_triggered(
         source_id: ObjectId,
@@ -912,6 +932,10 @@ impl Effect {
     /// "Target creature gets +N/+M until end of turn."
     pub fn boost_until_eot(power: i32, toughness: i32) -> Self {
         Effect::BoostUntilEndOfTurn { power, toughness }
+    }
+
+    pub fn boost_by_toughness_minus_power() -> Self {
+        Effect::BoostByToughnessMinusPower
     }
 
     /// "Target creature gets +N/+M."

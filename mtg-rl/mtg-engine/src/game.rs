@@ -1434,10 +1434,37 @@ impl Game {
                     .map(|p| p.controller)
                     .unwrap_or(self.state.active_player);
 
-                if event.event_type == EventType::AttackerDeclared {
-                    if let Some(target_id) = event.target_id {
-                        if target_id != ability.source_id {
-                            continue;
+                if event.event_type == EventType::AttackerDeclared || event.event_type == EventType::BlockerDeclared {
+                    match ability.trigger_scope {
+                        TriggerScope::SelfOnly => {
+                            if let Some(target_id) = event.target_id {
+                                if target_id != ability.source_id {
+                                    continue;
+                                }
+                            }
+                        }
+                        TriggerScope::OtherControlled => {
+                            if let Some(target_id) = event.target_id {
+                                if target_id == ability.source_id {
+                                    continue;
+                                }
+                            }
+                            if let Some(target_id) = event.target_id {
+                                let creature_controller = self.state.battlefield.get(target_id)
+                                    .map(|p| p.controller);
+                                if creature_controller != Some(controller) {
+                                    continue;
+                                }
+                            }
+                        }
+                        TriggerScope::Any => {
+                            if let Some(target_id) = event.target_id {
+                                let creature_controller = self.state.battlefield.get(target_id)
+                                    .map(|p| p.controller);
+                                if creature_controller != Some(controller) {
+                                    continue;
+                                }
+                            }
                         }
                     }
                 }
@@ -2037,6 +2064,11 @@ impl Game {
             // Register blocks
             for (blocker_id, attacker_id) in blocks {
                 self.state.combat.declare_blocker(blocker_id, attacker_id);
+                self.emit_event(
+                    GameEvent::new(EventType::BlockerDeclared)
+                        .target(blocker_id)
+                        .player(def_player),
+                );
             }
         }
 
@@ -3581,6 +3613,18 @@ impl Game {
                             }
                             // Note: This is a simplification; real boost until EOT
                             // uses continuous effects, not counters
+                        }
+                    }
+                }
+                Effect::BoostByToughnessMinusPower => {
+                    for &target_id in targets {
+                        if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                            let p = perm.power();
+                            let t = perm.toughness();
+                            let diff = (t - p).max(0);
+                            if diff > 0 {
+                                perm.add_counters(CounterType::P1P1, diff as u32);
+                            }
                         }
                     }
                 }

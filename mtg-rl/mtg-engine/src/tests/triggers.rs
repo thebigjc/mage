@@ -1251,3 +1251,156 @@ use crate::types::{ObjectId, PlayerId};
         );
         assert_eq!(any_dies.trigger_scope, TriggerScope::Any);
     }
+
+    #[test]
+    fn controlled_creature_attacks_trigger_fires_for_other_creature() {
+        let (mut game, p1, _p2) = setup(
+            Box::new(TriggerTestPlayer::passive()),
+            Box::new(TriggerTestPlayer::passive()),
+        );
+
+        let doran_id = ObjectId::new();
+        let mut doran = CardData::new(doran_id, p1, "Doran");
+        doran.card_types = vec![CardType::Creature];
+        doran.power = Some(0);
+        doran.toughness = Some(5);
+        doran.abilities.push(Ability::controlled_creature_attacks_or_blocks_triggered(
+            doran_id,
+            "Whenever a creature you control attacks or blocks, you gain 1 life.",
+            vec![Effect::GainLife { amount: 1 }],
+            TargetSpec::None,
+        ));
+        game.state.card_store.insert(doran.clone());
+        for ability in &doran.abilities {
+            game.state.ability_store.add(ability.clone());
+        }
+        let mut perm = Permanent::new(doran, p1);
+        perm.remove_summoning_sickness();
+        game.state.battlefield.add(perm);
+
+        let other_id = ObjectId::new();
+        let mut other = CardData::new(other_id, p1, "Other Creature");
+        other.card_types = vec![CardType::Creature];
+        other.power = Some(2);
+        other.toughness = Some(2);
+        game.state.card_store.insert(other.clone());
+        let mut perm2 = Permanent::new(other, p1);
+        perm2.remove_summoning_sickness();
+        game.state.battlefield.add(perm2);
+
+        game.emit_event(
+            GameEvent::new(EventType::AttackerDeclared)
+                .target(other_id)
+                .player(p1),
+        );
+
+        game.process_sba_and_triggers();
+        assert!(!game.state.stack.is_empty());
+        game.resolve_top_of_stack();
+        assert_eq!(game.state.players[&p1].life, 21);
+    }
+
+    #[test]
+    fn controlled_creature_attacks_trigger_not_for_opponent() {
+        let (mut game, p1, p2) = setup(
+            Box::new(TriggerTestPlayer::passive()),
+            Box::new(TriggerTestPlayer::passive()),
+        );
+
+        let doran_id = ObjectId::new();
+        let mut doran = CardData::new(doran_id, p1, "Doran");
+        doran.card_types = vec![CardType::Creature];
+        doran.power = Some(0);
+        doran.toughness = Some(5);
+        doran.abilities.push(Ability::controlled_creature_attacks_or_blocks_triggered(
+            doran_id,
+            "Whenever a creature you control attacks or blocks, you gain 1 life.",
+            vec![Effect::GainLife { amount: 1 }],
+            TargetSpec::None,
+        ));
+        game.state.card_store.insert(doran.clone());
+        for ability in &doran.abilities {
+            game.state.ability_store.add(ability.clone());
+        }
+        let perm = Permanent::new(doran, p1);
+        game.state.battlefield.add(perm);
+
+        let enemy_id = ObjectId::new();
+        let mut enemy = CardData::new(enemy_id, p2, "Enemy Creature");
+        enemy.card_types = vec![CardType::Creature];
+        enemy.power = Some(3);
+        enemy.toughness = Some(3);
+        game.state.card_store.insert(enemy.clone());
+        let mut perm2 = Permanent::new(enemy, p2);
+        perm2.remove_summoning_sickness();
+        game.state.battlefield.add(perm2);
+
+        game.emit_event(
+            GameEvent::new(EventType::AttackerDeclared)
+                .target(enemy_id)
+                .player(p2),
+        );
+
+        game.process_sba_and_triggers();
+        assert!(game.state.stack.is_empty());
+    }
+
+    #[test]
+    fn blocker_declared_trigger_fires() {
+        let (mut game, p1, _p2) = setup(
+            Box::new(TriggerTestPlayer::passive()),
+            Box::new(TriggerTestPlayer::passive()),
+        );
+
+        let doran_id = ObjectId::new();
+        let mut doran = CardData::new(doran_id, p1, "Doran");
+        doran.card_types = vec![CardType::Creature];
+        doran.power = Some(0);
+        doran.toughness = Some(5);
+        doran.abilities.push(Ability::controlled_creature_attacks_or_blocks_triggered(
+            doran_id,
+            "Whenever a creature you control attacks or blocks, you gain 1 life.",
+            vec![Effect::GainLife { amount: 1 }],
+            TargetSpec::None,
+        ));
+        game.state.card_store.insert(doran.clone());
+        for ability in &doran.abilities {
+            game.state.ability_store.add(ability.clone());
+        }
+        let perm = Permanent::new(doran, p1);
+        game.state.battlefield.add(perm);
+
+        let blocker_id = ObjectId::new();
+        let mut blocker = CardData::new(blocker_id, p1, "Blocker");
+        blocker.card_types = vec![CardType::Creature];
+        blocker.power = Some(1);
+        blocker.toughness = Some(4);
+        game.state.card_store.insert(blocker.clone());
+        let perm2 = Permanent::new(blocker, p1);
+        game.state.battlefield.add(perm2);
+
+        game.emit_event(
+            GameEvent::new(EventType::BlockerDeclared)
+                .target(blocker_id)
+                .player(p1),
+        );
+
+        game.process_sba_and_triggers();
+        assert!(!game.state.stack.is_empty());
+        game.resolve_top_of_stack();
+        assert_eq!(game.state.players[&p1].life, 21);
+    }
+
+    #[test]
+    fn controlled_creature_attacks_or_blocks_helper() {
+        let src = ObjectId::new();
+        let ab = Ability::controlled_creature_attacks_or_blocks_triggered(
+            src,
+            "test",
+            vec![Effect::GainLife { amount: 1 }],
+            TargetSpec::None,
+        );
+        assert!(ab.trigger_events.contains(&EventType::AttackerDeclared));
+        assert!(ab.trigger_events.contains(&EventType::BlockerDeclared));
+        assert_eq!(ab.trigger_scope, TriggerScope::Any);
+    }

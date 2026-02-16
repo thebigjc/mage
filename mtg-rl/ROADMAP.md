@@ -368,7 +368,7 @@ These are effects where no typed variant exists. Grouped by what engine feature 
 |----------|-------|------|----------------------|
 | Generic ETB stubs ("ETB effect.") | 79 | All | Triggered ability stacking |
 | Generic activated ability stubs ("Activated effect.") | 67 | All | Proper cost+effect binding on abilities |
-| Attack/combat triggers | 45 | All | Combat integration + triggered abilities |
+| Attack/combat triggers | 45 | All | Combat integration + triggered abilities (BlockerDeclared events + TriggerScope for combat + BoostByToughnessMinusPower done) |
 | Cast/spell triggers | 47 | All | Triggered abilities + cost modification |
 | Aura/equipment attachment | 28 | FDN,TDM,ECL | Equipment/Aura system |
 | Exile-and-play effects | 25 | All | Impulse draw |

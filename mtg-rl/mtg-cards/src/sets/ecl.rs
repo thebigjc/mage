@@ -2507,10 +2507,9 @@ fn doran_besieged_by_time(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::static_ability(id,
                 "Each creature spell you cast with toughness greater than its power costs {1} less to cast.",
                 vec![StaticEffect::Custom("Cost reduction for toughness > power creatures.".into())]),
-            Ability::triggered(id,
+            Ability::controlled_creature_attacks_or_blocks_triggered(id,
                 "Whenever a creature you control attacks or blocks, it gets +X/+X until end of turn, where X is the difference between its toughness and power.",
-                vec![EventType::AttackerDeclared, EventType::BlockerDeclared],
-                vec![Effect::Custom("Gets +X/+X where X = toughness - power.".into())],
+                vec![Effect::boost_by_toughness_minus_power()],
                 TargetSpec::None),
         ],
         ..Default::default() }

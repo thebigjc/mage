@@ -805,3 +805,133 @@ fn gain_control_until_end_of_turn() {
     // Creature has haste
     assert!(perm.has_keyword(KeywordAbilities::HASTE));
 }
+
+#[cfg(test)]
+#[test]
+fn boost_by_toughness_minus_power_applies_diff() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "A".into(), deck: make_deck(p1) },
+            PlayerConfig { name: "B".into(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let mut game = Game::new_two_player(
+        config,
+        vec![
+            (p1, Box::new(AlwaysPassPlayer) as Box<dyn crate::decision::PlayerDecisionMaker>),
+            (p2, Box::new(AlwaysPassPlayer) as Box<dyn crate::decision::PlayerDecisionMaker>),
+        ],
+    );
+
+    let creature_id = ObjectId::new();
+    let card = make_creature("Wall", p1, 1, 5);
+    let mut card_clone = card.clone();
+    card_clone.id = creature_id;
+    game.state.card_store.insert(card_clone.clone());
+    let perm = Permanent::new(card_clone, p1);
+    game.state.battlefield.add(perm);
+
+    assert_eq!(game.state.battlefield.get(creature_id).unwrap().power(), 1);
+    assert_eq!(game.state.battlefield.get(creature_id).unwrap().toughness(), 5);
+
+    game.execute_effects(
+        &[Effect::boost_by_toughness_minus_power()],
+        p1,
+        &[creature_id],
+        None, None,
+    );
+
+    let perm = game.state.battlefield.get(creature_id).unwrap();
+    assert_eq!(perm.power(), 5);
+    assert_eq!(perm.toughness(), 9);
+}
+
+#[cfg(test)]
+#[test]
+fn boost_by_toughness_minus_power_zero_when_equal() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "A".into(), deck: make_deck(p1) },
+            PlayerConfig { name: "B".into(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let mut game = Game::new_two_player(
+        config,
+        vec![
+            (p1, Box::new(AlwaysPassPlayer) as Box<dyn crate::decision::PlayerDecisionMaker>),
+            (p2, Box::new(AlwaysPassPlayer) as Box<dyn crate::decision::PlayerDecisionMaker>),
+        ],
+    );
+
+    let creature_id = ObjectId::new();
+    let card = make_creature("Bear", p1, 3, 3);
+    let mut card_clone = card.clone();
+    card_clone.id = creature_id;
+    game.state.card_store.insert(card_clone.clone());
+    let perm = Permanent::new(card_clone, p1);
+    game.state.battlefield.add(perm);
+
+    game.execute_effects(
+        &[Effect::boost_by_toughness_minus_power()],
+        p1,
+        &[creature_id],
+        None, None,
+    );
+
+    let perm = game.state.battlefield.get(creature_id).unwrap();
+    assert_eq!(perm.power(), 3);
+    assert_eq!(perm.toughness(), 3);
+}
+
+#[cfg(test)]
+#[test]
+fn boost_by_toughness_minus_power_no_boost_when_power_greater() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "A".into(), deck: make_deck(p1) },
+            PlayerConfig { name: "B".into(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let mut game = Game::new_two_player(
+        config,
+        vec![
+            (p1, Box::new(AlwaysPassPlayer) as Box<dyn crate::decision::PlayerDecisionMaker>),
+            (p2, Box::new(AlwaysPassPlayer) as Box<dyn crate::decision::PlayerDecisionMaker>),
+        ],
+    );
+
+    let creature_id = ObjectId::new();
+    let card = make_creature("Giant", p1, 5, 2);
+    let mut card_clone = card.clone();
+    card_clone.id = creature_id;
+    game.state.card_store.insert(card_clone.clone());
+    let perm = Permanent::new(card_clone, p1);
+    game.state.battlefield.add(perm);
+
+    game.execute_effects(
+        &[Effect::boost_by_toughness_minus_power()],
+        p1,
+        &[creature_id],
+        None, None,
+    );
+
+    let perm = game.state.battlefield.get(creature_id).unwrap();
+    assert_eq!(perm.power(), 5);
+    assert_eq!(perm.toughness(), 2);
+}
+
+#[cfg(test)]
+#[test]
+fn boost_by_toughness_minus_power_helper_constructor() {
+    let effect = Effect::boost_by_toughness_minus_power();
+    assert!(matches!(effect, Effect::BoostByToughnessMinusPower));
+}
