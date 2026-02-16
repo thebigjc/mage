@@ -44,8 +44,8 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 
 ### Phase 4: mtg-cards crate (13 warnings)
 - [x] Task 18: Fix `uninlined_format_args` and other warnings in keywords/behold.rs, keywords/blight.rs, keywords/mobilize.rs
-- [ ] Task 19: Fix `manual_contains` in registry.rs:87
-- [ ] Task 20: Fix `useless_conversion` in sets/fdn.rs:1643
+- [x] Task 19: Fix `manual_contains` in registry.rs:87
+- [x] Task 20: Fix `useless_conversion` in sets/fdn.rs:1643 — removed unnecessary `.into()` on string literal passed to `boost_controlled(&str)`
 
 ### Phase 5: Test code (21 warnings)
 - [ ] Task 21: Fix 9 `uninlined_format_args` warnings in test files
@@ -60,7 +60,7 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 - [ ] Task 28: Run `cargo test --lib` and `cargo test --release` to confirm all tests still pass
 
 ## Completed This Iteration
-- Task 18: Inlined format args in behold.rs (2 format! calls), blight.rs (1 format! call), mobilize.rs (1 format! call). mtg-cards clippy warnings reduced from 6 to 2. All 20 mtg-cards tests pass.
+- Task 20: Removed unnecessary `.into()` on `"creatures with flying"` string literal in fdn.rs:1643 (Empyrean Eagle). `boost_controlled()` takes `&str` so `.into()` was a no-op. mtg-cards now has zero clippy warnings. All 20 mtg-cards tests pass.
 
 ## Notes
 
