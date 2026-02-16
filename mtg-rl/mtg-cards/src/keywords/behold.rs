@@ -44,7 +44,7 @@ mod tests {
             Cost::RevealFromHand(desc) => {
                 assert_eq!(desc, "Behold Elf");
             }
-            other => panic!("Expected RevealFromHand, got {:?}", other),
+            other => panic!("Expected RevealFromHand, got {other:?}"),
         }
     }
 
@@ -55,7 +55,7 @@ mod tests {
             Cost::RevealFromHand(desc) => {
                 assert_eq!(desc, "Behold Goblin");
             }
-            other => panic!("Expected RevealFromHand, got {:?}", other),
+            other => panic!("Expected RevealFromHand, got {other:?}"),
         }
     }
 

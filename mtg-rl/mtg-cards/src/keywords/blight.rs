@@ -43,7 +43,7 @@ mod tests {
         let cost = blight_cost(1);
         match cost {
             Cost::Blight(n) => assert_eq!(n, 1),
-            other => panic!("Expected Blight(1), got {:?}", other),
+            other => panic!("Expected Blight(1), got {other:?}"),
         }
     }
 
@@ -52,7 +52,7 @@ mod tests {
         let cost = blight_cost(2);
         match cost {
             Cost::Blight(n) => assert_eq!(n, 2),
-            other => panic!("Expected Blight(2), got {:?}", other),
+            other => panic!("Expected Blight(2), got {other:?}"),
         }
     }
 

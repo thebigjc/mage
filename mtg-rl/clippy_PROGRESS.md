@@ -55,7 +55,7 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 - [x] Task 25: Suppressed `too_many_arguments` on `add_lord_with_boost` test helper in continuous_effects.rs with `#[allow(clippy::too_many_arguments)]`
 
 ### Phase 5b: Newly discovered warnings (mtg-cards tests, mtg-ai, mtg-python, mtg-tests)
-- [ ] Task 29: Fix 6 `uninlined_format_args` in mtg-cards test code (behold.rs, blight.rs, mobilize.rs) — these are in `#[test]` functions, not library code
+- [x] Task 29: Fix 6 `uninlined_format_args` in mtg-cards test code (behold.rs, blight.rs, mobilize.rs) — inlined `other` variable in panic! format strings
 - [ ] Task 30: Fix 3 `manual_repeat_n` warnings in mtg-ai (repeat().take() → repeat_n())
 - [ ] Task 31: Fix 2 `redundant_closure` warnings in mtg-tests
 - [ ] Task 32: Fix `type_complexity` warning in mtg-python
@@ -67,7 +67,7 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 - [ ] Task 28: Run `cargo test --lib` and `cargo test --release` to confirm all tests still pass
 
 ## Completed This Iteration
-- Task 25: Added `#[allow(clippy::too_many_arguments)]` to `add_lord_with_boost` test helper in continuous_effects.rs. All 576 tests pass.
+- Task 29: Inlined 6 `uninlined_format_args` in mtg-cards test code (behold.rs, blight.rs, mobilize.rs) — changed `{:?}", other` to `{other:?}"`. All 20 mtg-cards tests pass.
 
 ## Notes
 

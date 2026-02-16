@@ -71,7 +71,7 @@ mod tests {
                 assert_eq!(token_name, "1/1 red Warrior");
                 assert_eq!(*count, 2);
             }
-            other => panic!("Expected CreateTokenTappedAttacking, got {:?}", other),
+            other => panic!("Expected CreateTokenTappedAttacking, got {other:?}"),
         }
     }
 
@@ -85,7 +85,7 @@ mod tests {
             Effect::CreateTokenTappedAttacking { count, .. } => {
                 assert_eq!(*count, 3);
             }
-            other => panic!("Expected CreateTokenTappedAttacking, got {:?}", other),
+            other => panic!("Expected CreateTokenTappedAttacking, got {other:?}"),
         }
     }
 }
