@@ -100,7 +100,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 
 #### 2B: Newtype Validation
 - [x] Task 2.4: Add validation to `ObjectId`, `PlayerId` constructors (ensure non-nil UUIDs)
-- [ ] Task 2.5: Create `Power(i32)`, `Toughness(i32)`, `Life(i32)` newtypes for game values with appropriate `impl`s
+- [x] Task 2.5: Create `Power(i32)`, `Toughness(i32)`, `Life(i32)` newtypes for game values with appropriate `impl`s
 - [ ] Task 2.6: Propagate newtypes through CardData, Permanent, and game logic
 
 #### 2C: Enum-Based Dispatch
@@ -205,6 +205,20 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - All 576 engine tests passing, zero clippy warnings
 
 ## Completed This Iteration
+- Task 2.5: Created Power, Toughness, Life newtypes in mtg-engine/src/types.rs
+  - Used `game_value_newtype!` macro to define all three types with shared operator impls
+  - Private `i32` inner field with `#[repr(transparent)]` for zero-cost abstraction
+  - Constructors: `new(i32)`, `ZERO` const, `Default` (zero)
+  - Accessors: `get() -> i32`, `From<i32>`, `Into<i32>`
+  - Arithmetic: `Add`, `Sub`, `AddAssign`, `SubAssign` for both `Self` and `i32` operands, `Neg`
+  - Comparisons: `PartialEq<i32>`, `PartialOrd<i32>`, `Eq`, `Ord` (derived)
+  - Utility: `abs()`, `unsigned_abs()`, `max()`, `min()`, `as_u32_saturating()`
+  - Formatting: `Debug` ("Power(5)"), `Display` ("5")
+  - Serde: `Serialize`/`Deserialize` derived
+  - Added 9 unit tests covering arithmetic, comparisons, conversions, max/min, default, negative values, display
+  - 599 engine tests + zero clippy warnings across full workspace
+
+### Previous Iteration
 - Task 2.4: Made ObjectId, PlayerId, AbilityId inner UUID fields private with validated constructors
   - Made tuple field private (was `pub Uuid`, now `Uuid`) for all three types
   - Added `from_uuid()` constructor with `debug_assert!(!uuid.is_nil())` validation
