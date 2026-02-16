@@ -3087,7 +3087,7 @@ fn lluwen_imperfect_naturalist(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When Lluwen enters, mill four cards. You may put a creature or land card from among them on top of your library.",
-                    vec![Effect::Mill { count: 4 }, Effect::Custom("Put a creature or land from among milled cards on top of library.".into())],
+                    vec![Effect::mill_and_select(4, "creature or land", "top")],
                     TargetSpec::None),
             Ability::activated(id,
                     "{2}{B/G}{B/G}{B/G}, {T}, Discard a land card: Create X 1/1 black and green Worm creature tokens, where X is the number of land cards in your graveyard.",

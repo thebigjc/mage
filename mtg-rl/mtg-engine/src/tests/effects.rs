@@ -1388,3 +1388,96 @@ fn conditional_helper_constructor() {
     let effect = Effect::conditional("target is a Goat", vec![Effect::gain_life(2)], vec![]);
     assert!(matches!(effect, Effect::Conditional { .. }));
 }
+
+#[test]
+fn mill_and_select_puts_creature_on_top() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+
+    let mut game = Game::new_two_player(
+        config,
+        vec![
+            (p1, Box::new(AlwaysPassPlayer)),
+            (p2, Box::new(AlwaysPassPlayer)),
+        ],
+    );
+
+    let creature = CardData::new(ObjectId::new(), p1, "Hidden Bear");
+    let creature_id = creature.id;
+    let mut creature = creature;
+    creature.card_types = vec![CardType::Creature];
+    creature.power = Some(2);
+    creature.toughness = Some(2);
+    if let Some(player) = game.state.players.get_mut(&p1) {
+        player.library.put_on_top(creature_id);
+        game.state.card_store.insert(creature);
+    }
+
+    let lib_before = game.state.players.get(&p1).unwrap().library.len();
+    let gy_before = game.state.players.get(&p1).unwrap().graveyard.len();
+
+    game.execute_effects(
+        &[Effect::mill_and_select(4, "creature or land", "top")],
+        p1, &[], None, None,
+    );
+
+    let lib_after = game.state.players.get(&p1).unwrap().library.len();
+    let gy_after = game.state.players.get(&p1).unwrap().graveyard.len();
+
+    assert_eq!(lib_after, lib_before - 4 + 1, "4 milled, 1 put back on top");
+    assert_eq!(gy_after, gy_before + 3, "3 cards remain in graveyard");
+
+    let top = game.state.players.get(&p1).unwrap().library.peek(1);
+    assert_eq!(top[0], creature_id, "Creature should be on top of library");
+}
+
+#[test]
+fn mill_and_select_to_hand() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+
+    let mut game = Game::new_two_player(
+        config,
+        vec![
+            (p1, Box::new(AlwaysPassPlayer)),
+            (p2, Box::new(AlwaysPassPlayer)),
+        ],
+    );
+
+    let creature = CardData::new(ObjectId::new(), p1, "Hidden Bear");
+    let creature_id = creature.id;
+    let mut creature = creature;
+    creature.card_types = vec![CardType::Creature];
+    creature.power = Some(2);
+    creature.toughness = Some(2);
+    if let Some(player) = game.state.players.get_mut(&p1) {
+        player.library.put_on_top(creature_id);
+        game.state.card_store.insert(creature);
+    }
+
+    let hand_before = game.state.players.get(&p1).unwrap().hand.len();
+
+    game.execute_effects(
+        &[Effect::mill_and_select(4, "creature", "hand")],
+        p1, &[], None, None,
+    );
+
+    let hand_after = game.state.players.get(&p1).unwrap().hand.len();
+    assert_eq!(hand_after, hand_before + 1, "Creature should be in hand");
+    let hand_ids = game.state.players.get(&p1).unwrap().hand.as_slice().to_vec();
+    assert!(hand_ids.contains(&creature_id), "The creature should be in hand");
+}

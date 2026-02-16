@@ -9,7 +9,7 @@ IN_PROGRESS
 ## Analysis
 
 ### Current State
-- **Engine tests**: 499 (mtg-engine), 590 total across all crates, all passing
+- **Engine tests**: 504 (mtg-engine), all passing
 - **ECL Custom fallbacks**: 33 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 40 total
 - **Other sets**: FDN 336, TLA 199, TDM 110 (these are out of scope per the plan)
 
@@ -51,11 +51,11 @@ Group the 44 fallbacks by what engine feature they need. Implement the engine fe
 
 - [x] Task 2: Add `AddSubtypeAll` effect — `Effect::AddSubtypeAll { subtype: String, filter: String }` for type-adding effects. Updated: **curious_colossus** (add Coward subtype to opponent creatures). Added engine effect variant, builder method, game.rs resolution handler. 1 test added, 500 engine total. 1 Effect::Custom eliminated.
 
-- [ ] Task 3: Add `SearchLibraryVivid` effect — Vivid variant of SearchLibrary that searches for X basic lands where X = colors among permanents. Update: **prismatic_undercurrents**. Java uses `ColorsAmongControlledPermanentsCount` with `TargetCardInLibrary`. Add engine test. ~1 card fixed.
+- [x] Task 3: Add `SearchLibraryVivid` effect — Vivid variant of SearchLibrary that searches for X basic lands where X = colors among permanents. Update: **prismatic_undercurrents**. Java uses `ColorsAmongControlledPermanentsCount` with `TargetCardInLibrary`. Add engine test. ~1 card fixed.
 
 ### Tier 2: Medium — new Effect variants using existing infrastructure
 
-- [ ] Task 4: Add `MillAndSelect` effect — Mill N cards, then pick one matching a filter (creature/land) and put it on top of library or into hand. Update: **lluwen_imperfect_naturalist** (mill 4, put creature/land on top). Java uses a custom OneShotEffect. Add engine test. ~1 card fixed.
+- [x] Task 4: Add `MillAndSelect` effect — Mill N cards, then pick one matching a filter (creature/land) and put it on top of library or into hand. Update: **lluwen_imperfect_naturalist** (mill 4, put creature/land on top). Java uses a custom OneShotEffect. Add engine test. ~1 card fixed.
 
 - [ ] Task 5: Add `MillAndReturnType` effect — Mill N, return all cards of a specific type from among milled to hand. Update: **grubs_command** mode 4 (mill 5, return Goblins). Java uses custom mill effect. Add engine test. ~1 card fixed.
 
@@ -154,7 +154,7 @@ Task 31 depends on all others
 18. Task 31 (verification)
 
 ## Completed This Iteration
-- Task 2: Added `Effect::AddSubtypeAll { subtype, filter }` variant, builder method `Effect::add_subtype_all()`, game.rs resolution handler. Updated `curious_colossus` to use it instead of `Effect::Custom`. 1 new engine test (500 total).
+- Task 4: Added `Effect::MillAndSelect { count, filter, destination }` variant and `Effect::mill_and_select()` builder. Mills N cards, picks first matching filter, puts on top of library or into hand. Updated `lluwen_imperfect_naturalist` to use it. 2 new tests (504 engine total). 1 Effect::Custom eliminated.
 
 ## Notes
 

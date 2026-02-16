@@ -137,6 +137,9 @@ pub enum Effect {
     DiscardOpponents { count: u32 },
     /// Mill cards (library to graveyard).
     Mill { count: u32 },
+    /// Mill N cards, then you may put a card matching filter from among them
+    /// on top of your library (destination = "top") or into your hand (destination = "hand").
+    MillAndSelect { count: u32, filter: String, destination: String },
     /// Scry N (look at top N, put any on bottom in any order).
     Scry { count: u32 },
     /// Search library for a card.
@@ -1003,6 +1006,10 @@ impl Effect {
     /// "Mill N."
     pub fn mill(count: u32) -> Self {
         Effect::Mill { count }
+    }
+
+    pub fn mill_and_select(count: u32, filter: &str, destination: &str) -> Self {
+        Effect::MillAndSelect { count, filter: filter.to_string(), destination: destination.to_string() }
     }
 
     /// "Discard N cards."
