@@ -618,6 +618,8 @@ pub struct ModalMode {
     pub description: String,
     /// The effects to execute when this mode is chosen.
     pub effects: Vec<Effect>,
+    /// Targeting for this mode. If `None`, uses the spell's overall targets.
+    pub targets: TargetSpec,
 }
 
 // ---------------------------------------------------------------------------
@@ -1811,11 +1813,21 @@ impl Effect {
 }
 
 impl ModalMode {
-    /// Create a new modal mode.
+    /// Create a new modal mode with no targeting (uses spell's overall targets).
     pub fn new(description: &str, effects: Vec<Effect>) -> Self {
         ModalMode {
             description: description.to_string(),
             effects,
+            targets: TargetSpec::None,
+        }
+    }
+
+    /// Create a new modal mode with its own target specification.
+    pub fn with_targets(description: &str, effects: Vec<Effect>, targets: TargetSpec) -> Self {
+        ModalMode {
+            description: description.to_string(),
+            effects,
+            targets,
         }
     }
 }
