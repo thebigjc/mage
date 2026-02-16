@@ -50,7 +50,7 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 ### Phase 5: Test code (21 warnings)
 - [x] Task 21: Fix `uninlined_format_args` warnings in test files — fixed 16 instances across 6 files (mtg-engine tests: abilities.rs, effects.rs, keywords.rs, special_mechanics.rs; mtg-tests: framework.rs, concurrency.rs)
 - [x] Task 22: Fix 8 `empty_line_after_outer_attribute` warnings in test files + duplicate `#[cfg(test)]` in game.rs
-- [ ] Task 23: Fix 2 `map_or` → `is_some_and` warnings in test files
+- [x] Task 23: Fix 2 `map_or` → `is_some_and` warnings in test files (keywords.rs lines 1457, 1725)
 - [ ] Task 24: Fix `len_one` warning in test files
 - [ ] Task 25: Decide on `too_many_arguments` in test files — suppress with `#[allow]` if test helper
 
@@ -60,7 +60,7 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 - [ ] Task 28: Run `cargo test --lib` and `cargo test --release` to confirm all tests still pass
 
 ## Completed This Iteration
-- Task 22: Removed blank lines between `#[cfg(test)]` and items in 8 test files (abilities, combat, continuous_effects, costs, equipment_auras, keywords, special_mechanics, triggers) + removed duplicate `#[cfg(test)]` in game.rs. All 576 tests pass.
+- Task 23: Replaced 2 `map_or(false, |p| p.tapped)` → `is_some_and(|p| p.tapped)` in keywords.rs test file. All 576 tests pass.
 
 ## Notes
 
