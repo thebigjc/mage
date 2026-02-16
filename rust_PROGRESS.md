@@ -15,7 +15,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - **576 engine tests passing**, 19 mtg-tests passing (595 total)
 - **~34,000 lines** in mtg-engine, **~21,000 lines** in mtg-cards, **~3,000 lines** in mtg-ai
 - **1,328 card implementations** across 4 sets (FDN, TLA, TDM, ECL)
-- **Performance**: ~88 games/sec single-threaded, ~585/sec parallel
+- **Performance**: ~599 games/sec single-threaded, ~2,119/sec parallel (updated from benchmarks)
 
 ### String-Based Fallback Scope
 
@@ -60,7 +60,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 
 ### Phase 0: Infrastructure & Safety Net
 
-- [ ] Task 0.1: Create a benchmark baseline snapshot (run `cargo bench` and record numbers for regression testing)
+- [x] Task 0.1: Create a benchmark baseline snapshot (run `cargo bench` and record numbers for regression testing)
 - [ ] Task 0.2: Run `cargo clippy` on entire workspace, fix all warnings (establishes clean lint baseline)
 
 ### Phase 1: Type System Reform (Highest Impact)
@@ -141,4 +141,10 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - The `GameState` 35-field struct could benefit from sub-structs (TurnState, CombatState, etc.) but this is lower priority than type safety improvements.
 
 ## Tasks Completed
+
+### Iteration 1 — Task 0.1: Benchmark Baseline
+- Ran `cargo bench --bench game_bench` and recorded all results
+- Created `mtg-rl/BENCHMARK_BASELINE.md` with full table of results
+- Key metrics: 1.67ms/game single-threaded (~599 games/sec), 4.72ms/10 parallel (~2,119 games/sec)
+- All 595 tests confirmed passing (576 engine + 19 integration)
 
