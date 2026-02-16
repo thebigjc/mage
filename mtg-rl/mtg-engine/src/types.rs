@@ -3,6 +3,7 @@ use std::fmt;
 use std::ops::{Add, AddAssign, Neg, Sub, SubAssign};
 use uuid::Uuid;
 
+#[must_use]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ObjectId(Uuid);
 
@@ -43,6 +44,7 @@ impl fmt::Display for ObjectId {
     }
 }
 
+#[must_use]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct PlayerId(Uuid);
 
@@ -83,6 +85,7 @@ impl fmt::Display for PlayerId {
     }
 }
 
+#[must_use]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct AbilityId(Uuid);
 
@@ -115,6 +118,7 @@ impl fmt::Display for AbilityId {
 
 macro_rules! game_value_newtype {
     ($Name:ident, $display:expr) => {
+        #[must_use]
         #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize)]
         #[repr(transparent)]
         pub struct $Name(i32);
@@ -282,19 +286,19 @@ mod tests {
     #[test]
     #[should_panic(expected = "ObjectId must not be nil")]
     fn object_id_rejects_nil() {
-        ObjectId::from_uuid(Uuid::nil());
+        let _ = ObjectId::from_uuid(Uuid::nil());
     }
 
     #[test]
     #[should_panic(expected = "PlayerId must not be nil")]
     fn player_id_rejects_nil() {
-        PlayerId::from_uuid(Uuid::nil());
+        let _ = PlayerId::from_uuid(Uuid::nil());
     }
 
     #[test]
     #[should_panic(expected = "AbilityId must not be nil")]
     fn ability_id_rejects_nil() {
-        AbilityId::from_uuid(Uuid::nil());
+        let _ = AbilityId::from_uuid(Uuid::nil());
     }
 
     #[test]

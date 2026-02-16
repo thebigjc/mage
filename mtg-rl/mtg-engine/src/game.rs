@@ -2427,7 +2427,7 @@ impl Game {
         // Apply lifelink
         for (controller, amount) in &lifelink_sources {
             if let Some(player) = self.state.players.get_mut(controller) {
-                player.gain_life(*amount);
+                let _ = player.gain_life(*amount);
             }
             // Emit life gain event for lifelink
             self.emit_event(GameEvent::gain_life(*controller, *amount));
@@ -3290,7 +3290,7 @@ impl Game {
                         self.state.exile.exile(item.id);
                         self.state.set_zone(item.id, crate::constants::Zone::Exile, None);
                     } else if let Some(pos) = self.state.pending_dream_exile.iter().position(|&id| id == item.id) {
-                        self.state.pending_dream_exile.remove(pos);
+                        let _ = self.state.pending_dream_exile.remove(pos);
                         self.state.exile.exile(item.id);
                         self.state.set_zone(item.id, crate::constants::Zone::Exile, None);
                         self.state.dream_countered_cards.push(item.id);
@@ -5173,7 +5173,7 @@ impl Game {
                 Effect::GainLifeVivid => {
                     let x = self.count_colors_among_permanents(controller) as u32;
                     if let Some(player) = self.state.players.get_mut(&controller) {
-                        player.gain_life(x);
+                        let _ = player.gain_life(x);
                     }
                     if x > 0 {
                         self.emit_event(GameEvent::gain_life(controller, x));
@@ -5192,7 +5192,7 @@ impl Game {
                     let x = self.count_colors_among_permanents(controller) as u32;
                     for (&pid, player) in self.state.players.iter_mut() {
                         if pid != controller {
-                            player.lose_life(x);
+                            let _ = player.lose_life(x);
                         }
                     }
                 }

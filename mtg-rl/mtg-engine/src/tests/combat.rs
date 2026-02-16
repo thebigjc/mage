@@ -234,7 +234,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
             PlayerAgent::new(BlockAllPlayer),
         );
 
-        add_creature(&mut game, p1, "Lifelinker", 4, 4, KeywordAbilities::LIFELINK);
+        let _ = add_creature(&mut game, p1, "Lifelinker", 4, 4, KeywordAbilities::LIFELINK);
 
         game.state.active_player = p1;
         game.state.priority_player = p1;
@@ -289,7 +289,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
             PlayerAgent::new(BlockAllPlayer),
         );
 
-        add_creature(&mut game, p1, "Trampler", 5, 5, KeywordAbilities::TRAMPLE);
+        let _ = add_creature(&mut game, p1, "Trampler", 5, 5, KeywordAbilities::TRAMPLE);
         let blocker_id = add_creature(&mut game, p2, "SmallBlocker", 1, 2, KeywordAbilities::empty());
 
         game.state.active_player = p1;
@@ -310,7 +310,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
             PlayerAgent::new(BlockAllPlayer),
         );
 
-        add_creature(&mut game, p1, "Bear", 2, 2, KeywordAbilities::empty());
+        let _ = add_creature(&mut game, p1, "Bear", 2, 2, KeywordAbilities::empty());
 
         game.state.active_player = p1;
         game.state.priority_player = p1;
@@ -330,7 +330,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         );
 
         // Only a defender creature
-        add_creature(&mut game, p1, "Wall", 0, 5, KeywordAbilities::DEFENDER);
+        let _ = add_creature(&mut game, p1, "Wall", 0, 5, KeywordAbilities::DEFENDER);
 
         game.state.active_player = p1;
         game.state.priority_player = p1;
@@ -391,9 +391,9 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
             PlayerAgent::new(BlockAllPlayer),
         );
 
-        add_creature(&mut game, p1, "Flyer", 3, 3, KeywordAbilities::FLYING);
+        let _ = add_creature(&mut game, p1, "Flyer", 3, 3, KeywordAbilities::FLYING);
         // Ground creature cannot block a flyer
-        add_creature(&mut game, p2, "Ground", 2, 2, KeywordAbilities::empty());
+        let _ = add_creature(&mut game, p2, "Ground", 2, 2, KeywordAbilities::empty());
 
         game.state.active_player = p1;
         game.state.priority_player = p1;
@@ -439,8 +439,8 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
             PlayerAgent::new(BlockAllPlayer),
         );
 
-        add_creature(&mut game, p1, "Bear1", 2, 2, KeywordAbilities::empty());
-        add_creature(&mut game, p1, "Bear2", 3, 3, KeywordAbilities::empty());
+        let _ = add_creature(&mut game, p1, "Bear1", 2, 2, KeywordAbilities::empty());
+        let _ = add_creature(&mut game, p1, "Bear2", 3, 3, KeywordAbilities::empty());
 
         game.state.active_player = p1;
         game.state.priority_player = p1;

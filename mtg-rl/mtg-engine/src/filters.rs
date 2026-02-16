@@ -155,6 +155,7 @@ impl Predicate {
         ])
     }
 
+    #[must_use]
     pub fn and(self, other: Predicate) -> Predicate {
         match self {
             Predicate::And(mut v) => {
@@ -165,6 +166,7 @@ impl Predicate {
         }
     }
 
+    #[must_use]
     pub fn or(self, other: Predicate) -> Predicate {
         match self {
             Predicate::Or(mut v) => {

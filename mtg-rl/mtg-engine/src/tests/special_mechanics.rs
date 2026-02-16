@@ -81,19 +81,19 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
     fn count_colors_counts_distinct() {
         let (mut game, p1, _) = setup();
         // Add a red creature
-        add_colored_creature(&mut game, p1, "Goblin", "{R}");
+        let _ = add_colored_creature(&mut game, p1, "Goblin", "{R}");
         assert_eq!(game.count_colors_among_permanents(p1), 1);
 
         // Add another red creature (still 1 color)
-        add_colored_creature(&mut game, p1, "Goblin 2", "{1}{R}");
+        let _ = add_colored_creature(&mut game, p1, "Goblin 2", "{1}{R}");
         assert_eq!(game.count_colors_among_permanents(p1), 1);
 
         // Add a green creature (now 2 colors)
-        add_colored_creature(&mut game, p1, "Elf", "{G}");
+        let _ = add_colored_creature(&mut game, p1, "Elf", "{G}");
         assert_eq!(game.count_colors_among_permanents(p1), 2);
 
         // Add a multicolor creature (adds blue and white)
-        add_colored_creature(&mut game, p1, "Angel", "{W}{U}");
+        let _ = add_colored_creature(&mut game, p1, "Angel", "{W}{U}");
         assert_eq!(game.count_colors_among_permanents(p1), 4);
     }
 
@@ -101,9 +101,9 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
     fn vivid_gain_life() {
         let (mut game, p1, _) = setup();
         // 3 colors
-        add_colored_creature(&mut game, p1, "R", "{R}");
-        add_colored_creature(&mut game, p1, "G", "{G}");
-        add_colored_creature(&mut game, p1, "B", "{B}");
+        let _ = add_colored_creature(&mut game, p1, "R", "{R}");
+        let _ = add_colored_creature(&mut game, p1, "G", "{G}");
+        let _ = add_colored_creature(&mut game, p1, "B", "{B}");
 
         game.execute_effects(&[Effect::GainLifeVivid], p1, &[], None, None);
         assert_eq!(game.state.players[&p1].life, 23); // 20 + 3
@@ -113,8 +113,8 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
     fn vivid_deal_damage_to_creature() {
         let (mut game, p1, p2) = setup();
         // p1 has 2 colors
-        add_colored_creature(&mut game, p1, "R", "{R}");
-        add_colored_creature(&mut game, p1, "G", "{G}");
+        let _ = add_colored_creature(&mut game, p1, "R", "{R}");
+        let _ = add_colored_creature(&mut game, p1, "G", "{G}");
         // p2 has a creature to target
         let target = add_colored_creature(&mut game, p2, "Bear", "{1}{W}");
 
@@ -126,8 +126,8 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
     fn vivid_boost_until_eot() {
         let (mut game, p1, _) = setup();
         // p1 has 3 colors
-        add_colored_creature(&mut game, p1, "R", "{R}");
-        add_colored_creature(&mut game, p1, "G", "{G}");
+        let _ = add_colored_creature(&mut game, p1, "R", "{R}");
+        let _ = add_colored_creature(&mut game, p1, "G", "{G}");
         let target = add_colored_creature(&mut game, p1, "B", "{B}");
 
         game.execute_effects(&[Effect::BoostUntilEotVivid], p1, &[target], None, None);
@@ -140,9 +140,9 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
     fn vivid_create_tokens() {
         let (mut game, p1, _) = setup();
         // p1 has 3 colors
-        add_colored_creature(&mut game, p1, "R", "{R}");
-        add_colored_creature(&mut game, p1, "G", "{G}");
-        add_colored_creature(&mut game, p1, "B", "{B}");
+        let _ = add_colored_creature(&mut game, p1, "R", "{R}");
+        let _ = add_colored_creature(&mut game, p1, "G", "{G}");
+        let _ = add_colored_creature(&mut game, p1, "B", "{B}");
 
         let before = game.state.battlefield.controlled_by(p1).count();
         game.execute_effects(&[Effect::create_token_vivid("1/1 Kithkin")], p1, &[], None, None);
@@ -154,9 +154,9 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
     #[test]
     fn vivid_search_library_basic_lands() {
         let (mut game, p1, _) = setup();
-        add_colored_creature(&mut game, p1, "R", "{R}");
-        add_colored_creature(&mut game, p1, "G", "{G}");
-        add_colored_creature(&mut game, p1, "B", "{B}");
+        let _ = add_colored_creature(&mut game, p1, "R", "{R}");
+        let _ = add_colored_creature(&mut game, p1, "G", "{G}");
+        let _ = add_colored_creature(&mut game, p1, "B", "{B}");
 
         let _land_ids: Vec<ObjectId> = (0..5).map(|i| {
             let id = ObjectId::new();
@@ -189,9 +189,9 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
     #[test]
     fn vivid_reveal_from_library_puts_permanents_on_battlefield() {
         let (mut game, p1, _) = setup();
-        add_colored_creature(&mut game, p1, "R", "{R}");
-        add_colored_creature(&mut game, p1, "G", "{G}");
-        add_colored_creature(&mut game, p1, "B", "{B}");
+        let _ = add_colored_creature(&mut game, p1, "R", "{R}");
+        let _ = add_colored_creature(&mut game, p1, "G", "{G}");
+        let _ = add_colored_creature(&mut game, p1, "B", "{B}");
 
         for i in 0..3 {
             let id = ObjectId::new();
@@ -215,8 +215,8 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
     #[test]
     fn vivid_reveal_from_library_skips_nonpermanents() {
         let (mut game, p1, _) = setup();
-        add_colored_creature(&mut game, p1, "R", "{R}");
-        add_colored_creature(&mut game, p1, "G", "{G}");
+        let _ = add_colored_creature(&mut game, p1, "R", "{R}");
+        let _ = add_colored_creature(&mut game, p1, "G", "{G}");
 
         let sorcery_id = ObjectId::new();
         let mut sorcery = CardData::new(sorcery_id, p1, "Sorcery1");
@@ -1935,7 +1935,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
     #[test]
     fn enter_as_copy_copies_name_and_pt() {
         let (mut game, p1, _) = setup_game_with_picker(0);
-        add_creature_with_keywords(&mut game, p1, "Big Dragon", 5, 5, KeywordAbilities::FLYING);
+        let _ = add_creature_with_keywords(&mut game, p1, "Big Dragon", 5, 5, KeywordAbilities::FLYING);
         let clone_id = add_copy_creature(&mut game, p1);
         game.check_enter_as_copy(clone_id);
         let perm = game.state.battlefield.get(clone_id).unwrap();
@@ -1947,7 +1947,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
     #[test]
     fn enter_as_copy_adds_specified_keywords() {
         let (mut game, p1, _) = setup_game_with_picker(0);
-        add_creature_with_keywords(&mut game, p1, "Bear", 2, 2, KeywordAbilities::empty());
+        let _ = add_creature_with_keywords(&mut game, p1, "Bear", 2, 2, KeywordAbilities::empty());
         let clone_id = add_copy_creature(&mut game, p1);
         game.check_enter_as_copy(clone_id);
         let perm = game.state.battlefield.get(clone_id).unwrap();
@@ -1958,7 +1958,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
     #[test]
     fn enter_as_copy_preserves_id_and_owner() {
         let (mut game, p1, _) = setup_game_with_picker(0);
-        add_creature_with_keywords(&mut game, p1, "Target", 3, 3, KeywordAbilities::empty());
+        let _ = add_creature_with_keywords(&mut game, p1, "Target", 3, 3, KeywordAbilities::empty());
         let clone_id = add_copy_creature(&mut game, p1);
         let original_owner = game.state.battlefield.get(clone_id).unwrap().card.owner;
         game.check_enter_as_copy(clone_id);
@@ -1970,7 +1970,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
     #[test]
     fn enter_as_copy_dont_copy_keeps_original() {
         let (mut game, p1, _) = setup_game_with_picker(1);
-        add_creature_with_keywords(&mut game, p1, "Target", 4, 4, KeywordAbilities::FLYING);
+        let _ = add_creature_with_keywords(&mut game, p1, "Target", 4, 4, KeywordAbilities::FLYING);
         let clone_id = add_copy_creature(&mut game, p1);
         game.check_enter_as_copy(clone_id);
         let perm = game.state.battlefield.get(clone_id).unwrap();
@@ -1992,7 +1992,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
     #[test]
     fn enter_as_copy_copies_keywords_from_source() {
         let (mut game, p1, _) = setup_game_with_picker(0);
-        add_creature_with_keywords(&mut game, p1, "Flyer", 3, 2, KeywordAbilities::FLYING | KeywordAbilities::FIRST_STRIKE);
+        let _ = add_creature_with_keywords(&mut game, p1, "Flyer", 3, 2, KeywordAbilities::FLYING | KeywordAbilities::FIRST_STRIKE);
         let clone_id = add_copy_creature(&mut game, p1);
         game.check_enter_as_copy(clone_id);
         let perm = game.state.battlefield.get(clone_id).unwrap();

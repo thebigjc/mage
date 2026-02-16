@@ -235,7 +235,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
         let (mut game, p1, _p2) = setup();
 
         // "Creatures you control have flying"
-        add_keyword_lord(&mut game, p1, "Archetype of Imagination", 3, 2,
+        let _ = add_keyword_lord(&mut game, p1, "Archetype of Imagination", 3, 2,
             "creature you control", "flying");
 
         let bear_id = add_creature(&mut game, p1, "Bear", 2, 2, KeywordAbilities::empty());
@@ -253,7 +253,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
         let (mut game, p1, _p2) = setup();
 
         // "Equipped creature has deathtouch, lifelink"
-        add_keyword_lord(&mut game, p1, "Basilisk Collar", 0, 0,
+        let _ = add_keyword_lord(&mut game, p1, "Basilisk Collar", 0, 0,
             "creature you control", "deathtouch, lifelink");
 
         let bear_id = add_creature(&mut game, p1, "Bear", 2, 2, KeywordAbilities::empty());
@@ -296,9 +296,9 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
         let (mut game, p1, _p2) = setup();
 
         // Two Elf lords
-        add_lord_with_boost(&mut game, p1, "Lord 1", 2, 2,
+        let _ = add_lord_with_boost(&mut game, p1, "Lord 1", 2, 2,
             SubType::Elf, "other Elf you control", 1, 1);
-        add_lord_with_boost(&mut game, p1, "Lord 2", 2, 2,
+        let _ = add_lord_with_boost(&mut game, p1, "Lord 2", 2, 2,
             SubType::Elf, "other Elf you control", 1, 1);
 
         let elf_id = add_creature_with_subtype(&mut game, p1, "Llanowar Elves", 1, 1, SubType::Elf);
@@ -371,7 +371,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
         let (mut game, p1, _p2) = setup();
 
         // "Creature token you control get +1/+1"
-        add_lord_with_boost(&mut game, p1, "Token Lord", 2, 2,
+        let _ = add_lord_with_boost(&mut game, p1, "Token Lord", 2, 2,
             SubType::Human, "creature token you control", 1, 1);
 
         // Regular creature
@@ -403,7 +403,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
         let (mut game, p1, p2) = setup();
 
         // P2 has Elf lord
-        add_lord_with_boost(&mut game, p2, "Enemy Lord", 2, 2,
+        let _ = add_lord_with_boost(&mut game, p2, "Enemy Lord", 2, 2,
             SubType::Elf, "other Elf you control", 1, 1);
 
         // P1 has Elf
@@ -1248,8 +1248,8 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
         let (mut game, p1, _p2) = make_game();
 
         let vivid_id = add_vivid_creature(&mut game, p1);
-        add_colored_creature(&mut game, p1, "Green Elf", vec![Color::Green]);
-        add_colored_creature(&mut game, p1, "Blue Wizard", vec![Color::Blue]);
+        let _ = add_colored_creature(&mut game, p1, "Green Elf", vec![Color::Green]);
+        let _ = add_colored_creature(&mut game, p1, "Blue Wizard", vec![Color::Blue]);
 
         game.apply_continuous_effects();
 
@@ -1262,10 +1262,10 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
         let (mut game, p1, _p2) = make_game();
 
         let vivid_id = add_vivid_creature(&mut game, p1);
-        add_colored_creature(&mut game, p1, "White Knight", vec![Color::White]);
-        add_colored_creature(&mut game, p1, "Blue Mage", vec![Color::Blue]);
-        add_colored_creature(&mut game, p1, "Black Rogue", vec![Color::Black]);
-        add_colored_creature(&mut game, p1, "Green Beast", vec![Color::Green]);
+        let _ = add_colored_creature(&mut game, p1, "White Knight", vec![Color::White]);
+        let _ = add_colored_creature(&mut game, p1, "Blue Mage", vec![Color::Blue]);
+        let _ = add_colored_creature(&mut game, p1, "Black Rogue", vec![Color::Black]);
+        let _ = add_colored_creature(&mut game, p1, "Green Beast", vec![Color::Green]);
 
         game.apply_continuous_effects();
 
@@ -1279,8 +1279,8 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
         let (mut game, p1, _p2) = make_game();
 
         let vivid_id = add_vivid_creature(&mut game, p1);
-        add_colored_creature(&mut game, p1, "Niv-Mizzet", vec![Color::Blue, Color::Red]);
-        add_colored_creature(&mut game, p1, "Siege Rhino", vec![Color::White, Color::Black, Color::Green]);
+        let _ = add_colored_creature(&mut game, p1, "Niv-Mizzet", vec![Color::Blue, Color::Red]);
+        let _ = add_colored_creature(&mut game, p1, "Siege Rhino", vec![Color::White, Color::Black, Color::Green]);
 
         game.apply_continuous_effects();
 
@@ -1293,8 +1293,8 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
         let (mut game, p1, _p2) = make_game();
 
         let vivid_id = add_vivid_creature(&mut game, p1);
-        add_colored_creature(&mut game, p1, "Red Goblin 1", vec![Color::Red]);
-        add_colored_creature(&mut game, p1, "Red Goblin 2", vec![Color::Red]);
+        let _ = add_colored_creature(&mut game, p1, "Red Goblin 1", vec![Color::Red]);
+        let _ = add_colored_creature(&mut game, p1, "Red Goblin 2", vec![Color::Red]);
 
         game.apply_continuous_effects();
 
@@ -1307,8 +1307,8 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
         let (mut game, p1, p2) = make_game();
 
         let vivid_id = add_vivid_creature(&mut game, p1);
-        add_colored_creature(&mut game, p2, "Opponent Blue", vec![Color::Blue]);
-        add_colored_creature(&mut game, p2, "Opponent Green", vec![Color::Green]);
+        let _ = add_colored_creature(&mut game, p2, "Opponent Blue", vec![Color::Blue]);
+        let _ = add_colored_creature(&mut game, p2, "Opponent Green", vec![Color::Green]);
 
         game.apply_continuous_effects();
 
@@ -1604,7 +1604,7 @@ mod mana_doubling_basic_lands_tests {
     #[test]
     fn basic_land_produces_double_mana() {
         let (mut game, p1, _p2) = setup();
-        add_doubler(&mut game, p1);
+        let _ = add_doubler(&mut game, p1);
         let (forest_id, ability_id) = add_basic_land(&mut game, p1, "Forest", Mana::green(1));
         game.apply_continuous_effects();
 
@@ -1618,7 +1618,7 @@ mod mana_doubling_basic_lands_tests {
     #[test]
     fn nonbasic_land_not_doubled() {
         let (mut game, p1, _p2) = setup();
-        add_doubler(&mut game, p1);
+        let _ = add_doubler(&mut game, p1);
         let (land_id, ability_id) = add_nonbasic_land(&mut game, p1, "Mystic Gate", Mana::white(1));
         game.apply_continuous_effects();
 
@@ -1630,7 +1630,7 @@ mod mana_doubling_basic_lands_tests {
     #[test]
     fn applies_to_opponent_basic_lands() {
         let (mut game, p1, p2) = setup();
-        add_doubler(&mut game, p1);
+        let _ = add_doubler(&mut game, p1);
         let (opp_forest_id, opp_ability_id) = add_basic_land(&mut game, p2, "Forest", Mana::green(1));
         game.apply_continuous_effects();
 
@@ -1642,8 +1642,8 @@ mod mana_doubling_basic_lands_tests {
     #[test]
     fn multiple_doublers_stack() {
         let (mut game, p1, _p2) = setup();
-        add_doubler(&mut game, p1);
-        add_doubler(&mut game, p1);
+        let _ = add_doubler(&mut game, p1);
+        let _ = add_doubler(&mut game, p1);
         let (forest_id, ability_id) = add_basic_land(&mut game, p1, "Forest", Mana::green(1));
         game.apply_continuous_effects();
 
@@ -1683,7 +1683,7 @@ mod mana_doubling_basic_lands_tests {
     #[test]
     fn colored_mana_doubled_correctly() {
         let (mut game, p1, _p2) = setup();
-        add_doubler(&mut game, p1);
+        let _ = add_doubler(&mut game, p1);
         let (mountain_id, ability_id) = add_basic_land(&mut game, p1, "Mountain", Mana::red(1));
         game.apply_continuous_effects();
 
@@ -1746,7 +1746,7 @@ mod enhanced_mana_production_tests {
     fn enchanted_land_produces_additional_mana() {
         let (mut game, p1, _p2) = setup();
         let (forest_id, ability_id) = add_land(&mut game, p1, "Forest", Mana::green(1), true);
-        add_aura_enhancer(&mut game, p1, forest_id, ManaColor::Red);
+        let _ = add_aura_enhancer(&mut game, p1, forest_id, ManaColor::Red);
         game.apply_continuous_effects();
 
         assert_eq!(game.state.enhanced_mana_productions.len(), 1);
@@ -1762,7 +1762,7 @@ mod enhanced_mana_production_tests {
         let (mut game, p1, _p2) = setup();
         let (forest_id, ability_id) = add_land(&mut game, p1, "Forest", Mana::green(1), true);
         let (other_forest_id, _) = add_land(&mut game, p1, "Forest2", Mana::green(1), true);
-        add_aura_enhancer(&mut game, p1, other_forest_id, ManaColor::Blue);
+        let _ = add_aura_enhancer(&mut game, p1, other_forest_id, ManaColor::Blue);
         game.apply_continuous_effects();
 
         game.activate_mana_ability(p1, forest_id, ability_id);
@@ -1775,7 +1775,7 @@ mod enhanced_mana_production_tests {
     fn works_on_nonbasic_lands() {
         let (mut game, p1, _p2) = setup();
         let (land_id, ability_id) = add_land(&mut game, p1, "Mystic Gate", Mana::white(1), false);
-        add_aura_enhancer(&mut game, p1, land_id, ManaColor::Green);
+        let _ = add_aura_enhancer(&mut game, p1, land_id, ManaColor::Green);
         game.apply_continuous_effects();
 
         game.activate_mana_ability(p1, land_id, ability_id);
@@ -1802,8 +1802,8 @@ mod enhanced_mana_production_tests {
     fn multiple_auras_on_same_land() {
         let (mut game, p1, _p2) = setup();
         let (forest_id, ability_id) = add_land(&mut game, p1, "Forest", Mana::green(1), true);
-        add_aura_enhancer(&mut game, p1, forest_id, ManaColor::Red);
-        add_aura_enhancer(&mut game, p1, forest_id, ManaColor::Blue);
+        let _ = add_aura_enhancer(&mut game, p1, forest_id, ManaColor::Red);
+        let _ = add_aura_enhancer(&mut game, p1, forest_id, ManaColor::Blue);
         game.apply_continuous_effects();
 
         assert_eq!(game.state.enhanced_mana_productions.len(), 2);
@@ -1819,7 +1819,7 @@ mod enhanced_mana_production_tests {
     fn same_color_as_land_stacks() {
         let (mut game, p1, _p2) = setup();
         let (forest_id, ability_id) = add_land(&mut game, p1, "Forest", Mana::green(1), true);
-        add_aura_enhancer(&mut game, p1, forest_id, ManaColor::Green);
+        let _ = add_aura_enhancer(&mut game, p1, forest_id, ManaColor::Green);
         game.apply_continuous_effects();
 
         game.activate_mana_ability(p1, forest_id, ability_id);
@@ -1915,7 +1915,7 @@ mod trigger_doubling_tests {
     #[test]
     fn matching_elemental_etb_triggers_twice() {
         let (mut game, p1, _p2) = setup();
-        add_trigger_doubler(&mut game, p1, "other Elementals you control");
+        let _ = add_trigger_doubler(&mut game, p1, "other Elementals you control");
         game.apply_continuous_effects();
         assert_eq!(game.state.trigger_doublings.len(), 1);
 
@@ -1933,7 +1933,7 @@ mod trigger_doubling_tests {
     #[test]
     fn non_matching_type_not_doubled() {
         let (mut game, p1, _p2) = setup();
-        add_trigger_doubler(&mut game, p1, "other Elementals you control");
+        let _ = add_trigger_doubler(&mut game, p1, "other Elementals you control");
         game.apply_continuous_effects();
 
         let id = ObjectId::new();
@@ -1980,7 +1980,7 @@ mod trigger_doubling_tests {
     #[test]
     fn opponent_elemental_not_doubled() {
         let (mut game, p1, p2) = setup();
-        add_trigger_doubler(&mut game, p1, "other Elementals you control");
+        let _ = add_trigger_doubler(&mut game, p1, "other Elementals you control");
         game.apply_continuous_effects();
 
         let elem_id = add_elemental_with_etb(&mut game, p2, "Opp Elemental", 3);
@@ -2012,8 +2012,8 @@ mod trigger_doubling_tests {
     #[test]
     fn multiple_doublers_stack() {
         let (mut game, p1, _p2) = setup();
-        add_trigger_doubler(&mut game, p1, "other Elementals you control");
-        add_trigger_doubler(&mut game, p1, "other Elementals you control");
+        let _ = add_trigger_doubler(&mut game, p1, "other Elementals you control");
+        let _ = add_trigger_doubler(&mut game, p1, "other Elementals you control");
         game.apply_continuous_effects();
         assert_eq!(game.state.trigger_doublings.len(), 2);
 
@@ -2027,7 +2027,7 @@ mod trigger_doubling_tests {
     #[test]
     fn changeling_matches_filter() {
         let (mut game, p1, _p2) = setup();
-        add_trigger_doubler(&mut game, p1, "other Elementals you control");
+        let _ = add_trigger_doubler(&mut game, p1, "other Elementals you control");
         game.apply_continuous_effects();
 
         let id = ObjectId::new();

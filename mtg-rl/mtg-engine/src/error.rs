@@ -1,6 +1,7 @@
 use crate::types::{AbilityId, ObjectId, PlayerId};
 use thiserror::Error;
 
+#[must_use]
 #[derive(Debug, Error, Clone)]
 pub enum GameError {
     #[error("invalid player: {0}")]

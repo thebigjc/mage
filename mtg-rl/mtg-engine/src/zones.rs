@@ -263,12 +263,12 @@ impl Exile {
     /// Remove a card from exile (from any zone). Returns true if found.
     pub fn remove(&mut self, card_id: ObjectId) -> bool {
         if let Some(pos) = self.main.iter().position(|&id| id == card_id) {
-            self.main.remove(pos);
+            let _ = self.main.remove(pos);
             return true;
         }
         for zone in self.zones.values_mut() {
             if let Some(pos) = zone.cards.iter().position(|&id| id == card_id) {
-                zone.cards.remove(pos);
+                let _ = zone.cards.remove(pos);
                 return true;
             }
         }

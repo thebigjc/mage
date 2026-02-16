@@ -12,6 +12,7 @@ use std::ops::{Add, AddAssign, Sub, SubAssign};
 /// - `colorless`: colorless mana (e.g. from Wastes, Eldrazi)
 /// - `generic`: generic mana cost (payable by any type)
 /// - `any`: mana that can be any color (from "add one mana of any color")
+#[must_use]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Mana {
     pub white: u32,
@@ -261,6 +262,7 @@ pub enum ManaCostItem {
 }
 
 /// A complete mana cost, such as "{2}{B}{G}".
+#[must_use]
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ManaCost {
     pub items: Vec<ManaCostItem>,

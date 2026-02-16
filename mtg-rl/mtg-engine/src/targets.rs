@@ -107,6 +107,7 @@ impl TargetDefinition {
     }
 
     /// Set the number of targets.
+    #[must_use]
     pub fn with_count(mut self, min: u32, max: u32) -> Self {
         self.min_targets = min;
         self.max_targets = max;
@@ -114,6 +115,7 @@ impl TargetDefinition {
     }
 
     /// "Up to N" targets (min = 0).
+    #[must_use]
     pub fn up_to(mut self, max: u32) -> Self {
         self.min_targets = 0;
         self.max_targets = max;
@@ -121,12 +123,14 @@ impl TargetDefinition {
     }
 
     /// Set the description.
+    #[must_use]
     pub fn with_description(mut self, desc: &str) -> Self {
         self.description = desc.to_string();
         self
     }
 
     /// Set the outcome.
+    #[must_use]
     pub fn with_outcome(mut self, outcome: Outcome) -> Self {
         self.outcome = outcome;
         self
