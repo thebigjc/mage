@@ -9,7 +9,7 @@ IN_PROGRESS
 ## Analysis
 
 ### Current State
-- **Engine tests**: 504 (mtg-engine), all passing
+- **Engine tests**: 511 (mtg-engine), all passing
 - **ECL Custom fallbacks**: 33 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 40 total
 - **Other sets**: FDN 336, TLA 199, TDM 110 (these are out of scope per the plan)
 
@@ -61,7 +61,7 @@ Group the 44 fallbacks by what engine feature they need. Implement the engine fe
 
 - [x] Task 6: Add `BoostDualTargetDynamic` effect — Give +X/+0 to one target and -0/-X to another, where X = count of permanents matching filter. Update: **gloom_ripper** (X = Elves you control + Elf cards in graveyard). Added Effect::BoostDualTargetDynamic variant, additive "+" support in evaluate_count_filter, irregular plural handling (depluralize_type). 2 new tests, 508 engine total. 1 Effect::Custom eliminated.
 
-- [ ] Task 7: Add `RevealFromLibraryVivid` effect — Reveal cards from library until X permanents found (X = colors among permanents), put some onto battlefield. Update: **aurora_awakener** (Vivid ETB reveal+deploy). Java uses `ColorsAmongControlledPermanentsCount`. Add engine test. ~1 card fixed.
+- [x] Task 7: Add `RevealFromLibraryVivid` effect — Reveal cards from library until X permanents found (X = colors among permanents), put some onto battlefield. Update: **aurora_awakener** (Vivid ETB reveal+deploy). Java uses `ColorsAmongControlledPermanentsCount`. Add engine test. ~1 card fixed.
 
 - [ ] Task 8: Add `CompareAndBoost` effect — Choose two creatures, compute X = abs(power difference), draw X cards, boost both +X/+X and grant trample. Update: **spry_and_mighty**. Java uses custom OneShotEffect. Add engine test. ~1 card fixed.
 
@@ -154,7 +154,7 @@ Task 31 depends on all others
 18. Task 31 (verification)
 
 ## Completed This Iteration
-- Task 6: Added `Effect::BoostDualTargetDynamic { value_source }` variant and `Effect::boost_dual_target_dynamic()` builder. First target gets +X/+0, second gets -0/-X where X = dynamic count. Added additive "+" support in evaluate_count_filter and irregular plural handling (depluralize_type for Elves→Elf etc). Updated `gloom_ripper` to use BoostDualTargetDynamic with TargetSpec::Pair. 2 new tests (508 engine total). 1 Effect::Custom eliminated.
+- Task 7: Added `Effect::RevealFromLibraryVivid` variant and `Effect::reveal_from_library_vivid()` builder. Reveals cards from top of library until X permanent cards found (X = colors among permanents you control), puts all onto battlefield, rest on bottom in random order. Added "permanent" support to `card_matches_filter`. Updated `aurora_awakener` to use RevealFromLibraryVivid. 3 new tests (511 engine total). 1 Effect::Custom eliminated.
 
 ## Notes
 

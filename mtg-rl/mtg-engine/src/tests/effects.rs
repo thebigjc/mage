@@ -1693,3 +1693,97 @@ fn boost_dual_target_dynamic_single_target_only() {
     assert_eq!(my_perm.continuous_boost_power, 1, "+1/+0: 1 Elf on battlefield");
     assert_eq!(my_perm.continuous_boost_toughness, 0, "No toughness change on first target");
 }
+
+#[test]
+fn compare_and_boost_draws_and_boosts() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+
+    let mut game = Game::new_two_player(
+        config,
+        vec![
+            (p1, Box::new(AlwaysPassPlayer)),
+            (p2, Box::new(AlwaysPassPlayer)),
+        ],
+    );
+
+    let creature_a = make_creature("Big Guy", p1, 5, 5);
+    let id_a = creature_a.id;
+    let creature_b = make_creature("Little Guy", p1, 2, 2);
+    let id_b = creature_b.id;
+    game.state.battlefield.add(Permanent::new(creature_a, p1));
+    game.state.battlefield.add(Permanent::new(creature_b, p1));
+
+    let hand_before = game.state.players.get(&p1).unwrap().hand.len();
+
+    game.execute_effects(
+        &[Effect::compare_and_boost()],
+        p1, &[id_a, id_b], None, None,
+    );
+
+    let hand_after = game.state.players.get(&p1).unwrap().hand.len();
+    assert_eq!(hand_after - hand_before, 3, "drew 3 cards (|5-2|=3)");
+
+    let perm_a = game.state.battlefield.get(id_a).unwrap();
+    assert_eq!(perm_a.power(), 8, "5 + 3 P1P1 counters = 8");
+    assert_eq!(perm_a.toughness(), 8, "5 + 3 P1P1 counters = 8");
+    assert!(perm_a.has_keyword(KeywordAbilities::TRAMPLE));
+
+    let perm_b = game.state.battlefield.get(id_b).unwrap();
+    assert_eq!(perm_b.power(), 5, "2 + 3 P1P1 counters = 5");
+    assert_eq!(perm_b.toughness(), 5, "2 + 3 P1P1 counters = 5");
+    assert!(perm_b.has_keyword(KeywordAbilities::TRAMPLE));
+}
+
+#[test]
+fn compare_and_boost_equal_power_only_trample() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+
+    let mut game = Game::new_two_player(
+        config,
+        vec![
+            (p1, Box::new(AlwaysPassPlayer)),
+            (p2, Box::new(AlwaysPassPlayer)),
+        ],
+    );
+
+    let creature_a = make_creature("Bear A", p1, 3, 3);
+    let id_a = creature_a.id;
+    let creature_b = make_creature("Bear B", p1, 3, 4);
+    let id_b = creature_b.id;
+    game.state.battlefield.add(Permanent::new(creature_a, p1));
+    game.state.battlefield.add(Permanent::new(creature_b, p1));
+
+    let hand_before = game.state.players.get(&p1).unwrap().hand.len();
+
+    game.execute_effects(
+        &[Effect::compare_and_boost()],
+        p1, &[id_a, id_b], None, None,
+    );
+
+    let hand_after = game.state.players.get(&p1).unwrap().hand.len();
+    assert_eq!(hand_after, hand_before, "no cards drawn when power equal");
+
+    let perm_a = game.state.battlefield.get(id_a).unwrap();
+    assert_eq!(perm_a.power(), 3, "no boost when X=0");
+    assert!(perm_a.has_keyword(KeywordAbilities::TRAMPLE), "still gets trample");
+
+    let perm_b = game.state.battlefield.get(id_b).unwrap();
+    assert_eq!(perm_b.power(), 3, "no boost when X=0");
+    assert!(perm_b.has_keyword(KeywordAbilities::TRAMPLE), "still gets trample");
+}

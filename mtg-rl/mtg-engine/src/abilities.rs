@@ -452,6 +452,10 @@ pub enum Effect {
         if_false: Vec<Effect>,
     },
 
+    /// Choose two target creatures you control. X = abs(power difference).
+    /// Draw X cards, both get +X/+X (via P1P1 counters), both gain trample until EOT.
+    CompareAndBoost,
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1513,6 +1517,10 @@ impl Effect {
             if_true,
             if_false,
         }
+    }
+
+    pub fn compare_and_boost() -> Self {
+        Effect::CompareAndBoost
     }
 }
 

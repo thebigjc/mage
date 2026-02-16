@@ -5439,6 +5439,26 @@ impl Game {
                         }
                     }
                 }
+                Effect::CompareAndBoost => {
+                    if targets.len() >= 2 {
+                        let power_a = self.state.battlefield.get(targets[0]).map(|p| p.power()).unwrap_or(0);
+                        let power_b = self.state.battlefield.get(targets[1]).map(|p| p.power()).unwrap_or(0);
+                        let x = (power_a - power_b).unsigned_abs();
+                        if x > 0 {
+                            self.draw_cards(controller, x);
+                            for &tid in &targets[..2] {
+                                if let Some(perm) = self.state.battlefield.get_mut(tid) {
+                                    perm.add_counters(CounterType::P1P1, x);
+                                }
+                            }
+                        }
+                        for &tid in &targets[..2] {
+                            if let Some(perm) = self.state.battlefield.get_mut(tid) {
+                                perm.granted_keywords |= crate::constants::KeywordAbilities::TRAMPLE;
+                            }
+                        }
+                    }
+                }
                 Effect::TargetControllerDraws { count } => {
                     // Target's controller draws cards (not the ability's controller)
                     for &target_id in targets {

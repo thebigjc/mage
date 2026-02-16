@@ -3647,7 +3647,6 @@ fn spiral_into_solitude(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [COND] Choose 2 creatures, draw X + +X/+X + trample where X=power difference
 fn spry_and_mighty(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Spry and Mighty".into(),
         mana_cost: ManaCost::parse("{4}{G}"),
@@ -3655,7 +3654,7 @@ fn spry_and_mighty(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Rare,
         abilities: vec![
             Ability::spell(id,
-                    vec![Effect::Custom("Choose two target creatures you control. Draw X cards where X is the difference between their powers. They each get +X/+X and gain trample until end of turn.".into())],
+                    vec![Effect::compare_and_boost()],
                     TargetSpec::PermanentFiltered("two creatures you control".into())),
         ],
         ..Default::default() }
