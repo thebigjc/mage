@@ -68,7 +68,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 #### 1A: Error Handling Foundation
 - [x] Task 1.1: Define `GameError` enum in mtg-engine using `thiserror` (already a dependency). Variants: `InvalidPlayer`, `InvalidObject`, `InvalidZone`, `InvalidTarget`, `InvalidAction`, `GameStateCorruption`, `AbilityResolutionError`
 - [x] Task 1.2: Add `EngineResult<T> = Result<T, GameError>` type alias (renamed from `GameResult` to avoid conflict with existing `GameResult` struct)
-- [ ] Task 1.3: Replace `.unwrap()` calls in game.rs (7 calls) with proper error handling using `?` or `.ok_or(GameError::...)`
+- [x] Task 1.3: Replace `.unwrap()` calls in game.rs (7 calls) with proper error handling using `?` or `.ok_or(GameError::...)`
 - [ ] Task 1.4: Replace `.unwrap()` calls in combat.rs, state.rs, and other engine files (~17 calls)
 - [ ] Task 1.5: Replace `.unwrap()` calls in mtg-cards production code (~38 calls, mostly in registry)
 - [ ] Task 1.6: Audit and replace `panic!`/`unreachable!` in production code with proper error returns where feasible
@@ -161,4 +161,14 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - Added `Display` impl for `AbilityId` (needed by `thiserror` `#[error]` formatting)
 - Added `pub mod error` to `lib.rs`
 - All 576 engine tests passing, zero clippy warnings, full workspace compiles clean
+
+### Iteration 4 — Task 1.3: Replace .unwrap() in game.rs
+- Replaced all 7 `.unwrap()` calls in game.rs with proper error handling:
+  - Constructor (`new_two_player`): `.expect("player just inserted into state")` for invariant
+  - Block validation (`pop()` after length checks): `.expect()` with clear invariant messages
+  - `play_land`: Restructured exile path to use `let Some(...) = ... else { return }` instead of `.unwrap()`
+  - `cast_spell`: Changed flashback cost access to use `.map()` + `let Some(...) else { return }`
+  - `try_pay_ward_cost`: Restructured discard path to extract card_id via `.and_then().copied()` before mutable borrow
+- game.rs now has zero `.unwrap()` calls
+- All 576 engine tests passing, zero clippy warnings
 

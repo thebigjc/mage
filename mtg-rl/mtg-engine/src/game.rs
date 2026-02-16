@@ -136,7 +136,8 @@ impl Game {
                     },
                 );
             }
-            let player = state.players.get_mut(&player_id).unwrap();
+            let player = state.players.get_mut(&player_id)
+                .expect("player just inserted into state");
             for card_id in card_ids {
                 player.library.put_on_bottom(card_id);
             }
@@ -2408,13 +2409,15 @@ impl Game {
             if let Some(attacker) = self.state.battlefield.get(group.attacker_id) {
                 if let Some(max) = attacker.max_blocked_by {
                     while group.blockers.len() > max as usize {
-                        let removed = group.blockers.pop().unwrap();
+                        let removed = group.blockers.pop()
+                            .expect("pop after len check");
                         self.state.combat.blocker_to_attacker.remove(&removed);
                     }
                 }
                 // menace: if only 1 blocker, remove it (must have 2+)
                 if attacker.has_menace() && group.blockers.len() == 1 {
-                    let removed = group.blockers.pop().unwrap();
+                    let removed = group.blockers.pop()
+                        .expect("pop after len == 1 check");
                     self.state.combat.blocker_to_attacker.remove(&removed);
                     group.blocked = false;
                 }
@@ -2897,8 +2900,9 @@ impl Game {
         if from_exile {
             self.state.exile.remove(card_id);
             self.state.impulse_playable.retain(|ip| ip.card_id != card_id);
-            // Re-borrow player after mutation
-            let player = self.state.players.get_mut(&player_id).unwrap();
+            let Some(player) = self.state.players.get_mut(&player_id) else {
+                return;
+            };
             player.play_land();
         } else {
             if !player.hand.remove(card_id) {
@@ -3068,13 +3072,15 @@ impl Game {
         if !without_mana {
             let reduction = self.calculate_cost_reduction(player_id, &card_data);
             let has_convoke = self.spell_has_convoke(player_id, &card_data);
-            let base_cost = if from_graveyard {
-                card_data.flashback_cost.as_ref().unwrap().to_mana()
+            let Some(base_cost) = (if from_graveyard {
+                card_data.flashback_cost.as_ref().map(|fc| fc.to_mana())
             } else {
-                match x_value {
+                Some(match x_value {
                     Some(x) => card_data.mana_cost.to_mana_with_x(x),
                     None => card_data.mana_cost.to_mana(),
-                }
+                })
+            }) else {
+                return;
             };
             let mana_cost = base_cost.reduce_generic(reduction);
 
@@ -3262,11 +3268,10 @@ impl Game {
 
         // Discard cost (e.g., "Discard a card.")
         if cost.contains("iscard") {
-            if let Some(player) = self.state.players.get(&payer) {
-                if !player.hand.is_empty() {
-                    // Discard a card (pick first card in hand for simplicity)
-                    let card_id = *player.hand.iter().next().unwrap();
-                    let player = self.state.players.get_mut(&payer).unwrap();
+            let card_id = self.state.players.get(&payer)
+                .and_then(|p| p.hand.iter().next().copied());
+            if let Some(card_id) = card_id {
+                if let Some(player) = self.state.players.get_mut(&payer) {
                     player.hand.remove(card_id);
                     player.graveyard.add(card_id);
                     return true;
