@@ -2,22 +2,22 @@
 
 This document describes implementation gaps between the Rust mtg-rl engine and the Java XMage reference engine, organized by impact on the 1,333 cards across our 4 sets (FDN, TLA, TDM, ECL).
 
-**Last audit: 2026-02-14** — Compared Rust engine (~14.6K lines, 21 source files) against Java XMage engine (full rules implementation).
+**Last audit: 2026-02-16** — Compared Rust engine (~17.3K lines, 21 source files) against Java XMage engine (full rules implementation).
 
 ## Summary
 
 | Metric | Value |
 |--------|-------|
 | Cards registered | 1,333 (FDN 512, TLA 280, TDM 273, ECL 268) |
-| `Effect::Custom` fallbacks | 747 |
-| `StaticEffect::Custom` fallbacks | 160 |
-| `Cost::Custom` fallbacks | 33 |
-| **Total Custom fallbacks** | **940** |
+| `Effect::Custom` fallbacks | 656 |
+| `StaticEffect::Custom` fallbacks | 133 |
+| `Cost::Custom` fallbacks | 26 |
+| **Total Custom fallbacks** | **815** |
 | Keywords defined | 47 |
-| Keywords mechanically enforced | 20 (combat active, plus hexproof, shroud, prowess, landwalk, ward) |
-| State-based actions | 8 of ~20 rules implemented |
+| Keywords mechanically enforced | 24 (combat, hexproof, shroud, prowess, landwalk, ward, convoke, conspire, changeling, flashback) |
+| State-based actions | 10 of ~20 rules implemented |
 | Triggered abilities | Events emitted, triggers stacked (ETB, attack, life gain, dies, upkeep, end step, combat damage) |
-| Replacement effects | Data structures defined but not integrated |
+| Replacement effects | Enters-tapped, enters-with-counters, enter-as-copy implemented |
 | Continuous effect layers | Layer 6 (keywords) + Layer 7 (P/T) applied; others pending |
 
 ---
@@ -65,7 +65,11 @@ These are structural deficiencies in `game.rs` that affect ALL cards, not just s
 **Completed 2026-02-14:**
 - `EntersTapped { filter: "self" }` — lands/permanents with "enters tapped" now correctly enter tapped via `check_enters_tapped()`. Called at all ETB points: land play, spell resolve, reanimate. 3 unit tests. Affects 7 guildgate/tapland cards across FDN and TDM.
 
-**Still missing:** General replacement effect pipeline (damage prevention, death replacement, Doubling Season, counter modification, enters-with-counters). Affects ~20+ additional cards.
+**Completed 2026-02-15/16:**
+- `EntersWithCounters { counter_type, count }` — permanents enter with specified counters via `check_enters_with_counters()`. Hooked into all 9 ETB paths. 15 ECL cards converted. 7 unit tests.
+- `EnterAsACopy { filter, add_keywords }` — clone creatures enter as a copy of a chosen creature via `check_enter_as_copy()`. 9 unit tests. Omni-Changeling updated.
+
+**Still missing:** General replacement effect pipeline (damage prevention, death replacement, Doubling Season). Affects ~15+ additional cards.
 
 ---
 
@@ -111,7 +115,7 @@ All 10 are now active in practice via combat integration (2026-02-14). Additiona
 | UNBLOCKABLE | Can't be blocked | **Enforced** in `combat.rs:can_block()` |
 | CHANGELING | All creature types | **Enforced** in `permanent.rs:has_subtype()` + `matches_filter()` |
 | CASCADE | Exile-and-cast on cast | No trigger |
-| CONVOKE | Tap creatures to pay | Not checked in cost payment |
+| CONVOKE | Tap creatures to pay | **Enforced** in `cast_spell()` + `compute_legal_actions()` |
 | DELVE | Exile graveyard to pay | Not checked in cost payment |
 | EVOLVE | +1/+1 counter on bigger ETB | No trigger |
 | EXALTED | +1/+1 when attacking alone | No trigger |
@@ -294,12 +298,15 @@ These require new engine architecture beyond adding match arms to existing funct
 - Insert extra combat steps into the turn sequence
 - **Blocked cards:** Aurelia the Warleader, All-Out Assault (~3 cards)
 
-#### 15. Conditional Cost Modifications
-- `CostReduction` stored but not applied during cost calculation
-- "Second spell costs {1} less", Affinity, Convoke, Delve
-- Need cost-modification pass before mana payment
-- **Blocked cards:** Highspire Bell-Ringer, Allies at Last, Ghalta Primal Hunger (~5+ cards)
-- **Java reference:** `CostModificationEffect.java`, `SpellAbility.adjustCosts()`
+#### ~~15. Conditional Cost Modifications~~ (DONE)
+
+**Completed 2026-02-15/16.** Cost reduction fully implemented:
+- `CostReduction { amount, filter, condition }` applied during `calculate_cost_reduction()` in legal actions and spell casting
+- `CostReductionDynamic { filter, value_source }` for dynamic cost reduction
+- Conditional: `condition: "toughness_greater_than_power"` checks card P/T
+- Self-cost-reduction from hand: scans card's own abilities for CostReduction StaticEffects
+- **Convoke** fully implemented: `calculate_convoke_mana()`, `pay_convoke_cost()`, integrated into legal actions + spell casting
+- 14+ unit tests
 
 ### Tier 4: Set-Specific Mechanics
 
@@ -358,9 +365,9 @@ The following Effect variants have working `execute_effects()` match arms:
 |---------|-------------|---------------|
 | `GainProtection` | Target gains protection from quality | ~5 |
 | `PreventCombatDamage` | Fog / damage prevention | ~5 |
-| `Custom(String)` | Catch-all for untyped effects | 747 instances |
+| `Custom(String)` | Catch-all for untyped effects | 656 instances |
 
-### Custom Effect Fallback Analysis (747 Effect::Custom)
+### Custom Effect Fallback Analysis (656 Effect::Custom)
 
 These are effects where no typed variant exists. Grouped by what engine feature would replace them:
 
@@ -382,7 +389,7 @@ These are effects where no typed variant exists. Grouped by what engine feature 
 | Cost modifiers | 4 | FDN,ECL | Cost modification system |
 | X-cost effects | 5+ | All | X-cost system |
 
-### StaticEffect::Custom Analysis (160 instances)
+### StaticEffect::Custom Analysis (133 instances)
 
 | Category | Count | Engine Feature Needed |
 |----------|-------|-----------------------|
@@ -419,11 +426,13 @@ These are effects where no typed variant exists. Grouped by what engine feature 
 
 | Set | Effect::Custom | StaticEffect::Custom | Cost::Custom | Total |
 |-----|---------------|---------------------|-------------|-------|
-| FDN (Foundations) | 322 | 58 | 21 | 401 |
+| FDN (Foundations) | 315 | 57 | 21 | 393 |
 | TLA (Avatar: TLA) | 197 | 54 | 2 | 253 |
-| TDM (Tarkir: Dragonstorm) | 111 | 16 | 3 | 130 |
-| ECL (Lorwyn Eclipsed) | 77 | 20 | 0 | 97 |
-| **Total** | **747** | **160** | **33** | **940** |
+| TDM (Tarkir: Dragonstorm) | 107 | 15 | 3 | 125 |
+| ECL (Lorwyn Eclipsed) | 37 | 7 | 0 | 44 |
+| **Total** | **656** | **133** | **26** | **815** |
+
+**ECL reduction: 88 → 44 (50% reduction)** through 20+ new engine features and per-card updates.
 
 Detailed per-card breakdowns in `docs/{fdn,tla,tdm,ecl}-remediation.md`.
 
@@ -436,20 +445,20 @@ Features the Java engine has that the Rust engine lacks entirely:
 | Java Feature | Java Location | Rust Status |
 |-------------|--------------|-------------|
 | **84+ Watcher classes** | `mage.watchers.common/` | Basic `WatcherManager` only |
-| **Replacement effect pipeline** | `ContinuousEffects.getReplacementEffects()` | Structs defined, not integrated |
-| **7-layer continuous effect application** | `ContinuousEffects.apply()` | Layers defined, never applied |
+| **Replacement effect pipeline** | `ContinuousEffects.getReplacementEffects()` | **Partial** (enters-tapped, enters-with-counters, enter-as-copy) |
+| **7-layer continuous effect application** | `ContinuousEffects.apply()` | **Partial** (Layer 6 keywords + Layer 7 P/T + base P/T override) |
 | **RequirementEffect** (must attack/block) | `mage.abilities.effects.RequirementEffect` | **Partial** (`MustBeBlocked` static effect, flag on Permanent) |
 | **RestrictionEffect** (can't attack/block) | `mage.abilities.effects.RestrictionEffect` | **Partial** (CantAttack/CantBlock, CantBeBlockedByMoreThan, CantBeBlockedByPowerLessOrEqual) |
 | **AsThoughEffect** (play from other zones) | `mage.abilities.effects.AsThoughEffect` | **Partial** (`ImpulsePlayable` for exile-and-play) |
-| **CostModificationEffect** | `mage.abilities.effects.CostModificationEffect` | CostReduction stored but not applied |
+| **CostModificationEffect** | `mage.abilities.effects.CostModificationEffect` | **Implemented** (CostReduction, CostReductionDynamic, conditional, Convoke) |
 | **PreventionEffect** (damage prevention) | `mage.abilities.effects.PreventionEffect` | No equivalent |
-| **Equipment attachment** | `EquipAbility`, `AttachEffect` | No equivalent |
-| **Aura attachment** | `AuraReplacementEffect` | No equivalent |
+| **Equipment attachment** | `EquipAbility`, `AttachEffect` | **Implemented** (`Effect::Equip`, detach SBA) |
+| **Aura attachment** | `AuraReplacementEffect` | **Implemented** (auto-attach on ETB, fall-off SBA) |
 | **Planeswalker loyalty abilities** | `LoyaltyAbility`, `PayLoyaltyCost` | No equivalent |
 | **X-cost system** | `VariableManaCost`, `ManaCostsImpl.getX()` | **Implemented** (`X_VALUE`, `StackItem.x_value`, `resolve_x()`) |
 | **Spell copying** | `CopyEffect`, `CopySpellForEachItCouldTargetEffect` | **Basic** (`copy_spell_on_stack`) — copies spell on stack with same targets; used by Conspire |
 | **Delayed triggered abilities** | `DelayedTriggeredAbility` | **Implemented** (`DelayedTrigger`, `CreateDelayedTrigger`) |
-| **Alternative costs** (Flashback, Evoke, etc.) | `AlternativeCostSourceAbility` | Evoke stored as StaticEffect, not enforced |
+| **Alternative costs** (Flashback, Evoke, etc.) | `AlternativeCostSourceAbility` | **Partial** (Flashback implemented, Evoke stored but not enforced) |
 | **Additional costs** (Kicker, Buyback, etc.) | `OptionalAdditionalCostImpl` | **Conspire** implemented (`GrantConspire`, `spell_has_conspire`, `copy_spell_on_stack`) |
 | **Combat damage assignment order** | `CombatGroup.pickBlockerOrder()` | Simplified (first blocker takes all) |
 | **Spell target legality check on resolution** | `Spell.checkTargets()` | Targets checked at cast, not re-validated |
@@ -473,7 +482,7 @@ Priority ordered by cards-unblocked per effort.
 
 ### Phase 2: Core Missing Mechanics
 
-4. **Replacement effect pipeline** — Event interception. Enters-tapped enforcement done (2026-02-14). Still needed: damage prevention, death replacement, Undying/Persist, enters-with-counters. **~20+ remaining cards.**
+4. **Replacement effect pipeline** — Event interception. Enters-tapped done (2026-02-14). Enters-with-counters done (2026-02-15, 15 ECL cards). Enter-as-copy done (2026-02-15). Still needed: damage prevention, death replacement, Undying/Persist. **~15+ remaining cards.**
 
 5. ~~**Equipment system**~~ — **DONE (2026-02-14).** `Effect::Equip`, detachment SBA, card updates.
 
@@ -487,7 +496,7 @@ Priority ordered by cards-unblocked per effort.
 
 9. **Planeswalker system** — Loyalty abilities, can-be-attacked, damage redirection. **~10+ cards.**
 
-10. **Spell/permanent copy** — **PARTIAL (2026-02-15).** Token copy done (CreateTokenCopy + TokenModification). Enter-as-copy done (EnterAsACopy). Still needs spell copy on stack. **~2 remaining cards.**
+10. **Spell/permanent copy** — **PARTIAL (2026-02-15).** Token copy done (CreateTokenCopy + TokenModification). Enter-as-copy done (EnterAsACopy). Basic spell copy on stack done (Conspire). Still needs Fork/Reverberate-style targeting. **~1 remaining card.**
 
 11. ~~**Delayed triggers**~~ — **DONE (2026-02-14).** `DelayedTrigger` struct, `CreateDelayedTrigger` effect, event-driven firing, duration expiration. 4 unit tests.
 
@@ -495,7 +504,7 @@ Priority ordered by cards-unblocked per effort.
 
 13. **Saga enchantments** — Lore counters, chapter abilities. **~6+ cards.**
 
-14. **Cost modification** — Apply CostReduction during cost calculation. **~5+ cards.**
+14. ~~**Cost modification**~~ — **DONE (2026-02-15/16).** CostReduction, CostReductionDynamic, conditional reduction, Convoke. 14+ tests.
 
 15. **Additional combat phases** — Extra attack steps. **~3 cards.**
 
@@ -529,6 +538,14 @@ After the above systems are in place, systematically replace remaining `Custom(S
 
 **Batch 1-10 remediation** (2026-02-13 to 2026-02-14): Fixed ~60 cards by replacing Custom effects with typed variants. Added engine features: source-fallback for counters, Ward variant, EntersTappedUnless variant, mass-buff effects (BoostAllUntilEndOfTurn, GrantKeywordAllUntilEndOfTurn), AddCountersAll, AddCountersSelf, 7 cost implementations (RemoveCounters, Blight, ExileFromGraveyard, ExileFromHand, SacrificeOther, UntapSelf, Custom), Vivid mechanic (6 effect variants + color counting), Modal spells (Effect::Modal + ModalMode), Fight/Bite mechanics.
 
-**Session 2026-02-15:** Added BoostPerCount (dynamic P/T from counting permanents/graveyard), Flicker/FlickerEndStep/ReturnFromExileTapped, AdditionalLandPlays, OpponentExilesFromHand, ConditionalKeyword/ConditionalBoostSelf (evaluate_condition), BlightOpponents, GainAllCreatureTypes, CreateTokenCopy with TokenModification. Updated ~12 ECL cards. ECL now has 77 Effect::Custom and 20 StaticEffect::Custom.
+**Session 2026-02-15:** Added BoostPerCount (dynamic P/T from counting permanents/graveyard), Flicker/FlickerEndStep/ReturnFromExileTapped, AdditionalLandPlays, OpponentExilesFromHand, ConditionalKeyword/ConditionalBoostSelf (evaluate_condition), BlightOpponents, GainAllCreatureTypes, CreateTokenCopy with TokenModification. Updated ~12 ECL cards.
+
+**Session 2026-02-15/16 (ECL parity push):** Systematic reduction of ECL Custom fallbacks from 88 to 44 (50% reduction). Added 20+ new engine features:
+- **New Effects:** LoseAllAbilities, SetBasePowerToughnessAll, LoseAllAbilitiesAll, PutFromHandToBattlefield, ChooseTypeAndReturnFromGraveyard, ChooseTypeAndGrantKeywords, BecomesCreature, BoostByToughnessMinusPower, BounceAll, ExileFromOpponentLibrary, BecomeAllColors, ChooseColor, TransformSelf, CreateTokenCopyOfTriggering
+- **New StaticEffects:** SetBasePowerToughness, CantUntap, SetPowerToColorCount, AssignDamageWithToughness, DamageDoublingFromType, ManaDoublingBasicLands, EnhancedManaProduction, TriggerDoubling, EntersWithCounters, EnterAsACopy, GrantConvoke, GrantConspire, CostReductionDynamic
+- **New Keywords:** Convoke (full cost payment), Conspire (copy spell on stack)
+- **New Systems:** Transform/DFC, graveyard-ETB copy trigger (once per turn), TriggerScope, BlockerDeclared events, conditional cost reduction
+- **Tests:** 493 engine tests (from ~318), 584 total across all crates
+- **ECL Custom fallbacks:** 88 → 44 (37 Effect::Custom + 7 StaticEffect::Custom)
 
 See `docs/work-queue.md` for the batch-fix loop and per-set remediation docs for card-level details.

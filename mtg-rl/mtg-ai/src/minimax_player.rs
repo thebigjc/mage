@@ -56,6 +56,7 @@ const LOSE_SCORE: i32 = evaluator::LOSE_GAME_SCORE;
 const PASSIVITY_PENALTY: i32 = 5;
 
 /// A node in the minimax search tree.
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 struct SearchNode {
     /// The action that led to this node (None for root).
@@ -70,6 +71,7 @@ struct SearchNode {
     depth: u32,
 }
 
+#[allow(dead_code)]
 impl SearchNode {
     fn new_root(is_maximizing: bool) -> Self {
         SearchNode {
