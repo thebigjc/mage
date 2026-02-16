@@ -3187,7 +3187,7 @@ fn mirrormind_crown(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "The first time you would create one or more tokens each turn while equipped creature is on the battlefield, you may instead create that many token copies of equipped creature.",
-                    vec![StaticEffect::Custom("First token creation each turn may instead create copies of equipped creature.".into())]),
+                    vec![StaticEffect::replace_token_creation()]),
             Ability::activated(id, "Equip {2}",
                     vec![Cost::pay_mana("{2}")],
                     vec![Effect::Equip],

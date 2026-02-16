@@ -240,6 +240,7 @@ impl Game {
                     self.state.trigger_counts_this_turn.clear();
                     self.state.ability_resolution_counts_this_turn.clear();
                     self.state.cast_from_exile_once_used.clear();
+                    self.state.tokens_created_this_turn.clear();
 
                     self.watchers.reset_turn();
                 }
@@ -435,6 +436,7 @@ impl Game {
         self.state.mana_doubling_basic_lands = 0;
         self.state.enhanced_mana_productions.clear();
         self.state.trigger_doublings.clear();
+        self.state.token_replacement_effects.clear();
 
         // Step 2: Collect static effects from all battlefield permanents.
         // We must collect first to avoid borrow conflicts.
@@ -533,6 +535,15 @@ impl Game {
                         }
                         crate::abilities::StaticEffect::BoostPerTurnEvent { filter, event, power_per, toughness_per } => {
                             boost_per_turn_events.push((source_id, controller, filter.clone(), event.clone(), *power_per, *toughness_per));
+                        }
+                        crate::abilities::StaticEffect::ReplaceTokenCreation => {
+                            if let Some(perm) = self.state.battlefield.get(source_id) {
+                                if let Some(attached_to) = perm.attached_to {
+                                    if self.state.battlefield.get(attached_to).map_or(false, |p| p.card.card_types.contains(&crate::constants::CardType::Creature)) {
+                                        self.state.token_replacement_effects.push((source_id, controller, attached_to));
+                                    }
+                                }
+                            }
                         }
                         _ => {}
                     }
@@ -4495,21 +4506,23 @@ impl Game {
                     }
                 }
                 Effect::CreateToken { token_name, count } => {
-                    for _ in 0..resolve_x(*count) {
-                        // Create a minimal token permanent
-                        let token_id = ObjectId::new();
-                        let mut card = CardData::new(token_id, controller, token_name);
-                        card.card_types = vec![crate::constants::CardType::Creature];
-                        // Parse token stats from name (e.g. "4/4 Dragon with flying")
-                        let (p, t, kw) = Self::parse_token_stats(token_name);
-                        card.power = Some(p);
-                        card.toughness = Some(t);
-                        card.keywords = kw;
-                        card.is_token = true;
-                        let perm = Permanent::new(card, controller);
-                        self.state.battlefield.add(perm);
-                        self.state.set_zone(token_id, crate::constants::Zone::Battlefield, None);
-                        self.emit_event(GameEvent::enters_battlefield(token_id, controller));
+                    let actual_count = resolve_x(*count);
+                    if !self.try_replace_token_creation(controller, actual_count) {
+                        self.mark_tokens_created(controller);
+                        for _ in 0..actual_count {
+                            let token_id = ObjectId::new();
+                            let mut card = CardData::new(token_id, controller, token_name);
+                            card.card_types = vec![crate::constants::CardType::Creature];
+                            let (p, t, kw) = Self::parse_token_stats(token_name);
+                            card.power = Some(p);
+                            card.toughness = Some(t);
+                            card.keywords = kw;
+                            card.is_token = true;
+                            let perm = Permanent::new(card, controller);
+                            self.state.battlefield.add(perm);
+                            self.state.set_zone(token_id, crate::constants::Zone::Battlefield, None);
+                            self.emit_event(GameEvent::enters_battlefield(token_id, controller));
+                        }
                     }
                 }
                 Effect::Scry { count } => {
@@ -4748,7 +4761,7 @@ impl Game {
                     }
                 }
                 Effect::CreateTokenTappedAttacking { token_name, count } => {
-                    // Create tokens tapped and attacking (used by Mobilize mechanic)
+                    self.mark_tokens_created(controller);
                     for _ in 0..*count {
                         let token_id = ObjectId::new();
                         let mut card = CardData::new(token_id, controller, token_name);
@@ -4760,7 +4773,7 @@ impl Game {
                         card.is_token = true;
                         let mut perm = Permanent::new(card, controller);
                         perm.tapped = true;
-                        perm.summoning_sick = false; // Can attack since entering tapped and attacking
+                        perm.summoning_sick = false;
                         self.state.battlefield.add(perm);
                         self.state.set_zone(token_id, crate::constants::Zone::Battlefield, None);
                     }
@@ -5103,18 +5116,21 @@ impl Game {
                 }
                 Effect::CreateTokenVivid { token_name } => {
                     let x = self.count_colors_among_permanents(controller) as u32;
-                    for _ in 0..x {
-                        let token_id = ObjectId::new();
-                        let mut card = CardData::new(token_id, controller, token_name);
-                        card.card_types = vec![crate::constants::CardType::Creature];
-                        let (p, t, kw) = Self::parse_token_stats(token_name);
-                        card.power = Some(p);
-                        card.toughness = Some(t);
-                        card.keywords = kw;
-                        card.is_token = true;
-                        let perm = Permanent::new(card, controller);
-                        self.state.battlefield.add(perm);
-                        self.state.set_zone(token_id, crate::constants::Zone::Battlefield, None);
+                    if !self.try_replace_token_creation(controller, x) {
+                        self.mark_tokens_created(controller);
+                        for _ in 0..x {
+                            let token_id = ObjectId::new();
+                            let mut card = CardData::new(token_id, controller, token_name);
+                            card.card_types = vec![crate::constants::CardType::Creature];
+                            let (p, t, kw) = Self::parse_token_stats(token_name);
+                            card.power = Some(p);
+                            card.toughness = Some(t);
+                            card.keywords = kw;
+                            card.is_token = true;
+                            let perm = Permanent::new(card, controller);
+                            self.state.battlefield.add(perm);
+                            self.state.set_zone(token_id, crate::constants::Zone::Battlefield, None);
+                        }
                     }
                 }
                 Effect::SearchLibraryVivid => {
@@ -5985,6 +6001,7 @@ impl Game {
                     }
                 }
                 Effect::CreateTokenCopy { count, modifications } => {
+                    self.mark_tokens_created(controller);
                     let count = resolve_x(*count);
                     for &target_id in targets {
                         // Get the source permanent's card data to copy
@@ -6067,6 +6084,7 @@ impl Game {
                     }
                 }
                 Effect::CreateTokenCopyOfTriggering => {
+                    self.mark_tokens_created(controller);
                     for &target_id in targets {
                         let source_card = if let Some(perm) = self.state.battlefield.get(target_id) {
                             Some(perm.card.clone())
@@ -6135,21 +6153,23 @@ impl Game {
                     }
                 }
                 Effect::CreateTokenDynamic { token_name, count_filter } => {
-                    // Count matching items based on filter, then create that many tokens
-                    let count = self.evaluate_count_filter(count_filter, controller);
-                    for _ in 0..count {
-                        let token_id = ObjectId::new();
-                        let mut card = CardData::new(token_id, controller, token_name);
-                        card.card_types = vec![crate::constants::CardType::Creature];
-                        let (p, t, kw) = Self::parse_token_stats(token_name);
-                        card.power = Some(p);
-                        card.toughness = Some(t);
-                        card.keywords = kw;
-                        card.is_token = true;
-                        let perm = Permanent::new(card, controller);
-                        self.state.battlefield.add(perm);
-                        self.state.set_zone(token_id, crate::constants::Zone::Battlefield, None);
-                        self.emit_event(GameEvent::enters_battlefield(token_id, controller));
+                    let count = self.evaluate_count_filter(count_filter, controller) as u32;
+                    if !self.try_replace_token_creation(controller, count) {
+                        self.mark_tokens_created(controller);
+                        for _ in 0..count {
+                            let token_id = ObjectId::new();
+                            let mut card = CardData::new(token_id, controller, token_name);
+                            card.card_types = vec![crate::constants::CardType::Creature];
+                            let (p, t, kw) = Self::parse_token_stats(token_name);
+                            card.power = Some(p);
+                            card.toughness = Some(t);
+                            card.keywords = kw;
+                            card.is_token = true;
+                            let perm = Permanent::new(card, controller);
+                            self.state.battlefield.add(perm);
+                            self.state.set_zone(token_id, crate::constants::Zone::Battlefield, None);
+                            self.emit_event(GameEvent::enters_battlefield(token_id, controller));
+                        }
                     }
                 }
                 Effect::GainLifeDynamic { value_source } => {
@@ -6574,6 +6594,49 @@ impl Game {
 
     /// Parse token stats from a token name string like "4/4 Dragon with flying".
     /// Returns (power, toughness, keywords).
+    fn try_replace_token_creation(&mut self, controller: PlayerId, count: u32) -> bool {
+        if self.state.tokens_created_this_turn.contains(&controller) {
+            return false;
+        }
+        let replacement = self.state.token_replacement_effects.iter()
+            .find(|(_, ctrl, _)| *ctrl == controller)
+            .map(|(_, _, equipped_id)| *equipped_id);
+        let equipped_id = match replacement {
+            Some(id) => id,
+            None => return false,
+        };
+        let source_card = match self.state.battlefield.get(equipped_id) {
+            Some(perm) => perm.card.clone(),
+            None => return false,
+        };
+        self.state.tokens_created_this_turn.insert(controller);
+        for _ in 0..count {
+            let token_id = ObjectId::new();
+            let mut token_card = source_card.clone();
+            token_card.id = token_id;
+            token_card.owner = controller;
+            token_card.is_token = true;
+            token_card.abilities = token_card.abilities.iter().map(|ab| {
+                let mut new_ab = ab.clone();
+                new_ab.id = crate::types::AbilityId::new();
+                new_ab.source_id = token_id;
+                new_ab
+            }).collect();
+            for ab in &token_card.abilities {
+                self.state.ability_store.add(ab.clone());
+            }
+            let perm = Permanent::new(token_card, controller);
+            self.state.battlefield.add(perm);
+            self.state.set_zone(token_id, crate::constants::Zone::Battlefield, None);
+            self.emit_event(GameEvent::enters_battlefield(token_id, controller));
+        }
+        true
+    }
+
+    fn mark_tokens_created(&mut self, controller: PlayerId) {
+        self.state.tokens_created_this_turn.insert(controller);
+    }
+
     fn parse_token_stats(token_name: &str) -> (i32, i32, crate::constants::KeywordAbilities) {
         let name = token_name.trim();
         // Try to match "P/T Name..." pattern at the start

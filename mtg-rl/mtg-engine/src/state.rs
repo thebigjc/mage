@@ -147,6 +147,11 @@ pub struct GameState {
     pub dream_countered_cards: Vec<ObjectId>,
 
     pub cast_from_exile_once_used: HashSet<ObjectId>,
+
+    #[serde(skip)]
+    pub token_replacement_effects: Vec<(ObjectId, PlayerId, ObjectId)>,
+
+    pub tokens_created_this_turn: HashSet<PlayerId>,
 }
 
 /// Duration for impulse draw effects (how long the exiled card remains playable).
@@ -277,6 +282,8 @@ impl GameState {
             pending_dream_exile: Vec::new(),
             dream_countered_cards: Vec::new(),
             cast_from_exile_once_used: HashSet::new(),
+            token_replacement_effects: Vec::new(),
+            tokens_created_this_turn: HashSet::new(),
         }
     }
 

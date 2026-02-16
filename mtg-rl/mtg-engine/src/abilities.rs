@@ -1888,6 +1888,10 @@ impl StaticEffect {
             mv_count_filter: mv_count_filter.to_string(),
         }
     }
+
+    pub fn replace_token_creation() -> Self {
+        StaticEffect::ReplaceTokenCreation
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -2163,8 +2167,7 @@ pub enum StaticEffect {
     CastExiledOncePerTurn {
         mv_count_filter: String,
     },
-    /// Custom continuous effect.
-
+    ReplaceTokenCreation,
     Custom(String),
 }
 
