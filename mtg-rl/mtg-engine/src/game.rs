@@ -3141,7 +3141,7 @@ impl Game {
         // Put on the stack
         let stack_item = crate::zones::StackItem {
             id: card_id,
-            kind: crate::zones::StackItemKind::Spell { card: card_data.clone() },
+            kind: crate::zones::StackItemKind::Spell { card: Box::new(card_data.clone()) },
             controller: player_id,
             targets,
             countered: false,
@@ -3332,7 +3332,7 @@ impl Game {
                         self.state.ability_store.add(ability.clone());
                     }
                     // Permanent spells enter the battlefield
-                    let perm = Permanent::new(card.clone(), item.controller);
+                    let perm = Permanent::new((**card).clone(), item.controller);
                     self.state.battlefield.add(perm);
                     self.state.set_zone(item.id, crate::constants::Zone::Battlefield, None);
                     self.check_enter_as_copy(item.id);

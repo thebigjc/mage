@@ -452,7 +452,7 @@ pub enum StackItemKind {
     /// A spell (card being cast).
     Spell {
         /// The card data for the spell.
-        card: CardData,
+        card: Box<CardData>,
     },
     /// An activated or triggered ability.
     Ability {
@@ -802,7 +802,7 @@ mod tests {
         let card1 = CardData::new(id1, p, "Lightning Bolt");
         stack.push(StackItem {
             id: id1,
-            kind: StackItemKind::Spell { card: card1 },
+            kind: StackItemKind::Spell { card: Box::new(card1) },
             controller: p,
             targets: vec![],
             countered: false,
@@ -813,7 +813,7 @@ mod tests {
         let card2 = CardData::new(id2, p, "Counterspell");
         stack.push(StackItem {
             id: id2,
-            kind: StackItemKind::Spell { card: card2 },
+            kind: StackItemKind::Spell { card: Box::new(card2) },
             controller: p,
             targets: vec![],
             countered: false,

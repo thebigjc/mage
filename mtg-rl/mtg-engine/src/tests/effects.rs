@@ -2216,7 +2216,7 @@ fn counter_all_opponent_spells_and_abilities_counters_and_creates_tokens() {
     let spell1_id = spell1.id;
     game.state.stack.push(StackItem {
         id: spell1_id,
-        kind: StackItemKind::Spell { card: spell1 },
+        kind: StackItemKind::Spell { card: Box::new(spell1) },
         controller: p2,
         targets: vec![],
         countered: false,
@@ -2230,7 +2230,7 @@ fn counter_all_opponent_spells_and_abilities_counters_and_creates_tokens() {
     let spell2_id = spell2.id;
     game.state.stack.push(StackItem {
         id: spell2_id,
-        kind: StackItemKind::Spell { card: spell2 },
+        kind: StackItemKind::Spell { card: Box::new(spell2) },
         controller: p2,
         targets: vec![],
         countered: false,
@@ -2306,7 +2306,7 @@ fn counter_all_opponent_respects_cant_be_countered() {
     let unc_id = uncounterable.id;
     game.state.stack.push(StackItem {
         id: unc_id,
-        kind: StackItemKind::Spell { card: uncounterable },
+        kind: StackItemKind::Spell { card: Box::new(uncounterable) },
         controller: p2,
         targets: vec![],
         countered: false,
@@ -2320,7 +2320,7 @@ fn counter_all_opponent_respects_cant_be_countered() {
     let cnt_id = counterable.id;
     game.state.stack.push(StackItem {
         id: cnt_id,
-        kind: StackItemKind::Spell { card: counterable },
+        kind: StackItemKind::Spell { card: Box::new(counterable) },
         controller: p2,
         targets: vec![],
         countered: false,
@@ -2365,7 +2365,7 @@ fn counter_all_opponent_ignores_own_spells() {
     let own_id = own_spell.id;
     game.state.stack.push(StackItem {
         id: own_id,
-        kind: StackItemKind::Spell { card: own_spell },
+        kind: StackItemKind::Spell { card: Box::new(own_spell) },
         controller: p1,
         targets: vec![],
         countered: false,
@@ -2379,7 +2379,7 @@ fn counter_all_opponent_ignores_own_spells() {
     let opp_id = opp_spell.id;
     game.state.stack.push(StackItem {
         id: opp_id,
-        kind: StackItemKind::Spell { card: opp_spell },
+        kind: StackItemKind::Spell { card: Box::new(opp_spell) },
         controller: p2,
         targets: vec![],
         countered: false,

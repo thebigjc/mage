@@ -517,7 +517,7 @@ use crate::types::{ObjectId, PlayerId};
         ];
         let stack_item = crate::zones::StackItem {
             id: spell_id,
-            kind: crate::zones::StackItemKind::Spell { card: spell_card },
+            kind: crate::zones::StackItemKind::Spell { card: Box::new(spell_card) },
             controller: p1,
             targets: vec![],
             countered: false,
@@ -566,7 +566,7 @@ use crate::types::{ObjectId, PlayerId};
         ];
         let stack_item = crate::zones::StackItem {
             id: spell_id,
-            kind: crate::zones::StackItemKind::Spell { card: spell_card },
+            kind: crate::zones::StackItemKind::Spell { card: Box::new(spell_card) },
             controller: p1,
             targets: vec![],
             countered: false,
@@ -1677,7 +1677,7 @@ use crate::types::{ObjectId, PlayerId};
 
         let stack_item = crate::zones::StackItem {
             id: spell_id,
-            kind: crate::zones::StackItemKind::Spell { card: spell },
+            kind: crate::zones::StackItemKind::Spell { card: Box::new(spell) },
             controller: p1,
             targets: vec![],
             countered: false,
