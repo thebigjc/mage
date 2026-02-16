@@ -359,6 +359,9 @@ pub enum Effect {
     /// Exile up to N target cards from graveyards.
     ExileTargetCardsFromGraveyards { count: u32 },
 
+    /// Exile target card(s) from graveyards into a named exile zone linked to the source.
+    ExileTargetToSourceZone,
+
     /// Flicker: exile target creature, then immediately return it to the battlefield
     /// under its owner's control (as a new object, triggers ETB).
     Flicker,
@@ -1427,6 +1430,10 @@ impl Effect {
         Effect::ExileTargetCardsFromGraveyards { count }
     }
 
+    pub fn exile_target_to_source_zone() -> Self {
+        Effect::ExileTargetToSourceZone
+    }
+
     pub fn flicker() -> Self {
         Effect::Flicker
     }
@@ -1856,6 +1863,10 @@ impl StaticEffect {
             add_keywords: add_keywords.iter().map(|s| s.to_string()).collect(),
         }
     }
+
+    pub fn cast_from_exile_with_counter_cost(counter_count: u32) -> Self {
+        StaticEffect::CastFromExileWithCounterCost { counter_count }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -2114,6 +2125,11 @@ pub enum StaticEffect {
     EnterAsACopy {
         filter: String,
         add_keywords: Vec<String>,
+    },
+    /// During your turn, you may cast creature spells from cards exiled with this source
+    /// by removing N counters from among creatures you control as an additional cost.
+    CastFromExileWithCounterCost {
+        counter_count: u32,
     },
     /// Custom continuous effect.
 

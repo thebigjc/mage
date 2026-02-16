@@ -2419,17 +2419,17 @@ fn dawnhand_dissident(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::activated(id,
                 "{T}, Blight 1: Surveil 1.",
-                vec![Cost::tap_self()],
+                vec![Cost::tap_self(), Cost::Blight(1)],
                 vec![Effect::scry(1)],
                 TargetSpec::None),
             Ability::activated(id,
                 "{T}, Blight 2: Exile target card from a graveyard.",
-                vec![Cost::tap_self()],
-                vec![Effect::exile()],
+                vec![Cost::tap_self(), Cost::Blight(2)],
+                vec![Effect::exile_target_to_source_zone()],
                 TargetSpec::CardInGraveyard),
             Ability::static_ability(id,
                 "During your turn, you may cast creature spells from among cards you own exiled with this creature by removing three counters from among creatures you control in addition to paying their other costs.",
-                vec![StaticEffect::Custom("Cast exiled creatures by removing 3 counters.".into())]),
+                vec![StaticEffect::cast_from_exile_with_counter_cost(3)]),
         ],
         ..Default::default() }
 }

@@ -2667,3 +2667,153 @@ use crate::types::{ObjectId, PlayerId};
         assert!(game.state.impulse_playable[0].without_mana,
             "Should be castable without paying mana cost");
     }
+
+    #[test]
+    fn exile_target_to_source_zone_tracks_source() {
+        let (mut game, p1, p2) = setup_game();
+
+        let source_id = ObjectId::new();
+        let mut source_card = CardData::new(source_id, p1, "Dawnhand Dissident");
+        source_card.card_types = vec![CardType::Creature];
+        source_card.power = Some(1);
+        source_card.toughness = Some(2);
+        game.state.card_store.insert(source_card.clone());
+        game.state.battlefield.add(Permanent::new(source_card, p1));
+
+        let gy_card_id = ObjectId::new();
+        let mut gy_card = CardData::new(gy_card_id, p1, "Grizzly Bears");
+        gy_card.card_types = vec![CardType::Creature];
+        gy_card.power = Some(2);
+        gy_card.toughness = Some(2);
+        game.state.card_store.insert(gy_card);
+        game.state.players.get_mut(&p2).unwrap().graveyard.add(gy_card_id);
+        game.state.set_zone(gy_card_id, crate::constants::Zone::Graveyard, Some(p2));
+
+        game.execute_effects(
+            &[Effect::exile_target_to_source_zone()],
+            p1, &[gy_card_id], Some(source_id), None,
+        );
+
+        assert!(game.state.exile.contains(gy_card_id), "Card should be in exile");
+        let zone = game.state.exile.get_zone(source_id);
+        assert!(zone.is_some(), "Source exile zone should exist");
+        assert!(zone.unwrap().cards.contains(&gy_card_id),
+            "Card should be in source's exile zone");
+        assert!(!game.state.players.get(&p2).unwrap().graveyard.contains(gy_card_id),
+            "Card should no longer be in graveyard");
+    }
+
+    #[test]
+    fn cast_from_exile_with_counter_cost_appears_in_legal_actions() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let source_id = ObjectId::new();
+        let mut source_card = CardData::new(source_id, p1, "Dawnhand Dissident");
+        source_card.card_types = vec![CardType::Creature];
+        source_card.power = Some(1);
+        source_card.toughness = Some(2);
+        source_card.abilities = vec![
+            Ability::static_ability(source_id,
+                "Cast exiled creatures by removing 3 counters.",
+                vec![StaticEffect::cast_from_exile_with_counter_cost(3)]),
+        ];
+        game.state.card_store.insert(source_card.clone());
+        for ab in &source_card.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+        game.state.battlefield.add(Permanent::new(source_card, p1));
+
+        let exiled_id = ObjectId::new();
+        let mut exiled_card = CardData::new(exiled_id, p1, "Runeclaw Bear");
+        exiled_card.card_types = vec![CardType::Creature];
+        exiled_card.mana_cost = ManaCost::parse("{1}{G}");
+        exiled_card.power = Some(2);
+        exiled_card.toughness = Some(2);
+        game.state.card_store.insert(exiled_card);
+        game.state.exile.exile_to_zone(exiled_id, source_id, "Exiled with Dawnhand Dissident");
+        game.state.set_zone(exiled_id, crate::constants::Zone::Exile, None);
+
+        let helper_id = ObjectId::new();
+        let mut helper_card = CardData::new(helper_id, p1, "Helper Creature");
+        helper_card.card_types = vec![CardType::Creature];
+        helper_card.power = Some(3);
+        helper_card.toughness = Some(3);
+        game.state.card_store.insert(helper_card.clone());
+        let mut helper_perm = Permanent::new(helper_card, p1);
+        helper_perm.counters.add(CounterType::P1P1, 4);
+        game.state.battlefield.add(helper_perm);
+
+        game.state.players.get_mut(&p1).unwrap().mana_pool.add(Mana::green(1) + Mana::colorless(1), None, false);
+
+        let actions = game.compute_legal_actions(p1);
+        let cast_actions: Vec<_> = actions.iter()
+            .filter(|a| matches!(a, PlayerAction::CastSpell { card_id, .. } if *card_id == exiled_id))
+            .collect();
+        assert!(!cast_actions.is_empty(),
+            "Should be able to cast exiled creature with enough counters and mana");
+
+        game.state.players.get_mut(&p1).unwrap().mana_pool.clear();
+        let actions_no_mana = game.compute_legal_actions(p1);
+        let cast_no_mana: Vec<_> = actions_no_mana.iter()
+            .filter(|a| matches!(a, PlayerAction::CastSpell { card_id, .. } if *card_id == exiled_id))
+            .collect();
+        assert!(cast_no_mana.is_empty(),
+            "Should NOT be able to cast without mana");
+    }
+
+    #[test]
+    fn cast_from_exile_with_counter_cost_removes_counters() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let source_id = ObjectId::new();
+        let mut source_card = CardData::new(source_id, p1, "Dawnhand Dissident");
+        source_card.card_types = vec![CardType::Creature];
+        source_card.power = Some(1);
+        source_card.toughness = Some(2);
+        source_card.abilities = vec![
+            Ability::static_ability(source_id,
+                "Cast exiled creatures by removing 3 counters.",
+                vec![StaticEffect::cast_from_exile_with_counter_cost(3)]),
+        ];
+        game.state.card_store.insert(source_card.clone());
+        for ab in &source_card.abilities {
+            game.state.ability_store.add(ab.clone());
+        }
+        game.state.battlefield.add(Permanent::new(source_card, p1));
+
+        let exiled_id = ObjectId::new();
+        let mut exiled_card = CardData::new(exiled_id, p1, "Grizzly Bears");
+        exiled_card.card_types = vec![CardType::Creature];
+        exiled_card.mana_cost = ManaCost::parse("{1}{G}");
+        exiled_card.power = Some(2);
+        exiled_card.toughness = Some(2);
+        game.state.card_store.insert(exiled_card);
+        game.state.exile.exile_to_zone(exiled_id, source_id, "Exiled with Dawnhand Dissident");
+        game.state.set_zone(exiled_id, crate::constants::Zone::Exile, None);
+
+        let helper_id = ObjectId::new();
+        let mut helper_card = CardData::new(helper_id, p1, "Counter Creature");
+        helper_card.card_types = vec![CardType::Creature];
+        helper_card.power = Some(3);
+        helper_card.toughness = Some(3);
+        game.state.card_store.insert(helper_card.clone());
+        let mut helper_perm = Permanent::new(helper_card, p1);
+        helper_perm.counters.add(CounterType::P1P1, 5);
+        game.state.battlefield.add(helper_perm);
+
+        game.state.players.get_mut(&p1).unwrap().mana_pool.add(Mana::green(1) + Mana::colorless(1), None, false);
+
+        game.cast_spell(p1, exiled_id);
+
+        assert!(!game.state.exile.contains(exiled_id),
+            "Card should no longer be in exile after casting");
+        assert!(!game.state.stack.is_empty(),
+            "Spell should be on the stack");
+
+        let total_counters: u32 = game.state.battlefield.iter()
+            .filter(|p| p.controller == p1 && p.is_creature())
+            .map(|p| p.counters.total_count())
+            .sum();
+        assert_eq!(total_counters, 2,
+            "Should have removed 3 counters from the 5 available (5 - 3 = 2)");
+    }

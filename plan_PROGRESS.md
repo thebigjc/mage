@@ -9,8 +9,8 @@ IN_PROGRESS
 ## Analysis
 
 ### Current State
-- **Engine tests**: 552 (mtg-engine), all passing
-- **ECL Custom fallbacks**: 28 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 35 total (now 3 Effect::Custom + 7 StaticEffect::Custom remaining)
+- **Engine tests**: 558 (mtg-engine), all passing
+- **ECL Custom fallbacks**: 28 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 35 total (now 3 Effect::Custom + 6 StaticEffect::Custom remaining)
 - **Other sets**: FDN 336, TLA 199, TDM 110 (these are out of scope per the plan)
 
 ### Goal
@@ -101,7 +101,7 @@ Group the 44 fallbacks by what engine feature they need. Implement the engine fe
 
 ### Tier 5: Hard — StaticEffect::Custom eliminations
 
-- [ ] Task 24: Add `CastFromExileWithCounterCost` static effect — Allow casting creature spells exiled by this source by removing 3 counters from creatures you control. Update: **dawnhand_dissident**. Java uses `AsThoughEffectImpl` + `RemoveCounterCost`. Add engine test. ~1 card fixed.
+- [x] Task 24: Add `CastFromExileWithCounterCost` static effect — Added `Effect::ExileTargetToSourceZone` to exile cards to a named zone linked to source. Added `StaticEffect::CastFromExileWithCounterCost { counter_count }` to allow casting creature spells from source's exile zone during your turn by removing N counters from creatures you control. Updated `compute_legal_actions` to check for castable exiled creatures and `cast_spell` to handle counter removal cost. Updated **dawnhand_dissident**: replaced `StaticEffect::Custom` with `StaticEffect::cast_from_exile_with_counter_cost(3)`, replaced `Effect::exile()` with `Effect::exile_target_to_source_zone()`, added missing `Cost::Blight` to both activated abilities. 3 new tests (558 engine total). 1 StaticEffect::Custom eliminated.
 
 - [ ] Task 25: Add `GrantPersist` static effect — "Each other nontoken creature you control has persist." Needs persist keyword enforcement (return with -1/-1 counter on death). Update: **eirdu_carrier_of_dawn**. Java uses `GainAbilityAllEffect` with persist. Add engine test. ~1 card fixed.
 
@@ -154,7 +154,7 @@ Task 31 depends on all others
 18. Task 31 (verification)
 
 ## Completed This Iteration
-- Task 23: Added exile-with-dream-counters system. Added `Effect::ExileWithDreamCounterInsteadOfGraveyard` and `Effect::CastFromExileWithDreamCounters` variants. Added `pending_dream_exile` and `dream_countered_cards` tracking to GameState. Modified `resolve_top_of_stack` to intercept spells marked for dream exile. Updated goliath_daydreamer (replaced 2 Effect::Custom). 3 new tests (555 engine total). 2 Effect::Custom eliminated.
+- Task 24: Added CastFromExileWithCounterCost static effect. Added `Effect::ExileTargetToSourceZone` to exile cards to named source zones. Added `StaticEffect::CastFromExileWithCounterCost { counter_count }`. Updated compute_legal_actions and cast_spell for exile-with-counter casting. Updated dawnhand_dissident (replaced 1 StaticEffect::Custom + fixed Blight costs). 3 new tests (558 engine total). 1 StaticEffect::Custom eliminated.
 
 ## Notes
 

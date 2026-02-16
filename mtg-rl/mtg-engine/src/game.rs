@@ -2618,6 +2618,52 @@ impl Game {
             }
         }
 
+        // Check for CastFromExileWithCounterCost static effects
+        if can_sorcery && self.state.active_player == player_id {
+            let mut exile_castable: Vec<(ObjectId, u32)> = Vec::new();
+            for perm in self.state.battlefield.iter() {
+                if perm.controller != player_id { continue; }
+                let source_id = perm.id();
+                let abilities = self.state.ability_store.for_source(source_id);
+                for ability in abilities {
+                    if ability.ability_type != crate::constants::AbilityType::Static { continue; }
+                    for effect in &ability.static_effects {
+                        if let crate::abilities::StaticEffect::CastFromExileWithCounterCost { counter_count } = effect {
+                            if let Some(zone) = self.state.exile.get_zone(source_id) {
+                                for &card_id in &zone.cards {
+                                    exile_castable.push((card_id, *counter_count));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            let total_counters: u32 = self.state.battlefield.iter()
+                .filter(|p| p.controller == player_id && p.is_creature())
+                .map(|p| p.counters.total_count())
+                .sum();
+            for (card_id, counter_cost) in exile_castable {
+                if total_counters < counter_cost { continue; }
+                if !self.state.exile.contains(card_id) { continue; }
+                if let Some(card) = self.state.card_store.get(card_id) {
+                    if card.owner != player_id { continue; }
+                    if !card.is_creature() { continue; }
+                    let base_cost = card.mana_cost.to_mana();
+                    let reduction = self.calculate_cost_reduction(player_id, card);
+                    let mana_cost = base_cost.reduce_generic(reduction);
+                    let available = player.mana_pool.available();
+                    if available.can_pay(&mana_cost) {
+                        actions.push(crate::decision::PlayerAction::CastSpell {
+                            card_id,
+                            targets: vec![],
+                            mode: None,
+                            without_mana: false,
+                        });
+                    }
+                }
+            }
+        }
+
         // Check for flashback-castable cards in graveyard
         if let Some(graveyard) = self.state.players.get(&player_id).map(|p| {
             p.graveyard.iter().copied().collect::<Vec<_>>()
@@ -2769,6 +2815,30 @@ impl Game {
                 .map(|p| p.graveyard.contains(card_id))
                 .unwrap_or(false);
 
+        // Check if this is cast from exile via CastFromExileWithCounterCost
+        let exile_counter_cost = if !from_exile && !from_graveyard && self.state.exile.contains(card_id) {
+            let mut cost = None;
+            for perm in self.state.battlefield.iter() {
+                if perm.controller != player_id { continue; }
+                let source_id = perm.id();
+                if let Some(zone) = self.state.exile.get_zone(source_id) {
+                    if !zone.cards.contains(&card_id) { continue; }
+                }  else { continue; }
+                let abilities = self.state.ability_store.for_source(source_id);
+                for ability in abilities {
+                    if ability.ability_type != crate::constants::AbilityType::Static { continue; }
+                    for effect in &ability.static_effects {
+                        if let crate::abilities::StaticEffect::CastFromExileWithCounterCost { counter_count } = effect {
+                            cost = Some(*counter_count);
+                        }
+                    }
+                }
+            }
+            cost
+        } else {
+            None
+        };
+
         // Remove from hand, exile, or graveyard
         if from_exile {
             self.state.exile.remove(card_id);
@@ -2777,9 +2847,40 @@ impl Game {
             if let Some(player) = self.state.players.get_mut(&player_id) {
                 player.graveyard.remove(card_id);
             }
+        } else if exile_counter_cost.is_some() {
+            self.state.exile.remove(card_id);
         } else if let Some(player) = self.state.players.get_mut(&player_id) {
             if !player.hand.remove(card_id) {
                 return;
+            }
+        }
+
+        // Pay additional counter removal cost for exile-with-counter casting
+        if let Some(counter_cost) = exile_counter_cost {
+            let mut remaining = counter_cost;
+            let creature_ids: Vec<ObjectId> = self.state.battlefield.iter()
+                .filter(|p| p.controller == player_id && p.is_creature())
+                .map(|p| p.id())
+                .collect();
+            for cid in creature_ids {
+                if remaining == 0 { break; }
+                if let Some(perm) = self.state.battlefield.get_mut(cid) {
+                    let available = perm.counters.total_count();
+                    let to_remove = remaining.min(available);
+                    if to_remove > 0 {
+                        let types: Vec<_> = perm.counters.iter()
+                            .filter(|(_, &c)| c > 0)
+                            .map(|(ct, _)| ct.clone())
+                            .collect();
+                        for ct in types {
+                            if remaining == 0 { break; }
+                            let avail = perm.counters.get(&ct);
+                            let remove = remaining.min(avail);
+                            perm.counters.remove(&ct, remove);
+                            remaining -= remove;
+                        }
+                    }
+                }
             }
         }
 
@@ -5497,6 +5598,34 @@ impl Game {
                                 self.state.set_zone(target_id, crate::constants::Zone::Exile, None);
                                 exiled += 1;
                             }
+                        }
+                    }
+                }
+                Effect::ExileTargetToSourceZone => {
+                    let source_id = source.unwrap_or(ObjectId::new());
+                    let source_name = self.state.battlefield.get(source_id)
+                        .map(|p| p.name().to_string())
+                        .unwrap_or_else(|| "Unknown".to_string());
+                    for &target_id in targets {
+                        let mut found_player = None;
+                        for (&pid, player) in self.state.players.iter() {
+                            if player.graveyard.contains(target_id) {
+                                found_player = Some(pid);
+                                break;
+                            }
+                        }
+                        if let Some(pid) = found_player {
+                            if let Some(player) = self.state.players.get_mut(&pid) {
+                                player.graveyard.remove(target_id);
+                            }
+                            let zone_name = format!("Exiled with {}", source_name);
+                            self.state.exile.exile_to_zone(target_id, source_id, &zone_name);
+                            self.state.set_zone(target_id, crate::constants::Zone::Exile, None);
+                        } else if self.state.battlefield.remove(target_id).is_some() {
+                            self.state.ability_store.remove_source(target_id);
+                            let zone_name = format!("Exiled with {}", source_name);
+                            self.state.exile.exile_to_zone(target_id, source_id, &zone_name);
+                            self.state.set_zone(target_id, crate::constants::Zone::Exile, None);
                         }
                     }
                 }
