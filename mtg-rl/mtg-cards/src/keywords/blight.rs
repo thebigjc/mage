@@ -29,8 +29,7 @@ pub fn blight_rules_text(count: u32) -> String {
             .to_string()
     } else {
         format!(
-            "As an additional cost to cast this spell, put {} -1/-1 counters on a creature you control.",
-            count,
+            "As an additional cost to cast this spell, put {count} -1/-1 counters on a creature you control."
         )
     }
 }

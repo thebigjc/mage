@@ -40,10 +40,10 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 - [x] Task 14: Fix `uninlined_format_args` in constants.rs, mana.rs, events.rs
 - [x] Task 15: Fix `should_implement_trait` in filters.rs:178 — implemented `std::ops::Not` trait for `Predicate`, replaced `.not()` call with `!` operator
 - [x] Task 16: Fix remaining filters.rs warnings (map_or → is_some_and)
-- [ ] Task 17: Fix `unnecessary_lazy_evaluations` in watchers.rs:181
+- [x] Task 17: Fix `unnecessary_lazy_evaluations` in watchers.rs:181 — replaced `.and_then(|_| expr)` with `.and(expr)`
 
 ### Phase 4: mtg-cards crate (13 warnings)
-- [ ] Task 18: Fix `uninlined_format_args` and other warnings in keywords/behold.rs, keywords/blight.rs, keywords/mobilize.rs
+- [x] Task 18: Fix `uninlined_format_args` and other warnings in keywords/behold.rs, keywords/blight.rs, keywords/mobilize.rs
 - [ ] Task 19: Fix `manual_contains` in registry.rs:87
 - [ ] Task 20: Fix `useless_conversion` in sets/fdn.rs:1643
 
@@ -60,7 +60,7 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 - [ ] Task 28: Run `cargo test --lib` and `cargo test --release` to confirm all tests still pass
 
 ## Completed This Iteration
-- Task 16: Changed `map_or(false, ...)` to `is_some_and(...)` in filters.rs for power and toughness comparison predicates (lines 328, 331). All 576 tests pass. 1 mtg-engine warning remains (Task 17).
+- Task 18: Inlined format args in behold.rs (2 format! calls), blight.rs (1 format! call), mobilize.rs (1 format! call). mtg-cards clippy warnings reduced from 6 to 2. All 20 mtg-cards tests pass.
 
 ## Notes
 

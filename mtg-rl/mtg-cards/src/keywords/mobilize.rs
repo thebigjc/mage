@@ -25,10 +25,9 @@ pub fn mobilize(source_id: ObjectId, count: u32) -> Ability {
             .to_string()
     } else {
         format!(
-            "Mobilize {} (Whenever this creature attacks, create {} 1/1 red Warrior \
+            "Mobilize {count} (Whenever this creature attacks, create {count} 1/1 red Warrior \
              creature tokens tapped and attacking. Sacrifice them at the beginning of \
-             the next end step.)",
-            count, count,
+             the next end step.)"
         )
     };
 

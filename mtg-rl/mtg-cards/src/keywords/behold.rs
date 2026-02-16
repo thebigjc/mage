@@ -22,15 +22,14 @@ use mtg_engine::abilities::Cost;
 /// This is an *optional* additional cost — the spell can be cast without
 /// it, but if paid, provides an enhanced effect.
 pub fn behold_cost(subtype: &str) -> Cost {
-    Cost::RevealFromHand(format!("Behold {}", subtype))
+    Cost::RevealFromHand(format!("Behold {subtype}"))
 }
 
 /// Generate the rules text for Behold.
 pub fn behold_rules_text(subtype: &str) -> String {
     format!(
-        "Behold a {} (As an additional cost to cast this spell, you may choose a {} you control \
-         or reveal a {} card from your hand.)",
-        subtype, subtype, subtype,
+        "Behold a {subtype} (As an additional cost to cast this spell, you may choose a {subtype} you control \
+         or reveal a {subtype} card from your hand.)"
     )
 }
 
