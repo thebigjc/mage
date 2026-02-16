@@ -95,6 +95,7 @@ use crate::types::{ObjectId, PlayerId};
         id
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn add_lord_with_boost(
         game: &mut Game,
         owner: PlayerId,
