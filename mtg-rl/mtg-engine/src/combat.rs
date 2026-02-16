@@ -125,11 +125,8 @@ impl CombatState {
     /// Declare a blocker. Assigns it to the combat group for the attacker.
     pub fn declare_blocker(&mut self, blocker_id: ObjectId, attacker_id: ObjectId) {
         self.blocker_to_attacker.insert(blocker_id, attacker_id);
-        for group in &mut self.groups {
-            if group.attacker_id == attacker_id {
-                group.add_blocker(blocker_id);
-                return;
-            }
+        if let Some(group) = self.groups.iter_mut().find(|g| g.attacker_id == attacker_id) {
+            group.add_blocker(blocker_id);
         }
     }
 
@@ -164,25 +161,12 @@ impl CombatState {
     /// Whether any creature has first/double strike (determines if we need
     /// the first strike damage step).
     pub fn has_first_strikers(&self, get_perm: &dyn Fn(ObjectId) -> Option<KeywordAbilities>) -> bool {
-        for &id in &self.attackers {
-            if let Some(kw) = get_perm(id) {
-                if kw.contains(KeywordAbilities::FIRST_STRIKE)
-                    || kw.contains(KeywordAbilities::DOUBLE_STRIKE)
-                {
-                    return true;
-                }
-            }
-        }
-        for &id in self.blocker_to_attacker.keys() {
-            if let Some(kw) = get_perm(id) {
-                if kw.contains(KeywordAbilities::FIRST_STRIKE)
-                    || kw.contains(KeywordAbilities::DOUBLE_STRIKE)
-                {
-                    return true;
-                }
-            }
-        }
-        false
+        let first_or_double = KeywordAbilities::FIRST_STRIKE | KeywordAbilities::DOUBLE_STRIKE;
+        self.attackers
+            .iter()
+            .chain(self.blocker_to_attacker.keys())
+            .filter_map(|&id| get_perm(id))
+            .any(|kw| kw.intersects(first_or_double))
     }
 }
 
@@ -253,10 +237,7 @@ pub fn satisfies_menace(
     attacker: &Permanent,
     blocker_count: usize,
 ) -> bool {
-    if attacker.has_menace() && blocker_count > 0 && blocker_count < 2 {
-        return false;
-    }
-    true
+    !attacker.has_menace() || blocker_count == 0 || blocker_count >= 2
 }
 
 // ---------------------------------------------------------------------------

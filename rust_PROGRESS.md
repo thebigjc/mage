@@ -95,7 +95,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 
 #### 2A: Iterator/Functional Patterns
 - [x] Task 2.1: Replace imperative loops in game.rs with iterator chains where it improves clarity (`.iter().filter().map()` patterns)
-- [ ] Task 2.2: Replace imperative loops in combat.rs with iterator chains
+- [x] Task 2.2: Replace imperative loops in combat.rs with iterator chains
 - [ ] Task 2.3: Use `Option` and `Result` combinators (`.map()`, `.and_then()`, `.unwrap_or()`) to replace manual match/if-let chains
 
 #### 2B: Newtype Validation
@@ -205,6 +205,14 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - All 576 engine tests passing, zero clippy warnings
 
 ## Completed This Iteration
+- Task 2.2: Replaced imperative loops in combat.rs with idiomatic iterator chains
+  - `declare_blocker`: for+if+return → `.iter_mut().find()` + `if let Some`
+  - `has_first_strikers`: two for loops with early return → `.chain().filter_map().any()` with `intersects`
+  - `satisfies_menace`: if-return-true → direct boolean expression
+  - Preserved imperative loops in `assign_combat_damage` (stateful `remaining_damage` makes iteration inappropriate)
+  - 584 engine + 20 cards + 19 integration tests passing, zero clippy warnings
+
+### Previous Iteration
 - Task 2.1: Replaced imperative loops in game.rs with idiomatic iterator chains
   - Converted 12 imperative loops across 8 functions to iterator chains:
     - `count_conspire_eligible_creatures`: for+if+count → `.filter().count()`
