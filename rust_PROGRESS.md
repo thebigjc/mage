@@ -110,8 +110,8 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 ### Phase 3: Code Quality
 
 - [x] Task 3.1: Replace `SubType::Custom(String)` with concrete enum variants for all 15 usages
-- [ ] Task 3.2: Add `#[must_use]` annotations to functions returning important values
-- [ ] Task 3.3: Use `const` for compile-time card data where possible (mana costs, static strings)
+- [x] Task 3.2: Add `#[must_use]` annotations to functions returning important values
+- [x] Task 3.3: Use `const` for compile-time card data where possible (mana costs, static strings)
 - [ ] Task 3.4: Convert string-based card name lookups in registry to use `&'static str` or interned strings
 
 ### Phase 4: Performance
@@ -205,18 +205,26 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - All 576 engine tests passing, zero clippy warnings
 
 ## Completed This Iteration
+- Task 3.3: Added `const fn` annotations across mtg-engine for compile-time evaluation
+  - **Mana constructors** (9 methods): `new()`, `white()`, `blue()`, `black()`, `red()`, `green()`, `colorless()`, `generic()`, `any()` — replaced `..Default::default()` with explicit zero-field initialization to enable const
+  - **Mana query methods** (6 methods): `count()`, `colored_count()`, `mana_value()`, `get_color()`, `is_empty()`, `can_pay()`, `reduce_generic()` — pure arithmetic, now const-evaluable
+  - **ManaCost**: `new()` now const (Vec::new() is const since Rust 1.39)
+  - **Added `MANA_ZERO` public constant** for compile-time zero mana usage
+  - **constants.rs** (16 methods made const):
+    - `Zone::is_public()`, `TurnPhase::is_main()`, `PhaseStep::index/is_before/is_after/phase()`
+    - `CardType::is_permanent()`, `SubTypeSet::is_land()`
+    - `ManaColor::symbol/from_symbol/is_colored()`, `Color::symbol/from_symbol/to_mana_color()`
+    - `Outcome::is_good/inverse()`, `AbilityType::is_activated/is_triggered/is_mana()`
+    - `ComparisonType::compare()`
+  - **types.rs** (5 newtype methods): `abs()`, `unsigned_abs()`, `max()`, `min()`, `as_u32_saturating()` for Power/Toughness/Life
+  - **Note**: CardData factories, ManaCost::parse(), and Ability construction cannot be const due to String/Vec/UUID heap allocations
+  - 705 tests passing (614 engine + 20 cards + 52 AI + 19 integration), zero clippy warnings
+
+### Previous Iteration
+- Task 3.2: Added `#[must_use]` annotations to key types and builder methods
+
+### Previous Iteration
 - Task 3.1: Replaced SubType::Custom(String) with concrete enum variants
-  - Reduced SubType::Custom from 15 usages to 2 (only the structural fallback in `by_description()` and `description()`)
-  - **game.rs**: `ChooseCreatureType` now uses `SubType::by_description()` instead of `SubType::Custom()` — chosen types resolve to proper enum variants
-  - **game.rs**: `ChooseTypeAndDraw` filter now uses `st.description() == type_name` instead of fragile `Custom(s) => s ==` / `format!("{:?}")` matching
-  - **Test files**: Replaced 11 SubType::Custom usages with proper variants:
-    - `SubType::Custom("Weird")` → `SubType::Weird` (permanent.rs)
-    - `SubType::Custom("Dragon")` → `SubType::Dragon` (tokens.rs)
-    - `SubType::Custom("Elemental")` → `SubType::Elemental` (special_mechanics.rs)
-    - `SubType::Custom("Elf")` → `SubType::Elf` (special_mechanics.rs)
-    - `SubType::Custom("Goblin")` → `SubType::Goblin` (special_mechanics.rs ×1, continuous_effects.rs ×1)
-    - `SubType::Custom("Sorcerer")` → `SubType::Sorcerer` (continuous_effects.rs)
-    - `SubType::Custom("Enchantment")` → `SubType::Spirit` (continuous_effects.rs, test-only label)
     - `SubType::Custom("Lord")` → `SubType::Human` (continuous_effects.rs, test-only label)
   - Fixed pre-existing issues: game_bench.rs Power/Toughness/Life newtype mismatches, special_mechanics.rs unused variables, tokens.rs clippy warning
   - 705 tests passing (614 engine + 20 cards + 52 AI + 19 integration), zero clippy warnings

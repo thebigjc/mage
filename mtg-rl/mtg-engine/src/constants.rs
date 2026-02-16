@@ -18,7 +18,7 @@ pub enum Zone {
 }
 
 impl Zone {
-    pub fn is_public(self) -> bool {
+    pub const fn is_public(self) -> bool {
         matches!(
             self,
             Zone::Graveyard | Zone::Battlefield | Zone::Stack | Zone::Exile | Zone::Command
@@ -54,7 +54,7 @@ pub enum TurnPhase {
 }
 
 impl TurnPhase {
-    pub fn is_main(self) -> bool {
+    pub const fn is_main(self) -> bool {
         matches!(self, TurnPhase::PrecombatMain | TurnPhase::PostcombatMain)
     }
 }
@@ -78,19 +78,19 @@ pub enum PhaseStep {
 }
 
 impl PhaseStep {
-    pub fn index(self) -> u8 {
+    pub const fn index(self) -> u8 {
         self as u8
     }
 
-    pub fn is_before(self, other: PhaseStep) -> bool {
+    pub const fn is_before(self, other: PhaseStep) -> bool {
         (self as u8) < (other as u8)
     }
 
-    pub fn is_after(self, other: PhaseStep) -> bool {
+    pub const fn is_after(self, other: PhaseStep) -> bool {
         (self as u8) > (other as u8)
     }
 
-    pub fn phase(self) -> TurnPhase {
+    pub const fn phase(self) -> TurnPhase {
         match self {
             PhaseStep::Untap | PhaseStep::Upkeep | PhaseStep::Draw => TurnPhase::Beginning,
             PhaseStep::PrecombatMain => TurnPhase::PrecombatMain,
@@ -141,7 +141,7 @@ pub enum CardType {
 }
 
 impl CardType {
-    pub fn is_permanent(self) -> bool {
+    pub const fn is_permanent(self) -> bool {
         matches!(
             self,
             CardType::Artifact
@@ -180,7 +180,7 @@ pub enum SubTypeSet {
 }
 
 impl SubTypeSet {
-    pub fn is_land(self) -> bool {
+    pub const fn is_land(self) -> bool {
         matches!(self, SubTypeSet::BasicLandType | SubTypeSet::NonBasicLandType)
     }
 }
@@ -430,7 +430,7 @@ pub enum ManaColor {
 }
 
 impl ManaColor {
-    pub fn symbol(self) -> char {
+    pub const fn symbol(self) -> char {
         match self {
             ManaColor::White => 'W',
             ManaColor::Blue => 'U',
@@ -441,7 +441,7 @@ impl ManaColor {
         }
     }
 
-    pub fn from_symbol(c: char) -> Option<ManaColor> {
+    pub const fn from_symbol(c: char) -> Option<ManaColor> {
         match c {
             'W' => Some(ManaColor::White),
             'U' => Some(ManaColor::Blue),
@@ -453,7 +453,7 @@ impl ManaColor {
         }
     }
 
-    pub fn is_colored(self) -> bool {
+    pub const fn is_colored(self) -> bool {
         !matches!(self, ManaColor::Colorless)
     }
 
@@ -486,7 +486,7 @@ pub enum Color {
 }
 
 impl Color {
-    pub fn symbol(self) -> char {
+    pub const fn symbol(self) -> char {
         match self {
             Color::White => 'W',
             Color::Blue => 'U',
@@ -496,7 +496,7 @@ impl Color {
         }
     }
 
-    pub fn from_symbol(c: char) -> Option<Color> {
+    pub const fn from_symbol(c: char) -> Option<Color> {
         match c {
             'W' => Some(Color::White),
             'U' => Some(Color::Blue),
@@ -507,7 +507,7 @@ impl Color {
         }
     }
 
-    pub fn to_mana_color(self) -> ManaColor {
+    pub const fn to_mana_color(self) -> ManaColor {
         match self {
             Color::White => ManaColor::White,
             Color::Blue => ManaColor::Blue,
@@ -730,7 +730,7 @@ pub enum Outcome {
 
 impl Outcome {
     /// Whether this outcome is good for the target of the effect.
-    pub fn is_good(self) -> bool {
+    pub const fn is_good(self) -> bool {
         matches!(
             self,
             Outcome::BoostCreature
@@ -759,7 +759,7 @@ impl Outcome {
     }
 
     /// Invert good/bad classification.
-    pub fn inverse(self) -> Outcome {
+    pub const fn inverse(self) -> Outcome {
         if self.is_good() {
             Outcome::Detriment
         } else {
@@ -800,15 +800,15 @@ pub enum AbilityType {
 }
 
 impl AbilityType {
-    pub fn is_activated(self) -> bool {
+    pub const fn is_activated(self) -> bool {
         matches!(self, AbilityType::ActivatedNonMana | AbilityType::ActivatedMana | AbilityType::LoyaltyAbility)
     }
 
-    pub fn is_triggered(self) -> bool {
+    pub const fn is_triggered(self) -> bool {
         matches!(self, AbilityType::TriggeredNonMana | AbilityType::TriggeredMana)
     }
 
-    pub fn is_mana(self) -> bool {
+    pub const fn is_mana(self) -> bool {
         matches!(self, AbilityType::ActivatedMana | AbilityType::TriggeredMana)
     }
 }
@@ -892,7 +892,7 @@ pub enum ComparisonType {
 }
 
 impl ComparisonType {
-    pub fn compare(self, a: i32, b: i32) -> bool {
+    pub const fn compare(self, a: i32, b: i32) -> bool {
         match self {
             ComparisonType::LessThan => a < b,
             ComparisonType::LessOrEqual => a <= b,

@@ -25,61 +25,64 @@ pub struct Mana {
     pub any: u32,
 }
 
+/// Zero mana — all fields zero. Usable in const contexts.
+pub const MANA_ZERO: Mana = Mana { white: 0, blue: 0, black: 0, red: 0, green: 0, colorless: 0, generic: 0, any: 0 };
+
 impl Mana {
-    pub fn new() -> Self {
-        Self::default()
+    pub const fn new() -> Self {
+        MANA_ZERO
     }
 
-    pub fn white(amount: u32) -> Self {
-        Mana { white: amount, ..Default::default() }
+    pub const fn white(amount: u32) -> Self {
+        Mana { white: amount, blue: 0, black: 0, red: 0, green: 0, colorless: 0, generic: 0, any: 0 }
     }
 
-    pub fn blue(amount: u32) -> Self {
-        Mana { blue: amount, ..Default::default() }
+    pub const fn blue(amount: u32) -> Self {
+        Mana { white: 0, blue: amount, black: 0, red: 0, green: 0, colorless: 0, generic: 0, any: 0 }
     }
 
-    pub fn black(amount: u32) -> Self {
-        Mana { black: amount, ..Default::default() }
+    pub const fn black(amount: u32) -> Self {
+        Mana { white: 0, blue: 0, black: amount, red: 0, green: 0, colorless: 0, generic: 0, any: 0 }
     }
 
-    pub fn red(amount: u32) -> Self {
-        Mana { red: amount, ..Default::default() }
+    pub const fn red(amount: u32) -> Self {
+        Mana { white: 0, blue: 0, black: 0, red: amount, green: 0, colorless: 0, generic: 0, any: 0 }
     }
 
-    pub fn green(amount: u32) -> Self {
-        Mana { green: amount, ..Default::default() }
+    pub const fn green(amount: u32) -> Self {
+        Mana { white: 0, blue: 0, black: 0, red: 0, green: amount, colorless: 0, generic: 0, any: 0 }
     }
 
-    pub fn colorless(amount: u32) -> Self {
-        Mana { colorless: amount, ..Default::default() }
+    pub const fn colorless(amount: u32) -> Self {
+        Mana { white: 0, blue: 0, black: 0, red: 0, green: 0, colorless: amount, generic: 0, any: 0 }
     }
 
-    pub fn generic(amount: u32) -> Self {
-        Mana { generic: amount, ..Default::default() }
+    pub const fn generic(amount: u32) -> Self {
+        Mana { white: 0, blue: 0, black: 0, red: 0, green: 0, colorless: 0, generic: amount, any: 0 }
     }
 
-    pub fn any(amount: u32) -> Self {
-        Mana { any: amount, ..Default::default() }
+    pub const fn any(amount: u32) -> Self {
+        Mana { white: 0, blue: 0, black: 0, red: 0, green: 0, colorless: 0, generic: 0, any: amount }
     }
 
     /// Total count of all mana types.
-    pub fn count(&self) -> u32 {
+    pub const fn count(&self) -> u32 {
         self.white + self.blue + self.black + self.red + self.green
             + self.colorless + self.generic + self.any
     }
 
     /// Total colored mana.
-    pub fn colored_count(&self) -> u32 {
+    pub const fn colored_count(&self) -> u32 {
         self.white + self.blue + self.black + self.red + self.green
     }
 
     /// Converted mana cost (total mana value).
-    pub fn mana_value(&self) -> u32 {
+    pub const fn mana_value(&self) -> u32 {
         self.count()
     }
 
     /// Get the amount of a specific mana color.
-    pub fn get_color(&self, color: ManaColor) -> u32 {
+    pub const fn get_color(&self, color: ManaColor) -> u32 {
         match color {
             ManaColor::White => self.white,
             ManaColor::Blue => self.blue,
@@ -91,7 +94,7 @@ impl Mana {
     }
 
     pub fn of_color(color: ManaColor, amount: u32) -> Self {
-        let mut m = Mana::default();
+        let mut m = Mana::new();
         m.add_color(color, amount);
         m
     }
@@ -110,7 +113,7 @@ impl Mana {
 
     /// Check if this mana pool can pay the given mana cost.
     /// Uses a simplified algorithm (does not handle hybrid mana).
-    pub fn can_pay(&self, cost: &Mana) -> bool {
+    pub const fn can_pay(&self, cost: &Mana) -> bool {
         // First check colored requirements
         if self.white < cost.white
             || self.blue < cost.blue
@@ -146,7 +149,7 @@ impl Mana {
     }
 
     /// Returns true if this represents no mana.
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.count() == 0
     }
 
@@ -157,10 +160,16 @@ impl Mana {
 
     /// Return a copy of this mana cost with the generic portion reduced by `amount`.
     /// Cannot reduce below zero.
-    pub fn reduce_generic(&self, amount: u32) -> Mana {
+    pub const fn reduce_generic(&self, amount: u32) -> Mana {
         Mana {
+            white: self.white,
+            blue: self.blue,
+            black: self.black,
+            red: self.red,
+            green: self.green,
+            colorless: self.colorless,
             generic: self.generic.saturating_sub(amount),
-            ..*self
+            any: self.any,
         }
     }
 }
@@ -269,7 +278,7 @@ pub struct ManaCost {
 }
 
 impl ManaCost {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         ManaCost { items: Vec::new() }
     }
 

@@ -134,24 +134,24 @@ macro_rules! game_value_newtype {
                 self.0
             }
 
-            pub fn abs(self) -> Self {
+            pub const fn abs(self) -> Self {
                 Self(self.0.abs())
             }
 
-            pub fn unsigned_abs(self) -> u32 {
+            pub const fn unsigned_abs(self) -> u32 {
                 self.0.unsigned_abs()
             }
 
-            pub fn max(self, other: Self) -> Self {
-                Self(self.0.max(other.0))
+            pub const fn max(self, other: Self) -> Self {
+                if self.0 > other.0 { self } else { other }
             }
 
-            pub fn min(self, other: Self) -> Self {
-                Self(self.0.min(other.0))
+            pub const fn min(self, other: Self) -> Self {
+                if self.0 < other.0 { self } else { other }
             }
 
-            pub fn as_u32_saturating(self) -> u32 {
-                self.0.max(0) as u32
+            pub const fn as_u32_saturating(self) -> u32 {
+                if self.0 > 0 { self.0 as u32 } else { 0 }
             }
         }
 
