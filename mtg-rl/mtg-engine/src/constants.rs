@@ -578,6 +578,7 @@ bitflags! {
         const FABRICATE        = 1 << 44;
         const STORM            = 1 << 45;
         const PARTNER          = 1 << 46;
+        const CONSPIRE         = 1 << 47;
     }
 }
 

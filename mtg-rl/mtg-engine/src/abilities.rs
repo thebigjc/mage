@@ -1478,6 +1478,12 @@ impl StaticEffect {
             filter: filter.to_string(),
         }
     }
+
+    pub fn grant_conspire(filter: &str) -> Self {
+        StaticEffect::GrantConspire {
+            filter: filter.to_string(),
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1711,6 +1717,10 @@ pub enum StaticEffect {
     EnhancedManaProduction,
     /// Triggered abilities of matching permanents the controller controls trigger an additional time.
     TriggerDoubling {
+        filter: String,
+    },
+    /// Grant conspire to matching spells the controller casts.
+    GrantConspire {
         filter: String,
     },
     /// Custom continuous effect.

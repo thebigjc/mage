@@ -1544,3 +1544,186 @@ use crate::types::{ObjectId, PlayerId};
             _ => panic!("Expected GrantConvoke variant"),
         }
     }
+
+    // ── Conspire tests ──────────────────────────────────────────────────────
+
+    fn make_conspire_spell(owner: PlayerId) -> CardData {
+        let id = ObjectId::new();
+        let mut card = CardData::new(id, owner, "Conspire Spell");
+        card.card_types = vec![CardType::Sorcery];
+        card.mana_cost = ManaCost::parse("{2}{R}");
+        card.keywords = KeywordAbilities::CONSPIRE;
+        card.abilities = vec![Ability::spell(id, vec![Effect::DealDamage { amount: 3 }], TargetSpec::Creature)];
+        card
+    }
+
+    #[test]
+    fn spell_has_conspire_keyword() {
+        let (game, p1, _p2) = setup_game2();
+        let card = make_conspire_spell(p1);
+        assert!(game.spell_has_conspire(p1, &card));
+    }
+
+    #[test]
+    fn spell_without_conspire() {
+        let (game, p1, _p2) = setup_game2();
+        let mut card = CardData::new(ObjectId::new(), p1, "Normal Spell");
+        card.card_types = vec![CardType::Sorcery];
+        card.mana_cost = ManaCost::parse("{2}{R}");
+        assert!(!game.spell_has_conspire(p1, &card));
+    }
+
+    #[test]
+    fn conspire_eligible_creatures_share_color() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let c1 = make_creature_with_color("Red Goblin", p1, vec![Color::Red]);
+        game.state.battlefield.add(Permanent::new(c1.clone(), p1));
+        game.state.card_store.insert(c1);
+
+        let c2 = make_creature_with_color("Red Warrior", p1, vec![Color::Red]);
+        game.state.battlefield.add(Permanent::new(c2.clone(), p1));
+        game.state.card_store.insert(c2);
+
+        let c3 = make_creature_with_color("Blue Wizard", p1, vec![Color::Blue]);
+        game.state.battlefield.add(Permanent::new(c3.clone(), p1));
+        game.state.card_store.insert(c3);
+
+        let red_colors = vec![Color::Red];
+        assert_eq!(game.count_conspire_eligible_creatures(p1, &red_colors), 2);
+    }
+
+    #[test]
+    fn conspire_excludes_tapped_creatures() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let c1 = make_creature_with_color("Tapped Goblin", p1, vec![Color::Red]);
+        let c1_id = c1.id;
+        game.state.battlefield.add(Permanent::new(c1.clone(), p1));
+        game.state.card_store.insert(c1);
+        game.state.battlefield.get_mut(c1_id).unwrap().tapped = true;
+
+        let c2 = make_creature_with_color("Untapped Goblin", p1, vec![Color::Red]);
+        game.state.battlefield.add(Permanent::new(c2.clone(), p1));
+        game.state.card_store.insert(c2);
+
+        let red_colors = vec![Color::Red];
+        assert_eq!(game.count_conspire_eligible_creatures(p1, &red_colors), 1);
+    }
+
+    #[test]
+    fn conspire_excludes_opponent_creatures() {
+        let (mut game, p1, p2) = setup_game();
+
+        let c1 = make_creature_with_color("Enemy Goblin", p2, vec![Color::Red]);
+        game.state.battlefield.add(Permanent::new(c1.clone(), p2));
+        game.state.card_store.insert(c1);
+
+        let red_colors = vec![Color::Red];
+        assert_eq!(game.count_conspire_eligible_creatures(p1, &red_colors), 0);
+    }
+
+    #[test]
+    fn conspire_no_matching_color() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let c1 = make_creature_with_color("Blue Wizard", p1, vec![Color::Blue]);
+        game.state.battlefield.add(Permanent::new(c1.clone(), p1));
+        game.state.card_store.insert(c1);
+
+        let c2 = make_creature_with_color("Green Elf", p1, vec![Color::Green]);
+        game.state.battlefield.add(Permanent::new(c2.clone(), p1));
+        game.state.card_store.insert(c2);
+
+        let red_colors = vec![Color::Red];
+        assert_eq!(game.count_conspire_eligible_creatures(p1, &red_colors), 0);
+    }
+
+    #[test]
+    fn grant_conspire_via_static_effect() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let granter_id = ObjectId::new();
+        let mut granter = CardData::new(granter_id, p1, "Raiding Schemes");
+        granter.card_types = vec![CardType::Enchantment];
+        game.state.battlefield.add(Permanent::new(granter.clone(), p1));
+        game.state.card_store.insert(granter);
+
+        let grant_ability = Ability::static_ability(
+            granter_id,
+            "Each noncreature spell you cast has conspire.",
+            vec![StaticEffect::grant_conspire("noncreature spells")],
+        );
+        game.state.ability_store.add(grant_ability);
+
+        let mut spell = CardData::new(ObjectId::new(), p1, "Lightning Bolt");
+        spell.card_types = vec![CardType::Instant];
+        spell.mana_cost = ManaCost::parse("{R}");
+        assert!(game.spell_has_conspire(p1, &spell));
+
+        let mut creature_spell = CardData::new(ObjectId::new(), p1, "Some Creature");
+        creature_spell.card_types = vec![CardType::Creature];
+        creature_spell.mana_cost = ManaCost::parse("{2}{R}");
+        assert!(!game.spell_has_conspire(p1, &creature_spell));
+    }
+
+    #[test]
+    fn copy_spell_on_stack_creates_copy() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let spell = make_conspire_spell(p1);
+        let spell_id = spell.id;
+        game.state.card_store.insert(spell.clone());
+
+        let stack_item = crate::zones::StackItem {
+            id: spell_id,
+            kind: crate::zones::StackItemKind::Spell { card: spell },
+            controller: p1,
+            targets: vec![],
+            countered: false,
+            x_value: None,
+            exile_on_resolve: false,
+        };
+        game.state.stack.push(stack_item);
+
+        assert_eq!(game.state.stack.len(), 1);
+        game.copy_spell_on_stack(spell_id, p1);
+        assert_eq!(game.state.stack.len(), 2, "Stack should have original + copy");
+    }
+
+    #[test]
+    fn conspire_helper_constructor() {
+        match StaticEffect::grant_conspire("noncreature spells") {
+            StaticEffect::GrantConspire { filter } => {
+                assert_eq!(filter, "noncreature spells");
+            }
+            _ => panic!("Expected GrantConspire variant"),
+        }
+    }
+
+    #[test]
+    fn pay_conspire_taps_two_creatures() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let c1 = make_creature_with_color("Red Goblin 1", p1, vec![Color::Red]);
+        let c1_id = c1.id;
+        game.state.battlefield.add(Permanent::new(c1.clone(), p1));
+        game.state.card_store.insert(c1);
+
+        let c2 = make_creature_with_color("Red Goblin 2", p1, vec![Color::Red]);
+        let c2_id = c2.id;
+        game.state.battlefield.add(Permanent::new(c2.clone(), p1));
+        game.state.card_store.insert(c2);
+
+        let c3 = make_creature_with_color("Red Goblin 3", p1, vec![Color::Red]);
+        let c3_id = c3.id;
+        game.state.battlefield.add(Permanent::new(c3.clone(), p1));
+        game.state.card_store.insert(c3);
+
+        game.pay_conspire_cost(p1, &[Color::Red]);
+
+        let tapped_count = [c1_id, c2_id, c3_id].iter()
+            .filter(|id| game.state.battlefield.get(**id).map_or(false, |p| p.tapped))
+            .count();
+        assert_eq!(tapped_count, 2, "Exactly 2 creatures should be tapped for conspire");
+    }

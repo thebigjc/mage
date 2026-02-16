@@ -979,6 +979,92 @@ impl Game {
         produced
     }
 
+    pub fn spell_has_conspire(&self, player_id: PlayerId, card: &crate::card::CardData) -> bool {
+        if card.keywords.contains(crate::constants::KeywordAbilities::CONSPIRE) {
+            return true;
+        }
+        for perm in self.state.battlefield.iter() {
+            if perm.controller != player_id {
+                continue;
+            }
+            let abilities = self.state.ability_store.for_source(perm.id());
+            for ability in abilities {
+                if ability.ability_type != crate::constants::AbilityType::Static {
+                    continue;
+                }
+                for effect in &ability.static_effects {
+                    if let crate::abilities::StaticEffect::GrantConspire { filter } = effect {
+                        if self.spell_matches_cost_filter(card, filter) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    pub fn count_conspire_eligible_creatures(&self, player_id: PlayerId, spell_colors: &[crate::constants::Color]) -> u32 {
+        let mut count = 0u32;
+        for perm in self.state.battlefield.iter() {
+            if perm.controller != player_id || perm.tapped || !perm.is_creature() {
+                continue;
+            }
+            let creature_colors = perm.card.colors();
+            let shares_color = creature_colors.iter().any(|c| spell_colors.contains(c))
+                || perm.has_keyword(crate::constants::KeywordAbilities::CHANGELING);
+            if shares_color {
+                count += 1;
+            }
+        }
+        count
+    }
+
+    fn pay_conspire_cost(&mut self, player_id: PlayerId, spell_colors: &[crate::constants::Color]) {
+        let mut tapped = 0u32;
+        let creature_ids: Vec<ObjectId> = self.state.battlefield.iter()
+            .filter(|p| p.controller == player_id && !p.tapped && p.is_creature())
+            .filter(|p| {
+                let colors = p.card.colors();
+                colors.iter().any(|c| spell_colors.contains(c))
+                    || p.has_keyword(crate::constants::KeywordAbilities::CHANGELING)
+            })
+            .map(|p| p.id())
+            .collect();
+
+        for cid in creature_ids {
+            if tapped >= 2 {
+                break;
+            }
+            if let Some(perm) = self.state.battlefield.get_mut(cid) {
+                perm.tapped = true;
+                tapped += 1;
+            }
+        }
+    }
+
+    fn copy_spell_on_stack(&mut self, spell_id: ObjectId, controller: PlayerId) {
+        let stack_item = self.state.stack.get(spell_id);
+        if let Some(item) = stack_item {
+            if let crate::zones::StackItemKind::Spell { card } = &item.kind {
+                let card_copy = card.clone();
+                let targets = item.targets.clone();
+                let x_value = item.x_value;
+                let copy_id = ObjectId::new();
+                let copy_item = crate::zones::StackItem {
+                    id: copy_id,
+                    kind: crate::zones::StackItemKind::Spell { card: card_copy },
+                    controller,
+                    targets,
+                    countered: false,
+                    x_value,
+                    exile_on_resolve: false,
+                };
+                self.state.stack.push(copy_item);
+            }
+        }
+    }
+
     /// Check if a spell/card matches a cost reduction filter string.
     fn spell_matches_cost_filter(&self, card: &crate::card::CardData, filter: &str) -> bool {
         let lower = filter.to_lowercase();
@@ -997,6 +1083,11 @@ impl Game {
         // "creature spells" / "creature"
         if lower == "creature spells" || lower == "creature" {
             return card.card_types.contains(&crate::constants::CardType::Creature);
+        }
+
+        // "noncreature spells"
+        if lower == "noncreature spells" {
+            return !card.card_types.contains(&crate::constants::CardType::Creature);
         }
 
         // "instant and sorcery spells"
@@ -2303,6 +2394,25 @@ impl Game {
         };
         self.state.stack.push(stack_item);
         self.state.set_zone(card_id, crate::constants::Zone::Stack, None);
+
+        // Conspire: if the spell has conspire and the player has 2+ eligible creatures,
+        // ask if they want to pay the conspire cost (tap 2 creatures sharing a color).
+        // If paid, copy the spell on the stack.
+        if self.spell_has_conspire(player_id, &card_data) && !card_data.is_creature() {
+            let spell_colors = card_data.colors();
+            if self.count_conspire_eligible_creatures(player_id, &spell_colors) >= 2 {
+                let view = crate::decision::GameView::placeholder();
+                let use_conspire = if let Some(dm) = self.decision_makers.get_mut(&player_id) {
+                    dm.choose_use(&view, crate::constants::Outcome::Benefit, "Pay conspire cost (tap two creatures)?")
+                } else {
+                    false
+                };
+                if use_conspire {
+                    self.pay_conspire_cost(player_id, &spell_colors);
+                    self.copy_spell_on_stack(card_id, player_id);
+                }
+            }
+        }
 
         // Emit spell cast event (for prowess, storm, etc.)
         self.emit_event(GameEvent::spell_cast(card_id, player_id, if from_exile { crate::constants::Zone::Exile } else if from_graveyard { crate::constants::Zone::Graveyard } else { crate::constants::Zone::Hand }));

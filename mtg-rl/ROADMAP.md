@@ -446,10 +446,10 @@ Features the Java engine has that the Rust engine lacks entirely:
 | **Aura attachment** | `AuraReplacementEffect` | No equivalent |
 | **Planeswalker loyalty abilities** | `LoyaltyAbility`, `PayLoyaltyCost` | No equivalent |
 | **X-cost system** | `VariableManaCost`, `ManaCostsImpl.getX()` | **Implemented** (`X_VALUE`, `StackItem.x_value`, `resolve_x()`) |
-| **Spell copying** | `CopyEffect`, `CopySpellForEachItCouldTargetEffect` | No equivalent |
+| **Spell copying** | `CopyEffect`, `CopySpellForEachItCouldTargetEffect` | **Basic** (`copy_spell_on_stack`) — copies spell on stack with same targets; used by Conspire |
 | **Delayed triggered abilities** | `DelayedTriggeredAbility` | **Implemented** (`DelayedTrigger`, `CreateDelayedTrigger`) |
 | **Alternative costs** (Flashback, Evoke, etc.) | `AlternativeCostSourceAbility` | Evoke stored as StaticEffect, not enforced |
-| **Additional costs** (Kicker, Buyback, etc.) | `OptionalAdditionalCostImpl` | No equivalent |
+| **Additional costs** (Kicker, Buyback, etc.) | `OptionalAdditionalCostImpl` | **Conspire** implemented (`GrantConspire`, `spell_has_conspire`, `copy_spell_on_stack`) |
 | **Combat damage assignment order** | `CombatGroup.pickBlockerOrder()` | Simplified (first blocker takes all) |
 | **Spell target legality check on resolution** | `Spell.checkTargets()` | Targets checked at cast, not re-validated |
 | **Mana restriction** ("spend only on creatures") | `ManaPool.conditionalMana` | Not tracked |

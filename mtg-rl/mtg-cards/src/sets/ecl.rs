@@ -4581,14 +4581,14 @@ fn personify(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [COND] Noncreature spells you cast have conspire (very complex stack manipulation)
 fn raiding_schemes(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Raiding Schemes".into(), mana_cost: ManaCost::parse("{3}{R}{G}"),
         card_types: vec![CardType::Enchantment],
         rarity: Rarity::Common,
         abilities: vec![
-            Ability::static_ability(id, "Conspire",
-                vec![StaticEffect::Custom("Conspire: tap two creatures to copy spell.".into())]),
+            Ability::static_ability(id,
+                "Each noncreature spell you cast has conspire.",
+                vec![StaticEffect::grant_conspire("noncreature spells")]),
         ],
         ..Default::default() }
 }
