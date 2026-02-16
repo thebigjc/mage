@@ -3082,9 +3082,13 @@ impl Game {
                     let exile_after = item.exile_on_resolve;
                     self.execute_effects(&effects, item.controller, &targets, Some(item.id), item.x_value);
                     if exile_after {
-                        // Flashback: exile instead of going to graveyard
                         self.state.exile.exile(item.id);
                         self.state.set_zone(item.id, crate::constants::Zone::Exile, None);
+                    } else if let Some(pos) = self.state.pending_dream_exile.iter().position(|&id| id == item.id) {
+                        self.state.pending_dream_exile.remove(pos);
+                        self.state.exile.exile(item.id);
+                        self.state.set_zone(item.id, crate::constants::Zone::Exile, None);
+                        self.state.dream_countered_cards.push(item.id);
                     } else {
                         self.move_card_to_graveyard(item.id, item.controller);
                     }
@@ -6173,8 +6177,43 @@ impl Game {
                         }
                     }
                 }
+                Effect::ExileWithDreamCounterInsteadOfGraveyard => {
+                    let spell_id = self.state.stack.iter()
+                        .find(|item| {
+                            if item.controller != controller {
+                                return false;
+                            }
+                            if let crate::zones::StackItemKind::Spell { card } = &item.kind {
+                                (card.is_instant() || card.is_sorcery())
+                                    && !self.state.pending_dream_exile.contains(&item.id)
+                            } else {
+                                false
+                            }
+                        })
+                        .map(|item| item.id);
+                    if let Some(id) = spell_id {
+                        self.state.pending_dream_exile.push(id);
+                    }
+                }
+                Effect::CastFromExileWithDreamCounters => {
+                    let eligible: Vec<ObjectId> = self.state.dream_countered_cards.iter()
+                        .filter(|&&id| self.state.exile.contains(id))
+                        .copied()
+                        .collect();
+                    let turn = self.state.turn_number;
+                    for id in eligible {
+                        if !self.state.impulse_playable.iter().any(|ip| ip.card_id == id) {
+                            self.state.impulse_playable.push(crate::state::ImpulsePlayable {
+                                card_id: id,
+                                player_id: controller,
+                                duration: crate::state::ImpulseDuration::EndOfTurn,
+                                created_turn: turn,
+                                without_mana: true,
+                            });
+                        }
+                    }
+                }
                 _ => {
-                    // Remaining effects not yet implemented (protection, etc.)
                 }
             }
         }

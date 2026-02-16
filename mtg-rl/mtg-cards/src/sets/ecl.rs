@@ -2835,7 +2835,6 @@ fn glen_elendra_guardian(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [EXILE_CAST+COND] Replacement effect (exile with dream counter instead of GY), attacks trigger cast from exile free
 fn goliath_daydreamer(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Goliath Daydreamer".into(),
         mana_cost: ManaCost::parse("{2}{R}{R}"),
@@ -2845,13 +2844,13 @@ fn goliath_daydreamer(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Rare,
         abilities: vec![
             Ability::spell_cast_triggered(id,
-                    "Whenever you cast an instant or sorcery spell from your hand, exile it with a dream counter instead of putting it into your graveyard as it resolves.",
-                    vec![Effect::Custom("Exile cast instant/sorcery from hand with dream counter instead of graveyard.".into())],
+                    "Whenever you cast an instant or sorcery spell from your hand, exile that card with a dream counter on it instead of putting it into your graveyard as it resolves.",
+                    vec![Effect::exile_with_dream_counter()],
                     TargetSpec::None),
             Ability::triggered(id,
                     "Whenever Goliath Daydreamer attacks, you may cast a spell from among cards you own in exile with dream counters on them without paying its mana cost.",
                     vec![EventType::AttackerDeclared],
-                    vec![Effect::Custom("Cast exiled spell with dream counter for free.".into())],
+                    vec![Effect::cast_from_exile_with_dream_counters()],
                     TargetSpec::None),
         ],
         ..Default::default() }

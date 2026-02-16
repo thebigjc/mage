@@ -2568,3 +2568,102 @@ use crate::types::{ObjectId, PlayerId};
         assert_eq!(game.state.exile.len(), 0, "No exile if creature survives");
         assert_eq!(game.state.impulse_playable.len(), 0);
     }
+
+    #[test]
+    fn dream_counter_marks_spell_for_exile() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let spell_id = ObjectId::new();
+        let mut spell_card = CardData::new(spell_id, p1, "Lightning Bolt");
+        spell_card.card_types = vec![CardType::Instant];
+        spell_card.abilities = vec![Ability::spell(spell_id, vec![Effect::deal_damage(3)], crate::abilities::TargetSpec::CreatureOrPlayer)];
+        game.state.card_store.insert(spell_card.clone());
+
+        let stack_item = crate::zones::StackItem {
+            id: spell_id,
+            kind: crate::zones::StackItemKind::Spell { card: spell_card },
+            controller: p1,
+            targets: vec![],
+            countered: false,
+            x_value: None,
+            exile_on_resolve: false,
+        };
+        game.state.stack.push(stack_item);
+
+        game.execute_effects(
+            &[Effect::exile_with_dream_counter()],
+            p1, &[], None, None,
+        );
+
+        assert!(game.state.pending_dream_exile.contains(&spell_id),
+            "Spell should be marked for dream exile");
+
+        game.resolve_top_of_stack();
+
+        assert!(!game.state.pending_dream_exile.contains(&spell_id),
+            "Pending flag should be consumed");
+        assert!(game.state.dream_countered_cards.contains(&spell_id),
+            "Card should be in dream_countered_cards");
+        assert!(game.state.exile.contains(spell_id),
+            "Card should be in exile zone");
+        let in_gy = game.state.players.get(&p1)
+            .map(|p| p.graveyard.contains(spell_id))
+            .unwrap_or(false);
+        assert!(!in_gy, "Card should NOT be in graveyard");
+    }
+
+    #[test]
+    fn dream_counter_ignores_creature_spells() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let creature_id = ObjectId::new();
+        let mut creature_card = CardData::new(creature_id, p1, "Grizzly Bears");
+        creature_card.card_types = vec![CardType::Creature];
+        creature_card.power = Some(2);
+        creature_card.toughness = Some(2);
+        game.state.card_store.insert(creature_card.clone());
+
+        let stack_item = crate::zones::StackItem {
+            id: creature_id,
+            kind: crate::zones::StackItemKind::Spell { card: creature_card },
+            controller: p1,
+            targets: vec![],
+            countered: false,
+            x_value: None,
+            exile_on_resolve: false,
+        };
+        game.state.stack.push(stack_item);
+
+        game.execute_effects(
+            &[Effect::exile_with_dream_counter()],
+            p1, &[], None, None,
+        );
+
+        assert!(game.state.pending_dream_exile.is_empty(),
+            "Creature spell should not be marked for dream exile");
+    }
+
+    #[test]
+    fn cast_from_exile_with_dream_counters_makes_impulse_playable() {
+        let (mut game, p1, _p2) = setup_game();
+
+        let card_id = ObjectId::new();
+        let mut card = CardData::new(card_id, p1, "Shock");
+        card.card_types = vec![CardType::Instant];
+        game.state.card_store.insert(card);
+
+        game.state.exile.exile(card_id);
+        game.state.set_zone(card_id, crate::constants::Zone::Exile, None);
+        game.state.dream_countered_cards.push(card_id);
+
+        game.execute_effects(
+            &[Effect::cast_from_exile_with_dream_counters()],
+            p1, &[], None, None,
+        );
+
+        assert_eq!(game.state.impulse_playable.len(), 1,
+            "Dream-countered card should become impulse-playable");
+        assert_eq!(game.state.impulse_playable[0].card_id, card_id);
+        assert!(game.state.impulse_playable[0].without_mana,
+            "Should be castable without paying mana cost");
+    }

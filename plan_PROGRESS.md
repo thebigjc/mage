@@ -10,7 +10,7 @@ IN_PROGRESS
 
 ### Current State
 - **Engine tests**: 552 (mtg-engine), all passing
-- **ECL Custom fallbacks**: 28 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 35 total (now 6 Effect::Custom + 7 StaticEffect::Custom remaining)
+- **ECL Custom fallbacks**: 28 Effect::Custom + 7 StaticEffect::Custom + 0 Cost::Custom = 35 total (now 3 Effect::Custom + 7 StaticEffect::Custom remaining)
 - **Other sets**: FDN 336, TLA 199, TDM 110 (these are out of scope per the plan)
 
 ### Goal
@@ -97,7 +97,7 @@ Group the 44 fallbacks by what engine feature they need. Implement the engine fe
 
 - [x] Task 22: Add `MassBecomeCopy` effect — Added `Effect::MassBecomeCopy` variant. Each nonland permanent controller controls becomes a copy of the target permanent. Preserves original object ID, owner, and token status. Re-keys abilities with new IDs. Updated **mirrorform**: replaced Effect::Custom with `Effect::mass_become_copy()`, added `TargetSpec::PermanentFiltered("non-Aura permanent")`, fixed rarity from Common to Rare. 3 new tests (552 engine total). 1 Effect::Custom eliminated.
 
-- [ ] Task 23: Add exile-with-dream-counters system — Replacement effect: instants/sorceries you cast go to exile with dream counters instead of graveyard. Static ability: cast exiled spells with dream counters for free. Update: **goliath_daydreamer** (2 Custom instances). Java uses `AsThoughEffectImpl` + replacement. Add engine test. ~1 card (2 Custom instances) fixed.
+- [x] Task 23: Add exile-with-dream-counters system — Added `Effect::ExileWithDreamCounterInsteadOfGraveyard` and `Effect::CastFromExileWithDreamCounters` variants. Added `pending_dream_exile` and `dream_countered_cards` to GameState. Modified `resolve_top_of_stack` to check pending dream exiles and route to exile zone instead of graveyard. Attack trigger makes dream-countered exiled cards impulse-playable for free. Updated **goliath_daydreamer**: replaced 2 Effect::Custom with `Effect::exile_with_dream_counter()` and `Effect::cast_from_exile_with_dream_counters()`. 3 new tests (555 engine total). 2 Effect::Custom eliminated.
 
 ### Tier 5: Hard — StaticEffect::Custom eliminations
 
@@ -154,7 +154,7 @@ Task 31 depends on all others
 18. Task 31 (verification)
 
 ## Completed This Iteration
-- Task 22: Added `Effect::MassBecomeCopy` variant. Each nonland permanent the controller controls becomes a copy of the target. Preserves original object ID, owner, and token status. Re-keys abilities. Updated mirrorform card (replaced Effect::Custom, added proper TargetSpec, fixed rarity to Rare). 3 new tests (552 engine total). 1 Effect::Custom eliminated.
+- Task 23: Added exile-with-dream-counters system. Added `Effect::ExileWithDreamCounterInsteadOfGraveyard` and `Effect::CastFromExileWithDreamCounters` variants. Added `pending_dream_exile` and `dream_countered_cards` tracking to GameState. Modified `resolve_top_of_stack` to intercept spells marked for dream exile. Updated goliath_daydreamer (replaced 2 Effect::Custom). 3 new tests (555 engine total). 2 Effect::Custom eliminated.
 
 ## Notes
 

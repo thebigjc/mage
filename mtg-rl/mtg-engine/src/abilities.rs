@@ -536,6 +536,10 @@ pub enum Effect {
 
     MassBecomeCopy,
 
+    ExileWithDreamCounterInsteadOfGraveyard,
+
+    CastFromExileWithDreamCounters,
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1664,6 +1668,14 @@ impl Effect {
 
     pub fn mass_become_copy() -> Self {
         Effect::MassBecomeCopy
+    }
+
+    pub fn exile_with_dream_counter() -> Self {
+        Effect::ExileWithDreamCounterInsteadOfGraveyard
+    }
+
+    pub fn cast_from_exile_with_dream_counters() -> Self {
+        Effect::CastFromExileWithDreamCounters
     }
 }
 
