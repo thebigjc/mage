@@ -159,6 +159,11 @@ pub enum Effect {
     /// the bottom of your library in a random order.
     /// (Used by Eclipsed cycle, Earthbend, and similar "impulse look" effects.)
     LookTopAndPick { count: u32, filter: Filter },
+    /// Look at the top card of your library. If it's a card of the source
+    /// permanent's chosen creature type, you may reveal it and put it into
+    /// your hand. If you don't put it into your hand, you may put it into
+    /// your graveyard. (Gathering Stone)
+    LookTopChosenType,
 
     // -- Counters --
     /// Put counters on target.
@@ -1365,6 +1370,11 @@ impl Effect {
     /// "As this permanent enters, choose [list of types]."
     pub fn choose_creature_type_restricted(types: Vec<&str>) -> Self {
         Effect::ChooseCreatureType { restricted: types.into_iter().map(|s| s.to_string()).collect() }
+    }
+
+    /// "Look at the top card, if chosen type put to hand, else may put to graveyard."
+    pub fn look_top_chosen_type() -> Self {
+        Effect::LookTopChosenType
     }
 
     /// "Attach this Equipment to target creature you control."

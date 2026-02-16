@@ -4663,6 +4663,50 @@ impl Game {
                         self.state.set_zone(card_id, crate::constants::Zone::Hand, Some(controller));
                     }
                 }
+                Effect::LookTopChosenType => {
+                    // Look at top card. If it matches the source permanent's
+                    // chosen creature type, you may put it to hand.
+                    // Otherwise, you may put it to graveyard.
+                    let chosen_type = source.and_then(|s| {
+                        self.state.battlefield.get(s)
+                            .and_then(|perm| perm.chosen_type.clone())
+                    });
+                    if let Some(player) = self.state.players.get(&controller) {
+                        if let Some(&top_card_id) = player.library.peek(1).first() {
+                            let type_matches = chosen_type.as_ref().map(|ct| {
+                                self.state.card_store.get(top_card_id)
+                                    .map(|c| c.subtypes.contains(ct)
+                                        || c.keywords.contains(crate::constants::KeywordAbilities::CHANGELING))
+                                    .unwrap_or(false)
+                            }).unwrap_or(false);
+
+                            let view = crate::decision::GameView::placeholder();
+                            let put_to_hand = type_matches && self.decision_makers.get_mut(&controller)
+                                .map(|dm| dm.choose_use(&view, crate::constants::Outcome::Benefit, "Put card to hand?"))
+                                .unwrap_or(false);
+
+                            if put_to_hand {
+                                if let Some(player) = self.state.players.get_mut(&controller) {
+                                    player.library.remove(top_card_id);
+                                    player.hand.add(top_card_id);
+                                }
+                                self.state.set_zone(top_card_id, crate::constants::Zone::Hand, Some(controller));
+                            } else {
+                                let put_to_gy = self.decision_makers.get_mut(&controller)
+                                    .map(|dm| dm.choose_use(&view, crate::constants::Outcome::Benefit, "Put card to graveyard?"))
+                                    .unwrap_or(false);
+                                if put_to_gy {
+                                    if let Some(player) = self.state.players.get_mut(&controller) {
+                                        player.library.remove(top_card_id);
+                                        player.graveyard.add(top_card_id);
+                                    }
+                                    self.state.set_zone(top_card_id, crate::constants::Zone::Graveyard, Some(controller));
+                                }
+                                // else: stays on top of library
+                            }
+                        }
+                    }
+                }
                 Effect::CreateTokenTappedAttacking { token_name, count } => {
                     self.mark_tokens_created(controller);
                     for _ in 0..*count {

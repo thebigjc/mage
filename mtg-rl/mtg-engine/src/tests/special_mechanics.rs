@@ -2950,3 +2950,156 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         assert!(!game.state.cast_from_exile_once_used.contains(&source_id),
             "cast_from_exile_once_used should be cleared at turn start");
     }
+
+    // -- LookTopChosenType tests --
+
+    #[test]
+    fn look_top_chosen_type_matches_put_to_hand() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "P1".into(), deck: make_deck2(p1) },
+                PlayerConfig { name: "P2".into(), deck: make_deck2(p2) },
+            ],
+            starting_life: Life::new(20),
+        };
+        let mut game = Game::new_two_player(config,
+            vec![(p1, PlayerAgent::new(AlwaysPayPlayer)), (p2, PlayerAgent::new(AlwaysPassPlayer))]);
+
+        // Create a source permanent with chosen_type = Goblin
+        let source_id = ObjectId::new();
+        let source_card = CardData::new(source_id, p1, "Gathering Stone");
+        game.state.card_store.insert(source_card.clone());
+        let mut perm = Permanent::new(source_card, p1);
+        perm.chosen_type = Some(SubType::Goblin);
+        game.state.battlefield.add(perm);
+
+        // Put a Goblin creature card on top of library
+        let goblin_id = ObjectId::new();
+        let mut goblin = CardData::new(goblin_id, p1, "Test Goblin");
+        goblin.card_types = vec![CardType::Creature];
+        goblin.subtypes = vec![SubType::Goblin];
+        game.state.card_store.insert(goblin);
+        let player = game.state.players.get_mut(&p1).unwrap();
+        player.library.put_on_top(goblin_id);
+
+        let initial_hand = game.state.players.get(&p1).unwrap().hand.len();
+
+        // Execute the effect
+        game.execute_effects(
+            &[Effect::LookTopChosenType],
+            p1,
+            &[],
+            Some(source_id),
+            None,
+        );
+
+        // AlwaysPayPlayer says yes → card should be in hand
+        let player = game.state.players.get(&p1).unwrap();
+        assert_eq!(player.hand.len(), initial_hand + 1,
+            "Goblin card should be put to hand");
+        assert!(player.hand.contains(goblin_id),
+            "The Goblin card should be in hand");
+    }
+
+    #[test]
+    fn look_top_chosen_type_no_match_put_to_graveyard() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "P1".into(), deck: make_deck2(p1) },
+                PlayerConfig { name: "P2".into(), deck: make_deck2(p2) },
+            ],
+            starting_life: Life::new(20),
+        };
+        // AlwaysPayPlayer says yes to "put to graveyard?" too
+        let mut game = Game::new_two_player(config,
+            vec![(p1, PlayerAgent::new(AlwaysPayPlayer)), (p2, PlayerAgent::new(AlwaysPassPlayer))]);
+
+        // Source permanent with chosen_type = Goblin
+        let source_id = ObjectId::new();
+        let source_card = CardData::new(source_id, p1, "Gathering Stone");
+        game.state.card_store.insert(source_card.clone());
+        let mut perm = Permanent::new(source_card, p1);
+        perm.chosen_type = Some(SubType::Goblin);
+        game.state.battlefield.add(perm);
+
+        // Put a non-Goblin (Elf) creature on top
+        let elf_id = ObjectId::new();
+        let mut elf = CardData::new(elf_id, p1, "Test Elf");
+        elf.card_types = vec![CardType::Creature];
+        elf.subtypes = vec![SubType::Elf];
+        game.state.card_store.insert(elf);
+        let player = game.state.players.get_mut(&p1).unwrap();
+        player.library.put_on_top(elf_id);
+
+        let initial_hand = game.state.players.get(&p1).unwrap().hand.len();
+
+        game.execute_effects(
+            &[Effect::LookTopChosenType],
+            p1,
+            &[],
+            Some(source_id),
+            None,
+        );
+
+        // Type doesn't match → no hand, but AlwaysPayPlayer says yes to graveyard
+        let player = game.state.players.get(&p1).unwrap();
+        assert_eq!(player.hand.len(), initial_hand,
+            "Elf should NOT be in hand (wrong type)");
+        assert!(player.graveyard.iter().any(|id| *id == elf_id),
+            "Elf should be in graveyard");
+    }
+
+    #[test]
+    fn look_top_chosen_type_decline_all_stays_on_top() {
+        let p1 = PlayerId::new();
+        let p2 = PlayerId::new();
+        let config = GameConfig {
+            players: vec![
+                PlayerConfig { name: "P1".into(), deck: make_deck2(p1) },
+                PlayerConfig { name: "P2".into(), deck: make_deck2(p2) },
+            ],
+            starting_life: Life::new(20),
+        };
+        // NeverPayPlayer says no to everything
+        let mut game = Game::new_two_player(config,
+            vec![(p1, PlayerAgent::new(NeverPayPlayer)), (p2, PlayerAgent::new(NeverPayPlayer))]);
+
+        // Source with chosen_type = Goblin
+        let source_id = ObjectId::new();
+        let source_card = CardData::new(source_id, p1, "Gathering Stone");
+        game.state.card_store.insert(source_card.clone());
+        let mut perm = Permanent::new(source_card, p1);
+        perm.chosen_type = Some(SubType::Goblin);
+        game.state.battlefield.add(perm);
+
+        // Put a Goblin on top
+        let goblin_id = ObjectId::new();
+        let mut goblin = CardData::new(goblin_id, p1, "Test Goblin");
+        goblin.card_types = vec![CardType::Creature];
+        goblin.subtypes = vec![SubType::Goblin];
+        game.state.card_store.insert(goblin);
+        let player = game.state.players.get_mut(&p1).unwrap();
+        player.library.put_on_top(goblin_id);
+
+        let initial_hand = game.state.players.get(&p1).unwrap().hand.len();
+        let initial_gy = game.state.players.get(&p1).unwrap().graveyard.len();
+
+        game.execute_effects(
+            &[Effect::LookTopChosenType],
+            p1,
+            &[],
+            Some(source_id),
+            None,
+        );
+
+        // NeverPayPlayer declines both → stays on top
+        let player = game.state.players.get(&p1).unwrap();
+        assert_eq!(player.hand.len(), initial_hand, "Card should not be in hand");
+        assert_eq!(player.graveyard.len(), initial_gy, "Card should not be in graveyard");
+        assert_eq!(*player.library.peek(1).first().unwrap(), goblin_id,
+            "Goblin should still be on top of library");
+    }

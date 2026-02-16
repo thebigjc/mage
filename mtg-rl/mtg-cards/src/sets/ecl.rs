@@ -2754,7 +2754,7 @@ fn gathering_stone(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "When this artifact enters and at the beginning of your upkeep, look at the top card of your library. If it's a card of the chosen type, you may reveal it and put it into your hand.",
                 vec![EventType::EnteredTheBattlefield, EventType::UpkeepStep],
-                vec![Effect::Custom("Look at top card, reveal if chosen type, may put to hand or graveyard.".into())],
+                vec![Effect::look_top_chosen_type()],
                 TargetSpec::None),
         ],
         ..Default::default() }

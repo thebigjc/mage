@@ -344,14 +344,14 @@ Color-count calculation implemented. 6 Vivid effect variants added. 6 cards fixe
 
 ## V. Effect System Gaps
 
-### Implemented Effect Variants (~55 of 62)
+### Implemented Effect Variants (~56 of 63)
 
 The following Effect variants have working `execute_effects()` match arms:
 
 **Damage:** DealDamage, DealDamageAll, DealDamageOpponents, DealDamageVivid
 **Life:** GainLife, GainLifeVivid, LoseLife, LoseLifeOpponents, LoseLifeOpponentsVivid, SetLife
 **Removal:** Destroy, DestroyAll, Exile, Sacrifice, PutOnLibrary
-**Card Movement:** Bounce, ReturnFromGraveyard, Reanimate, DrawCards, DrawCardsVivid, DiscardCards, DiscardOpponents, Mill, SearchLibrary, LookTopAndPick
+**Card Movement:** Bounce, ReturnFromGraveyard, Reanimate, DrawCards, DrawCardsVivid, DiscardCards, DiscardOpponents, Mill, SearchLibrary, LookTopAndPick, LookTopChosenType
 **Counters:** AddCounters, AddCountersSelf, AddCountersAll, RemoveCounters
 **Tokens:** CreateToken, CreateTokenTappedAttacking, CreateTokenVivid
 **Combat:** CantBlock, Fight, Bite, MustBlock
@@ -430,10 +430,10 @@ These are effects where no typed variant exists. Grouped by what engine feature 
 | FDN (Foundations) | 315 | 57 | 21 | 393 |
 | TLA (Avatar: TLA) | 197 | 54 | 2 | 253 |
 | TDM (Tarkir: Dragonstorm) | 107 | 15 | 3 | 125 |
-| ECL (Lorwyn Eclipsed) | 3 | 0 | 0 | 3 |
-| **Total** | **622** | **126** | **26** | **774** |
+| ECL (Lorwyn Eclipsed) | 2 | 0 | 0 | 2 |
+| **Total** | **621** | **126** | **26** | **773** |
 
-**ECL reduction: 88 → 3 (96.6% reduction)** through 30+ new engine features and per-card updates. The 3 remaining ECL Effect::Custom are truly complex unique effects (chosen-type library peek, blight+token-copy attack trigger, planeswalker ultimate).
+**ECL reduction: 88 → 2 (97.7% reduction)** through 30+ new engine features and per-card updates. The 2 remaining ECL Effect::Custom are truly complex unique effects (blight+token-copy attack trigger, planeswalker ultimate).
 
 Detailed per-card breakdowns in `docs/{fdn,tla,tdm,ecl}-remediation.md`.
 
