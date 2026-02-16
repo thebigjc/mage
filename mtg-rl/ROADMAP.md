@@ -14,7 +14,7 @@ This document describes implementation gaps between the Rust mtg-rl engine and t
 | `Cost::Custom` fallbacks | 26 |
 | **Total Custom fallbacks** | **815** |
 | Keywords defined | 47 |
-| Keywords mechanically enforced | 24 (combat, hexproof, shroud, prowess, landwalk, ward, convoke, conspire, changeling, flashback) |
+| Keywords mechanically enforced | 24 (combat, hexproof, hexproof-from-colors, shroud, prowess, landwalk, ward, convoke, conspire, changeling, flashback) |
 | State-based actions | 10 of ~20 rules implemented |
 | Triggered abilities | Events emitted, triggers stacked (ETB, attack, life gain, dies, upkeep, end step, combat damage) |
 | Replacement effects | Enters-tapped, enters-with-counters, enter-as-copy implemented |

@@ -433,6 +433,7 @@ impl Game {
             perm.assign_damage_with_toughness = false;
             perm.colorless_override = false;
             perm.subtypes_override = None;
+            perm.hexproof_from_colors.clear();
         }
         self.state.damage_doublings.clear();
         self.state.mana_doubling_basic_lands = 0;
@@ -461,6 +462,7 @@ impl Game {
         let mut damage_doublings: Vec<(ObjectId, PlayerId)> = Vec::new();
         let mut boost_per_turn_events: Vec<(ObjectId, PlayerId, String, String, i32, i32)> = Vec::new();
         let mut becomes_creature_attached: Vec<(ObjectId, Vec<String>, bool)> = Vec::new();
+        let mut hexproof_from_own_colors: Vec<(ObjectId, PlayerId)> = Vec::new();
 
         for perm in self.state.battlefield.iter() {
             let source_id = perm.id();
@@ -545,6 +547,9 @@ impl Game {
                                     becomes_creature_attached.push((attached_to, subtypes.clone(), *colorless));
                                 }
                             }
+                        }
+                        crate::abilities::StaticEffect::HexproofFromOwnColors => {
+                            hexproof_from_own_colors.push((source_id, controller));
                         }
                         crate::abilities::StaticEffect::ReplaceTokenCreation => {
                             if let Some(perm) = self.state.battlefield.get(source_id) {
@@ -731,6 +736,34 @@ impl Game {
                 for target_id in matching {
                     if let Some(perm) = self.state.battlefield.get_mut(target_id) {
                         perm.continuous_keywords |= combined;
+                    }
+                }
+            }
+        }
+
+        // Step 4b: Apply HexproofFromOwnColors (Layer 6 — Ability adding)
+        for (source_id, controller) in hexproof_from_own_colors {
+            let creature_colors: Vec<(ObjectId, Vec<crate::constants::Color>)> = self.state.battlefield.iter()
+                .filter(|p| p.is_creature() && p.controller == controller && p.id() != source_id)
+                .map(|p| {
+                    let colors = if p.all_colors_until_eot {
+                        vec![crate::constants::Color::White, crate::constants::Color::Blue,
+                             crate::constants::Color::Black, crate::constants::Color::Red,
+                             crate::constants::Color::Green]
+                    } else if p.colorless_override {
+                        vec![]
+                    } else {
+                        p.card.colors()
+                    };
+                    (p.id(), colors)
+                })
+                .collect();
+            for (target_id, colors) in creature_colors {
+                if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                    for c in colors {
+                        if !perm.hexproof_from_colors.contains(&c) {
+                            perm.hexproof_from_colors.push(c);
+                        }
                     }
                 }
             }
@@ -1975,7 +2008,7 @@ impl Game {
             }
 
             let mut targets = if let Some(ref ab) = ability {
-                self.select_targets_for_spec(&ab.targets, controller)
+                self.select_targets_for_spec(&ab.targets, controller, &[])
             } else {
                 Vec::new()
             };
@@ -3101,7 +3134,8 @@ impl Game {
             .find(|a| a.ability_type == AbilityType::Spell)
             .map(|a| a.targets.clone())
             .unwrap_or(crate::abilities::TargetSpec::None);
-        let targets = self.select_targets_for_spec(&target_spec, player_id);
+        let spell_colors = card_data.colors();
+        let targets = self.select_targets_for_spec(&target_spec, player_id, &spell_colors);
 
         // Put on the stack
         let stack_item = crate::zones::StackItem {
@@ -6800,6 +6834,7 @@ impl Game {
         &mut self,
         spec: &crate::abilities::TargetSpec,
         controller: PlayerId,
+        source_colors: &[crate::constants::Color],
     ) -> Vec<ObjectId> {
         use crate::abilities::TargetSpec;
 
@@ -6807,14 +6842,14 @@ impl Game {
             TargetSpec::None => vec![],
             TargetSpec::Pair { first, second } => {
                 let mut result = Vec::new();
-                let first_targets = self.select_targets_for_spec(first, controller);
+                let first_targets = self.select_targets_for_spec(first, controller, source_colors);
                 result.extend(&first_targets);
-                let second_targets = self.select_targets_for_spec(second, controller);
+                let second_targets = self.select_targets_for_spec(second, controller, source_colors);
                 result.extend(&second_targets);
                 result
             }
             _ => {
-                let legal = self.legal_targets_for_spec(spec, controller);
+                let legal = self.legal_targets_for_spec(spec, controller, source_colors);
                 if legal.is_empty() {
                     return vec![];
                 }
@@ -6830,13 +6865,10 @@ impl Game {
                 let chosen = if let Some(dm) = self.decision_makers.get_mut(&controller) {
                     dm.choose_targets(&view, outcome, &requirement)
                 } else {
-                    // Fallback: pick the first legal target
                     requirement.legal_targets.into_iter().take(1).collect()
                 };
-                // If decision maker returned empty, fall back to first legal target
                 if chosen.is_empty() {
-                    // Re-build legal targets since requirement was moved
-                    let legal = self.legal_targets_for_spec(spec, controller);
+                    let legal = self.legal_targets_for_spec(spec, controller, source_colors);
                     legal.into_iter().take(1).collect()
                 } else {
                     chosen
@@ -6850,6 +6882,7 @@ impl Game {
         &self,
         spec: &crate::abilities::TargetSpec,
         controller: PlayerId,
+        source_colors: &[crate::constants::Color],
     ) -> Vec<ObjectId> {
         use crate::abilities::TargetSpec;
         match spec {
@@ -6857,7 +6890,7 @@ impl Game {
                 .state
                 .battlefield
                 .iter()
-                .filter(|p| p.is_creature() && !Self::is_untargetable(p, controller))
+                .filter(|p| p.is_creature() && !Self::is_untargetable(p, controller, source_colors))
                 .map(|p| p.id())
                 .collect(),
             TargetSpec::CreatureYouControl => self
@@ -6865,7 +6898,6 @@ impl Game {
                 .battlefield
                 .iter()
                 .filter(|p| p.is_creature() && p.controller == controller)
-                // No hexproof check — you can always target your own permanents
                 .map(|p| p.id())
                 .collect(),
             TargetSpec::OpponentCreature => self
@@ -6873,7 +6905,7 @@ impl Game {
                 .battlefield
                 .iter()
                 .filter(|p| p.is_creature() && p.controller != controller
-                    && !Self::is_untargetable(p, controller))
+                    && !Self::is_untargetable(p, controller, source_colors))
                 .map(|p| p.id())
                 .collect(),
             TargetSpec::CreatureOrPlayer => {
@@ -6881,19 +6913,17 @@ impl Game {
                     .state
                     .battlefield
                     .iter()
-                    .filter(|p| p.is_creature() && !Self::is_untargetable(p, controller))
+                    .filter(|p| p.is_creature() && !Self::is_untargetable(p, controller, source_colors))
                     .map(|p| p.id())
                     .collect();
-                // Player targeting would need a different mechanism;
-                // for now, just return creature targets
-                targets.sort(); // deterministic ordering
+                targets.sort();
                 targets
             }
             TargetSpec::Permanent => self
                 .state
                 .battlefield
                 .iter()
-                .filter(|p| !Self::is_untargetable(p, controller))
+                .filter(|p| !Self::is_untargetable(p, controller, source_colors))
                 .map(|p| p.id())
                 .collect(),
             TargetSpec::PermanentFiltered(filter) => self
@@ -6901,7 +6931,7 @@ impl Game {
                 .battlefield
                 .iter()
                 .filter(|p| Self::matches_filter(p, filter)
-                    && !Self::is_untargetable(p, controller))
+                    && !Self::is_untargetable(p, controller, source_colors))
                 .map(|p| p.id())
                 .collect(),
             TargetSpec::Spell => self
@@ -6910,21 +6940,27 @@ impl Game {
                 .iter()
                 .map(|item| item.id)
                 .collect(),
-            _ => vec![], // None, CardInGraveyard, Multiple, Custom, Pair — handled elsewhere
+            _ => vec![],
         }
     }
 
-    /// Check if a permanent is untargetable by a given controller.
-    /// Returns true for shroud (can't be targeted by anyone) or
-    /// hexproof (can't be targeted by opponents).
-    fn is_untargetable(perm: &Permanent, targeting_controller: PlayerId) -> bool {
-        // Shroud: can't be targeted by anyone
+    /// Check if a permanent is untargetable by a given controller and source colors.
+    /// Returns true for shroud (can't be targeted by anyone),
+    /// hexproof (can't be targeted by opponents), or
+    /// hexproof from colors (can't be targeted by spells/abilities of matching colors from opponents).
+    fn is_untargetable(perm: &Permanent, targeting_controller: PlayerId, source_colors: &[crate::constants::Color]) -> bool {
         if perm.has_keyword(crate::constants::KeywordAbilities::SHROUD) {
             return true;
         }
-        // Hexproof: can't be targeted by opponents
         if perm.has_hexproof() && perm.controller != targeting_controller {
             return true;
+        }
+        if perm.controller != targeting_controller && !perm.hexproof_from_colors.is_empty() {
+            for sc in source_colors {
+                if perm.hexproof_from_colors.contains(sc) {
+                    return true;
+                }
+            }
         }
         false
     }

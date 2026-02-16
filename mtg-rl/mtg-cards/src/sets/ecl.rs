@@ -3764,7 +3764,6 @@ fn syggs_command(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [COND] Other creatures hexproof from each of their colors, make creature all colors
 fn tam_mindful_first_year(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Tam, Mindful First-Year".into(),
         mana_cost: ManaCost::parse("{1}{G/U}"),
@@ -3776,7 +3775,7 @@ fn tam_mindful_first_year(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Each other creature you control has hexproof from each of its colors.",
-                    vec![StaticEffect::Custom("Each other creature you control has hexproof from each of its colors.".into())]),
+                    vec![StaticEffect::hexproof_from_own_colors()]),
             Ability::activated(id,
                     "{T}: Target creature becomes all colors until end of turn.",
                     vec![Cost::tap_self()],

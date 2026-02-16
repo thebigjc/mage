@@ -2,7 +2,7 @@
 // Ported from Mage/src/main/java/mage/game/permanent/PermanentImpl.java.
 
 use crate::card::CardData;
-use crate::constants::{CardType, KeywordAbilities, ManaColor, SubType, SuperType};
+use crate::constants::{CardType, Color, KeywordAbilities, ManaColor, SubType, SuperType};
 use crate::counters::{CounterType, Counters};
 use crate::types::{ObjectId, PlayerId};
 use serde::{Deserialize, Serialize};
@@ -92,6 +92,7 @@ pub struct Permanent {
     pub all_colors_until_eot: bool,
     pub colorless_override: bool,
     pub subtypes_override: Option<Vec<SubType>>,
+    pub hexproof_from_colors: Vec<Color>,
 }
 
 impl Permanent {
@@ -134,6 +135,7 @@ impl Permanent {
             all_colors_until_eot: false,
             colorless_override: false,
             subtypes_override: None,
+            hexproof_from_colors: Vec::new(),
             card,
         }
     }

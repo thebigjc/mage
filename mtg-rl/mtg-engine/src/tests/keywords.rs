@@ -76,12 +76,12 @@ use crate::types::{ObjectId, PlayerId};
         let regular_id = add_creature(&mut game, p2, "Regular Bear", KeywordAbilities::empty());
 
         // P1 targeting creatures — hexproof creature should NOT be in legal targets
-        let targets = game.legal_targets_for_spec(&TargetSpec::Creature, p1);
+        let targets = game.legal_targets_for_spec(&TargetSpec::Creature, p1, &[]);
         assert!(!targets.contains(&hexproof_id));
         assert!(targets.contains(&regular_id));
 
         // Opponent creature targeting — same
-        let targets = game.legal_targets_for_spec(&TargetSpec::OpponentCreature, p1);
+        let targets = game.legal_targets_for_spec(&TargetSpec::OpponentCreature, p1, &[]);
         assert!(!targets.contains(&hexproof_id));
         assert!(targets.contains(&regular_id));
     }
@@ -93,11 +93,11 @@ use crate::types::{ObjectId, PlayerId};
         let hexproof_id = add_creature(&mut game, p2, "Hexproof Bear", KeywordAbilities::HEXPROOF);
 
         // P2 targeting their own hexproof creature — should be allowed
-        let targets = game.legal_targets_for_spec(&TargetSpec::CreatureYouControl, p2);
+        let targets = game.legal_targets_for_spec(&TargetSpec::CreatureYouControl, p2, &[]);
         assert!(targets.contains(&hexproof_id));
 
         // P2 targeting any creature — their own hexproof creature is fine
-        let targets = game.legal_targets_for_spec(&TargetSpec::Creature, p2);
+        let targets = game.legal_targets_for_spec(&TargetSpec::Creature, p2, &[]);
         assert!(targets.contains(&hexproof_id));
     }
 
@@ -108,10 +108,10 @@ use crate::types::{ObjectId, PlayerId};
         let shroud_id = add_creature(&mut game, p2, "Shroud Bear", KeywordAbilities::SHROUD);
 
         // Neither player can target a shroud creature
-        let targets = game.legal_targets_for_spec(&TargetSpec::Creature, p1);
+        let targets = game.legal_targets_for_spec(&TargetSpec::Creature, p1, &[]);
         assert!(!targets.contains(&shroud_id));
 
-        let targets = game.legal_targets_for_spec(&TargetSpec::Creature, p2);
+        let targets = game.legal_targets_for_spec(&TargetSpec::Creature, p2, &[]);
         assert!(!targets.contains(&shroud_id));
     }
 
@@ -123,7 +123,7 @@ use crate::types::{ObjectId, PlayerId};
         let regular_id = add_creature(&mut game, p2, "Regular Bear", KeywordAbilities::empty());
 
         // TargetSpec::Permanent — hexproof blocks opponent targeting
-        let targets = game.legal_targets_for_spec(&TargetSpec::Permanent, p1);
+        let targets = game.legal_targets_for_spec(&TargetSpec::Permanent, p1, &[]);
         assert!(!targets.contains(&hexproof_id));
         assert!(targets.contains(&regular_id));
     }
@@ -141,7 +141,7 @@ use crate::types::{ObjectId, PlayerId};
         }
 
         // P1 should not be able to target the bear with continuous hexproof
-        let targets = game.legal_targets_for_spec(&TargetSpec::Creature, p1);
+        let targets = game.legal_targets_for_spec(&TargetSpec::Creature, p1, &[]);
         assert!(!targets.contains(&bear_id));
     }
 
@@ -1820,4 +1820,103 @@ use crate::types::{ObjectId, PlayerId};
         let bear = game.state.battlefield.get(bear_id).unwrap();
         let m1m1 = bear.counters.get(&crate::counters::CounterType::M1M1);
         assert_eq!(m1m1, 1, "Returned bear should have one -1/-1 counter");
+    }
+
+    #[test]
+    fn hexproof_from_own_colors_blocks_matching_spells() {
+        let (mut game, p1, p2) = setup2();
+
+        let tam_id = ObjectId::new();
+        let mut tam = CardData::new(tam_id, p1, "Tam, Mindful First-Year");
+        tam.card_types = vec![CardType::Creature];
+        tam.subtypes = vec![SubType::Gorgon, SubType::Wizard];
+        tam.color_identity = vec![Color::Green, Color::Blue];
+        tam.abilities = vec![Ability::static_ability(tam_id,
+            "Each other creature you control has hexproof from each of its colors.",
+            vec![StaticEffect::hexproof_from_own_colors()])];
+        game.state.battlefield.add(Permanent::new(tam.clone(), p1));
+        game.state.card_store.insert(tam.clone());
+        for ab in &tam.abilities { game.state.ability_store.add(ab.clone()); }
+
+        let bear_id = ObjectId::new();
+        let mut bear = CardData::new(bear_id, p1, "Green Bear");
+        bear.card_types = vec![CardType::Creature];
+        bear.color_identity = vec![Color::Green];
+        bear.power = Some(2);
+        bear.toughness = Some(2);
+        game.state.battlefield.add(Permanent::new(bear, p1));
+
+        game.apply_continuous_effects();
+
+        let targets_green = game.legal_targets_for_spec(&TargetSpec::Creature, p2, &[Color::Green]);
+        assert!(!targets_green.contains(&bear_id), "Green bear should be untargetable by green spells");
+
+        let targets_red = game.legal_targets_for_spec(&TargetSpec::Creature, p2, &[Color::Red]);
+        assert!(targets_red.contains(&bear_id), "Green bear should be targetable by red spells");
+
+        let targets_colorless = game.legal_targets_for_spec(&TargetSpec::Creature, p2, &[]);
+        assert!(targets_colorless.contains(&bear_id), "Green bear should be targetable by colorless spells");
+    }
+
+    #[test]
+    fn hexproof_from_own_colors_does_not_apply_to_self() {
+        let (mut game, p1, p2) = setup2();
+
+        let tam_id = ObjectId::new();
+        let mut tam = CardData::new(tam_id, p1, "Tam, Mindful First-Year");
+        tam.card_types = vec![CardType::Creature];
+        tam.color_identity = vec![Color::Green, Color::Blue];
+        tam.power = Some(2);
+        tam.toughness = Some(2);
+        tam.abilities = vec![Ability::static_ability(tam_id,
+            "Each other creature you control has hexproof from each of its colors.",
+            vec![StaticEffect::hexproof_from_own_colors()])];
+        game.state.battlefield.add(Permanent::new(tam.clone(), p1));
+        game.state.card_store.insert(tam.clone());
+        for ab in &tam.abilities { game.state.ability_store.add(ab.clone()); }
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(tam_id).unwrap();
+        assert!(perm.hexproof_from_colors.is_empty(), "Tam should NOT grant hexproof to itself");
+
+        let targets = game.legal_targets_for_spec(&TargetSpec::Creature, p2, &[Color::Green]);
+        assert!(targets.contains(&tam_id), "Tam itself should be targetable by green spells");
+    }
+
+    #[test]
+    fn hexproof_from_own_colors_all_colors_creature() {
+        let (mut game, p1, p2) = setup2();
+
+        let tam_id = ObjectId::new();
+        let mut tam = CardData::new(tam_id, p1, "Tam, Mindful First-Year");
+        tam.card_types = vec![CardType::Creature];
+        tam.color_identity = vec![Color::Green];
+        tam.abilities = vec![Ability::static_ability(tam_id,
+            "Each other creature you control has hexproof from each of its colors.",
+            vec![StaticEffect::hexproof_from_own_colors()])];
+        game.state.battlefield.add(Permanent::new(tam.clone(), p1));
+        game.state.card_store.insert(tam.clone());
+        for ab in &tam.abilities { game.state.ability_store.add(ab.clone()); }
+
+        let rainbow_id = ObjectId::new();
+        let mut rainbow = CardData::new(rainbow_id, p1, "Rainbow Creature");
+        rainbow.card_types = vec![CardType::Creature];
+        rainbow.color_identity = vec![Color::Green];
+        rainbow.power = Some(3);
+        rainbow.toughness = Some(3);
+        game.state.battlefield.add(Permanent::new(rainbow, p1));
+        if let Some(perm) = game.state.battlefield.get_mut(rainbow_id) {
+            perm.all_colors_until_eot = true;
+        }
+
+        game.apply_continuous_effects();
+
+        let perm = game.state.battlefield.get(rainbow_id).unwrap();
+        assert_eq!(perm.hexproof_from_colors.len(), 5, "All-colors creature should have hexproof from all 5 colors");
+
+        for color in &[Color::White, Color::Blue, Color::Black, Color::Red, Color::Green] {
+            let targets = game.legal_targets_for_spec(&TargetSpec::Creature, p2, &[*color]);
+            assert!(!targets.contains(&rainbow_id), "Rainbow creature should be untargetable by {:?} spells", color);
+        }
     }

@@ -1899,6 +1899,10 @@ impl StaticEffect {
     pub fn replace_token_creation() -> Self {
         StaticEffect::ReplaceTokenCreation
     }
+
+    pub fn hexproof_from_own_colors() -> Self {
+        StaticEffect::HexproofFromOwnColors
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -2179,6 +2183,7 @@ pub enum StaticEffect {
         subtypes: Vec<String>,
         colorless: bool,
     },
+    HexproofFromOwnColors,
     Custom(String),
 }
 
