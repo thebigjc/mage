@@ -33,7 +33,7 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 - [x] Task 9: Fix remaining one-off warnings in game.rs: needless_borrow, len_zero, needless_range_loop, let_and_return, manual_map, iter_cloned_collect, useless_format, useless_conversion, manual_pattern_char_comparison
 - [x] Task 10: Review `if_same_then_else` at game.rs:684 — was a logic bug: non-creature cards were incorrectly counted when filter contained both "creature" and "card". Fixed by restructuring conditionals.
 - [x] Task 11: Fix `only_used_in_recursion` in filters.rs:311 — prefixed `you` → `_you` in `predicate_matches_card` since the parameter is only passed through recursive And/Or/Not arms and never directly used (cards don't have controllers).
-- [ ] Task 12: Fix `collapsible_if` in combat.rs:234 + run `cargo test --lib` to verify no regressions
+- [x] Task 12: Fix `collapsible_if` in combat.rs:234 — collapsed nested `if` for SKULK check into single `&&` condition
 
 ### Phase 3: Other mtg-engine files (10 warnings)
 - [ ] Task 13: Fix `large_enum_variant` in zones.rs:451 — either Box<CardData> in StackItemKind::Spell or `#[allow]` with justification
@@ -60,7 +60,7 @@ Run `cargo clippy --workspace` and remediate all warnings and errors until clipp
 - [ ] Task 28: Run `cargo test --lib` and `cargo test --release` to confirm all tests still pass
 
 ## Completed This Iteration
-- Task 11: Fixed `only_used_in_recursion` in filters.rs:311 — prefixed `you` → `_you` in `predicate_matches_card`. The parameter is kept for API consistency with `predicate_matches_permanent` (which does use it for controller checks), but `_you` suppresses the warning since cards don't have controllers. Also corrected Task 12 description — it was actually a `collapsible_if` in combat.rs:234, not `only_used_in_recursion`.
+- Task 12: Fixed `collapsible_if` in combat.rs:234 — collapsed nested `if attacker.has_keyword(SKULK) { if blocker.power() > attacker.power() { ... } }` into single `if ... && ...` condition. All 576 tests pass. 8 mtg-engine warnings remain (Tasks 13-17).
 
 ## Notes
 

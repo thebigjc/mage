@@ -231,10 +231,10 @@ pub fn can_block(blocker: &Permanent, attacker: &Permanent) -> bool {
     }
 
     // Skulk: can't be blocked by creatures with greater power
-    if attacker.has_keyword(crate::constants::KeywordAbilities::SKULK) {
-        if blocker.power() > attacker.power() {
-            return false;
-        }
+    if attacker.has_keyword(crate::constants::KeywordAbilities::SKULK)
+        && blocker.power() > attacker.power()
+    {
+        return false;
     }
 
     // Daunt / CantBeBlockedByPowerLessOrEqual: blocker's power must exceed threshold
