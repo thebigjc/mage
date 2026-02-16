@@ -74,9 +74,9 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - [x] Task 1.6: Audit and replace `panic!`/`unreachable!` in production code with proper error returns where feasible
 
 #### 1B: Typed Filter System
-- [ ] Task 1.7: Design and implement `Filter` enum in mtg-engine to replace string-based filters. Start with the most common patterns: creature/permanent type filters, controller filters, power/toughness comparisons
-- [ ] Task 1.8: Implement `Filter::matches_permanent(&self, perm: &Permanent, state: &GameState) -> bool` evaluation
-- [ ] Task 1.9: Migrate `matches_filter()` string parsing logic to `Filter` enum evaluation
+- [x] Task 1.7: Design and implement `Filter` enum in mtg-engine to replace string-based filters. Start with the most common patterns: creature/permanent type filters, controller filters, power/toughness comparisons
+- [x] Task 1.8: Implement `Filter::matches_permanent(&self, perm: &Permanent, state: &GameState) -> bool` evaluation
+- [x] Task 1.9: Migrate `matches_filter()` string parsing logic to `Filter` enum evaluation
 - [ ] Task 1.10: Migrate `DealDamageAll`, `DestroyAll`, `BoostAllUntilEndOfTurn` filter fields from `String` to `Filter`
 - [ ] Task 1.11: Migrate `Sacrifice`, `SearchLibrary`, `TapCreatures` filter fields from `String` to `Filter`
 - [ ] Task 1.12: Migrate `TargetSpec::PermanentFiltered(String)` to `TargetSpec::PermanentFiltered(Filter)` (~62 usages)
@@ -205,5 +205,12 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - All 576 engine tests passing, zero clippy warnings
 
 ## Completed This Iteration
-- Task 1.6: Verified zero panic!/unreachable!/unimplemented!/todo! in production code. Phase 1A (Error Handling Foundation) is now fully complete.
+- Tasks 1.7-1.9: Migrated string-based filter matching to typed Filter/Predicate system.
+  - Task 1.7 & 1.8 were already implemented in `filters.rs` (Predicate enum + matching logic + tests)
+  - Added `Filter::parse()` function that converts 79 unique filter string patterns to typed Predicates
+  - Added `predicate_matches_permanent_ignore_controller` / `predicate_matches_card_ignore_controller` for backward compatibility with callers that handle controller checks separately
+  - Replaced `matches_filter()`, `card_matches_filter()`, and `permanent_matches_filter_part()` in game.rs to delegate to the new typed system
+  - Fixed token matching (was TODO, now uses `perm.card.is_token`)
+  - Added 8 new parse tests covering type filters, nonland permanent, or-combinators, controller suffixes, card/spell suffixes, basic land subtypes, subtype filters, and ignore-controller mode
+  - All 584 engine tests passing (576 original + 8 new), 19 integration tests passing, zero clippy warnings
 

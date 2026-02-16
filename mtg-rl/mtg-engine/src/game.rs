@@ -946,23 +946,7 @@ impl Game {
     }
 
     fn permanent_matches_filter_part(&self, perm: &crate::permanent::Permanent, filter_part: &str) -> bool {
-        let part_lower = filter_part.trim().to_lowercase();
-        if part_lower == "lands" || part_lower == "land" {
-            return perm.card.card_types.contains(&crate::constants::CardType::Land);
-        }
-        if part_lower == "creatures" || part_lower == "creature" {
-            return perm.card.card_types.contains(&crate::constants::CardType::Creature);
-        }
-        if part_lower == "artifacts" || part_lower == "artifact" {
-            return perm.card.card_types.contains(&crate::constants::CardType::Artifact);
-        }
-        if part_lower == "enchantments" || part_lower == "enchantment" {
-            return perm.card.card_types.contains(&crate::constants::CardType::Enchantment);
-        }
-        let trimmed = filter_part.trim();
-        let singular = trimmed.strip_suffix('s').unwrap_or(trimmed);
-        let subtype = crate::constants::SubType::by_description(singular);
-        perm.has_subtype(&subtype)
+        crate::filters::Filter::parse(filter_part).matches_permanent_ignore_controller(perm)
     }
 
     /// Evaluate a dynamic value source string and return the computed value.
@@ -6732,87 +6716,12 @@ impl Game {
         (power, toughness, keywords)
     }
 
-    /// Check if a permanent matches a simple filter string.
     fn matches_filter(perm: &Permanent, filter: &str) -> bool {
-        let f = filter.to_lowercase();
-        if f.is_empty() || f == "all" {
-            return true;
-        }
-        let is_changeling = perm.is_creature()
-            && perm.has_keyword(crate::constants::KeywordAbilities::CHANGELING);
-
-        if f.starts_with("non-") && f.ends_with("creatures") {
-            let type_part = &f[4..f.len() - 1]; // "non-elemental creatures" -> "elemental creature"
-            let type_str = type_part.trim_end_matches(" creature").trim_end_matches('s');
-            if !perm.is_creature() {
-                return false;
-            }
-            if is_changeling {
-                return false;
-            }
-            for st in &perm.card.subtypes {
-                if st.to_string().to_lowercase() == type_str {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        for st in &perm.card.subtypes {
-            if f.contains(&st.to_string().to_lowercase()) {
-                return true;
-            }
-        }
-        for ct in &perm.card.card_types {
-            let ct_name = format!("{ct:?}").to_lowercase();
-            if f.contains(&ct_name) {
-                return true;
-            }
-        }
-        if is_changeling {
-            let is_card_type = f.contains("creature") || f.contains("land")
-                || f.contains("artifact") || f.contains("enchantment")
-                || f.contains("planeswalker") || f.contains("instant")
-                || f.contains("sorcery") || f.contains("nonland");
-            if !is_card_type {
-                return true;
-            }
-        }
-        if f.contains("nonland") && !perm.card.card_types.contains(&crate::constants::CardType::Land) {
-            return true;
-        }
-        false
+        crate::filters::Filter::parse(filter).matches_permanent_ignore_controller(perm)
     }
 
-    /// Check if a CardData matches a simple filter string.
     fn card_matches_filter(card: &CardData, filter: &str) -> bool {
-        let f = filter.to_lowercase();
-        if f.is_empty() || f == "all" {
-            return true;
-        }
-        // Check "permanent" (any permanent card type)
-        if f == "permanent" {
-            return card.card_types.iter().any(|ct| ct.is_permanent());
-        }
-        // Check "basic land"
-        if f.contains("basic") && f.contains("land") {
-            return card.supertypes.contains(&crate::constants::SuperType::Basic)
-                && card.card_types.contains(&crate::constants::CardType::Land);
-        }
-        // Check card types
-        for ct in &card.card_types {
-            let ct_name = format!("{ct:?}").to_lowercase();
-            if f.contains(&ct_name) {
-                return true;
-            }
-        }
-        // Check subtypes
-        for st in &card.subtypes {
-            if f.contains(&st.to_string().to_lowercase()) {
-                return true;
-            }
-        }
-        false
+        crate::filters::Filter::parse(filter).matches_card_ignore_controller(card)
     }
 
     /// Select targets for a spell/ability based on its TargetSpec.
