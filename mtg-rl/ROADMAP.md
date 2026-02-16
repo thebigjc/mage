@@ -551,4 +551,6 @@ After the above systems are in place, systematically replace remaining `Custom(S
 
 **Session 2026-02-16 (ECL parity continued):** Added Effect::Conditional variant (4 cards fixed), Effect::AddSubtypeAll (curious_colossus fixed). 500 engine tests, 43 ECL Custom fallbacks remaining.
 
+**Session 2026-02-16 (ECL parity — Task 26):** Added `StaticEffect::BoostPerTurnEvent` for dynamic +X/+X based on per-turn event counts (creatures entered this turn). Wired `WatcherManager` into `emit_event` so per-turn stats are tracked during gameplay. Updated **kinbinding** to use `StaticEffect::boost_per_turn_event("creatures you control", "creatures_entered", 1, 1)`. 3 new tests (564 engine total). 1 StaticEffect::Custom eliminated.
+
 See `docs/work-queue.md` for the batch-fix loop and per-set remediation docs for card-level details.

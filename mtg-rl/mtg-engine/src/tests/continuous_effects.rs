@@ -2124,3 +2124,150 @@ mod trigger_doubling_tests {
     }
 }
 
+mod boost_per_turn_event_tests {
+    use super::*;
+    use crate::events::GameEvent;
+    use uuid::Uuid;
+
+    struct PassPlayer2;
+    impl crate::decision::PlayerDecisionMaker for PassPlayer2 {
+        fn priority(&mut self, _: &crate::decision::GameView, actions: &[crate::decision::PlayerAction]) -> crate::decision::PlayerAction { actions[0].clone() }
+        fn choose_targets(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &crate::decision::TargetRequirement) -> Vec<ObjectId> { vec![] }
+        fn choose_use(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &str) -> bool { false }
+        fn choose_mode(&mut self, _: &crate::decision::GameView, _: &[crate::decision::NamedChoice]) -> usize { 0 }
+        fn select_attackers(&mut self, _: &crate::decision::GameView, _: &[ObjectId], _: &[ObjectId]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn select_blockers(&mut self, _: &crate::decision::GameView, _: &[crate::decision::AttackerInfo]) -> Vec<(ObjectId, ObjectId)> { vec![] }
+        fn assign_damage(&mut self, _: &crate::decision::GameView, _: &crate::decision::DamageAssignment) -> Vec<(ObjectId, u32)> { vec![] }
+        fn choose_mulligan(&mut self, _: &crate::decision::GameView, _: &[ObjectId]) -> bool { false }
+        fn choose_cards_to_put_back(&mut self, _: &crate::decision::GameView, _: &[ObjectId], _: usize) -> Vec<ObjectId> { vec![] }
+        fn choose_discard(&mut self, _: &crate::decision::GameView, hand: &[ObjectId], count: usize) -> Vec<ObjectId> { hand.iter().take(count).copied().collect() }
+        fn choose_amount(&mut self, _: &crate::decision::GameView, _: &str, min: u32, _: u32) -> u32 { min }
+        fn choose_mana_payment(&mut self, _: &crate::decision::GameView, _: &crate::decision::UnpaidMana, _: &[crate::decision::PlayerAction]) -> Option<crate::decision::PlayerAction> { None }
+        fn choose_replacement_effect(&mut self, _: &crate::decision::GameView, _: &[crate::decision::ReplacementEffectChoice]) -> usize { 0 }
+        fn choose_pile(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &str, _: &[ObjectId], _: &[ObjectId]) -> bool { true }
+        fn choose_option(&mut self, _: &crate::decision::GameView, _: crate::constants::Outcome, _: &str, _: &[crate::decision::NamedChoice]) -> usize { 0 }
+    }
+
+    fn make_game() -> (Game, PlayerId, PlayerId) {
+        let p1 = PlayerId(Uuid::new_v4());
+        let p2 = PlayerId(Uuid::new_v4());
+        let config = GameConfig { players: vec![
+            PlayerConfig { name: "P1".into(), deck: vec![] },
+            PlayerConfig { name: "P2".into(), deck: vec![] },
+        ], starting_life: 20 };
+        let game = Game::new_two_player(config, vec![
+            (p1, Box::new(PassPlayer2)),
+            (p2, Box::new(PassPlayer2)),
+        ]);
+        (game, p1, p2)
+    }
+
+    #[test]
+    fn boost_per_creatures_entered_no_events() {
+        let (mut game, p1, _p2) = make_game();
+
+        let ench_id = ObjectId(Uuid::new_v4());
+        let ench = CardData {
+            id: ench_id, owner: p1, name: "Kinbinding".into(),
+            card_types: vec![CardType::Enchantment],
+            abilities: vec![Ability::static_ability(ench_id,
+                "Creatures you control get +X/+X where X = creatures entered.",
+                vec![StaticEffect::boost_per_turn_event("creatures you control", "creatures_entered", 1, 1)])],
+            ..Default::default()
+        };
+        game.state.battlefield.add(Permanent::new(ench.clone(), p1));
+        game.state.card_store.insert(ench.clone());
+        for ab in &ench.abilities { game.state.ability_store.add(ab.clone()); }
+
+        let bear_id = ObjectId(Uuid::new_v4());
+        let mut bear = CardData::new(bear_id, p1, "Bear");
+        bear.card_types = vec![CardType::Creature];
+        bear.power = Some(2);
+        bear.toughness = Some(2);
+        game.state.battlefield.add(Permanent::new(bear, p1));
+
+        game.apply_continuous_effects();
+        let perm = game.state.battlefield.get(bear_id).unwrap();
+        assert_eq!(perm.power(), 2);
+        assert_eq!(perm.toughness(), 2);
+    }
+
+    #[test]
+    fn boost_per_creatures_entered_scales_with_count() {
+        let (mut game, p1, _p2) = make_game();
+
+        let ench_id = ObjectId(Uuid::new_v4());
+        let ench = CardData {
+            id: ench_id, owner: p1, name: "Kinbinding".into(),
+            card_types: vec![CardType::Enchantment],
+            abilities: vec![Ability::static_ability(ench_id,
+                "Creatures you control get +X/+X where X = creatures entered.",
+                vec![StaticEffect::boost_per_turn_event("creatures you control", "creatures_entered", 1, 1)])],
+            ..Default::default()
+        };
+        game.state.battlefield.add(Permanent::new(ench.clone(), p1));
+        game.state.card_store.insert(ench.clone());
+        for ab in &ench.abilities { game.state.ability_store.add(ab.clone()); }
+
+        let bear_id = ObjectId(Uuid::new_v4());
+        let mut bear = CardData::new(bear_id, p1, "Bear");
+        bear.card_types = vec![CardType::Creature];
+        bear.power = Some(2);
+        bear.toughness = Some(2);
+        game.state.battlefield.add(Permanent::new(bear, p1));
+
+        game.emit_event(GameEvent::enters_battlefield(ObjectId(Uuid::new_v4()), p1));
+        game.emit_event(GameEvent::enters_battlefield(ObjectId(Uuid::new_v4()), p1));
+        game.emit_event(GameEvent::enters_battlefield(ObjectId(Uuid::new_v4()), p1));
+
+        game.apply_continuous_effects();
+        let perm = game.state.battlefield.get(bear_id).unwrap();
+        assert_eq!(perm.power(), 5, "2 base + 3 creatures entered");
+        assert_eq!(perm.toughness(), 5);
+    }
+
+    #[test]
+    fn boost_per_creatures_entered_only_your_creatures() {
+        let (mut game, p1, p2) = make_game();
+
+        let ench_id = ObjectId(Uuid::new_v4());
+        let ench = CardData {
+            id: ench_id, owner: p1, name: "Kinbinding".into(),
+            card_types: vec![CardType::Enchantment],
+            abilities: vec![Ability::static_ability(ench_id,
+                "Creatures you control get +X/+X where X = creatures entered.",
+                vec![StaticEffect::boost_per_turn_event("creatures you control", "creatures_entered", 1, 1)])],
+            ..Default::default()
+        };
+        game.state.battlefield.add(Permanent::new(ench.clone(), p1));
+        game.state.card_store.insert(ench.clone());
+        for ab in &ench.abilities { game.state.ability_store.add(ab.clone()); }
+
+        let bear_id = ObjectId(Uuid::new_v4());
+        let mut bear = CardData::new(bear_id, p1, "Bear");
+        bear.card_types = vec![CardType::Creature];
+        bear.power = Some(2);
+        bear.toughness = Some(2);
+        game.state.battlefield.add(Permanent::new(bear, p1));
+
+        let opp_bear_id = ObjectId(Uuid::new_v4());
+        let mut opp_bear = CardData::new(opp_bear_id, p2, "Opp Bear");
+        opp_bear.card_types = vec![CardType::Creature];
+        opp_bear.power = Some(3);
+        opp_bear.toughness = Some(3);
+        game.state.battlefield.add(Permanent::new(opp_bear, p2));
+
+        game.emit_event(GameEvent::enters_battlefield(ObjectId(Uuid::new_v4()), p1));
+        game.emit_event(GameEvent::enters_battlefield(ObjectId(Uuid::new_v4()), p2));
+
+        game.apply_continuous_effects();
+        let own = game.state.battlefield.get(bear_id).unwrap();
+        assert_eq!(own.power(), 3, "2 base + 1 own creature entered");
+        assert_eq!(own.toughness(), 3);
+
+        let opp = game.state.battlefield.get(opp_bear_id).unwrap();
+        assert_eq!(opp.power(), 3, "opponent creature unaffected by your enchantment");
+        assert_eq!(opp.toughness(), 3);
+    }
+}
+

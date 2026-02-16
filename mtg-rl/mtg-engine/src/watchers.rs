@@ -144,7 +144,7 @@ impl WatcherManager {
 
         // Handle zone-change events that track dying, entering, leaving.
         match event.event_type {
-            EventType::EntersTheBattlefield => {
+            EventType::EntersTheBattlefield | EventType::EnteredTheBattlefield => {
                 if let Some(target_id) = event.target_id {
                     self.game_stats.all_entered_battlefield.insert(target_id);
                     if let Some(pid) = event.player_id {

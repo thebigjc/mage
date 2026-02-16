@@ -454,6 +454,7 @@ impl Game {
         let mut set_power_color_counts: Vec<(ObjectId, PlayerId)> = Vec::new();
         let mut assign_damage_toughness: Vec<(ObjectId, PlayerId, String, Option<String>)> = Vec::new();
         let mut damage_doublings: Vec<(ObjectId, PlayerId)> = Vec::new();
+        let mut boost_per_turn_events: Vec<(ObjectId, PlayerId, String, String, i32, i32)> = Vec::new();
 
         for perm in self.state.battlefield.iter() {
             let source_id = perm.id();
@@ -528,6 +529,9 @@ impl Game {
                         }
                         crate::abilities::StaticEffect::TriggerDoubling { filter } => {
                             self.state.trigger_doublings.push((source_id, controller, filter.clone()));
+                        }
+                        crate::abilities::StaticEffect::BoostPerTurnEvent { filter, event, power_per, toughness_per } => {
+                            boost_per_turn_events.push((source_id, controller, filter.clone(), event.clone(), *power_per, *toughness_per));
                         }
                         _ => {}
                     }
@@ -657,6 +661,22 @@ impl Game {
                 if let Some(perm) = self.state.battlefield.get_mut(source_id) {
                     perm.continuous_boost_power += total * power_per;
                     perm.continuous_boost_toughness += total * toughness_per;
+                }
+            }
+        }
+
+        for (source_id, controller, filter, event, power_per, toughness_per) in boost_per_turn_events {
+            let count = match event.as_str() {
+                "creatures_entered" => self.watchers.player_stats(controller).creatures_entered as i32,
+                _ => 0,
+            };
+            if count > 0 {
+                let matching = self.find_matching_permanents(source_id, controller, &filter);
+                for target_id in matching {
+                    if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                        perm.continuous_boost_power += count * power_per;
+                        perm.continuous_boost_toughness += count * toughness_per;
+                    }
                 }
             }
         }
@@ -1945,6 +1965,7 @@ impl Game {
 
     /// Emit an event to the event log (for triggered ability checking).
     fn emit_event(&mut self, event: GameEvent) {
+        self.watchers.watch(&event);
         self.event_log.push(event);
     }
 

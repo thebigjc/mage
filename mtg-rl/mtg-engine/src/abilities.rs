@@ -1867,6 +1867,15 @@ impl StaticEffect {
     pub fn cast_from_exile_with_counter_cost(counter_count: u32) -> Self {
         StaticEffect::CastFromExileWithCounterCost { counter_count }
     }
+
+    pub fn boost_per_turn_event(filter: &str, event: &str, power_per: i32, toughness_per: i32) -> Self {
+        StaticEffect::BoostPerTurnEvent {
+            filter: filter.to_string(),
+            event: event.to_string(),
+            power_per,
+            toughness_per,
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -2130,6 +2139,12 @@ pub enum StaticEffect {
     /// by removing N counters from among creatures you control as an additional cost.
     CastFromExileWithCounterCost {
         counter_count: u32,
+    },
+    BoostPerTurnEvent {
+        filter: String,
+        event: String,
+        power_per: i32,
+        toughness_per: i32,
     },
     /// Custom continuous effect.
 

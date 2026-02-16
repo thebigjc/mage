@@ -3035,7 +3035,7 @@ fn kinbinding(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Creatures you control get +X/+X, where X is the number of creatures that entered the battlefield under your control this turn.",
-                vec![StaticEffect::Custom("Dynamic +X/+X where X = creatures ETB this turn.".into())]),
+                vec![StaticEffect::boost_per_turn_event("creatures you control", "creatures_entered", 1, 1)]),
             Ability::triggered(id,
                 "At the beginning of combat on your turn, create a 1/1 green and white Kithkin creature token.",
                 vec![EventType::BeginCombat],
