@@ -447,7 +447,7 @@ mod tests {
             mana_production_count: 0,
         };
         let score = evaluate_permanent(&grizzly, true);
-        assert!(score > 0, "A 2/2 creature should score positively, got {}", score);
+        assert!(score > 0, "A 2/2 creature should score positively, got {score}");
     }
 
     #[test]
@@ -484,9 +484,7 @@ mod tests {
         let flyer_score = evaluate_permanent(&flyer, true);
         assert!(
             flyer_score > vanilla_score,
-            "Flying creature should score higher: {} vs {}",
-            flyer_score,
-            vanilla_score
+            "Flying creature should score higher: {flyer_score} vs {vanilla_score}"
         );
     }
 

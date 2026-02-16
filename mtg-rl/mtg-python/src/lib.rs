@@ -1,3 +1,4 @@
+#![allow(clippy::useless_conversion)]  // PyO3 proc macro generates .into() on PyErr
 // PyO3 bindings for the MTG RL environment.
 //
 // Exposes a Gymnasium-compatible Python API:
