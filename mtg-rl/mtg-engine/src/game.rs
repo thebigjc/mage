@@ -15,6 +15,7 @@
 // Ported from mage.game.GameImpl.
 
 use crate::abilities::{Cost, Effect, StaticEffect, TargetSpec, TriggerScope};
+use crate::filters::Filter;
 use crate::mana::ManaCost;
 use crate::combat::{self, CombatState};
 use crate::constants::AbilityType;
@@ -444,24 +445,24 @@ impl Game {
 
         // Step 2: Collect static effects from all battlefield permanents.
         // We must collect first to avoid borrow conflicts.
-        let mut boosts: Vec<(ObjectId, PlayerId, String, i32, i32)> = Vec::new();
-        let mut keyword_grants: Vec<(ObjectId, PlayerId, String, String)> = Vec::new();
-        let mut cant_attacks: Vec<(ObjectId, PlayerId, String)> = Vec::new();
-        let mut cant_blocks: Vec<(ObjectId, PlayerId, String)> = Vec::new();
+        let mut boosts: Vec<(ObjectId, PlayerId, Filter, i32, i32)> = Vec::new();
+        let mut keyword_grants: Vec<(ObjectId, PlayerId, Filter, String)> = Vec::new();
+        let mut cant_attacks: Vec<(ObjectId, PlayerId, Filter)> = Vec::new();
+        let mut cant_blocks: Vec<(ObjectId, PlayerId, Filter)> = Vec::new();
         let mut max_blocked_bys: Vec<(ObjectId, u32)> = Vec::new();
         let mut cant_blocked_by_power: Vec<(ObjectId, i32)> = Vec::new();
         let mut must_be_blockeds: Vec<ObjectId> = Vec::new();
-        let mut boost_per_counts: Vec<(ObjectId, PlayerId, String, i32, i32)> = Vec::new();
+        let mut boost_per_counts: Vec<(ObjectId, PlayerId, Filter, i32, i32)> = Vec::new();
         let mut additional_land_plays: Vec<(PlayerId, u32)> = Vec::new();
         let mut conditional_keywords: Vec<(ObjectId, PlayerId, String, String)> = Vec::new();
         let mut conditional_boosts: Vec<(ObjectId, PlayerId, i32, i32, String)> = Vec::new();
-        let mut lose_all_abilities: Vec<(ObjectId, PlayerId, String)> = Vec::new();
-        let mut set_base_pts: Vec<(ObjectId, PlayerId, String, i32, i32)> = Vec::new();
-        let mut cant_untaps: Vec<(ObjectId, PlayerId, String)> = Vec::new();
+        let mut lose_all_abilities: Vec<(ObjectId, PlayerId, Filter)> = Vec::new();
+        let mut set_base_pts: Vec<(ObjectId, PlayerId, Filter, i32, i32)> = Vec::new();
+        let mut cant_untaps: Vec<(ObjectId, PlayerId, Filter)> = Vec::new();
         let mut set_power_color_counts: Vec<(ObjectId, PlayerId)> = Vec::new();
-        let mut assign_damage_toughness: Vec<(ObjectId, PlayerId, String, Option<String>)> = Vec::new();
+        let mut assign_damage_toughness: Vec<(ObjectId, PlayerId, Filter, Option<String>)> = Vec::new();
         let mut damage_doublings: Vec<(ObjectId, PlayerId)> = Vec::new();
-        let mut boost_per_turn_events: Vec<(ObjectId, PlayerId, String, String, i32, i32)> = Vec::new();
+        let mut boost_per_turn_events: Vec<(ObjectId, PlayerId, Filter, String, i32, i32)> = Vec::new();
         let mut becomes_creature_attached: Vec<(ObjectId, Vec<String>, bool)> = Vec::new();
         let mut hexproof_from_own_colors: Vec<(ObjectId, PlayerId)> = Vec::new();
 
@@ -476,16 +477,16 @@ impl Game {
                 for effect in &ability.static_effects {
                     match effect {
                         crate::abilities::StaticEffect::Boost { filter, power, toughness } => {
-                            boosts.push((source_id, controller, filter.message.clone(), *power, *toughness));
+                            boosts.push((source_id, controller, filter.clone(), *power, *toughness));
                         }
                         crate::abilities::StaticEffect::GrantKeyword { filter, keyword } => {
-                            keyword_grants.push((source_id, controller, filter.message.clone(), keyword.clone()));
+                            keyword_grants.push((source_id, controller, filter.clone(), keyword.clone()));
                         }
                         crate::abilities::StaticEffect::CantAttack { filter } => {
-                            cant_attacks.push((source_id, controller, filter.message.clone()));
+                            cant_attacks.push((source_id, controller, filter.clone()));
                         }
                         crate::abilities::StaticEffect::CantBlock { filter } => {
-                            cant_blocks.push((source_id, controller, filter.message.clone()));
+                            cant_blocks.push((source_id, controller, filter.clone()));
                         }
                         crate::abilities::StaticEffect::CantBeBlockedByMoreThan { count } => {
                             max_blocked_bys.push((source_id, *count));
@@ -497,7 +498,7 @@ impl Game {
                             must_be_blockeds.push(source_id);
                         }
                         crate::abilities::StaticEffect::BoostPerCount { count_filter, power_per, toughness_per } => {
-                            boost_per_counts.push((source_id, controller, count_filter.message.clone(), *power_per, *toughness_per));
+                            boost_per_counts.push((source_id, controller, count_filter.clone(), *power_per, *toughness_per));
                         }
                         crate::abilities::StaticEffect::AdditionalLandPlays { count } => {
                             additional_land_plays.push((controller, *count));
@@ -509,19 +510,19 @@ impl Game {
                             conditional_boosts.push((source_id, controller, *power, *toughness, condition.clone()));
                         }
                         crate::abilities::StaticEffect::LoseAllAbilities { filter } => {
-                            lose_all_abilities.push((source_id, controller, filter.message.clone()));
+                            lose_all_abilities.push((source_id, controller, filter.clone()));
                         }
                         crate::abilities::StaticEffect::SetBasePowerToughness { filter, power, toughness } => {
-                            set_base_pts.push((source_id, controller, filter.message.clone(), *power, *toughness));
+                            set_base_pts.push((source_id, controller, filter.clone(), *power, *toughness));
                         }
                         crate::abilities::StaticEffect::CantUntap { filter } => {
-                            cant_untaps.push((source_id, controller, filter.message.clone()));
+                            cant_untaps.push((source_id, controller, filter.clone()));
                         }
                         crate::abilities::StaticEffect::SetPowerToColorCount => {
                             set_power_color_counts.push((source_id, controller));
                         }
                         crate::abilities::StaticEffect::AssignDamageWithToughness { filter, condition } => {
-                            assign_damage_toughness.push((source_id, controller, filter.message.clone(), condition.clone()));
+                            assign_damage_toughness.push((source_id, controller, filter.clone(), condition.clone()));
                         }
                         crate::abilities::StaticEffect::DamageDoublingFromType => {
                             damage_doublings.push((source_id, controller));
@@ -537,10 +538,10 @@ impl Game {
                             }
                         }
                         crate::abilities::StaticEffect::TriggerDoubling { filter } => {
-                            self.state.trigger_doublings.push((source_id, controller, filter.message.clone()));
+                            self.state.trigger_doublings.push((source_id, controller, filter.clone()));
                         }
                         crate::abilities::StaticEffect::BoostPerTurnEvent { filter, event, power_per, toughness_per } => {
-                            boost_per_turn_events.push((source_id, controller, filter.message.clone(), event.clone(), *power_per, *toughness_per));
+                            boost_per_turn_events.push((source_id, controller, filter.clone(), event.clone(), *power_per, *toughness_per));
                         }
                         crate::abilities::StaticEffect::BecomesCreatureAttached { subtypes, colorless } => {
                             if let Some(perm) = self.state.battlefield.get(source_id) {
@@ -673,16 +674,12 @@ impl Game {
             // Count matching permanents on the battlefield
             let bf_count = self.find_matching_permanents(source_id, controller, &count_filter).len() as i32;
 
-            // Also count matching cards in the controller's graveyard if the filter mentions it
-            let gy_count = if count_filter.contains("graveyard") {
-                // Extract the type from "and creature card in your graveyard" or similar
+            let gy_count = if count_filter.message.contains("graveyard") {
                 if let Some(player) = self.state.players.get(&controller) {
-                    let filter_lower = count_filter.to_lowercase();
+                    let filter_lower = count_filter.message.to_lowercase();
                     let mut count = 0i32;
                     for &card_id in player.graveyard.iter() {
                         if let Some(card) = self.state.card_store.get(card_id) {
-                            // If filter mentions "creature", only count creatures;
-                            // otherwise count all cards in graveyard
                             if filter_lower.contains("creature") {
                                 if card.is_creature() {
                                     count += 1;
@@ -1353,25 +1350,19 @@ impl Game {
         multiplier
     }
 
-    /// - `"X you control"` — controller must match
-    /// - `"attacking X you control"` — must be currently attacking
-    /// - `"creature token you control"` — must be a token creature
-    /// - `"creature"` / `"Elf"` / etc. — type/subtype matching
     fn find_matching_permanents(
         &self,
         source_id: ObjectId,
         controller: PlayerId,
-        filter: &str,
+        filter: &Filter,
     ) -> Vec<ObjectId> {
-        let f = filter.to_lowercase();
+        let msg = filter.message.to_lowercase();
 
-        // "self" — only the source permanent
-        if f == "self" {
+        if msg == "self" {
             return vec![source_id];
         }
 
-        // "enchanted creature" / "equipped creature" — attached target
-        if f.contains("enchanted") || f.contains("equipped") {
+        if msg.contains("enchanted") || msg.contains("equipped") {
             if let Some(source_perm) = self.state.battlefield.get(source_id) {
                 if let Some(attached_to) = source_perm.attached_to {
                     return vec![attached_to];
@@ -1380,41 +1371,18 @@ impl Game {
             return vec![];
         }
 
-        let exclude_self = f.contains("other");
-        let you_control = f.contains("you control");
-        let is_attacking = f.contains("attacking");
-        let is_nontoken = f.contains("nontoken");
-        let is_token = !is_nontoken && f.contains("token");
-
-        // Strip modifiers to get the core type filter
-        let type_filter = f
-            .replace("other ", "")
-            .replace("attacking ", "")
-            .replace("you control", "")
-            .replace("nontoken ", "")
-            .replace("token ", "")
-            .replace("token", "")
-            .trim()
-            .to_string();
+        let exclude_self = msg.contains("other");
+        let is_attacking = msg.contains("attacking");
 
         let mut results = Vec::new();
         for perm in self.state.battlefield.iter() {
             if exclude_self && perm.id() == source_id {
                 continue;
             }
-            if you_control && perm.controller != controller {
-                continue;
-            }
-            if is_token && !perm.card.is_token {
-                continue;
-            }
-            if is_nontoken && perm.card.is_token {
-                continue;
-            }
             if is_attacking && !self.state.combat.is_attacking(perm.id()) {
                 continue;
             }
-            if !type_filter.is_empty() && !Self::matches_filter(perm, &type_filter) {
+            if !filter.matches_permanent(perm, controller) {
                 continue;
             }
             results.push(perm.id());
@@ -1913,13 +1881,12 @@ impl Game {
                         continue;
                     }
                     if let Some(source_perm) = self.state.battlefield.get(source_id) {
-                        let f = filter.to_lowercase();
-                        let exclude_doubler = f.contains("other");
+                        let msg = filter.message.to_lowercase();
+                        let exclude_doubler = msg.contains("other");
                         if exclude_doubler && source_id == doubler_source {
                             continue;
                         }
-                        let stripped = f.replace("other ", "").replace("you control", "").trim().to_string();
-                        if !stripped.is_empty() && !Self::matches_filter(source_perm, &stripped) {
+                        if !filter.matches_permanent(source_perm, doubler_controller) {
                             continue;
                         }
                         extra.push((controller, ability_id, source_id, desc.clone(), et, event_amount));
@@ -4091,7 +4058,7 @@ impl Game {
                 }
                 Effect::BounceAll { filter } => {
                     let to_bounce: Vec<(ObjectId, PlayerId)> = self.state.battlefield.iter()
-                        .filter(|p| Self::matches_filter(p, &filter.message))
+                        .filter(|p| filter.matches_permanent_ignore_controller(p))
                         .map(|p| (p.id(), p.owner()))
                         .collect();
                     for (id, owner) in &to_bounce {
@@ -4455,7 +4422,7 @@ impl Game {
                     }
                     let picked = milled.iter().find(|&&card_id| {
                         self.state.card_store.get(card_id)
-                            .map(|c| Self::card_matches_filter(c, &filter.message))
+                            .map(|c| filter.matches_card_ignore_controller(c))
                             .unwrap_or(false)
                     }).copied();
                     if let Some(card_id) = picked {
@@ -4487,7 +4454,7 @@ impl Game {
                     }
                     let matched: Vec<ObjectId> = milled.iter().filter(|&&card_id| {
                         self.state.card_store.get(card_id)
-                            .map(|c| Self::card_matches_filter(c, &filter.message))
+                            .map(|c| filter.matches_card_ignore_controller(c))
                             .unwrap_or(false)
                     }).copied().collect();
                     for card_id in matched {
@@ -4731,7 +4698,7 @@ impl Game {
                         let top_cards: Vec<ObjectId> = player.library.peek(look_count).to_vec();
                         let picked = top_cards.iter().find(|&&card_id| {
                             self.state.card_store.get(card_id)
-                                .map(|c| Self::card_matches_filter(c, &filter.message))
+                                .map(|c| filter.matches_card_ignore_controller(c))
                                 .unwrap_or(false)
                         }).copied();
                         (top_cards, picked)
@@ -4818,9 +4785,7 @@ impl Game {
                 }
                 Effect::LoseAllAbilitiesAll { filter } => {
                     let matching: Vec<ObjectId> = self.state.battlefield.iter()
-                        .filter(|p| p.is_creature()
-                            && (filter.message.to_lowercase().contains("opponent") && p.controller != controller
-                                || !filter.message.to_lowercase().contains("opponent") && Self::matches_filter(p, &filter.message)))
+                        .filter(|p| p.is_creature() && filter.matches_permanent(p, controller))
                         .map(|p| p.id())
                         .collect();
                     for id in matching {
@@ -4834,9 +4799,7 @@ impl Game {
                 Effect::AddSubtypeAll { subtype, filter } => {
                     let st = crate::constants::SubType::by_description(subtype);
                     let matching: Vec<ObjectId> = self.state.battlefield.iter()
-                        .filter(|p| p.is_creature()
-                            && (filter.message.to_lowercase().contains("opponent") && p.controller != controller
-                                || !filter.message.to_lowercase().contains("opponent") && Self::matches_filter(p, &filter.message)))
+                        .filter(|p| p.is_creature() && filter.matches_permanent(p, controller))
                         .map(|p| p.id())
                         .collect();
                     for id in matching {
@@ -4858,9 +4821,7 @@ impl Game {
                 }
                 Effect::SetBasePowerToughnessAll { power, toughness, filter } => {
                     let matching: Vec<ObjectId> = self.state.battlefield.iter()
-                        .filter(|p| p.is_creature()
-                            && (filter.message.to_lowercase().contains("opponent") && p.controller != controller
-                                || !filter.message.to_lowercase().contains("opponent") && Self::matches_filter(p, &filter.message)))
+                        .filter(|p| p.is_creature() && filter.matches_permanent(p, controller))
                         .map(|p| p.id())
                         .collect();
                     for id in matching {
@@ -4886,13 +4847,9 @@ impl Game {
                     }
                 }
                 Effect::GrantKeywordAllUntilEndOfTurn { filter, keyword } => {
-                    // Grant keyword to all matching creatures controlled by the effect's controller until EOT
                     if let Some(kw) = crate::constants::KeywordAbilities::keyword_from_name(keyword) {
-                        let you_control = filter.message.to_lowercase().contains("you control");
                         let matching: Vec<ObjectId> = self.state.battlefield.iter()
-                            .filter(|p| p.is_creature()
-                                && (!you_control || p.controller == controller)
-                                && Self::matches_filter(p, &filter.message))
+                            .filter(|p| p.is_creature() && filter.matches_permanent(p, controller))
                             .map(|p| p.id())
                             .collect();
                         for id in matching {
@@ -4948,11 +4905,8 @@ impl Game {
                 }
                 Effect::AddCountersAll { counter_type, count, filter } => {
                     let ct = crate::counters::CounterType::from_name(counter_type);
-                    let you_control = filter.message.to_lowercase().contains("you control");
                     let matching: Vec<ObjectId> = self.state.battlefield.iter()
-                        .filter(|p| p.is_creature()
-                            && (!you_control || p.controller == controller)
-                            && Self::matches_filter(p, &filter.message))
+                        .filter(|p| p.is_creature() && filter.matches_permanent(p, controller))
                         .map(|p| p.id())
                         .collect();
                     for id in matching {
@@ -5135,7 +5089,7 @@ impl Game {
                                     break;
                                 }
                                 if let Some(c) = self.state.card_store.get(card_id) {
-                                    if Self::card_matches_filter(c, "basic land") {
+                                    if crate::filters::Filter::parse("basic land").matches_card_ignore_controller(c) {
                                         result.push(card_id);
                                     }
                                 }
@@ -5166,7 +5120,7 @@ impl Game {
                                     break;
                                 }
                                 if let Some(c) = self.state.card_store.get(card_id) {
-                                    if Self::card_matches_filter(c, "permanent") {
+                                    if crate::filters::Filter::parse("permanent").matches_card_ignore_controller(c) {
                                         permanents.push(card_id);
                                         found_count += 1;
                                     } else {
@@ -5679,7 +5633,7 @@ impl Game {
                 }
                 Effect::UntapAll { filter } => {
                     let src_id = source.unwrap_or_default();
-                    let matching = self.find_matching_permanents(src_id, controller, &filter.message);
+                    let matching = self.find_matching_permanents(src_id, controller, filter);
                     for perm_id in matching {
                         if let Some(perm) = self.state.battlefield.get_mut(perm_id) {
                             perm.untap();
@@ -6662,14 +6616,6 @@ impl Game {
         }
 
         (power, toughness, keywords)
-    }
-
-    fn matches_filter(perm: &Permanent, filter: &str) -> bool {
-        crate::filters::Filter::parse(filter).matches_permanent_ignore_controller(perm)
-    }
-
-    fn card_matches_filter(card: &CardData, filter: &str) -> bool {
-        crate::filters::Filter::parse(filter).matches_card_ignore_controller(card)
     }
 
     /// Select targets for a spell/ability based on its TargetSpec.

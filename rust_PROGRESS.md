@@ -82,7 +82,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - [x] Task 1.12: Migrate `TargetSpec::PermanentFiltered(String)` to `TargetSpec::PermanentFiltered(Filter)` (~62 usages)
 - [x] Task 1.13: Migrate `CostReduction { filter: String }` to use `Filter` enum (~14 usages)
 - [x] Task 1.14: Update card implementations in all 4 set files to use `Filter` enum instead of strings
-- [ ] Task 1.15: Remove `matches_filter()` string parsing function once all callers migrated
+- [x] Task 1.15: Remove `matches_filter()` string parsing function once all callers migrated
 
 #### 1C: Reduce Custom Effect Fallbacks
 - [ ] Task 1.16: Audit `Effect::Custom` usages — categorize the 886 occurrences into groups (e.g., "counter manipulation", "zone movement", "conditional effects", "combat effects")
@@ -205,16 +205,14 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - All 576 engine tests passing, zero clippy warnings
 
 ## Completed This Iteration
-- Task 1.14: Migrated ALL remaining `filter: String` and `count_filter: String` fields in Effect and StaticEffect enums to use typed `Filter`
-  - Changed `filter: String` → `filter: Filter` in 11 Effect variants: `BounceAll`, `MillAndSelect`, `MillAndReturnAll`, `LookTopAndPick`, `AddCountersAll`, `GrantKeywordAllUntilEndOfTurn`, `SetBasePowerToughnessAll`, `LoseAllAbilitiesAll`, `AddSubtypeAll`, `UntapAll`, `GrantTriggeredAbilityUntilEOT`
-  - Changed `count_filter: String` → `count_filter: Filter` in `CreateTokenDynamic`
-  - Changed `filter: String` → `filter: Filter` in 13 StaticEffect variants: `Boost`, `GrantKeyword`, `RemoveKeyword`, `CantAttack`, `CantBlock`, `EntersTapped`, `BoostPerCount`, `LoseAllAbilities`, `SetBasePowerToughness`, `CantUntap`, `AssignDamageWithToughness`, `TriggerDoubling`, `EnterAsACopy`, `BoostPerTurnEvent`, `CastExiledOncePerTurn`
-  - Updated ~24 helper constructors in abilities.rs to use `Filter::parse()` instead of `.to_string()`
-  - Updated game.rs continuous effects collection and effect resolution to use `filter.message` for string operations
-  - Updated 45 direct `.into()` usages across 3 set files (ecl.rs: 17, fdn.rs: 15, tdm.rs: 13) to `Filter::parse()`
-  - Updated 20 test file usages across 4 test files to `Filter::parse()`
-  - Added `PartialEq<&str>` and `PartialEq<str>` impls for `Filter` to support test assertions
-  - Updated 2 assertions in registry.rs tests to use `filter.message`
+- Task 1.15: Removed `matches_filter()` and `card_matches_filter()` string-parsing wrapper functions; migrated all callers to use typed `Filter` directly
+  - Removed `matches_filter(perm: &Permanent, filter: &str)` and `card_matches_filter(card: &CardData, filter: &str)` from game.rs
+  - Removed old string-based `find_matching_permanents(&self, ..., filter: &str)` and replaced with typed `find_matching_permanents(&self, ..., filter: &Filter)` using `filter.matches_permanent(perm, controller)` for predicate evaluation
+  - Migrated 10 collection tuples in `apply_continuous_effects` from `String` to `Filter` (boosts, keyword_grants, cant_attacks, cant_blocks, boost_per_counts, lose_all_abilities, set_base_pts, cant_untaps, assign_damage_toughness, boost_per_turn_events)
+  - Migrated `trigger_doublings` field in `GameState` from `Vec<(ObjectId, PlayerId, String)>` to `Vec<(ObjectId, PlayerId, Filter)>`
+  - Replaced ad-hoc `filter.message.to_lowercase().contains("opponent")` / `"you control"` checks in 5 effect handlers with `filter.matches_permanent(p, controller)` — the typed Filter predicate system handles controller-based matching natively
+  - Replaced 4 `card_matches_filter(c, &filter.message)` calls with `filter.matches_card_ignore_controller(c)`
+  - Replaced 2 hard-coded `card_matches_filter(c, "basic land")`/`"permanent"` calls with `Filter::parse("...").matches_card_ignore_controller(c)`
   - All 584 engine tests, 20 mtg-cards tests, 19 integration tests passing; zero clippy warnings
-  - **Zero `filter: String` fields remain in Effect or StaticEffect enums** — all filter fields are now typed `Filter`
+  - **Phase 1B (Typed Filter System) is now complete** — zero string-based filter functions remain in game.rs
 

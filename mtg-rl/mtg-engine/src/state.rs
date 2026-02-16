@@ -136,7 +136,7 @@ pub struct GameState {
     /// Active trigger doubling effects: (source_id, controller, filter).
     /// Rebuilt each apply_continuous_effects call.
     #[serde(skip)]
-    pub trigger_doublings: Vec<(ObjectId, PlayerId, String)>,
+    pub trigger_doublings: Vec<(ObjectId, PlayerId, crate::filters::Filter)>,
 
     pub trigger_counts_this_turn: HashMap<AbilityId, u32>,
 
