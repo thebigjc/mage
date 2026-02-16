@@ -3577,7 +3577,7 @@ impl Game {
                 if let Some(perm) = self.state.battlefield.get(source_id) {
                     if perm.is_land() && perm.has_supertype(crate::constants::SuperType::Basic) {
                         for _ in 0..self.state.mana_doubling_basic_lands {
-                            produced = produced + mana;
+                            produced += mana;
                         }
                     }
                 }
@@ -3585,7 +3585,7 @@ impl Game {
             for &(_aura_id, land_id, color) in &self.state.enhanced_mana_productions {
                 if land_id == source_id {
                     let bonus = crate::mana::Mana::of_color(color, 1);
-                    produced = produced + bonus;
+                    produced += bonus;
                 }
             }
             if let Some(player) = self.state.players.get_mut(&player_id) {
