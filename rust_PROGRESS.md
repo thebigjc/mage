@@ -86,7 +86,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 
 #### 1C: Reduce Custom Effect Fallbacks
 - [x] Task 1.16: Audit `Effect::Custom` usages — categorize 496 Effect::Custom + 126 StaticEffect::Custom into groups (see audit below)
-- [ ] Task 1.17: Add new `Effect` variants for the top 5-10 most common Custom patterns
+- [x] Task 1.17: Add new `Effect` variants for the top 5-10 most common Custom patterns
 - [ ] Task 1.18: Migrate card implementations to use new Effect variants, reducing Custom count
 - [ ] Task 1.19: Audit `StaticEffect::Custom` usages (126) — categorize and add specific variants for top patterns
 - [ ] Task 1.20: Migrate card implementations to use new StaticEffect variants
@@ -205,7 +205,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - All 576 engine tests passing, zero clippy warnings
 
 ## Completed This Iteration
-- Task 1.16: Audited and categorized all Effect::Custom (496) and StaticEffect::Custom (126) usages
+- Task 1.17: Added 6 new Effect variants and 1 new StaticEffect variant with engine implementations
 
 ### Effect::Custom Audit Results (496 usages, 323 unique messages)
 
