@@ -504,7 +504,7 @@ fn descendant_of_storms(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::attacks_triggered(id,
                 "Whenever this creature attacks, you may pay {1}{W}. If you do, it endures 1.",
-                vec![Effect::Custom("Endure 1 (put a +1/+1 counter on it; if it would die, exile it with its counters instead).".into())],
+                vec![Effect::Endure { count: 1 }],
                 TargetSpec::None).set_optional(),
         ],
         ..Default::default() }
@@ -2015,7 +2015,7 @@ fn anafenza_unyielding_lineage(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "Whenever another nontoken creature you control dies, Anafenza endures 2.",
                 vec![EventType::Dies],
-                vec![Effect::Custom("Endure 2 (put two +1/+1 counters; if it would die, exile with counters instead).".into())],
+                vec![Effect::Endure { count: 2 }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -2040,7 +2040,7 @@ fn barrensteppe_siege(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "Mardu — At the beginning of your end step, if a creature died under your control this turn, each opponent sacrifices a creature.",
                 vec![EventType::EndStep],
-                vec![Effect::Custom("Each opponent sacrifices a creature.".into())],
+                vec![Effect::EachOpponentSacrifices { filter: Filter::any_creature() }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -2704,7 +2704,7 @@ fn snowmelt_stag(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "{5}{U}{U}: This creature can't be blocked this turn.",
                 vec![Cost::pay_mana("{5}{U}{U}")],
-                vec![Effect::Custom("This creature can't be blocked this turn.".into())],
+                vec![Effect::CantBeBlockedUntilEot],
                 TargetSpec::None),
         ],
         ..Default::default() }

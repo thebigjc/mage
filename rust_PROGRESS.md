@@ -87,7 +87,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 #### 1C: Reduce Custom Effect Fallbacks
 - [x] Task 1.16: Audit `Effect::Custom` usages — categorize 496 Effect::Custom + 126 StaticEffect::Custom into groups (see audit below)
 - [x] Task 1.17: Add new `Effect` variants for the top 5-10 most common Custom patterns
-- [ ] Task 1.18: Migrate card implementations to use new Effect variants, reducing Custom count
+- [x] Task 1.18: Migrate card implementations to use new Effect variants, reducing Custom count
 - [ ] Task 1.19: Audit `StaticEffect::Custom` usages (126) — categorize and add specific variants for top patterns
 - [ ] Task 1.20: Migrate card implementations to use new StaticEffect variants
 
@@ -205,7 +205,7 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - All 576 engine tests passing, zero clippy warnings
 
 ## Completed This Iteration
-- Task 1.17: Added 6 new Effect variants and 1 new StaticEffect variant with engine implementations
+- Task 1.18: Migrated card implementations to use new Effect/StaticEffect variants, reducing Custom count by 247 instances
 
 ### Effect::Custom Audit Results (496 usages, 323 unique messages)
 
@@ -288,4 +288,22 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 9. **`Effect::ExileUntilLeaves`** — For Oblivion Ring / Stasis Snare pattern (~5 usages)
 
 10. **`Effect::ReturnFromGraveyardFiltered { filter }`** — For "return creature card with MV <= 3" (~5 usages)
+
+### Iteration 18 — Task 1.18: Migrate card implementations to new Effect variants
+- **229 placeholder migrations**: Replaced no-op `Effect::Custom("ETB effect.".into())` (76), `Effect::Custom("Activated effect.".into())` (63), `StaticEffect::Custom("Static effect.".into())` (86), and `StaticEffect::Custom("Conditional continuous effect.".into())` (4) with `Effect::Placeholder` and `StaticEffect::Placeholder`
+- **18 specific effect migrations**:
+  - 2× `Effect::Endure { count }` (TDM: Endure 1, Endure 2)
+  - 1× `Effect::EachOpponentSacrifices { filter }` (TDM: Barrensteppe Siege)
+  - 1× `Effect::TapAndFreeze` (FDN: Grappling Kraken)
+  - 2× `Effect::Surveil { count }` (FDN: surveil 3, surveil 2)
+  - 2× `Effect::ExileUntilSourceLeaves` (FDN: Prayer of Binding, Stasis Snare)
+  - 3× `Effect::CantBeBlockedUntilEot` (FDN, TLA, TDM)
+  - 1× `Effect::DiscardOpponents { count: 1 }` (FDN: Burglar Rat)
+  - 2× `Effect::LoseLifeOpponents { amount: 1 }` (FDN: Dina + Pulse Tracker)
+  - 1× `Effect::LoseLifeOpponents + GainLife` compound (FDN: Vampire Spawn)
+  - 1× `Effect::LoseLifeOpponents + GainLife` compound (FDN: Vito's activatable)
+  - 1× `Effect::DealDamageOpponents { amount: 3 }` (FDN: Boltwave)
+  - 1× `Effect::DealDamageOpponents { amount: 1 }` (FDN: Firespitter Whelp)
+- **Updated counts**: Effect::Custom: 496→339 (−157), StaticEffect::Custom: 126→36 (−90), Total: −247
+- 584 engine tests + 19 integration tests passing, zero clippy warnings
 

@@ -615,7 +615,7 @@ fn burglar_rat(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Burglar Rat enters, each opponent discards a card.",
-                vec![Effect::Custom("Each opponent discards a card.".into())],
+                vec![Effect::DiscardOpponents { count: 1 }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -732,7 +732,7 @@ fn grappling_kraken(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "Whenever Grappling Kraken attacks, tap target creature defending player controls. That creature doesn't untap during its controller's next untap step.",
                 vec![EventType::AttackerDeclared],
-                vec![Effect::Custom("Tap target creature defending player controls. It doesn't untap during its controller's next untap step.".into())],
+                vec![Effect::TapAndFreeze],
                 TargetSpec::Creature),
         ],
         ..Default::default() }
@@ -835,7 +835,7 @@ fn marauding_blight_priest(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "Whenever you gain life, each opponent loses 1 life.",
                 vec![EventType::GainLife],
-                vec![Effect::Custom("Each opponent loses 1 life.".into())],
+                vec![Effect::LoseLifeOpponents { amount: 1 }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -848,7 +848,7 @@ fn pulse_tracker(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::attacks_triggered(id,
                 "Whenever Pulse Tracker attacks, each opponent loses 1 life.",
-                vec![Effect::Custom("Each opponent loses 1 life.".into())],
+                vec![Effect::LoseLifeOpponents { amount: 1 }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -966,7 +966,7 @@ fn vampire_spawn(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Vampire Spawn enters, each opponent loses 2 life and you gain 2 life.",
-                vec![Effect::Custom("Each opponent loses 2 life, you gain 2 life.".into())],
+                vec![Effect::LoseLifeOpponents { amount: 2 }, Effect::GainLife { amount: 2 }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -1703,7 +1703,7 @@ fn vampire_neonate(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "{2}, {T}: Each opponent loses 1 life and you gain 1 life.",
                 vec![Cost::pay_mana("{2}"), Cost::tap_self()],
-                vec![Effect::Custom("Each opponent loses 1 life, you gain 1 life.".into())],
+                vec![Effect::LoseLifeOpponents { amount: 1 }, Effect::GainLife { amount: 1 }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -2068,7 +2068,7 @@ fn gateway_sneak(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "Whenever a Gate enters under your control, Gateway Sneak can't be blocked this turn.",
                 vec![EventType::EnteredTheBattlefield],
-                vec![Effect::Custom("Gateway Sneak can't be blocked this turn.".into())],
+                vec![Effect::CantBeBlockedUntilEot],
                 TargetSpec::None),
             Ability::triggered(id,
                 "Whenever Gateway Sneak deals combat damage to a player, draw a card.",
@@ -3199,7 +3199,7 @@ fn dawnwing_marshal(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                     "Activated ability.",
                     vec![Cost::pay_mana("{4}{W}")],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -3275,7 +3275,7 @@ fn dismal_backwater(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -3289,7 +3289,7 @@ fn doubling_season(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -3306,7 +3306,7 @@ fn drake_hatcher(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                     "Activated ability.",
                     vec![Cost::tap_self()],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -3336,7 +3336,7 @@ fn dreadwing_scavenger(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -3363,11 +3363,11 @@ fn dropkick_bomber(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
             Ability::activated(id,
                     "Activated ability.",
                     vec![Cost::pay_mana("{R}")],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -3390,7 +3390,7 @@ fn dwynen_gilt_leaf_daen(id: ObjectId, owner: PlayerId) -> CardData {
                     TargetSpec::None),
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -3405,7 +3405,7 @@ fn eaten_by_piranhas(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -3422,7 +3422,7 @@ fn elenda_saint_of_dusk(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -3516,11 +3516,11 @@ fn fishing_pole(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
             Ability::activated(id,
                     "Activated ability.",
                     vec![Cost::pay_mana("{2}")],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -3546,11 +3546,11 @@ fn garruks_uprising(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -3590,7 +3590,7 @@ fn ghalta_primal_hunger(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -3607,7 +3607,7 @@ fn giada_font_of_hope(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -3623,7 +3623,7 @@ fn gnarlid_colony(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -3650,7 +3650,7 @@ fn goldvein_pick(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -3671,7 +3671,7 @@ fn gratuitous_violence(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -3707,7 +3707,7 @@ fn herald_of_eternal_dawn(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -3720,7 +3720,7 @@ fn heraldic_banner(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -3736,7 +3736,7 @@ fn high_fae_trickster(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -3770,7 +3770,7 @@ fn hoarding_dragon(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
             Ability::dies_triggered(id,
                     "When this dies, trigger effect.",
@@ -3797,7 +3797,7 @@ fn immersturm_predator(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                     "Activated ability.",
                     vec![Cost::tap_self()],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -3813,11 +3813,11 @@ fn imperious_perfect(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
             Ability::activated(id,
                     "Activated ability.",
                     vec![Cost::tap_self()],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -3851,7 +3851,7 @@ fn ingenious_leonin(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                     "Activated ability.",
                     vec![Cost::pay_mana("{3}{W}")],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -3895,7 +3895,7 @@ fn inspiring_paladin(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -3921,7 +3921,7 @@ fn jazal_goldmane(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                     "Activated ability.",
                     vec![Cost::pay_mana("{3}{W}{W}")],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -3947,7 +3947,7 @@ fn jungle_hollow(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -3976,7 +3976,7 @@ fn kellan_planar_trailblazer(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                     "Activated ability.",
                     vec![Cost::pay_mana("{1}{R}")],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -3991,7 +3991,7 @@ fn knight_of_grace(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -4005,7 +4005,7 @@ fn knight_of_malice(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -4053,7 +4053,7 @@ fn lathliss_dragon_queen(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                     "Activated ability.",
                     vec![Cost::pay_mana("{1}{R}")],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4071,7 +4071,7 @@ fn lathril_blade_of_the_elves(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                     "Activated ability.",
                     vec![Cost::tap_self()],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4087,7 +4087,7 @@ fn leyline_axe(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -4114,7 +4114,7 @@ fn lyra_dawnbringer(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -4129,7 +4129,7 @@ fn massacre_wurm(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4144,7 +4144,7 @@ fn mazemind_tome(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                     "Activated ability.",
                     vec![Cost::pay_mana("{2}")],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4158,7 +4158,7 @@ fn mazes_end(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                     "Activated ability.",
                     vec![Cost::pay_mana("{3}")],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4197,7 +4197,7 @@ fn muldrotha_the_gravetide(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -4214,11 +4214,11 @@ fn myojin_of_nights_reach(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
             Ability::activated(id,
                     "Activated ability.",
                     vec![Cost::tap_self()],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4233,11 +4233,11 @@ fn new_horizons(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::Permanent),
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -4270,7 +4270,7 @@ fn niv_mizzet_visionary(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -4286,7 +4286,7 @@ fn nullpriest_of_oblivion(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4338,7 +4338,7 @@ fn pelakka_wurm(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
             Ability::dies_triggered(id,
                     "When this dies, trigger effect.",
@@ -4368,7 +4368,7 @@ fn pirates_cutlass(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -4439,7 +4439,7 @@ fn quilled_greatwurm(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -4480,7 +4480,7 @@ fn redcap_gutter_dweller(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4497,11 +4497,11 @@ fn regal_caracal(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -4532,7 +4532,7 @@ fn rugged_highlands(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4549,7 +4549,7 @@ fn scavenging_ooze(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                     "Activated ability.",
                     vec![Cost::pay_mana("{G}")],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4562,7 +4562,7 @@ fn scoured_barrens(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4623,12 +4623,12 @@ fn soul_guide_lantern(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
             Ability::activated(id,
                     "Activated ability.",
                     vec![Cost::pay_mana("{1}")],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4644,7 +4644,7 @@ fn soul_shackled_zombie(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4662,7 +4662,7 @@ fn spectral_sailor(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                     "Activated ability.",
                     vec![Cost::pay_mana("{3}{U}")],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4697,7 +4697,7 @@ fn sphinx_of_the_final_word(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -4711,11 +4711,11 @@ fn starlight_snare(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::Creature),
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -4732,7 +4732,7 @@ fn steel_hellkite(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                     "Activated ability.",
                     vec![Cost::pay_mana("{X}")],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4750,7 +4750,7 @@ fn strix_lookout(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                     "Activated ability.",
                     vec![Cost::pay_mana("{1}{U}")],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4767,7 +4767,7 @@ fn sun_blessed_healer(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4791,7 +4791,7 @@ fn swiftwater_cliffs(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4831,7 +4831,7 @@ fn temple_of_abandon(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4844,7 +4844,7 @@ fn temple_of_deceit(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4857,7 +4857,7 @@ fn temple_of_enlightenment(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4870,7 +4870,7 @@ fn temple_of_epiphany(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4883,7 +4883,7 @@ fn temple_of_malady(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4896,7 +4896,7 @@ fn temple_of_malice(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4909,7 +4909,7 @@ fn temple_of_mystery(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4922,7 +4922,7 @@ fn temple_of_plenty(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4935,7 +4935,7 @@ fn temple_of_silence(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4948,7 +4948,7 @@ fn temple_of_triumph(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4965,7 +4965,7 @@ fn terror_of_mount_velus(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -4978,7 +4978,7 @@ fn thornwood_falls(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -5009,7 +5009,7 @@ fn tinybones_bauble_burglar(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -5021,7 +5021,7 @@ fn tranquil_cove(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -5048,7 +5048,7 @@ fn twinblade_blessing(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -5064,7 +5064,7 @@ fn twinflame_tyrant(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -5089,7 +5089,7 @@ fn vampire_soulcaller(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -5105,7 +5105,7 @@ fn vizier_of_the_menagerie(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -5151,7 +5151,7 @@ fn wilt_leaf_liege(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -5163,7 +5163,7 @@ fn wind_scarred_crag(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When this enters, trigger effect.",
-                    vec![Effect::Custom("ETB effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -5186,7 +5186,7 @@ fn witness_protection(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Static effect.",
-                    vec![StaticEffect::Custom("Static effect.".into())]),
+                    vec![StaticEffect::Placeholder]),
         ],
         ..Default::default() }
 }
@@ -5215,7 +5215,7 @@ fn zimone_paradox_sculptor(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                     "Activated ability.",
                     vec![Cost::pay_mana("{G}{U}")],
-                    vec![Effect::Custom("Activated effect.".into())],
+                    vec![Effect::Placeholder],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -5542,7 +5542,7 @@ fn boltwave(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::Custom("Boltwave deals 3 damage to each opponent.".into())],
+                vec![Effect::DealDamageOpponents { amount: 3 }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -5666,7 +5666,7 @@ fn cephalid_inkmage(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "When this creature enters, surveil 3.",
                 vec![EventType::EnteredTheBattlefield],
-                vec![Effect::Custom("When this creature enters, surveil 3.".into())],
+                vec![Effect::Surveil { count: 3 }],
                 TargetSpec::None),
             Ability::static_ability(id, "Threshold -- This creature can't be blocked as long as there are seven or more cards in your graveyard.",
                 vec![StaticEffect::Custom("Threshold -- This creature can't be blocked as long as there are seven or more cards in your graveyard.".into())]),
@@ -6060,7 +6060,7 @@ fn firespitter_whelp(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "Whenever you cast a noncreature or Dragon spell, Firespitter Whelp deals 1 damage to each opponent.",
                 vec![EventType::SpellCast],
-                vec![Effect::Custom("Whenever you cast a noncreature or Dragon spell, Firespitter Whelp deals 1 damage to each opponent.".into())],
+                vec![Effect::DealDamageOpponents { amount: 1 }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -6470,7 +6470,7 @@ fn lightshell_duo(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "When Lightshell Duo enters, surveil 2.",
                 vec![EventType::EnteredTheBattlefield],
-                vec![Effect::Custom("When Lightshell Duo enters, surveil 2.".into())],
+                vec![Effect::Surveil { count: 2 }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -6765,7 +6765,7 @@ fn prayer_of_binding(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "When Prayer of Binding enters the battlefield, exile up to one target nonland permanent an opponent controls until Prayer of Binding leaves the battlefield. You gain 2 life.",
                 vec![EventType::EnteredTheBattlefield],
-                vec![Effect::Custom("When Prayer of Binding enters the battlefield, exile up to one target nonland permanent an opponent controls until Prayer of Binding leaves the battlefield. You gain 2 life.".into())],
+                vec![Effect::ExileUntilSourceLeaves, Effect::GainLife { amount: 2 }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -7210,7 +7210,7 @@ fn stasis_snare(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "When Stasis Snare enters the battlefield, exile target creature an opponent controls until Stasis Snare leaves the battlefield.",
                 vec![EventType::EnteredTheBattlefield],
-                vec![Effect::Custom("When Stasis Snare enters the battlefield, exile target creature an opponent controls until Stasis Snare leaves the battlefield.".into())],
+                vec![Effect::ExileUntilSourceLeaves],
                 TargetSpec::None),
         ],
         ..Default::default() }
