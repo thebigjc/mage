@@ -1787,3 +1787,158 @@ fn compare_and_boost_equal_power_only_trample() {
     assert_eq!(perm_b.power(), 3, "no boost when X=0");
     assert!(perm_b.has_keyword(KeywordAbilities::TRAMPLE), "still gets trample");
 }
+
+#[test]
+fn opponent_reveals_from_hand_exile_cast_instant_sorcery() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+
+    let mut game = Game::new_two_player(
+        config,
+        vec![
+            (p1, Box::new(AlwaysPassPlayer)),
+            (p2, Box::new(AlwaysPassPlayer)),
+        ],
+    );
+
+    let source_id = ObjectId::new();
+    let mut source_card = make_creature("Taster of Wares", p1, 3, 2);
+    source_card.subtypes = vec![SubType::Goblin];
+    game.state.card_store.insert(source_card.clone());
+    game.state.battlefield.add(Permanent::new(source_card, p1));
+
+    let goblin2_id = ObjectId::new();
+    let mut goblin2 = make_creature("Goblin Ally", p1, 2, 1);
+    goblin2.id = goblin2_id;
+    goblin2.subtypes = vec![SubType::Goblin];
+    game.state.card_store.insert(goblin2.clone());
+    game.state.battlefield.add(Permanent::new(goblin2, p1));
+
+    let instant_id = ObjectId::new();
+    let mut instant_card = CardData::new(instant_id, p2, "Lightning Bolt");
+    instant_card.card_types = vec![CardType::Instant];
+    game.state.card_store.insert(instant_card.clone());
+    game.state.players.get_mut(&p2).unwrap().hand.add(instant_id);
+
+    let creature_id = ObjectId::new();
+    let mut creature_card = make_creature("Bear", p2, 2, 2);
+    creature_card.id = creature_id;
+    game.state.card_store.insert(creature_card.clone());
+    game.state.players.get_mut(&p2).unwrap().hand.add(creature_id);
+
+    let p2_hand_before = game.state.players.get(&p2).unwrap().hand.len();
+
+    game.execute_effects(
+        &[Effect::opponent_reveals_from_hand_exile_cast("Goblins you control", true)],
+        p1, &[], Some(source_id), None,
+    );
+
+    let p2_hand_after = game.state.players.get(&p2).unwrap().hand.len();
+    assert_eq!(p2_hand_after, p2_hand_before - 1, "one card exiled from opponent hand");
+
+    assert_eq!(game.state.exile.len(), 1, "one card in exile");
+
+    assert!(game.state.impulse_playable.len() <= 1, "at most 1 impulse playable");
+}
+
+#[test]
+fn opponent_reveals_creature_not_impulse_playable() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+
+    let mut game = Game::new_two_player(
+        config,
+        vec![
+            (p1, Box::new(AlwaysPassPlayer)),
+            (p2, Box::new(AlwaysPassPlayer)),
+        ],
+    );
+
+    let source_id = ObjectId::new();
+    let mut source_card = make_creature("Taster of Wares", p1, 3, 2);
+    source_card.subtypes = vec![SubType::Goblin];
+    game.state.card_store.insert(source_card.clone());
+    game.state.battlefield.add(Permanent::new(source_card, p1));
+
+    let creature_id = ObjectId::new();
+    let mut creature_card = make_creature("Bear", p2, 2, 2);
+    creature_card.id = creature_id;
+    game.state.card_store.insert(creature_card.clone());
+    game.state.players.get_mut(&p2).unwrap().hand.add(creature_id);
+
+    game.execute_effects(
+        &[Effect::opponent_reveals_from_hand_exile_cast("Goblins you control", true)],
+        p1, &[], Some(source_id), None,
+    );
+
+    assert_eq!(game.state.exile.len(), 1, "creature card exiled");
+    assert_eq!(game.state.impulse_playable.len(), 0,
+        "creature card should NOT be impulse-playable when instant_sorcery_only is true");
+}
+
+#[test]
+fn while_source_controlled_impulse_expires_when_source_leaves() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".to_string(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".to_string(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+
+    let mut game = Game::new_two_player(
+        config,
+        vec![
+            (p1, Box::new(AlwaysPassPlayer)),
+            (p2, Box::new(AlwaysPassPlayer)),
+        ],
+    );
+
+    let source_id = ObjectId::new();
+    let mut source_card = make_creature("Taster of Wares", p1, 3, 2);
+    source_card.id = source_id;
+    source_card.subtypes = vec![SubType::Goblin];
+    game.state.card_store.insert(source_card.clone());
+    game.state.battlefield.add(Permanent::new(source_card, p1));
+
+    let instant_id = ObjectId::new();
+    let mut instant_card = CardData::new(instant_id, p2, "Lightning Bolt");
+    instant_card.card_types = vec![CardType::Instant];
+    game.state.card_store.insert(instant_card.clone());
+    game.state.players.get_mut(&p2).unwrap().hand.add(instant_id);
+
+    game.execute_effects(
+        &[Effect::opponent_reveals_from_hand_exile_cast("Goblins you control", true)],
+        p1, &[], Some(source_id), None,
+    );
+
+    assert_eq!(game.state.impulse_playable.len(), 1, "instant should be impulse-playable");
+
+    game.state.battlefield.remove(source_id);
+
+    let actions = game.compute_legal_actions(p1);
+    let has_cast_bolt = actions.iter().any(|a| match a {
+        PlayerAction::CastSpell { card_id, .. } => card_id == &instant_id,
+        _ => false,
+    });
+    assert!(!has_cast_bolt, "should not be able to cast exiled card after source leaves battlefield");
+}

@@ -150,6 +150,9 @@ pub enum ImpulseDuration {
     EndOfTurn,
     /// Playable until end of the controller's next turn.
     UntilEndOfNextTurn,
+    /// Playable as long as the source permanent is on the battlefield
+    /// under the specified controller.
+    WhileSourceControlled { source_id: ObjectId, controller: PlayerId },
 }
 
 /// Tracks an exiled card that can be played by a specific player.

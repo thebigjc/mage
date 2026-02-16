@@ -3782,7 +3782,6 @@ fn tam_mindful_first_year(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [COND] ETB opponent reveals X cards (X=Goblins), choose one to exile, may cast instant/sorcery
 fn taster_of_wares(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Taster of Wares".into(),
         mana_cost: ManaCost::parse("{2}{B}"),
@@ -3792,8 +3791,8 @@ fn taster_of_wares(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Rare,
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
-                    "When Taster of Wares enters, target opponent reveals cards from the top of their library until they reveal X cards, where X is the number of Goblins you control. You choose one and exile it. Put the rest on the bottom in a random order. You may cast that card for as long as you control Taster of Wares, and mana of any type can be spent to cast it.",
-                    vec![Effect::Custom("Opponent reveals X cards (X=Goblins you control), exile one, cast it with any mana while you control this.".into())],
+                    "When this creature enters, target opponent reveals X cards from their hand, where X is the number of Goblins you control. You choose one of those cards. That player exiles it. If an instant or sorcery card is exiled this way, you may cast it for as long as you control this creature, and mana of any type can be spent to cast that spell.",
+                    vec![Effect::opponent_reveals_from_hand_exile_cast("Goblins you control", true)],
                     TargetSpec::Player),
         ],
         ..Default::default() }

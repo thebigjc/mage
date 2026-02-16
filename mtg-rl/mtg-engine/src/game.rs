@@ -2031,14 +2031,13 @@ impl Game {
                 // Clean up expired impulse-playable cards
                 let turn_num = self.state.turn_number;
                 self.state.impulse_playable.retain(|ip| {
-                    match ip.duration {
+                    match &ip.duration {
                         crate::state::ImpulseDuration::EndOfTurn => false,
                         crate::state::ImpulseDuration::UntilEndOfNextTurn => {
-                            // Keep unless this is the controller's turn cleanup
-                            // AND it wasn't just created this turn.
                             !(active_player == ip.player_id
                               && turn_num > ip.created_turn)
                         }
+                        crate::state::ImpulseDuration::WhileSourceControlled { .. } => true,
                     }
                 });
                 // Clean up expired delayed triggers
@@ -2548,9 +2547,16 @@ impl Game {
             if impulse.player_id != player_id {
                 continue;
             }
-            // Verify card is still in exile
             if !self.state.exile.contains(impulse.card_id) {
                 continue;
+            }
+            if let crate::state::ImpulseDuration::WhileSourceControlled { source_id, controller } = &impulse.duration {
+                let still_valid = self.state.battlefield.get(*source_id)
+                    .map(|p| p.controller == *controller)
+                    .unwrap_or(false);
+                if !still_valid {
+                    continue;
+                }
             }
             if let Some(card) = self.state.card_store.get(impulse.card_id) {
                 if card.is_land() {
@@ -5145,6 +5151,75 @@ impl Game {
                                 if let Some(top) = self.state.stack.top() {
                                     let copy_id = top.id;
                                     self.grant_keywords_to_spell(copy_id, keywords);
+                                }
+                            }
+                        }
+                    }
+                }
+                Effect::OpponentRevealsFromHandExileCast { count_source, instant_sorcery_only } => {
+                    let x = self.evaluate_count_filter(count_source, controller);
+                    let opp_opt = self.state.turn_order.iter()
+                        .find(|&&id| id != controller)
+                        .copied();
+                    if let Some(opp) = opp_opt {
+                        let hand: Vec<ObjectId> = self.state.players.get(&opp)
+                            .map(|p| p.hand.iter().copied().collect())
+                            .unwrap_or_default();
+                        let reveal_count = (x as usize).min(hand.len());
+                        if reveal_count > 0 {
+                            let revealed = if hand.len() <= reveal_count {
+                                hand.clone()
+                            } else {
+                                let view = crate::decision::GameView::placeholder();
+                                if let Some(dm) = self.decision_makers.get_mut(&opp) {
+                                    dm.choose_discard(&view, &hand, reveal_count)
+                                } else {
+                                    hand.iter().rev().take(reveal_count).copied().collect()
+                                }
+                            };
+                            let chosen = if revealed.len() == 1 {
+                                revealed[0]
+                            } else {
+                                let view = crate::decision::GameView::placeholder();
+                                if let Some(dm) = self.decision_makers.get_mut(&controller) {
+                                    let req = crate::decision::TargetRequirement {
+                                        description: "Choose a revealed card to exile".to_string(),
+                                        legal_targets: revealed.clone(),
+                                        min_targets: 1,
+                                        max_targets: 1,
+                                        required: true,
+                                    };
+                                    let picks = dm.choose_targets(&view, crate::constants::Outcome::Benefit, &req);
+                                    picks.into_iter().next().unwrap_or(revealed[0])
+                                } else {
+                                    revealed[0]
+                                }
+                            };
+                            if let Some(player) = self.state.players.get_mut(&opp) {
+                                player.hand.remove(chosen);
+                            }
+                            self.state.exile.exile(chosen);
+                            self.state.set_zone(chosen, crate::constants::Zone::Exile, Some(opp));
+                            let is_instant_or_sorcery = self.state.card_store.get(chosen)
+                                .map(|c| c.is_instant() || c.is_sorcery())
+                                .unwrap_or(false);
+                            let should_make_playable = if *instant_sorcery_only {
+                                is_instant_or_sorcery
+                            } else {
+                                true
+                            };
+                            if should_make_playable {
+                                if let Some(&src_id) = source.as_ref() {
+                                    self.state.impulse_playable.push(crate::state::ImpulsePlayable {
+                                        card_id: chosen,
+                                        player_id: controller,
+                                        duration: crate::state::ImpulseDuration::WhileSourceControlled {
+                                            source_id: src_id,
+                                            controller,
+                                        },
+                                        created_turn: self.state.turn_number,
+                                        without_mana: false,
+                                    });
                                 }
                             }
                         }

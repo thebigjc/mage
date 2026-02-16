@@ -495,6 +495,16 @@ pub enum Effect {
         single_target_only: bool,
     },
 
+    /// Target opponent reveals X cards from their hand (X = dynamic count).
+    /// Controller chooses one to exile. If the exiled card is instant/sorcery,
+    /// controller may cast it while controlling the source permanent.
+    OpponentRevealsFromHandExileCast {
+        /// Dynamic count source (e.g. "Goblins you control").
+        count_source: String,
+        /// Only instant/sorcery cards become playable (others are just exiled).
+        instant_sorcery_only: bool,
+    },
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1589,6 +1599,13 @@ impl Effect {
         Effect::CopyTriggeringSpell {
             keywords: keywords.into_iter().map(|s| s.to_string()).collect(),
             single_target_only,
+        }
+    }
+
+    pub fn opponent_reveals_from_hand_exile_cast(count_source: &str, instant_sorcery_only: bool) -> Self {
+        Effect::OpponentRevealsFromHandExileCast {
+            count_source: count_source.to_string(),
+            instant_sorcery_only,
         }
     }
 }
