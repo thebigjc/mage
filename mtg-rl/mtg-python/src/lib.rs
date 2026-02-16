@@ -17,6 +17,9 @@ use mtg_ai::action_space::PHASE1_ACTION_SIZE;
 use mtg_ai::gym::{GymConfig, MtgGymEnv};
 use mtg_ai::observation::OBSERVATION_SIZE;
 
+/// Gymnasium step return type: (observation, reward, terminated, truncated, info).
+type StepResult<'py> = (Vec<f32>, f32, bool, bool, Bound<'py, PyDict>);
+
 /// Python-facing MTG Gymnasium environment.
 ///
 /// Usage from Python:
@@ -72,7 +75,7 @@ impl MtgEnv {
         &mut self,
         py: Python<'py>,
         action: usize,
-    ) -> PyResult<(Vec<f32>, f32, bool, bool, Bound<'py, PyDict>)> {
+    ) -> PyResult<StepResult<'py>> {
         let result = self.inner.step(action);
         let info = PyDict::new_bound(py);
         for (k, v) in &result.info {
