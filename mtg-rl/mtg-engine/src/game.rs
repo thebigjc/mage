@@ -6462,6 +6462,76 @@ impl Game {
                         }
                     }
                 }
+                Effect::Surveil { count } => {
+                    let n = resolve_x(*count) as usize;
+                    if let Some(player) = self.state.players.get(&controller) {
+                        let top_cards: Vec<ObjectId> = player.library.peek(n).to_vec();
+                        if !top_cards.is_empty() {
+                            let view = crate::decision::GameView::placeholder();
+                            let to_graveyard = if let Some(dm) = self.decision_makers.get_mut(&controller) {
+                                dm.choose_cards_to_put_back(&view, &top_cards, 0)
+                            } else {
+                                Vec::new()
+                            };
+                            for &card_id in &to_graveyard {
+                                if let Some(player) = self.state.players.get_mut(&controller) {
+                                    player.library.remove(card_id);
+                                }
+                                self.move_card_to_graveyard_inner(card_id, controller);
+                            }
+                        }
+                    }
+                }
+                Effect::EachOpponentSacrifices { filter } => {
+                    let opponents: Vec<PlayerId> = self.state.turn_order.iter()
+                        .filter(|&&id| id != controller)
+                        .copied()
+                        .collect();
+                    for opp in opponents {
+                        let matching: Vec<ObjectId> = self.state.battlefield.iter()
+                            .filter(|p| p.controller == opp && filter.matches_permanent(p, controller))
+                            .map(|p| p.id())
+                            .collect();
+                        if let Some(&victim_id) = matching.first() {
+                            let was_creature = self.state.battlefield.get(victim_id)
+                                .map(|p| p.is_creature()).unwrap_or(false);
+                            let ctr_count = self.state.battlefield.get(victim_id)
+                                .map(|p| p.counters.total_count()).unwrap_or(0);
+                            if let Some(perm) = self.state.battlefield.remove(victim_id) {
+                                self.move_card_to_graveyard_inner(victim_id, perm.owner());
+                                if was_creature {
+                                    self.emit_event(GameEvent::dies(victim_id, opp, ctr_count));
+                                }
+                                self.state.ability_store.remove_source(victim_id);
+                            }
+                        }
+                    }
+                }
+                Effect::ExileUntilSourceLeaves => {
+                    for &target_id in targets {
+                        if self.state.battlefield.remove(target_id).is_some() {
+                            self.state.ability_store.remove_source(target_id);
+                            self.state.exile.exile(target_id);
+                            self.state.set_zone(target_id, crate::constants::Zone::Exile, None);
+                        }
+                    }
+                }
+                Effect::Endure { count } => {
+                    let n = resolve_x(*count);
+                    if let Some(src_id) = source {
+                        if let Some(perm) = self.state.battlefield.get_mut(src_id) {
+                            perm.add_counters(crate::counters::CounterType::P1P1, n);
+                        }
+                    }
+                }
+                Effect::TapAndFreeze => {
+                    for &target_id in targets {
+                        if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                            perm.tapped = true;
+                        }
+                    }
+                }
+                Effect::Placeholder => {}
                 _ => {
                 }
             }

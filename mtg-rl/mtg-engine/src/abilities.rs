@@ -546,6 +546,33 @@ pub enum Effect {
 
     CastFromExileWithDreamCounters,
 
+    // -- Surveil --
+    /// Surveil N (look at top N cards, put any number into graveyard, rest on top).
+    Surveil { count: u32 },
+
+    // -- Sacrifice (opponents) --
+    /// Each opponent sacrifices a permanent matching the filter.
+    EachOpponentSacrifices { filter: Filter },
+
+    // -- Exile until leaves --
+    /// Exile target permanent until this source leaves the battlefield (O-Ring pattern).
+    ExileUntilSourceLeaves,
+
+    // -- Endure (TDM mechanic) --
+    /// Endure N: put N +1/+1 counters on the source creature. If it would die,
+    /// exile it with its counters instead.
+    Endure { count: u32 },
+
+    // -- Tap + freeze --
+    /// Tap target creature. It doesn't untap during its controller's next untap step.
+    TapAndFreeze,
+
+    // -- Placeholder --
+    /// A stub effect with no game-mechanical meaning. Used for card abilities
+    /// that are not yet implemented in the engine. Carries no string payload
+    /// to avoid unnecessary allocations.
+    Placeholder,
+
     // -- Misc --
     /// A custom/complex effect described by text. The game engine or card
     /// code handles the specific implementation.
@@ -1691,6 +1718,30 @@ impl Effect {
     pub fn cast_from_exile_with_dream_counters() -> Self {
         Effect::CastFromExileWithDreamCounters
     }
+
+    pub fn surveil(count: u32) -> Self {
+        Effect::Surveil { count }
+    }
+
+    pub fn each_opponent_sacrifices(filter: &str) -> Self {
+        Effect::EachOpponentSacrifices { filter: Filter::parse(filter) }
+    }
+
+    pub fn exile_until_source_leaves() -> Self {
+        Effect::ExileUntilSourceLeaves
+    }
+
+    pub fn endure(count: u32) -> Self {
+        Effect::Endure { count }
+    }
+
+    pub fn tap_and_freeze() -> Self {
+        Effect::TapAndFreeze
+    }
+
+    pub fn placeholder() -> Self {
+        Effect::Placeholder
+    }
 }
 
 impl ModalMode {
@@ -1903,6 +1954,10 @@ impl StaticEffect {
 
     pub fn hexproof_from_own_colors() -> Self {
         StaticEffect::HexproofFromOwnColors
+    }
+
+    pub fn placeholder() -> Self {
+        StaticEffect::Placeholder
     }
 }
 
@@ -2185,6 +2240,9 @@ pub enum StaticEffect {
         colorless: bool,
     },
     HexproofFromOwnColors,
+    /// A stub static effect with no game-mechanical meaning. Used for card
+    /// abilities that are not yet implemented in the engine.
+    Placeholder,
     Custom(String),
 }
 
