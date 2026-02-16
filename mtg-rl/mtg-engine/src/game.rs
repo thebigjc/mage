@@ -793,6 +793,19 @@ impl Game {
     fn evaluate_count_filter(&self, filter: &str, controller: PlayerId) -> u32 {
         let lower = filter.to_lowercase();
 
+        // "greatest mana value among {Type}s you control"
+        if lower.starts_with("greatest mana value among") && lower.ends_with("you control") {
+            let middle = &filter[25..]; // skip "greatest mana value among "
+            let type_part = middle.trim_end_matches("you control").trim();
+            let type_str = type_part.trim_end_matches('s');
+            let subtype = crate::constants::SubType::by_description(type_str);
+            return self.state.battlefield.iter()
+                .filter(|p| p.controller == controller && p.has_subtype(&subtype))
+                .map(|p| p.card.mana_value())
+                .max()
+                .unwrap_or(0) as u32;
+        }
+
         // "greatest power among {Type}s you control"
         if lower.starts_with("greatest power among") && lower.ends_with("you control") {
             let middle = &filter[21..]; // skip "greatest power among "
@@ -882,6 +895,23 @@ impl Game {
                             total_reduction += amount;
                         }
                     }
+                    if let crate::abilities::StaticEffect::CostReductionDynamic { filter, value_source } = effect {
+                        if self.spell_matches_cost_filter(card, filter) {
+                            let dynamic_amount = self.evaluate_count_filter(value_source, player_id);
+                            total_reduction += dynamic_amount;
+                        }
+                    }
+                }
+            }
+        }
+        for ability in &card.abilities {
+            if ability.ability_type != crate::constants::AbilityType::Static {
+                continue;
+            }
+            for effect in &ability.static_effects {
+                if let crate::abilities::StaticEffect::CostReductionDynamic { value_source, .. } = effect {
+                    let dynamic_amount = self.evaluate_count_filter(value_source, player_id);
+                    total_reduction += dynamic_amount;
                 }
             }
         }
@@ -1823,6 +1853,7 @@ impl Game {
                     perm.added_card_types.clear();
                     perm.base_power_eot = None;
                     perm.base_toughness_eot = None;
+                    perm.all_colors_until_eot = false;
                     // Revert temporary control changes (GainControlUntilEndOfTurn)
                     if let Some(orig) = perm.original_controller.take() {
                         perm.controller = orig;
@@ -3058,6 +3089,9 @@ impl Game {
         use crate::constants::Color;
         let mut colors: HashSet<Color> = HashSet::new();
         for perm in self.state.battlefield.controlled_by(player_id) {
+            if perm.all_colors_until_eot {
+                return 5;
+            }
             for c in perm.card.colors() {
                 colors.insert(c);
             }
@@ -3529,6 +3563,42 @@ impl Game {
                             }
                             self.state.set_zone(target_id, crate::constants::Zone::Hand, Some(owner));
                         }
+                    }
+                }
+                Effect::BounceAll { filter } => {
+                    let to_bounce: Vec<(ObjectId, PlayerId)> = self.state.battlefield.iter()
+                        .filter(|p| Self::matches_filter(p, filter))
+                        .map(|p| (p.id(), p.owner()))
+                        .collect();
+                    for (id, owner) in &to_bounce {
+                        if let Some(_perm) = self.state.battlefield.remove(*id) {
+                            self.state.ability_store.remove_source(*id);
+                            if let Some(player) = self.state.players.get_mut(owner) {
+                                player.hand.add(*id);
+                            }
+                            self.state.set_zone(*id, crate::constants::Zone::Hand, Some(*owner));
+                        }
+                    }
+                }
+                Effect::ExileFromOpponentLibrary { count } => {
+                    let exile_count = resolve_x(*count);
+                    let opponents: Vec<PlayerId> = self.state.turn_order.iter()
+                        .filter(|&&id| id != controller)
+                        .copied()
+                        .collect();
+                    let mut exiled: Vec<(ObjectId, PlayerId)> = Vec::new();
+                    for opp_id in opponents {
+                        if let Some(player) = self.state.players.get_mut(&opp_id) {
+                            for _ in 0..exile_count {
+                                if let Some(card_id) = player.library.draw() {
+                                    exiled.push((card_id, opp_id));
+                                }
+                            }
+                        }
+                    }
+                    for (card_id, opp_id) in exiled {
+                        self.state.exile.exile(card_id);
+                        self.state.set_zone(card_id, crate::constants::Zone::Exile, Some(opp_id));
                     }
                 }
                 Effect::PutOnLibrary => {
@@ -4859,10 +4929,16 @@ impl Game {
                     }
                 }
                 Effect::GainAllCreatureTypes => {
-                    // Target gains all creature types until end of turn (changeling)
                     for &target_id in targets {
                         if let Some(perm) = self.state.battlefield.get_mut(target_id) {
                             perm.granted_keywords |= crate::constants::KeywordAbilities::CHANGELING;
+                        }
+                    }
+                }
+                Effect::BecomeAllColors => {
+                    for &target_id in targets {
+                        if let Some(perm) = self.state.battlefield.get_mut(target_id) {
+                            perm.all_colors_until_eot = true;
                         }
                     }
                 }
@@ -5296,41 +5372,49 @@ impl Game {
     /// Check if a permanent matches a simple filter string.
     fn matches_filter(perm: &Permanent, filter: &str) -> bool {
         let f = filter.to_lowercase();
-        // "all" or empty matches everything
         if f.is_empty() || f == "all" {
             return true;
         }
-        // Check creature types (changelings match all creature types)
         let is_changeling = perm.is_creature()
             && perm.has_keyword(crate::constants::KeywordAbilities::CHANGELING);
+
+        if f.starts_with("non-") && f.ends_with("creatures") {
+            let type_part = &f[4..f.len() - 1]; // "non-elemental creatures" -> "elemental creature"
+            let type_str = type_part.trim_end_matches(" creature").trim_end_matches('s');
+            if !perm.is_creature() {
+                return false;
+            }
+            if is_changeling {
+                return false;
+            }
+            for st in &perm.card.subtypes {
+                if st.to_string().to_lowercase() == type_str {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         for st in &perm.card.subtypes {
             if f.contains(&st.to_string().to_lowercase()) {
                 return true;
             }
         }
-        // Check card types
         for ct in &perm.card.card_types {
             let ct_name = format!("{:?}", ct).to_lowercase();
             if f.contains(&ct_name) {
                 return true;
             }
         }
-        // Changeling matches any creature type name in the filter
-        // (if the filter didn't already match a card type like "creature")
         if is_changeling {
-            // If filter mentions any creature type name, changeling matches
-            // We detect this by checking if the filter doesn't match common
-            // card types — if it still hasn't matched, it's likely a creature subtype
             let is_card_type = f.contains("creature") || f.contains("land")
                 || f.contains("artifact") || f.contains("enchantment")
                 || f.contains("planeswalker") || f.contains("instant")
                 || f.contains("sorcery") || f.contains("nonland");
             if !is_card_type {
-                // Filter is likely a creature type name (e.g. "elf", "goblin", "spirit")
                 return true;
             }
         }
-        // "nonland" filter
         if f.contains("nonland") && !perm.card.card_types.contains(&crate::constants::CardType::Land) {
             return true;
         }

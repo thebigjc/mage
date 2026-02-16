@@ -117,6 +117,10 @@ pub enum Effect {
     Sacrifice { filter: String },
     /// Return target permanent to hand.
     Bounce,
+    /// Return all permanents matching filter to their owners' hands.
+    BounceAll { filter: String },
+    /// Exile the top N cards of target opponent's library.
+    ExileFromOpponentLibrary { count: u32 },
     /// Put target permanent on top of its owner's library.
     PutOnLibrary,
     /// Return target card from graveyard to hand.
@@ -351,6 +355,8 @@ pub enum Effect {
 
     /// Target creature gains all creature types until end of turn.
     GainAllCreatureTypes,
+    /// Target creature becomes all colors until end of turn.
+    BecomeAllColors,
 
     /// Create a token that is a copy of target creature/permanent.
     /// The token gets all the same characteristics (name, types, subtypes,
@@ -1295,6 +1301,18 @@ impl Effect {
         Effect::GainAllCreatureTypes
     }
 
+    pub fn become_all_colors() -> Self {
+        Effect::BecomeAllColors
+    }
+
+    pub fn bounce_all(filter: &str) -> Self {
+        Effect::BounceAll { filter: filter.to_string() }
+    }
+
+    pub fn exile_from_opponent_library(count: u32) -> Self {
+        Effect::ExileFromOpponentLibrary { count }
+    }
+
     /// Create a token copy of target creature.
     pub fn create_token_copy(count: u32) -> Self {
         Effect::CreateTokenCopy { count, modifications: vec![] }
@@ -1484,6 +1502,13 @@ impl StaticEffect {
             filter: filter.to_string(),
             amount,
             condition: None,
+        }
+    }
+
+    pub fn cost_reduction_dynamic(filter: &str, value_source: &str) -> Self {
+        StaticEffect::CostReductionDynamic {
+            filter: filter.to_string(),
+            value_source: value_source.to_string(),
         }
     }
 
@@ -1743,6 +1768,11 @@ pub enum StaticEffect {
         filter: String,
         amount: u32,
         condition: Option<String>,
+    },
+    /// Reduce cost dynamically: "greatest mana value among [type] you control".
+    CostReductionDynamic {
+        filter: String,
+        value_source: String,
     },
     /// Matching permanents enter the battlefield tapped.
     EntersTapped {

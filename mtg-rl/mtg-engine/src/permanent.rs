@@ -89,6 +89,7 @@ pub struct Permanent {
     /// When transformed=true, card holds back face data and front_face stores original.
     /// When transformed=false, this is None.
     pub front_face: Option<Box<CardData>>,
+    pub all_colors_until_eot: bool,
 }
 
 impl Permanent {
@@ -128,6 +129,7 @@ impl Permanent {
             base_power_eot: None,
             base_toughness_eot: None,
             front_face: None,
+            all_colors_until_eot: false,
             card,
         }
     }

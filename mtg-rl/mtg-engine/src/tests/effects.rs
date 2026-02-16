@@ -935,3 +935,242 @@ fn boost_by_toughness_minus_power_helper_constructor() {
     let effect = Effect::boost_by_toughness_minus_power();
     assert!(matches!(effect, Effect::BoostByToughnessMinusPower));
 }
+
+#[cfg(test)]
+#[test]
+fn bounce_all_returns_matching_creatures_to_hand() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let mut game = Game::new_two_player(config, vec![
+        (p1, Box::new(AlwaysPassPlayer)),
+        (p2, Box::new(AlwaysPassPlayer)),
+    ]);
+    let mut elf = make_creature("Elf", p1, 1, 1);
+    elf.subtypes = vec![SubType::Elf];
+    let elf_id = elf.id;
+    let mut goblin = make_creature("Goblin", p1, 2, 2);
+    goblin.subtypes = vec![SubType::Goblin];
+    let goblin_id = goblin.id;
+    game.state.battlefield.add(Permanent::new(elf, p1));
+    game.state.battlefield.add(Permanent::new(goblin, p1));
+    assert_eq!(game.state.battlefield.len(), 2);
+    game.execute_effects(&[Effect::bounce_all("elf")], p1, &[], None, None);
+    assert_eq!(game.state.battlefield.len(), 1);
+    assert!(game.state.battlefield.get(goblin_id).is_some());
+    assert!(game.state.battlefield.get(elf_id).is_none());
+}
+
+#[cfg(test)]
+#[test]
+fn bounce_all_non_type_filter() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let mut game = Game::new_two_player(config, vec![
+        (p1, Box::new(AlwaysPassPlayer)),
+        (p2, Box::new(AlwaysPassPlayer)),
+    ]);
+    let mut elemental = make_creature("Fire Elemental", p1, 5, 5);
+    elemental.subtypes = vec![SubType::Elemental];
+    let elemental_id = elemental.id;
+    let mut human = make_creature("Human", p1, 2, 2);
+    human.subtypes = vec![SubType::Human];
+    let human_id = human.id;
+    let mut elf = make_creature("Elf", p2, 1, 1);
+    elf.subtypes = vec![SubType::Elf];
+    let elf_id = elf.id;
+    game.state.battlefield.add(Permanent::new(elemental, p1));
+    game.state.battlefield.add(Permanent::new(human, p1));
+    game.state.battlefield.add(Permanent::new(elf, p2));
+    game.execute_effects(&[Effect::bounce_all("non-Elemental creatures")], p1, &[], None, None);
+    assert!(game.state.battlefield.get(elemental_id).is_some());
+    assert!(game.state.battlefield.get(human_id).is_none());
+    assert!(game.state.battlefield.get(elf_id).is_none());
+}
+
+#[cfg(test)]
+#[test]
+fn exile_from_opponent_library_exiles_cards() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let mut game = Game::new_two_player(config, vec![
+        (p1, Box::new(AlwaysPassPlayer)),
+        (p2, Box::new(AlwaysPassPlayer)),
+    ]);
+    let initial_lib = game.state.players.get(&p2).unwrap().library.len();
+    game.execute_effects(&[Effect::exile_from_opponent_library(2)], p1, &[], None, None);
+    let final_lib = game.state.players.get(&p2).unwrap().library.len();
+    assert_eq!(final_lib, initial_lib - 2);
+    assert_eq!(game.state.exile.len(), 2);
+}
+
+#[cfg(test)]
+#[test]
+fn exile_from_opponent_library_does_not_exile_own() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let mut game = Game::new_two_player(config, vec![
+        (p1, Box::new(AlwaysPassPlayer)),
+        (p2, Box::new(AlwaysPassPlayer)),
+    ]);
+    let initial_lib_p1 = game.state.players.get(&p1).unwrap().library.len();
+    game.execute_effects(&[Effect::exile_from_opponent_library(3)], p1, &[], None, None);
+    let final_lib_p1 = game.state.players.get(&p1).unwrap().library.len();
+    assert_eq!(final_lib_p1, initial_lib_p1);
+}
+
+#[cfg(test)]
+#[test]
+fn become_all_colors_sets_flag() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let mut game = Game::new_two_player(config, vec![
+        (p1, Box::new(AlwaysPassPlayer)),
+        (p2, Box::new(AlwaysPassPlayer)),
+    ]);
+    let creature = make_creature("Test", p1, 2, 2);
+    let creature_id = creature.id;
+    game.state.battlefield.add(Permanent::new(creature, p1));
+    assert!(!game.state.battlefield.get(creature_id).unwrap().all_colors_until_eot);
+    game.execute_effects(&[Effect::become_all_colors()], p1, &[creature_id], None, None);
+    assert!(game.state.battlefield.get(creature_id).unwrap().all_colors_until_eot);
+}
+
+#[cfg(test)]
+#[test]
+fn become_all_colors_makes_5_colors_counted() {
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let mut game = Game::new_two_player(config, vec![
+        (p1, Box::new(AlwaysPassPlayer)),
+        (p2, Box::new(AlwaysPassPlayer)),
+    ]);
+    let creature = make_creature("Test", p1, 2, 2);
+    let creature_id = creature.id;
+    game.state.battlefield.add(Permanent::new(creature, p1));
+    game.execute_effects(&[Effect::become_all_colors()], p1, &[creature_id], None, None);
+    game.execute_effects(&[Effect::GainLifeVivid], p1, &[], None, None);
+    assert_eq!(game.state.players.get(&p1).unwrap().life, 25);
+}
+
+#[cfg(test)]
+#[test]
+fn cost_reduction_dynamic_greatest_mv() {
+    use crate::abilities::{Ability, StaticEffect};
+    use crate::mana::ManaCost;
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let mut game = Game::new_two_player(config, vec![
+        (p1, Box::new(AlwaysPassPlayer)),
+        (p2, Box::new(AlwaysPassPlayer)),
+    ]);
+    let mut elemental = make_creature("Fire Elemental", p1, 5, 5);
+    elemental.subtypes = vec![SubType::Elemental];
+    elemental.mana_cost = ManaCost::parse("{3}{R}{R}");
+    game.state.battlefield.add(Permanent::new(elemental, p1));
+    let mut spell = make_creature("Big Creature", p1, 7, 7);
+    spell.mana_cost = ManaCost::parse("{7}{U}{U}");
+    spell.abilities = vec![
+        Ability::static_ability(spell.id,
+            "This spell costs {X} less.",
+            vec![StaticEffect::cost_reduction_dynamic("creature spells", "greatest mana value among Elementals you control")]),
+    ];
+    let reduction = game.calculate_cost_reduction(p1, &spell);
+    assert_eq!(reduction, 5);
+}
+
+#[cfg(test)]
+#[test]
+fn cost_reduction_dynamic_no_matching_creatures() {
+    use crate::abilities::{Ability, StaticEffect};
+    let p1 = PlayerId::new();
+    let p2 = PlayerId::new();
+    let config = GameConfig {
+        players: vec![
+            PlayerConfig { name: "Alice".into(), deck: make_deck(p1) },
+            PlayerConfig { name: "Bob".into(), deck: make_deck(p2) },
+        ],
+        starting_life: 20,
+    };
+    let game = Game::new_two_player(config, vec![
+        (p1, Box::new(AlwaysPassPlayer)),
+        (p2, Box::new(AlwaysPassPlayer)),
+    ]);
+    let mut spell = make_creature("Big Creature", p1, 7, 7);
+    spell.abilities = vec![
+        Ability::static_ability(spell.id,
+            "This spell costs {X} less.",
+            vec![StaticEffect::cost_reduction_dynamic("creature spells", "greatest mana value among Elementals you control")]),
+    ];
+    let reduction = game.calculate_cost_reduction(p1, &spell);
+    assert_eq!(reduction, 0);
+}
+
+#[cfg(test)]
+#[test]
+fn bounce_all_helper_constructor() {
+    let effect = Effect::bounce_all("elf");
+    assert!(matches!(effect, Effect::BounceAll { .. }));
+}
+
+#[cfg(test)]
+#[test]
+fn exile_from_opponent_library_helper_constructor() {
+    let effect = Effect::exile_from_opponent_library(3);
+    assert!(matches!(effect, Effect::ExileFromOpponentLibrary { count: 3 }));
+}
+
+#[cfg(test)]
+#[test]
+fn become_all_colors_helper_constructor() {
+    let effect = Effect::become_all_colors();
+    assert!(matches!(effect, Effect::BecomeAllColors));
+}

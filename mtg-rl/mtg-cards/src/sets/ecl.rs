@@ -2859,7 +2859,7 @@ fn grub_storied_matriarch(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                     "Whenever Grub transforms into this, return up to one target Goblin creature card from your graveyard to your hand.",
                     vec![EventType::EnteredTheBattlefield],
-                    vec![Effect::Custom("Return target Goblin from graveyard to hand on transform.".into())],
+                    vec![Effect::return_from_graveyard()],
                     TargetSpec::CardInYourGraveyard),
             Ability::triggered(id,
                     "Whenever Grub attacks, you may blight 1. If you do, create a tapped and attacking token copy of it. Sacrifice that token at end of combat.",
@@ -3159,8 +3159,8 @@ fn maralen_fae_ascendant(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::other_creature_etb_triggered(id,
                     "Whenever Maralen or another Elf or Faerie you control enters, exile the top two cards of target opponent's library.",
-                    vec![Effect::Custom("Exile top 2 cards of target opponent's library.".into())],
-                    TargetSpec::Player),
+                    vec![Effect::exile_from_opponent_library(2)],
+                    TargetSpec::None),
             Ability::static_ability(id,
                     "Once each turn, you may cast a spell with mana value less than or equal to the number of Elves and Faeries you control from among cards exiled with Maralen without paying its mana cost.",
                     vec![StaticEffect::Custom("Once per turn, cast exiled spell with MV <= Elves+Faeries you control for free.".into())]),
@@ -3371,7 +3371,7 @@ fn pucas_eye(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Puca's Eye enters, draw a card, then choose a color. This artifact becomes the chosen color.",
-                vec![Effect::draw_cards(1), Effect::Custom("Choose a color. This artifact becomes the chosen color.".into())],
+                vec![Effect::draw_cards(1), Effect::choose_color()],
                 TargetSpec::None),
             Ability::activated(id,
                 "{3}, {T}: Draw a card. Activate only if there are five colors among permanents you control.",
@@ -3714,10 +3714,10 @@ fn sunderflock(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "This spell costs {X} less to cast, where X is the greatest mana value among Elementals you control.",
-                    vec![StaticEffect::Custom("Cost reduction by greatest MV among Elementals you control.".into())]),
+                    vec![StaticEffect::cost_reduction_dynamic("creature spells", "greatest mana value among Elementals you control")]),
             Ability::enters_battlefield_triggered(id,
                     "When Sunderflock enters, if you cast it, return each non-Elemental creature to its owner's hand.",
-                    vec![Effect::Custom("If cast, return all non-Elemental creatures to owners' hands.".into())],
+                    vec![Effect::bounce_all("non-Elemental creatures")],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -3772,7 +3772,7 @@ fn tam_mindful_first_year(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                     "{T}: Target creature becomes all colors until end of turn.",
                     vec![Cost::tap_self()],
-                    vec![Effect::Custom("Target creature becomes all colors until end of turn.".into())],
+                    vec![Effect::become_all_colors()],
                     TargetSpec::Creature),
         ],
         ..Default::default() }
@@ -4038,8 +4038,8 @@ fn ajani_outland_chaperone(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![Effect::create_token("1/1 Kithkin", 1)],
                 TargetSpec::None),
             Ability::spell(id,
-                vec![Effect::Custom("−2: Ajani deals 4 damage to target tapped creature.".into())],
-                TargetSpec::Creature),
+                vec![Effect::deal_damage(4)],
+                TargetSpec::PermanentFiltered("tapped creature".into())),
             Ability::spell(id,
                 vec![Effect::Custom("−8: Look at top X cards where X is your life total. Put any number of nonland permanents MV<=3 onto the battlefield.".into())],
                 TargetSpec::None),
@@ -4081,8 +4081,11 @@ fn boulder_dash(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::Custom("Boulder Dash deals 2 damage to any target and 1 damage to any other target.".into())],
-                TargetSpec::None),
+                vec![Effect::deal_damage(2), Effect::deal_damage(1)],
+                TargetSpec::Pair {
+                    first: Box::new(TargetSpec::CreatureOrPlayer),
+                    second: Box::new(TargetSpec::CreatureOrPlayer),
+                }),
         ],
         ..Default::default() }
 }
@@ -4449,11 +4452,11 @@ fn meanders_guide(id: ObjectId, owner: PlayerId) -> CardData {
         power: Some(3), toughness: Some(2),
         rarity: Rarity::Common,
         abilities: vec![
-            Ability::triggered(id,
-                "Whenever this creature attacks, you may tap another untapped Merfolk you control.",
-                vec![EventType::AttackerDeclared],
-                vec![Effect::Custom("Whenever this creature attacks, you may tap another untapped Merfolk you control.".into())],
-                TargetSpec::None),
+            Ability::attacks_triggered(id,
+                "Whenever this creature attacks, you may tap another untapped Merfolk you control. When you do, return target creature card with mana value 3 or less from your graveyard to the battlefield.",
+                vec![Effect::tap_target()],
+                TargetSpec::PermanentFiltered("another untapped Merfolk you control".into()))
+                .set_optional(),
         ],
         ..Default::default() }
 }
@@ -4562,8 +4565,14 @@ fn oko_lorwyn_liege(id: ObjectId, owner: PlayerId) -> CardData {
         supertypes: vec![SuperType::Legendary],
         rarity: Rarity::Uncommon,
         abilities: vec![
-            Ability::spell(id,
-                vec![Effect::Custom("At the beginning of your first main phase, you may pay {G}. If you do, transform Oko.".into())],
+            Ability::triggered(id,
+                "At the beginning of your first main phase, you may pay {G}. If you do, transform Oko.",
+                vec![EventType::PrecombatMainPre],
+                vec![Effect::do_if_cost_paid(
+                    Cost::pay_mana("{G}"),
+                    vec![Effect::transform_self()],
+                    vec![],
+                )],
                 TargetSpec::None),
         ],
         ..Default::default() }
