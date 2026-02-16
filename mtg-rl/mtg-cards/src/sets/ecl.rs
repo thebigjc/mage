@@ -3,7 +3,7 @@
 
 use crate::cards::basic_lands;
 use crate::registry::CardRegistry;
-use mtg_engine::abilities::{Ability, Cost, Effect, ModalMode, StaticEffect, TargetSpec};
+use mtg_engine::abilities::{Ability, Cost, Effect, ModalMode, StaticEffect, TargetSpec, TriggerScope, X_VALUE};
 use mtg_engine::card::CardData;
 use mtg_engine::constants::*;
 use mtg_engine::events::EventType;
@@ -3564,8 +3564,13 @@ fn selfless_safewright(id: ObjectId, owner: PlayerId) -> CardData {
         ..Default::default() }
 }
 
-// ENGINE DEPS: [COST+IMPULSE] Attacks then blight 1, creature with counters dies then impulse draw equal to counter count
 fn shadow_urchin(id: ObjectId, owner: PlayerId) -> CardData {
+    let mut dies_trigger = Ability::triggered(id,
+        "Whenever a creature you control with one or more counters on it dies, exile that many cards from the top of your library. Until your next end step, you may play those cards.",
+        vec![EventType::Dies],
+        vec![Effect::ExileTopAndPlay { count: X_VALUE, duration: "until_end_of_next_turn".into(), without_mana: false }],
+        TargetSpec::None);
+    dies_trigger.trigger_scope = TriggerScope::OtherControlled;
     CardData { id, owner, name: "Shadow Urchin".into(),
         mana_cost: ManaCost::parse("{2}{B/R}"),
         card_types: vec![CardType::Creature],
@@ -3578,11 +3583,7 @@ fn shadow_urchin(id: ObjectId, owner: PlayerId) -> CardData {
                     vec![EventType::AttackerDeclared],
                     vec![Effect::BlightOpponents { count: 1 }],
                     TargetSpec::None),
-            Ability::triggered(id,
-                    "Whenever a creature with counters on it dies, exile that many cards from the top of your library. Until your next end step, you may play those cards.",
-                    vec![EventType::Dies],
-                    vec![Effect::Custom("Exile X cards from top of library where X = counters on dying creature, play until next end step.".into())],
-                    TargetSpec::None),
+            dies_trigger,
         ],
         ..Default::default() }
 }

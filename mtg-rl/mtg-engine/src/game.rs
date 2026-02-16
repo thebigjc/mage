@@ -14,7 +14,7 @@
 //
 // Ported from mage.game.GameImpl.
 
-use crate::abilities::{Cost, Effect, StaticEffect, TriggerScope};
+use crate::abilities::{Cost, Effect, StaticEffect, TargetSpec, TriggerScope};
 use crate::mana::ManaCost;
 use crate::combat::{self, CombatState};
 use crate::constants::AbilityType;
@@ -1486,7 +1486,7 @@ impl Game {
             return false;
         }
 
-        let mut triggered: Vec<(PlayerId, AbilityId, ObjectId, String, Option<ObjectId>)> = Vec::new();
+        let mut triggered: Vec<(PlayerId, AbilityId, ObjectId, String, Option<ObjectId>, i32)> = Vec::new();
 
         for event in self.event_log.iter() {
             let matching = self.state.ability_store.triggered_by(event);
@@ -1550,6 +1550,7 @@ impl Game {
                         ability.source_id,
                         ability.rules_text.clone(),
                         event.target_id,
+                        event.amount,
                     ));
                     continue;
                 }
@@ -1668,6 +1669,7 @@ impl Game {
                     ability.source_id,
                     ability.rules_text.clone(),
                     event.target_id,
+                    event.amount,
                 ));
             }
         }
@@ -1760,8 +1762,8 @@ impl Game {
 
         // Apply trigger doubling: duplicate triggers whose source matches a TriggerDoubling filter
         if !self.state.trigger_doublings.is_empty() {
-            let mut extra: Vec<(PlayerId, AbilityId, ObjectId, String, Option<ObjectId>)> = Vec::new();
-            for &(ref _controller, ref _ability_id, ref source_id, ref _desc, ref _event_target) in &triggered {
+            let mut extra: Vec<(PlayerId, AbilityId, ObjectId, String, Option<ObjectId>, i32)> = Vec::new();
+            for &(ref _controller, ref _ability_id, ref source_id, ref _desc, ref _event_target, event_amount) in &triggered {
                 let controller = *_controller;
                 let ability_id = *_ability_id;
                 let source_id = *source_id;
@@ -1781,7 +1783,7 @@ impl Game {
                         if !stripped.is_empty() && !Self::matches_filter(source_perm, &stripped) {
                             continue;
                         }
-                        extra.push((controller, ability_id, source_id, desc.clone(), et));
+                        extra.push((controller, ability_id, source_id, desc.clone(), et, event_amount));
                     }
                 }
             }
@@ -1790,10 +1792,10 @@ impl Game {
 
         // Sort by APNAP order (active player's triggers first)
         let active = self.state.active_player;
-        triggered.sort_by_key(|(controller, _, _, _, _)| if *controller == active { 0 } else { 1 });
+        triggered.sort_by_key(|(controller, _, _, _, _, _)| if *controller == active { 0 } else { 1 });
 
         // Push triggered abilities onto the stack
-        for (controller, ability_id, source_id, description, event_target) in triggered {
+        for (controller, ability_id, source_id, description, event_target, event_amount) in triggered {
             let ability = self.state.ability_store.get(ability_id).cloned();
             if let Some(ref ab) = ability {
                 if ab.optional_trigger {
@@ -1843,7 +1845,7 @@ impl Game {
                 controller,
                 targets,
                 countered: false,
-                x_value: None,
+                x_value: if event_amount > 0 { Some(event_amount as u32) } else { None },
                 exile_on_resolve: false,
             };
             self.state.stack.push(stack_item);
@@ -2920,21 +2922,29 @@ impl Game {
         // in the SelectedTargets system (targets.rs). This simplified check only
         // validates permanent targets on the battlefield.
         if !item.targets.is_empty() {
-            let any_legal = item.targets.iter().any(|&target_id| {
-                self.state.battlefield.contains(target_id)
-                    || self.state.stack.get(target_id).is_some()
-            });
-            if !any_legal {
-                // All targets are illegal — fizzle
-                match &item.kind {
-                    crate::zones::StackItemKind::Spell { .. } => {
-                        self.move_card_to_graveyard(item.id, item.controller);
-                    }
-                    crate::zones::StackItemKind::Ability { .. } => {
-                        // Abilities just cease to exist when fizzled
-                    }
+            let has_explicit_targets = match &item.kind {
+                crate::zones::StackItemKind::Ability { ability_id, .. } => {
+                    self.state.ability_store.get(*ability_id)
+                        .map(|ab| !matches!(ab.targets, TargetSpec::None))
+                        .unwrap_or(true)
                 }
-                return;
+                _ => true,
+            };
+            if has_explicit_targets {
+                let any_legal = item.targets.iter().any(|&target_id| {
+                    self.state.battlefield.contains(target_id)
+                        || self.state.stack.get(target_id).is_some()
+                });
+                if !any_legal {
+                    match &item.kind {
+                        crate::zones::StackItemKind::Spell { .. } => {
+                            self.move_card_to_graveyard(item.id, item.controller);
+                        }
+                        crate::zones::StackItemKind::Ability { .. } => {
+                        }
+                    }
+                    return;
+                }
             }
         }
 
@@ -2990,7 +3000,7 @@ impl Game {
                 let ability_data = self.state.ability_store.get(*ability_id).cloned();
                 if let Some(ability) = ability_data {
                     let targets = item.targets.clone();
-                    self.execute_effects(&ability.effects, item.controller, &targets, Some(source), None);
+                    self.execute_effects(&ability.effects, item.controller, &targets, Some(source), item.x_value);
                 }
             }
         }
@@ -3025,9 +3035,10 @@ impl Game {
                 let owner = perm.owner();
                 let controller = perm.controller;
                 let was_creature = perm.is_creature();
+                let counter_count = perm.counters.total_count();
                 self.move_card_to_graveyard(perm_id, owner);
                 if was_creature {
-                    self.emit_event(GameEvent::dies(perm_id, controller));
+                    self.emit_event(GameEvent::dies(perm_id, controller, counter_count));
                     died_sources.push(perm_id);
                 } else {
                     self.state.ability_store.remove_source(perm_id);
@@ -3041,9 +3052,10 @@ impl Game {
                 let owner = perm.owner();
                 let controller = perm.controller;
                 let was_creature = perm.is_creature();
+                let counter_count = perm.counters.total_count();
                 self.move_card_to_graveyard(perm_id, owner);
                 if was_creature {
-                    self.emit_event(GameEvent::dies(perm_id, controller));
+                    self.emit_event(GameEvent::dies(perm_id, controller, counter_count));
                     died_sources.push(perm_id);
                 } else {
                     self.state.ability_store.remove_source(perm_id);
@@ -3626,10 +3638,11 @@ impl Game {
                             if !perm.has_indestructible() {
                                 let was_creature = perm.is_creature();
                                 let perm_controller = perm.controller;
+                                let counter_count = perm.counters.total_count();
                                 if let Some(perm) = self.state.battlefield.remove(target_id) {
                                     self.move_card_to_graveyard_inner(target_id, perm.owner());
                                     if was_creature {
-                                        self.emit_event(GameEvent::dies(target_id, perm_controller));
+                                        self.emit_event(GameEvent::dies(target_id, perm_controller, counter_count));
                                     }
                                     self.state.ability_store.remove_source(target_id);
                                 }
@@ -4110,10 +4123,12 @@ impl Game {
                         if let Some(&victim_id) = matching.first() {
                             let was_creature = self.state.battlefield.get(victim_id)
                                 .map(|p| p.is_creature()).unwrap_or(false);
+                            let ctr_count = self.state.battlefield.get(victim_id)
+                                .map(|p| p.counters.total_count()).unwrap_or(0);
                             if let Some(perm) = self.state.battlefield.remove(victim_id) {
                                 self.move_card_to_graveyard_inner(victim_id, perm.owner());
                                 if was_creature {
-                                    self.emit_event(GameEvent::dies(victim_id, opp));
+                                    self.emit_event(GameEvent::dies(victim_id, opp, ctr_count));
                                 }
                                 self.state.ability_store.remove_source(victim_id);
                             }
@@ -4121,21 +4136,19 @@ impl Game {
                     }
                 }
                 Effect::DestroyAll { filter } => {
-                    // Destroy all permanents matching filter
-                    let to_destroy: Vec<(ObjectId, PlayerId, bool)> = self.state.battlefield.iter()
+                    let to_destroy: Vec<(ObjectId, PlayerId, bool, u32)> = self.state.battlefield.iter()
                         .filter(|p| Self::matches_filter(p, filter) && !p.has_indestructible())
-                        .map(|p| (p.id(), p.owner(), p.is_creature()))
+                        .map(|p| (p.id(), p.owner(), p.is_creature(), p.counters.total_count()))
                         .collect();
-                    for (id, owner, was_creature) in &to_destroy {
+                    for (id, owner, was_creature, ctr_count) in &to_destroy {
                         if let Some(perm) = self.state.battlefield.remove(*id) {
                             self.move_card_to_graveyard_inner(*id, *owner);
                             if *was_creature {
-                                self.emit_event(GameEvent::dies(*id, perm.controller));
+                                self.emit_event(GameEvent::dies(*id, perm.controller, *ctr_count));
                             }
                         }
                     }
-                    // Deferred ability cleanup
-                    for (id, _, _) in &to_destroy {
+                    for (id, _, _, _) in &to_destroy {
                         self.state.ability_store.remove_source(*id);
                     }
                 }

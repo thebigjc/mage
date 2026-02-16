@@ -713,7 +713,7 @@ use crate::types::{ObjectId, PlayerId};
 
         // Kill the creature (emit dies event)
         game.state.battlefield.remove(creature_id);
-        game.emit_event(GameEvent::dies(creature_id, p1));
+        game.emit_event(GameEvent::dies(creature_id, p1, 0));
         game.check_triggered_abilities();
 
         let hand_after = game.state.players.get(&p1).unwrap().hand.len();
@@ -754,7 +754,7 @@ use crate::types::{ObjectId, PlayerId};
 
         // Kill the OTHER creature (should NOT trigger)
         game.state.battlefield.remove(other_id);
-        game.emit_event(GameEvent::dies(other_id, p2));
+        game.emit_event(GameEvent::dies(other_id, p2, 0));
         game.check_triggered_abilities();
 
         let life_after = game.state.players.get(&p1).unwrap().life;

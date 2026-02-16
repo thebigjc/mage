@@ -255,6 +255,11 @@ impl Counters {
         self.get(counter_type) > 0
     }
 
+    /// Total number of counters of all types.
+    pub fn total_count(&self) -> u32 {
+        self.map.values().sum()
+    }
+
     /// Returns true if there are no counters.
     pub fn is_empty(&self) -> bool {
         self.map.is_empty()

@@ -1,9 +1,10 @@
 // Tests extracted from game.rs
 
 use crate::game::*;
-use crate::abilities::{Ability, Cost, Effect, StaticEffect};
+use crate::abilities::{Ability, Cost, Effect, StaticEffect, TriggerScope, X_VALUE};
 use crate::card::CardData;
 use crate::constants::{CardType, KeywordAbilities, Outcome, PhaseStep, SubType, TurnPhase};
+use crate::events::{EventType, GameEvent};
 use crate::counters::CounterType;
 use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
 use crate::mana::{Mana, ManaCost};
@@ -2066,4 +2067,115 @@ use crate::types::{ObjectId, PlayerId};
             }
             _ => panic!("Expected EnterAsACopy"),
         }
+    }
+
+    #[test]
+    fn exile_top_and_play_x_value_uses_x_value_param() {
+        let (mut game, p1, _p2) = setup_impulse_game();
+        let _lib_ids = add_library_cards(&mut game, p1, 5);
+
+        game.execute_effects(
+            &[Effect::ExileTopAndPlay { count: X_VALUE, duration: "until_end_of_next_turn".into(), without_mana: false }],
+            p1, &[], None, Some(3),
+        );
+
+        assert_eq!(game.state.impulse_playable.len(), 3);
+        assert_eq!(game.state.players.get(&p1).unwrap().library.len(), 2);
+        for ip in &game.state.impulse_playable {
+            assert!(game.state.exile.contains(ip.card_id));
+            assert_eq!(ip.duration, crate::state::ImpulseDuration::UntilEndOfNextTurn);
+        }
+    }
+
+    #[test]
+    fn dies_trigger_carries_counter_count_to_x_value() {
+        let (mut game, p1, _p2) = setup_impulse_game();
+        let _lib_ids = add_library_cards(&mut game, p1, 5);
+
+        let source_id = ObjectId::new();
+        let mut source_card = CardData::new(source_id, p1, "Trigger Source");
+        source_card.card_types = vec![CardType::Creature];
+        source_card.power = Some(3);
+        source_card.toughness = Some(4);
+        let mut trigger = Ability::triggered(source_id,
+            "Whenever a creature you control dies, exile X cards.",
+            vec![EventType::Dies],
+            vec![Effect::ExileTopAndPlay { count: X_VALUE, duration: "until_end_of_next_turn".into(), without_mana: false }],
+            crate::abilities::TargetSpec::None);
+        trigger.trigger_scope = TriggerScope::OtherControlled;
+        source_card.abilities = vec![trigger];
+        game.state.card_store.insert(source_card.clone());
+        let perm = Permanent::new(source_card, p1);
+        game.state.battlefield.add(perm);
+        let abilities = game.state.battlefield.get(source_id).unwrap().card.abilities.clone();
+        for ab in abilities { game.state.ability_store.add(ab); }
+
+        let creature_id = ObjectId::new();
+        let mut creature = CardData::new(creature_id, p1, "Dying Creature");
+        creature.card_types = vec![CardType::Creature];
+        creature.power = Some(2);
+        creature.toughness = Some(2);
+        game.state.card_store.insert(creature.clone());
+        let mut creature_perm = Permanent::new(creature, p1);
+        creature_perm.counters.add(CounterType::M1M1, 2);
+        creature_perm.counters.add(CounterType::P1P1, 1);
+        game.state.battlefield.add(creature_perm);
+
+        game.state.battlefield.remove(creature_id);
+        game.emit_event(GameEvent::dies(creature_id, p1, 3));
+        game.check_triggered_abilities();
+
+        assert!(!game.state.stack.is_empty(), "Dies trigger should be on the stack");
+        let stack_item = game.state.stack.top().unwrap();
+        assert_eq!(stack_item.x_value, Some(3), "x_value should be the counter count");
+
+        game.resolve_top_of_stack();
+        assert_eq!(game.state.impulse_playable.len(), 3,
+            "Should exile 3 cards (one per counter)");
+        assert_eq!(game.state.players.get(&p1).unwrap().library.len(), 2);
+    }
+
+    #[test]
+    fn dies_trigger_no_counters_exiles_nothing() {
+        let (mut game, p1, _p2) = setup_impulse_game();
+        let _lib_ids = add_library_cards(&mut game, p1, 5);
+
+        let source_id = ObjectId::new();
+        let mut source_card = CardData::new(source_id, p1, "Trigger Source");
+        source_card.card_types = vec![CardType::Creature];
+        source_card.power = Some(3);
+        source_card.toughness = Some(4);
+        let mut trigger = Ability::triggered(source_id,
+            "Whenever a creature you control dies, exile X cards.",
+            vec![EventType::Dies],
+            vec![Effect::ExileTopAndPlay { count: X_VALUE, duration: "until_end_of_next_turn".into(), without_mana: false }],
+            crate::abilities::TargetSpec::None);
+        trigger.trigger_scope = TriggerScope::OtherControlled;
+        source_card.abilities = vec![trigger];
+        game.state.card_store.insert(source_card.clone());
+        let perm = Permanent::new(source_card, p1);
+        game.state.battlefield.add(perm);
+        let abilities = game.state.battlefield.get(source_id).unwrap().card.abilities.clone();
+        for ab in abilities { game.state.ability_store.add(ab); }
+
+        let creature_id = ObjectId::new();
+        let mut creature = CardData::new(creature_id, p1, "Dying Creature");
+        creature.card_types = vec![CardType::Creature];
+        creature.power = Some(2);
+        creature.toughness = Some(2);
+        game.state.card_store.insert(creature.clone());
+        let creature_perm = Permanent::new(creature, p1);
+        game.state.battlefield.add(creature_perm);
+
+        game.state.battlefield.remove(creature_id);
+        game.emit_event(GameEvent::dies(creature_id, p1, 0));
+        game.check_triggered_abilities();
+
+        if !game.state.stack.is_empty() {
+            game.resolve_top_of_stack();
+        }
+
+        assert_eq!(game.state.impulse_playable.len(), 0,
+            "Should exile 0 cards when creature had no counters");
+        assert_eq!(game.state.players.get(&p1).unwrap().library.len(), 5);
     }

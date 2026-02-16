@@ -539,10 +539,12 @@ impl GameEvent {
     }
 
     /// Create a dies event (creature to graveyard from battlefield).
-    pub fn dies(permanent_id: ObjectId, player: PlayerId) -> Self {
+    /// `counter_count` is the total number of counters that were on the creature.
+    pub fn dies(permanent_id: ObjectId, player: PlayerId, counter_count: u32) -> Self {
         GameEvent::new(EventType::Dies)
             .target(permanent_id)
             .player(player)
+            .amount(counter_count as i32)
     }
 
     /// Create a destroy-permanent event.
