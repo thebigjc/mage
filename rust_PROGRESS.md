@@ -88,8 +88,8 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - [x] Task 1.16: Audit `Effect::Custom` usages — categorize 496 Effect::Custom + 126 StaticEffect::Custom into groups (see audit below)
 - [x] Task 1.17: Add new `Effect` variants for the top 5-10 most common Custom patterns
 - [x] Task 1.18: Migrate card implementations to use new Effect variants, reducing Custom count
-- [ ] Task 1.19: Audit `StaticEffect::Custom` usages (126) — categorize and add specific variants for top patterns
-- [ ] Task 1.20: Migrate card implementations to use new StaticEffect variants
+- [x] Task 1.19: Audit `StaticEffect::Custom` usages (126) — categorize and add specific variants for top patterns
+- [x] Task 1.20: Migrate card implementations to use new StaticEffect variants
 
 ### Phase 2: Ownership & Patterns
 
@@ -205,7 +205,13 @@ The plan is to convert the mtg-rl Rust workspace from a "Java port wearing Rust 
 - All 576 engine tests passing, zero clippy warnings
 
 ## Completed This Iteration
-- Task 1.18: Migrated card implementations to use new Effect/StaticEffect variants, reducing Custom count by 247 instances
+- Tasks 1.19 + 1.20: Audited and migrated StaticEffect::Custom usages from 36 to 3 (−33)
+  - Added 17 new StaticEffect variants: CantBeBlocked, CantBeBlockedByFilter, MustAttack, Protection, Decayed, Kicker, AnyNumberInDeck, PlayerHexproof, CantActivateAbilities, CantCastDuringYourTurn, GrantDelve, GrantFlash, PreventCombatDamageToAndFrom, PreventNoncombatDamageToOthers, GainLifeReplacement, ExileInsteadOfGraveyard, ConditionalSetBasePowerToughness, EntersWithAdditionalCounters, Affinity
+  - Migrated 19 FDN usages to typed variants (ConditionalBoostSelf, BoostPerCount, Protection, EntersTapped, Ward, Kicker, MustAttack, etc.)
+  - Migrated 13 TDM usages to typed variants (CantBeBlocked, CantCastDuringYourTurn, GrantDelve, GrantFlash, Decayed, ReplaceTokenCreation, etc.)
+  - Migrated 1 TLA usage to Affinity variant
+  - 3 remaining Custom: fellowship counter dynamic boost, Zurgo damage-trigger (mislabeled as static), Windcrag Siege modal
+  - 584 engine + 20 cards + 19 integration tests passing, zero clippy warnings
 
 ### Effect::Custom Audit Results (496 usages, 323 unique messages)
 

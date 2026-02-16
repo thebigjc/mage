@@ -2240,6 +2240,51 @@ pub enum StaticEffect {
         colorless: bool,
     },
     HexproofFromOwnColors,
+    CantBeBlocked,
+    CantBeBlockedByFilter {
+        filter: Filter,
+    },
+    MustAttack,
+    Protection {
+        from: String,
+    },
+    Decayed,
+    Kicker {
+        cost: String,
+    },
+    AnyNumberInDeck,
+    PlayerHexproof,
+    CantActivateAbilities {
+        filter: Filter,
+    },
+    CantCastDuringYourTurn,
+    GrantDelve,
+    GrantFlash {
+        filter: Filter,
+    },
+    PreventCombatDamageToAndFrom,
+    PreventNoncombatDamageToOthers {
+        filter: Filter,
+    },
+    GainLifeReplacement {
+        additional: u32,
+    },
+    ExileInsteadOfGraveyard {
+        filter: Filter,
+    },
+    ConditionalSetBasePowerToughness {
+        power: i32,
+        toughness: i32,
+        condition: String,
+    },
+    EntersWithAdditionalCounters {
+        filter: Filter,
+        counter_type: String,
+        count: u32,
+    },
+    Affinity {
+        filter: Filter,
+    },
     /// A stub static effect with no game-mechanical meaning. Used for card
     /// abilities that are not yet implemented in the engine.
     Placeholder,

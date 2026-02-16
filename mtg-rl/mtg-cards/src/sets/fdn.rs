@@ -642,7 +642,7 @@ fn diregraf_ghoul(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Diregraf Ghoul enters the battlefield tapped.",
-                vec![StaticEffect::Custom("Enters tapped.".into())]),
+                vec![StaticEffect::EntersTapped { filter: Filter::parse("self") }]),
         ],
         ..Default::default() }
 }
@@ -752,7 +752,7 @@ fn hinterland_sanctifier(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Protection from multicolored.",
-                vec![StaticEffect::Custom("Protection from multicolored.".into())]),
+                vec![StaticEffect::Protection { from: "multicolored".into() }]),
         ],
         ..Default::default() }
 }
@@ -1084,7 +1084,7 @@ fn crusader_of_odric(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Crusader of Odric's power and toughness are each equal to the number of creatures you control.",
-                vec![StaticEffect::Custom("P/T = number of creatures you control.".into())]),
+                vec![StaticEffect::BoostPerCount { count_filter: Filter::parse("creature you control"), power_per: 1, toughness_per: 1 }]),
         ],
         ..Default::default() }
 }
@@ -1098,7 +1098,7 @@ fn dryad_militant(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "If an instant or sorcery card would be put into a graveyard from anywhere, exile it instead.",
-                vec![StaticEffect::Custom("Instant/sorcery cards are exiled instead of going to graveyard.".into())]),
+                vec![StaticEffect::ExileInsteadOfGraveyard { filter: Filter::parse("instant or sorcery card") }]),
         ],
         ..Default::default() }
 }
@@ -1494,7 +1494,7 @@ fn juggernaut(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Juggernaut attacks each combat if able.",
-                vec![StaticEffect::Custom("Attacks each combat if able.".into())]),
+                vec![StaticEffect::MustAttack]),
         ],
         ..Default::default() }
 }
@@ -1563,7 +1563,7 @@ fn tempest_djinn(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Tempest Djinn gets +1/+0 for each basic Island you control.",
-                vec![StaticEffect::Custom("+1/+0 for each basic Island you control.".into())]),
+                vec![StaticEffect::BoostPerCount { count_filter: Filter::parse("basic Island you control"), power_per: 1, toughness_per: 0 }]),
         ],
         ..Default::default() }
 }
@@ -1792,7 +1792,7 @@ fn ghitu_lavarunner(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "As long as there are two or more instant and/or sorcery cards in your graveyard, Ghitu Lavarunner gets +1/+0 and has haste.",
-                vec![StaticEffect::Custom("+1/+0 and haste if 2+ instants/sorceries in graveyard.".into())]),
+                vec![StaticEffect::ConditionalBoostSelf { power: 1, toughness: 0, condition: "two_or_more_instants_sorceries_in_graveyard".into() }, StaticEffect::ConditionalKeyword { keyword: "haste".into(), condition: "two_or_more_instants_sorceries_in_graveyard".into() }]),
         ],
         ..Default::default() }
 }
@@ -2017,7 +2017,7 @@ fn stromkirk_noble(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Stromkirk Noble can't be blocked by Humans.",
-                vec![StaticEffect::Custom("Can't be blocked by Humans.".into())]),
+                vec![StaticEffect::CantBeBlockedByFilter { filter: Filter::parse("Human") }]),
             Ability::triggered(id,
                 "Whenever Stromkirk Noble deals combat damage to a player, put a +1/+1 counter on it.",
                 vec![EventType::DamagedPlayer],
@@ -2646,7 +2646,7 @@ fn fog_bank(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Prevent all combat damage that would be dealt to and dealt by Fog Bank.",
-                vec![StaticEffect::Custom("Prevent all combat damage to and from Fog Bank.".into())]),
+                vec![StaticEffect::PreventCombatDamageToAndFrom]),
         ],
         ..Default::default() }
 }
@@ -2753,10 +2753,10 @@ fn angel_of_vitality(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "If you would gain life, you gain that much life plus 1 instead.",
-                vec![StaticEffect::Custom("Life gain replacement: gain +1.".into())]),
+                vec![StaticEffect::GainLifeReplacement { additional: 1 }]),
             Ability::static_ability(id,
                 "Angel of Vitality gets +2/+2 as long as you have 25 or more life.",
-                vec![StaticEffect::Custom("Conditional +2/+2 if life >= 25.".into())]),
+                vec![StaticEffect::ConditionalBoostSelf { power: 2, toughness: 2, condition: "life_25_or_more".into() }]),
         ],
         ..Default::default() }
 }
@@ -2930,7 +2930,7 @@ fn billowing_shriekmass(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::static_ability(id,
                 "Threshold — This creature gets +2/+1 as long as there are seven or more cards in your graveyard.",
-                vec![StaticEffect::Custom("Threshold: +2/+1 if graveyard >= 7.".into())]),
+                vec![StaticEffect::ConditionalBoostSelf { power: 2, toughness: 1, condition: "threshold".into() }]),
         ],
         ..Default::default() }
 }
@@ -3065,7 +3065,7 @@ fn claws_out(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "This spell costs {1} less to cast for each Cat you control.",
-                vec![StaticEffect::Custom("Cost reduction: {1} less per Cat.".into())]),
+                vec![StaticEffect::CostReductionDynamic { filter: Filter::parse("self"), value_source: "Cat you control".into() }]),
             Ability::spell(id,
                 vec![Effect::Custom("Creatures you control get +2/+2 until end of turn.".into())],
                 TargetSpec::None),
@@ -3081,7 +3081,7 @@ fn consuming_aberration(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Consuming Aberration's power and toughness are each equal to the number of cards in your opponents' graveyards.",
-                vec![StaticEffect::Custom("P/T = cards in opponents' graveyards.".into())]),
+                vec![StaticEffect::BoostPerCount { count_filter: Filter::parse("card in opponents' graveyards"), power_per: 1, toughness_per: 1 }]),
             Ability::spell_cast_triggered(id,
                 "Whenever you cast a spell, each opponent reveals cards from the top of their library until they reveal a land card, then puts those cards into their graveyard.",
                 vec![Effect::Custom("Each opponent mills until land revealed.".into())],
@@ -3135,10 +3135,10 @@ fn crystal_barricade(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Uncommon,
         abilities: vec![
             Ability::static_ability(id, "You have hexproof.",
-                vec![StaticEffect::Custom("You have hexproof.".into())]),
+                vec![StaticEffect::PlayerHexproof]),
             Ability::static_ability(id,
                 "Prevent all noncombat damage that would be dealt to other creatures you control.",
-                vec![StaticEffect::Custom("Prevent noncombat damage to other creatures you control.".into())]),
+                vec![StaticEffect::PreventNoncombatDamageToOthers { filter: Filter::parse("other creature you control") }]),
         ],
         ..Default::default() }
 }
@@ -5601,7 +5601,7 @@ fn cackling_prowler(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::static_ability(id, "Ward {2}",
-                vec![StaticEffect::Custom("Ward {2}".into())]),
+                vec![StaticEffect::ward("{2}")]),
             Ability::triggered(id,
                 "Morbid -- At the beginning of your end step, if a creature died this turn put a +1/+1 counter on this creature.",
                 vec![EventType::EndStep],
@@ -5669,7 +5669,7 @@ fn cephalid_inkmage(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![Effect::Surveil { count: 3 }],
                 TargetSpec::None),
             Ability::static_ability(id, "Threshold -- This creature can't be blocked as long as there are seven or more cards in your graveyard.",
-                vec![StaticEffect::Custom("Threshold -- This creature can't be blocked as long as there are seven or more cards in your graveyard.".into())]),
+                vec![StaticEffect::ConditionalKeyword { keyword: "unblockable".into(), condition: "threshold".into() }]),
         ],
         ..Default::default() }
 }
@@ -6121,7 +6121,7 @@ fn gatekeeper_of_malakir(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::static_ability(id, "Kicker {B}",
-                vec![StaticEffect::Custom("Kicker {B}".into())]),
+                vec![StaticEffect::Kicker { cost: "{B}".into() }]),
             Ability::triggered(id,
                 "When this creature enters, if it was kicked, target player sacrifices a creature.",
                 vec![EventType::EnteredTheBattlefield],

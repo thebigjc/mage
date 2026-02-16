@@ -646,7 +646,7 @@ fn highspire_bell_ringer(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "The second spell you cast each turn costs {1} less to cast.",
-                vec![StaticEffect::Custom("The second spell you cast each turn costs {1} less to cast.".into())]),
+                vec![StaticEffect::CostReduction { filter: Filter::parse("spell"), amount: 1, condition: Some("second_spell_each_turn".into()) }]),
         ],
         ..Default::default() }
 }
@@ -1123,7 +1123,7 @@ fn veteran_ice_climber(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "This creature can't be blocked.",
-                vec![StaticEffect::Custom("This creature can't be blocked.".into())]),
+                vec![StaticEffect::CantBeBlocked]),
             Ability::attacks_triggered(id,
                 "Whenever this creature attacks, up to one target player mills cards equal to this creature's power.",
                 vec![Effect::Mill { count: 0 }],
@@ -1143,7 +1143,7 @@ fn voice_of_victory(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::static_ability(id,
                 "Your opponents can't cast spells during your turn.",
-                vec![StaticEffect::Custom("Your opponents can't cast spells during your turn.".into())]),
+                vec![StaticEffect::CantCastDuringYourTurn]),
         ],
         ..Default::default() }
 }
@@ -1860,7 +1860,7 @@ fn dracogenesis(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Enchantment], rarity: Rarity::Mythic,
         abilities: vec![
             Ability::static_ability(id, "You may cast Dragon spells without paying their mana costs.",
-                vec![StaticEffect::Custom("Cast Dragon spells for free".into())]),
+                vec![StaticEffect::CostReduction { filter: Filter::parse("Dragon spell"), amount: 99, condition: None }]),
         ],
         ..Default::default() }
 }
@@ -1871,7 +1871,7 @@ fn dragonstorm_globe(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Artifact], rarity: Rarity::Uncommon,
         abilities: vec![
             Ability::static_ability(id, "Each Dragon you control enters with an additional +1/+1 counter on it.",
-                vec![StaticEffect::Custom("Dragons enter with extra +1/+1 counter".into())]),
+                vec![StaticEffect::EntersWithAdditionalCounters { filter: Filter::parse("Dragon you control"), counter_type: "+1/+1".into(), count: 1 }]),
             Ability::mana_ability(id, "{T}: Add one mana of any color.", Mana::generic(1)),
         ],
         ..Default::default() }
@@ -2700,7 +2700,7 @@ fn snowmelt_stag(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "During your turn, this creature has base power and toughness 5/2.",
-                vec![StaticEffect::Custom("During your turn, base P/T is 5/2.".into())]),
+                vec![StaticEffect::ConditionalSetBasePowerToughness { power: 5, toughness: 2, condition: "your_turn".into() }]),
             Ability::activated(id,
                 "{5}{U}{U}: This creature can't be blocked this turn.",
                 vec![Cost::pay_mana("{5}{U}{U}")],
@@ -2767,7 +2767,7 @@ fn tempest_hawk(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::static_ability(id,
                 "A deck can have any number of cards named Tempest Hawk.",
-                vec![StaticEffect::Custom("A deck can have any number of cards named Tempest Hawk.".into())]),
+                vec![StaticEffect::AnyNumberInDeck]),
         ],
         ..Default::default() }
 }
@@ -3231,7 +3231,7 @@ fn rot_curse_rakshasa(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Decayed (This creature can't block. When it attacks, sacrifice it at end of combat.)",
-                vec![StaticEffect::Custom("Decayed".into())]),
+                vec![StaticEffect::Decayed]),
             Ability::activated(id,
                 "Renew -- {X}{B}{B}, Exile this card from your graveyard: Put a decayed counter on each of X target creatures. Activate only as a sorcery.",
                 vec![Cost::pay_mana("{X}{B}{B}"), Cost::ExileFromGraveyard(1)],
@@ -3532,7 +3532,7 @@ fn teval_arbiter_of_virtue(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Spells you cast have delve.",
-                    vec![StaticEffect::Custom("Spells you cast have delve.".into())]),
+                    vec![StaticEffect::GrantDelve]),
             Ability::spell_cast_triggered(id,
                     "Whenever you cast a spell, you lose life equal to its mana value.",
                     vec![Effect::Custom("You lose life equal to the cast spell's mana value.".into())],
@@ -3553,7 +3553,7 @@ fn ureni_the_song_unending(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Protection from white and from black.",
-                    vec![StaticEffect::Custom("Protection from white and from black.".into())]),
+                    vec![StaticEffect::Protection { from: "white and from black".into() }]),
             Ability::enters_battlefield_triggered(id,
                     "When this creature enters, it deals X damage divided as you choose among any number of target creatures and/or planeswalkers your opponents control, where X is the number of lands you control.",
                     vec![Effect::Custom("Deal damage equal to lands you control, divided among target creatures and/or planeswalkers opponents control.".into())],
@@ -3628,7 +3628,7 @@ fn whirlwing_stormbrood(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "You may cast sorcery spells and Dragon spells as though they had flash.",
-                    vec![StaticEffect::Custom("You may cast sorcery spells and Dragon spells as though they had flash.".into())]),
+                    vec![StaticEffect::GrantFlash { filter: Filter::parse("sorcery spell or Dragon spell") }]),
         ],
         ..Default::default() }
 }
@@ -3713,7 +3713,7 @@ fn clarion_conqueror(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Activated abilities of artifacts, creatures, and planeswalkers can't be activated.",
-                vec![StaticEffect::Custom("Activated abilities of artifacts, creatures, and planeswalkers can't be activated.".into())]),
+                vec![StaticEffect::CantActivateAbilities { filter: Filter::parse("artifact, creature, or planeswalker") }]),
         ],
         ..Default::default() }
 }
@@ -3773,7 +3773,7 @@ fn elspeth_storm_slayer(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "If one or more tokens would be created under your control, twice that many of those tokens are created instead.",
-                vec![StaticEffect::Custom("If one or more tokens would be created under your control, twice that many of those tokens are created instead.".into())]),
+                vec![StaticEffect::ReplaceTokenCreation]),
         ],
         ..Default::default() }
 }

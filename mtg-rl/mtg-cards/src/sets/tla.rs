@@ -4,6 +4,7 @@
 use crate::cards::basic_lands;
 use crate::registry::CardRegistry;
 use mtg_engine::abilities::{Ability, Cost, Effect, StaticEffect, TargetSpec};
+use mtg_engine::filters::Filter;
 use mtg_engine::card::CardData;
 use mtg_engine::constants::*;
 use mtg_engine::events::EventType;
@@ -343,7 +344,7 @@ fn allies_at_last(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Affinity for allies",
-                    vec![StaticEffect::Custom("Affinity for allies.".into())]),
+                    vec![StaticEffect::Affinity { filter: Filter::parse("Ally you control") }]),
         ],
         ..Default::default() }
 }
