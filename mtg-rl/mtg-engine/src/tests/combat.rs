@@ -778,11 +778,11 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         let ability = if conditional {
             Ability::static_ability(id,
                 "Equipped creature assigns combat damage equal to toughness if toughness > power.",
-                vec![StaticEffect::assign_damage_with_toughness_if_greater("equipped creature")])
+                vec![StaticEffect::assign_damage_with_toughness_if_greater(Filter::parse("equipped creature"))])
         } else {
             Ability::static_ability(id,
                 "Equipped creature assigns combat damage equal to its toughness.",
-                vec![StaticEffect::assign_damage_with_toughness("equipped creature")])
+                vec![StaticEffect::assign_damage_with_toughness(Filter::parse("equipped creature"))])
         };
         card.abilities.push(ability.clone());
         game.state.card_store.insert(card.clone());
@@ -902,7 +902,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
 
     #[test]
     fn helper_unconditional() {
-        match StaticEffect::assign_damage_with_toughness("equipped creature") {
+        match StaticEffect::assign_damage_with_toughness(Filter::parse("equipped creature")) {
             StaticEffect::AssignDamageWithToughness { filter, condition } => {
                 assert_eq!(filter, "equipped creature");
                 assert!(condition.is_none());
@@ -913,7 +913,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
 
     #[test]
     fn helper_conditional() {
-        match StaticEffect::assign_damage_with_toughness_if_greater("equipped creature") {
+        match StaticEffect::assign_damage_with_toughness_if_greater(Filter::parse("equipped creature")) {
             StaticEffect::AssignDamageWithToughness { filter, condition } => {
                 assert_eq!(filter, "equipped creature");
                 assert_eq!(condition.unwrap(), "toughness_greater_than_power");

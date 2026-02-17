@@ -7,6 +7,7 @@ use crate::constants::Outcome;
 use crate::decision::{AttackerInfo, DamageAssignment};
 use crate::types::{PlayerId, Power, Toughness, Life};
 use crate::abilities::{Effect, Cost};
+use crate::filters::Filter;
 use crate::constants::SubType;
 use crate::card::CardData;
 use crate::constants::{CardType, KeywordAbilities};
@@ -487,7 +488,7 @@ fn boost_all_and_grant_keyword_all_until_eot() {
 
     // Boost all creatures P1 controls +1/+1
     game.execute_effects(
-        &[Effect::boost_all_eot("creatures you control", 1, 1)],
+        &[Effect::boost_all_eot(Filter::parse("creatures you control"), 1, 1)],
         p1, &[], None, None,
     );
 
@@ -498,7 +499,7 @@ fn boost_all_and_grant_keyword_all_until_eot() {
 
     // Grant trample to all creatures P1 controls
     game.execute_effects(
-        &[Effect::grant_keyword_all_eot("creatures you control", "trample")],
+        &[Effect::grant_keyword_all_eot(Filter::parse("creatures you control"), "trample")],
         p1, &[], None, None,
     );
 
@@ -706,7 +707,7 @@ fn add_counters_all_effect() {
 
     // Add +1/+1 counter to each Elf you control
     game.execute_effects(
-        &[Effect::add_counters_all("+1/+1", 1, "each Elf you control")],
+        &[Effect::add_counters_all("+1/+1", 1, Filter::parse("each Elf you control"))],
         p1, &[], None, None,
     );
 
@@ -747,7 +748,7 @@ fn look_top_and_pick() {
 
     // Look at top 3, pick lands to hand, rest to graveyard
     game.execute_effects(
-        &[Effect::look_top_and_pick(3, "land card")],
+        &[Effect::look_top_and_pick(3, Filter::parse("land card"))],
         p1, &[], None, None,
     );
 
@@ -961,7 +962,7 @@ fn bounce_all_returns_matching_creatures_to_hand() {
     game.state.battlefield.add(Permanent::new(elf, p1));
     game.state.battlefield.add(Permanent::new(goblin, p1));
     assert_eq!(game.state.battlefield.len(), 2);
-    game.execute_effects(&[Effect::bounce_all("elf")], p1, &[], None, None);
+    game.execute_effects(&[Effect::bounce_all(Filter::parse("elf"))], p1, &[], None, None);
     assert_eq!(game.state.battlefield.len(), 1);
     assert!(game.state.battlefield.get(goblin_id).is_some());
     assert!(game.state.battlefield.get(elf_id).is_none());
@@ -995,7 +996,7 @@ fn bounce_all_non_type_filter() {
     game.state.battlefield.add(Permanent::new(elemental, p1));
     game.state.battlefield.add(Permanent::new(human, p1));
     game.state.battlefield.add(Permanent::new(elf, p2));
-    game.execute_effects(&[Effect::bounce_all("non-Elemental creatures")], p1, &[], None, None);
+    game.execute_effects(&[Effect::bounce_all(Filter::parse("non-Elemental creatures"))], p1, &[], None, None);
     assert!(game.state.battlefield.get(elemental_id).is_some());
     assert!(game.state.battlefield.get(human_id).is_none());
     assert!(game.state.battlefield.get(elf_id).is_none());
@@ -1121,7 +1122,7 @@ fn cost_reduction_dynamic_greatest_mv() {
     spell.abilities = vec![
         Ability::static_ability(spell.id,
             "This spell costs {X} less.",
-            vec![StaticEffect::cost_reduction_dynamic("creature spells", "greatest mana value among Elementals you control")]),
+            vec![StaticEffect::cost_reduction_dynamic(Filter::parse("creature spells"), "greatest mana value among Elementals you control")]),
     ];
     let reduction = game.calculate_cost_reduction(p1, &spell);
     assert_eq!(reduction, 5);
@@ -1148,7 +1149,7 @@ fn cost_reduction_dynamic_no_matching_creatures() {
     spell.abilities = vec![
         Ability::static_ability(spell.id,
             "This spell costs {X} less.",
-            vec![StaticEffect::cost_reduction_dynamic("creature spells", "greatest mana value among Elementals you control")]),
+            vec![StaticEffect::cost_reduction_dynamic(Filter::parse("creature spells"), "greatest mana value among Elementals you control")]),
     ];
     let reduction = game.calculate_cost_reduction(p1, &spell);
     assert_eq!(reduction, 0);
@@ -1157,7 +1158,7 @@ fn cost_reduction_dynamic_no_matching_creatures() {
 #[cfg(test)]
 #[test]
 fn bounce_all_helper_constructor() {
-    let effect = Effect::bounce_all("elf");
+    let effect = Effect::bounce_all(Filter::parse("elf"));
     assert!(matches!(effect, Effect::BounceAll { .. }));
 }
 
@@ -1424,7 +1425,7 @@ fn mill_and_select_puts_creature_on_top() {
     let gy_before = game.state.players.get(&p1).unwrap().graveyard.len();
 
     game.execute_effects(
-        &[Effect::mill_and_select(4, "creature or land", "top")],
+        &[Effect::mill_and_select(4, Filter::parse("creature or land"), "top")],
         p1, &[], None, None,
     );
 
@@ -1472,7 +1473,7 @@ fn mill_and_select_to_hand() {
     let hand_before = game.state.players.get(&p1).unwrap().hand.len();
 
     game.execute_effects(
-        &[Effect::mill_and_select(4, "creature", "hand")],
+        &[Effect::mill_and_select(4, Filter::parse("creature"), "hand")],
         p1, &[], None, None,
     );
 
@@ -1543,7 +1544,7 @@ fn mill_and_return_all_returns_matching_cards() {
     let lib_before = game.state.players.get(&p1).unwrap().library.len();
 
     game.execute_effects(
-        &[Effect::mill_and_return_all(5, "Goblin")],
+        &[Effect::mill_and_return_all(5, Filter::parse("Goblin"))],
         p1, &[], None, None,
     );
 
@@ -1584,7 +1585,7 @@ fn mill_and_return_all_no_matches() {
     let hand_before = game.state.players.get(&p1).unwrap().hand.len();
 
     game.execute_effects(
-        &[Effect::mill_and_return_all(3, "Goblin")],
+        &[Effect::mill_and_return_all(3, Filter::parse("Goblin"))],
         p1, &[], None, None,
     );
 

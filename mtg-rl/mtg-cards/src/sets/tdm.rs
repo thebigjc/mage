@@ -1595,7 +1595,7 @@ fn roamers_routine(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Roamer's Routine".into(), mana_cost: ManaCost::parse("{2}{G}"),
         card_types: vec![CardType::Sorcery], rarity: Rarity::Common,
         abilities: vec![Ability::spell(id,
-            vec![Effect::search_library("basic land card")],
+            vec![Effect::search_library(Filter::parse("basic land card"))],
             TargetSpec::None)],
         ..Default::default() }
 }
@@ -1884,7 +1884,7 @@ fn encroaching_dragonstorm(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When this enchantment enters, search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.",
-                vec![Effect::search_library("up to two basic land cards")],
+                vec![Effect::search_library(Filter::parse("up to two basic land cards"))],
                 TargetSpec::None),
             Ability::other_creature_etb_triggered(id,
                 "When a Dragon you control enters, return this enchantment to its owner's hand.",
@@ -1951,7 +1951,7 @@ fn abzan_monument(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When this artifact enters, search your library for a basic Plains, Swamp, or Forest card, reveal it, put it into your hand, then shuffle.",
-                vec![Effect::search_library("basic Plains, Swamp, or Forest card")],
+                vec![Effect::search_library(Filter::parse("basic Plains, Swamp, or Forest card"))],
                 TargetSpec::None),
             Ability::activated(id,
                 "{3}{W}{B}{G}, {T}, Sacrifice this artifact: Create an X/X white Spirit creature token, where X is the greatest power among creatures you control.",
@@ -1970,8 +1970,8 @@ fn all_out_assault(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Creatures you control get +1/+1 and have deathtouch.",
-                vec![StaticEffect::boost_controlled("creatures you control", 1, 1),
-                     StaticEffect::grant_keyword_controlled("creatures you control", "deathtouch")]),
+                vec![StaticEffect::boost_controlled(Filter::parse("creatures you control"), 1, 1),
+                     StaticEffect::grant_keyword_controlled(Filter::parse("creatures you control"), "deathtouch")]),
             Ability::enters_battlefield_triggered(id,
                 "When this enchantment enters, if it's your main phase, there is an additional combat phase after this phase followed by an additional main phase. When you next attack this turn, untap each creature you control.",
                 vec![Effect::Custom("Additional combat phase + untap all on attack.".into())],
@@ -2035,7 +2035,7 @@ fn barrensteppe_siege(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "Abzan — At the beginning of your end step, put a +1/+1 counter on each creature you control.",
                 vec![EventType::EndStep],
-                vec![Effect::add_counters_all("+1/+1", 1, "creatures you control")],
+                vec![Effect::add_counters_all("+1/+1", 1, Filter::parse("creatures you control"))],
                 TargetSpec::None),
             Ability::triggered(id,
                 "Mardu — At the beginning of your end step, if a creature died under your control this turn, each opponent sacrifices a creature.",
@@ -2090,7 +2090,7 @@ fn call_the_spirit_dragons(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Dragons you control have indestructible.",
-                vec![StaticEffect::grant_keyword_controlled("Dragons you control", "indestructible")]),
+                vec![StaticEffect::grant_keyword_controlled(Filter::parse("Dragons you control"), "indestructible")]),
             Ability::triggered(id,
                 "At the beginning of your upkeep, for each color, put a +1/+1 counter on a Dragon you control of that color. If you put +1/+1 counters on five Dragons this way, you win the game.",
                 vec![EventType::UpkeepStep],
@@ -2128,9 +2128,9 @@ fn cori_steel_cutter(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Equipped creature gets +2/+0 and has trample and haste.",
-                vec![StaticEffect::boost_controlled("equipped creature", 2, 0),
-                     StaticEffect::grant_keyword_controlled("equipped creature", "trample"),
-                     StaticEffect::grant_keyword_controlled("equipped creature", "haste")]),
+                vec![StaticEffect::boost_controlled(Filter::parse("equipped creature"), 2, 0),
+                     StaticEffect::grant_keyword_controlled(Filter::parse("equipped creature"), "trample"),
+                     StaticEffect::grant_keyword_controlled(Filter::parse("equipped creature"), "haste")]),
             Ability::spell_cast_triggered(id,
                 "Flurry — Whenever you cast your second spell each turn, create a 1/1 white Monk creature token, then attach this Equipment to it.",
                 vec![Effect::create_token("1/1 Monk", 1)],
@@ -2181,7 +2181,7 @@ fn dragonfire_blade(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Uncommon,
         abilities: vec![
             Ability::static_ability(id, "Equipped creature gets +1/+0.",
-                vec![StaticEffect::boost_controlled("equipped creature", 1, 0)]),
+                vec![StaticEffect::boost_controlled(Filter::parse("equipped creature"), 1, 0)]),
             Ability::triggered(id,
                 "Whenever equipped creature deals combat damage to a player, Dragonfire Blade deals that much damage to target creature that player controls.",
                 vec![EventType::DamagedPlayer],
@@ -2272,7 +2272,7 @@ fn fangkeepers_familiar(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::dies_triggered(id,
                 "When Fangkeeper's Familiar dies, search your library for a basic land card, put it onto the battlefield tapped, then shuffle.",
-                vec![Effect::search_library("basic land card")],
+                vec![Effect::search_library(Filter::parse("basic land card"))],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -2303,8 +2303,8 @@ fn fire_rim_form(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Enchanted creature gets +2/+2 and has flying.",
-                vec![StaticEffect::boost_controlled("enchanted creature", 2, 2),
-                     StaticEffect::grant_keyword_controlled("enchanted creature", "flying")]),
+                vec![StaticEffect::boost_controlled(Filter::parse("enchanted creature"), 2, 2),
+                     StaticEffect::grant_keyword_controlled(Filter::parse("enchanted creature"), "flying")]),
             Ability::triggered(id,
                 "When enchanted creature dies, return Fire-Rim Form to its owner's hand.",
                 vec![EventType::Dies],
@@ -2428,8 +2428,8 @@ fn hollowmurk_siege(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::static_ability(id,
                 "Temur — Creatures you control get +1/+0 and have trample.",
-                vec![StaticEffect::boost_controlled("creatures you control", 1, 0),
-                     StaticEffect::grant_keyword_controlled("creatures you control", "trample")]),
+                vec![StaticEffect::boost_controlled(Filter::parse("creatures you control"), 1, 0),
+                     StaticEffect::grant_keyword_controlled(Filter::parse("creatures you control"), "trample")]),
             Ability::triggered(id,
                 "Mardu — Whenever a creature you control attacks alone, create a Treasure token.",
                 vec![EventType::AttackerDeclared],
@@ -2590,7 +2590,7 @@ fn dragonstorm_forecaster(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "{2}, {T}: Search your library for a card named Dragonstorm Globe or Boulderborn Dragon, reveal it, put it into your hand, then shuffle.",
                 vec![Cost::Mana(Mana { generic: 2, ..Default::default() }), Cost::TapSelf],
-                vec![Effect::search_library("Dragonstorm Globe or Boulderborn Dragon")],
+                vec![Effect::search_library(Filter::parse("Dragonstorm Globe or Boulderborn Dragon"))],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -2763,7 +2763,7 @@ fn tempest_hawk(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "Whenever this creature deals combat damage to a player, you may search your library for a card named Tempest Hawk, reveal it, put it into your hand, then shuffle.",
                 vec![EventType::DamagedPlayer],
-                vec![Effect::search_library("Tempest Hawk")],
+                vec![Effect::search_library(Filter::parse("Tempest Hawk"))],
                 TargetSpec::None),
             Ability::static_ability(id,
                 "A deck can have any number of cards named Tempest Hawk.",

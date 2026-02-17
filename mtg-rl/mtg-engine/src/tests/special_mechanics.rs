@@ -1922,7 +1922,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         card.abilities = vec![
             Ability::static_ability(id,
                 "Enter as a copy of any creature, except it has changeling.",
-                vec![StaticEffect::enter_as_a_copy("creature", &["changeling"])]),
+                vec![StaticEffect::enter_as_a_copy(Filter::parse("creature"), &["changeling"])]),
         ];
         for ab in &card.abilities {
             game.state.ability_store.add(ab.clone());
@@ -2050,7 +2050,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
 
     #[test]
     fn enter_as_copy_helper_constructor() {
-        let eff = StaticEffect::enter_as_a_copy("creature", &["changeling", "flying"]);
+        let eff = StaticEffect::enter_as_a_copy(Filter::parse("creature"), &["changeling", "flying"]);
         match eff {
             StaticEffect::EnterAsACopy { filter, add_keywords } => {
                 assert_eq!(filter, "creature");
@@ -2824,7 +2824,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         source_card.abilities = vec![
             Ability::static_ability(source_id,
                 "Once each turn, cast exiled spell with MV <= Elves and Faeries.",
-                vec![StaticEffect::cast_exiled_once_per_turn("Elves and Faeries you control")]),
+                vec![StaticEffect::cast_exiled_once_per_turn(Filter::parse("Elves and Faeries you control"))]),
         ];
         game.state.card_store.insert(source_card.clone());
         for ab in &source_card.abilities {
@@ -2876,7 +2876,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         source_card.abilities = vec![
             Ability::static_ability(source_id,
                 "Once each turn, cast exiled spell with MV <= Elves and Faeries.",
-                vec![StaticEffect::cast_exiled_once_per_turn("Elves and Faeries you control")]),
+                vec![StaticEffect::cast_exiled_once_per_turn(Filter::parse("Elves and Faeries you control"))]),
         ];
         game.state.card_store.insert(source_card.clone());
         for ab in &source_card.abilities {
@@ -2926,7 +2926,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         source_card.abilities = vec![
             Ability::static_ability(source_id,
                 "Once each turn, cast exiled spell with MV <= Elves and Faeries.",
-                vec![StaticEffect::cast_exiled_once_per_turn("Elves and Faeries you control")]),
+                vec![StaticEffect::cast_exiled_once_per_turn(Filter::parse("Elves and Faeries you control"))]),
         ];
         game.state.card_store.insert(source_card.clone());
         for ab in &source_card.abilities {
@@ -3824,7 +3824,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
 
         // Execute the effect: look at top 5 (life=5), pick nonland permanents MV<=3
         game.execute_effects(
-            &[Effect::look_top_life_put_battlefield("nonland permanent with mana value 3 or less")],
+            &[Effect::look_top_life_put_battlefield(Filter::parse("nonland permanent with mana value 3 or less"))],
             p1, &[], None, None,
         );
 

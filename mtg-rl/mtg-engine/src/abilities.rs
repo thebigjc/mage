@@ -1147,9 +1147,9 @@ impl Effect {
     }
 
     /// "Creatures [matching filter] get +N/+M until end of turn."
-    pub fn boost_all_eot(filter: &str, power: i32, toughness: i32) -> Self {
+    pub fn boost_all_eot(filter: Filter, power: i32, toughness: i32) -> Self {
         Effect::BoostAllUntilEndOfTurn {
-            filter: Filter::parse(filter),
+            filter,
             power: Power::new(power),
             toughness: Toughness::new(toughness),
         }
@@ -1191,12 +1191,12 @@ impl Effect {
         Effect::Mill { count }
     }
 
-    pub fn mill_and_select(count: u32, filter: &str, destination: &str) -> Self {
-        Effect::MillAndSelect { count, filter: Filter::parse(filter), destination: destination.to_string() }
+    pub fn mill_and_select(count: u32, filter: Filter, destination: &str) -> Self {
+        Effect::MillAndSelect { count, filter, destination: destination.to_string() }
     }
 
-    pub fn mill_and_return_all(count: u32, filter: &str) -> Self {
-        Effect::MillAndReturnAll { count, filter: Filter::parse(filter) }
+    pub fn mill_and_return_all(count: u32, filter: Filter) -> Self {
+        Effect::MillAndReturnAll { count, filter }
     }
 
     /// "Discard N cards."
@@ -1255,11 +1255,11 @@ impl Effect {
     }
 
     /// "Put N counters on each permanent matching filter."
-    pub fn add_counters_all(counter_type: &str, count: u32, filter: &str) -> Self {
+    pub fn add_counters_all(counter_type: &str, count: u32, filter: Filter) -> Self {
         Effect::AddCountersAll {
             counter_type: counter_type.to_string(),
             count,
-            filter: Filter::parse(filter),
+            filter,
         }
     }
 
@@ -1286,9 +1286,9 @@ impl Effect {
     }
 
     /// "Creatures [matching filter] gain [keyword] until end of turn."
-    pub fn grant_keyword_all_eot(filter: &str, keyword: &str) -> Self {
+    pub fn grant_keyword_all_eot(filter: Filter, keyword: &str) -> Self {
         Effect::GrantKeywordAllUntilEndOfTurn {
-            filter: Filter::parse(filter),
+            filter,
             keyword: keyword.to_string(),
         }
     }
@@ -1309,9 +1309,9 @@ impl Effect {
     }
 
     /// "Destroy all creatures" (or other filter).
-    pub fn destroy_all(filter: &str) -> Self {
+    pub fn destroy_all(filter: Filter) -> Self {
         Effect::DestroyAll {
-            filter: Filter::parse(filter),
+            filter,
         }
     }
 
@@ -1325,9 +1325,9 @@ impl Effect {
     }
 
     /// "Search library for a card."
-    pub fn search_library(filter: &str) -> Self {
+    pub fn search_library(filter: Filter) -> Self {
         Effect::SearchLibrary {
-            filter: Filter::parse(filter),
+            filter,
         }
     }
 
@@ -1340,10 +1340,10 @@ impl Effect {
     }
 
     /// "Look at top N, may pick one matching filter to hand, rest to bottom."
-    pub fn look_top_and_pick(count: u32, filter: &str) -> Self {
+    pub fn look_top_and_pick(count: u32, filter: Filter) -> Self {
         Effect::LookTopAndPick {
             count,
-            filter: Filter::parse(filter),
+            filter,
         }
     }
 
@@ -1420,8 +1420,8 @@ impl Effect {
 
     /// "Look at the top X cards of your library, where X is your life total.
     /// Put any number of [filter] cards onto the battlefield. Shuffle the rest."
-    pub fn look_top_life_put_battlefield(filter: &str) -> Self {
-        Effect::LookTopLifePutBattlefield { filter: Filter::parse(filter) }
+    pub fn look_top_life_put_battlefield(filter: Filter) -> Self {
+        Effect::LookTopLifePutBattlefield { filter }
     }
 
     /// "Attach this Equipment to target creature you control."
@@ -1492,8 +1492,8 @@ impl Effect {
     }
 
     /// Untap all permanents matching a filter.
-    pub fn untap_all(filter: &str) -> Self {
-        Effect::UntapAll { filter: Filter::parse(filter) }
+    pub fn untap_all(filter: Filter) -> Self {
+        Effect::UntapAll { filter }
     }
 
     /// "This creature can't be blocked this turn."
@@ -1545,8 +1545,8 @@ impl Effect {
         Effect::BecomeAllColors
     }
 
-    pub fn bounce_all(filter: &str) -> Self {
-        Effect::BounceAll { filter: Filter::parse(filter) }
+    pub fn bounce_all(filter: Filter) -> Self {
+        Effect::BounceAll { filter }
     }
 
     pub fn exile_from_opponent_library(count: u32) -> Self {
@@ -1615,10 +1615,10 @@ impl Effect {
     }
 
     /// Create X tokens where X is dynamically counted from a filter.
-    pub fn create_token_dynamic(token_name: &str, count_filter: &str) -> Self {
+    pub fn create_token_dynamic(token_name: &str, count_filter: Filter) -> Self {
         Effect::CreateTokenDynamic {
             token_name: token_name.to_string(),
-            count_filter: Filter::parse(count_filter),
+            count_filter,
         }
     }
 
@@ -1653,25 +1653,25 @@ impl Effect {
     }
 
     /// Set base P/T of all creatures matching a filter.
-    pub fn set_base_pt_all(power: i32, toughness: i32, filter: &str) -> Self {
+    pub fn set_base_pt_all(power: i32, toughness: i32, filter: Filter) -> Self {
         Effect::SetBasePowerToughnessAll {
             power: Power::new(power),
             toughness: Toughness::new(toughness),
-            filter: Filter::parse(filter),
+            filter,
         }
     }
 
     /// Remove all abilities from all creatures matching a filter.
-    pub fn lose_all_abilities_all(filter: &str) -> Self {
+    pub fn lose_all_abilities_all(filter: Filter) -> Self {
         Effect::LoseAllAbilitiesAll {
-            filter: Filter::parse(filter),
+            filter,
         }
     }
 
-    pub fn add_subtype_all(subtype: &str, filter: &str) -> Self {
+    pub fn add_subtype_all(subtype: &str, filter: Filter) -> Self {
         Effect::AddSubtypeAll {
             subtype: subtype.to_string(),
-            filter: Filter::parse(filter),
+            filter,
         }
     }
 
@@ -1741,10 +1741,10 @@ impl Effect {
         }
     }
 
-    pub fn grant_triggered_ability_eot(event_type: &str, filter: &str, trigger_effects: Vec<Effect>) -> Self {
+    pub fn grant_triggered_ability_eot(event_type: &str, filter: Filter, trigger_effects: Vec<Effect>) -> Self {
         Effect::GrantTriggeredAbilityUntilEOT {
             event_type: event_type.to_string(),
-            filter: Filter::parse(filter),
+            filter,
             trigger_effects,
         }
     }
@@ -1791,8 +1791,8 @@ impl Effect {
         Effect::Surveil { count }
     }
 
-    pub fn each_opponent_sacrifices(filter: &str) -> Self {
-        Effect::EachOpponentSacrifices { filter: Filter::parse(filter) }
+    pub fn each_opponent_sacrifices(filter: Filter) -> Self {
+        Effect::EachOpponentSacrifices { filter }
     }
 
     pub fn exile_until_source_leaves() -> Self {
@@ -1838,56 +1838,56 @@ impl ModalMode {
 
 impl StaticEffect {
     /// "Other creatures you control get +N/+M." (Lord effect)
-    pub fn boost_controlled(filter: &str, power: i32, toughness: i32) -> Self {
+    pub fn boost_controlled(filter: Filter, power: i32, toughness: i32) -> Self {
         StaticEffect::Boost {
-            filter: Filter::parse(filter),
+            filter,
             power: Power::new(power),
             toughness: Toughness::new(toughness),
         }
     }
 
     /// "Creatures you control have [keyword]."
-    pub fn grant_keyword_controlled(filter: &str, keyword: &str) -> Self {
+    pub fn grant_keyword_controlled(filter: Filter, keyword: &str) -> Self {
         StaticEffect::GrantKeyword {
-            filter: Filter::parse(filter),
+            filter,
             keyword: keyword.to_string(),
         }
     }
 
     /// "Creatures you control can't be blocked" (or specific CantBlock variant).
-    pub fn cant_block(filter: &str) -> Self {
+    pub fn cant_block(filter: Filter) -> Self {
         StaticEffect::CantBlock {
-            filter: Filter::parse(filter),
+            filter,
         }
     }
 
     /// "Creatures you control can't attack."
-    pub fn cant_attack(filter: &str) -> Self {
+    pub fn cant_attack(filter: Filter) -> Self {
         StaticEffect::CantAttack {
-            filter: Filter::parse(filter),
+            filter,
         }
     }
 
     /// "[Spell type] spells you cast cost {N} less."
-    pub fn cost_reduction(filter: &str, amount: u32) -> Self {
+    pub fn cost_reduction(filter: Filter, amount: u32) -> Self {
         StaticEffect::CostReduction {
-            filter: Filter::parse(filter),
+            filter,
             amount,
             condition: None,
         }
     }
 
-    pub fn cost_reduction_dynamic(filter: &str, value_source: &str) -> Self {
+    pub fn cost_reduction_dynamic(filter: Filter, value_source: &str) -> Self {
         StaticEffect::CostReductionDynamic {
-            filter: Filter::parse(filter),
+            filter,
             value_source: value_source.to_string(),
         }
     }
 
     /// "Creature spells with toughness > power cost {N} less."
-    pub fn cost_reduction_if_toughness_greater(filter: &str, amount: u32) -> Self {
+    pub fn cost_reduction_if_toughness_greater(filter: Filter, amount: u32) -> Self {
         StaticEffect::CostReduction {
-            filter: Filter::parse(filter),
+            filter,
             amount,
             condition: Some("toughness_greater_than_power".into()),
         }
@@ -1913,16 +1913,16 @@ impl StaticEffect {
     }
 
     /// Enchanted/matching creature loses all abilities (continuous).
-    pub fn lose_all_abilities(filter: &str) -> Self {
+    pub fn lose_all_abilities(filter: Filter) -> Self {
         StaticEffect::LoseAllAbilities {
-            filter: Filter::parse(filter),
+            filter,
         }
     }
 
     /// Set base P/T of matching permanents (continuous Layer 7b).
-    pub fn set_base_pt(filter: &str, power: i32, toughness: i32) -> Self {
+    pub fn set_base_pt(filter: Filter, power: i32, toughness: i32) -> Self {
         StaticEffect::SetBasePowerToughness {
-            filter: Filter::parse(filter),
+            filter,
             power: Power::new(power),
             toughness: Toughness::new(toughness),
         }
@@ -1936,9 +1936,9 @@ impl StaticEffect {
     }
 
     /// Matching permanents can't untap during their controller's untap step.
-    pub fn cant_untap(filter: &str) -> Self {
+    pub fn cant_untap(filter: Filter) -> Self {
         StaticEffect::CantUntap {
-            filter: Filter::parse(filter),
+            filter,
         }
     }
 
@@ -1948,24 +1948,24 @@ impl StaticEffect {
     }
 
     /// Matching creature assigns combat damage equal to toughness (unconditional).
-    pub fn assign_damage_with_toughness(filter: &str) -> Self {
+    pub fn assign_damage_with_toughness(filter: Filter) -> Self {
         StaticEffect::AssignDamageWithToughness {
-            filter: Filter::parse(filter),
+            filter,
             condition: None,
         }
     }
 
     /// Matching creature assigns combat damage equal to toughness, but only when toughness > power.
-    pub fn assign_damage_with_toughness_if_greater(filter: &str) -> Self {
+    pub fn assign_damage_with_toughness_if_greater(filter: Filter) -> Self {
         StaticEffect::AssignDamageWithToughness {
-            filter: Filter::parse(filter),
+            filter,
             condition: Some("toughness_greater_than_power".to_string()),
         }
     }
 
-    pub fn grant_convoke(filter: &str) -> Self {
+    pub fn grant_convoke(filter: Filter) -> Self {
         StaticEffect::GrantConvoke {
-            filter: Filter::parse(filter),
+            filter,
         }
     }
 
@@ -1981,15 +1981,15 @@ impl StaticEffect {
         StaticEffect::EnhancedManaProduction
     }
 
-    pub fn trigger_doubling(filter: &str) -> Self {
+    pub fn trigger_doubling(filter: Filter) -> Self {
         StaticEffect::TriggerDoubling {
-            filter: Filter::parse(filter),
+            filter,
         }
     }
 
-    pub fn grant_conspire(filter: &str) -> Self {
+    pub fn grant_conspire(filter: Filter) -> Self {
         StaticEffect::GrantConspire {
-            filter: Filter::parse(filter),
+            filter,
         }
     }
 
@@ -2000,9 +2000,9 @@ impl StaticEffect {
         }
     }
 
-    pub fn enter_as_a_copy(filter: &str, add_keywords: &[&str]) -> Self {
+    pub fn enter_as_a_copy(filter: Filter, add_keywords: &[&str]) -> Self {
         StaticEffect::EnterAsACopy {
-            filter: crate::filters::Filter::parse(filter),
+            filter,
             add_keywords: add_keywords.iter().map(|s| s.to_string()).collect(),
         }
     }
@@ -2011,18 +2011,18 @@ impl StaticEffect {
         StaticEffect::CastFromExileWithCounterCost { counter_count }
     }
 
-    pub fn boost_per_turn_event(filter: &str, event: &str, power_per: i32, toughness_per: i32) -> Self {
+    pub fn boost_per_turn_event(filter: Filter, event: &str, power_per: i32, toughness_per: i32) -> Self {
         StaticEffect::BoostPerTurnEvent {
-            filter: Filter::parse(filter),
+            filter,
             event: event.to_string(),
             power_per: Power::new(power_per),
             toughness_per: Toughness::new(toughness_per),
         }
     }
 
-    pub fn cast_exiled_once_per_turn(mv_count_filter: &str) -> Self {
+    pub fn cast_exiled_once_per_turn(mv_count_filter: Filter) -> Self {
         StaticEffect::CastExiledOncePerTurn {
-            mv_count_filter: Filter::parse(mv_count_filter),
+            mv_count_filter,
         }
     }
 
@@ -2139,8 +2139,8 @@ impl Cost {
     }
 
     /// Tap N other creatures matching a filter.
-    pub fn tap_creatures(filter: &str, count: u32) -> Self {
-        Cost::TapCreatures { filter: Filter::parse(filter), count }
+    pub fn tap_creatures(filter: Filter, count: u32) -> Self {
+        Cost::TapCreatures { filter, count }
     }
 }
 
@@ -2749,7 +2749,7 @@ mod tests {
 
     #[test]
     fn static_effect_builders() {
-        match StaticEffect::boost_controlled("creatures you control", 1, 1) {
+        match StaticEffect::boost_controlled(Filter::parse("creatures you control"), 1, 1) {
             StaticEffect::Boost { filter, power, toughness } => {
                 assert_eq!(filter, "creatures you control");
                 assert_eq!(power, 1);
@@ -2758,7 +2758,7 @@ mod tests {
             _ => panic!("wrong variant"),
         }
 
-        match StaticEffect::grant_keyword_controlled("creatures you control", "flying") {
+        match StaticEffect::grant_keyword_controlled(Filter::parse("creatures you control"), "flying") {
             StaticEffect::GrantKeyword { filter, keyword } => {
                 assert_eq!(filter, "creatures you control");
                 assert_eq!(keyword, "flying");
@@ -2766,7 +2766,7 @@ mod tests {
             _ => panic!("wrong variant"),
         }
 
-        match StaticEffect::cost_reduction("creature spells", 1) {
+        match StaticEffect::cost_reduction(Filter::parse("creature spells"), 1) {
             StaticEffect::CostReduction { filter, amount, condition } => {
                 assert_eq!(filter.message, "creature spells");
                 assert_eq!(amount, 1);
@@ -2775,7 +2775,7 @@ mod tests {
             _ => panic!("wrong variant"),
         }
 
-        match StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1) {
+        match StaticEffect::cost_reduction_if_toughness_greater(Filter::parse("creature spells"), 1) {
             StaticEffect::CostReduction { filter, amount, condition } => {
                 assert_eq!(filter.message, "creature spells");
                 assert_eq!(amount, 1);
@@ -2853,8 +2853,8 @@ mod tests {
             source,
             "Other Merfolk you control get +1/+1 and have islandwalk.",
             vec![
-                StaticEffect::boost_controlled("other Merfolk you control", 1, 1),
-                StaticEffect::grant_keyword_controlled("other Merfolk you control", "islandwalk"),
+                StaticEffect::boost_controlled(Filter::parse("other Merfolk you control"), 1, 1),
+                StaticEffect::grant_keyword_controlled(Filter::parse("other Merfolk you control"), "islandwalk"),
             ],
         );
         assert_eq!(ability.static_effects.len(), 2);

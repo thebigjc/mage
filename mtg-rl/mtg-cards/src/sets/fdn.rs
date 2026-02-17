@@ -628,7 +628,7 @@ fn campus_guide(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Campus Guide enters, you may search your library for a basic land card, reveal it, put it into your hand, then shuffle.",
-                vec![Effect::search_library("basic land")],
+                vec![Effect::search_library(Filter::parse("basic land"))],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -690,7 +690,7 @@ pub fn evolving_wilds(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "{T}, Sacrifice Evolving Wilds: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.",
                 vec![Cost::tap_self(), Cost::sacrifice_self()],
-                vec![Effect::search_library("basic land")],
+                vec![Effect::search_library(Filter::parse("basic land"))],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -1265,7 +1265,7 @@ fn grow_from_the_ashes(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Sorcery],        rarity: Rarity::Common,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::search_library("basic land")],
+                vec![Effect::search_library(Filter::parse("basic land"))],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -1590,7 +1590,7 @@ fn solemn_simulacrum(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Solemn Simulacrum enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
-                vec![Effect::search_library("basic land")],
+                vec![Effect::search_library(Filter::parse("basic land"))],
                 TargetSpec::None),
             Ability::dies_triggered(id,
                 "When Solemn Simulacrum dies, you may draw a card.",
@@ -1641,7 +1641,7 @@ fn empyrean_eagle(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Other creatures you control with flying get +1/+1.",
-                vec![StaticEffect::boost_controlled("creatures with flying", 1, 1)]),
+                vec![StaticEffect::boost_controlled(Filter::parse("creatures with flying"), 1, 1)]),
         ],
         ..Default::default() }
 }
@@ -1886,7 +1886,7 @@ fn fierce_empath(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Fierce Empath enters, you may search your library for a creature card with mana value 6 or greater, reveal it, put it into your hand, then shuffle.",
-                vec![Effect::search_library("creature with mana value 6 or greater")],
+                vec![Effect::search_library(Filter::parse("creature with mana value 6 or greater"))],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -2681,7 +2681,7 @@ fn adaptive_automaton(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::static_ability(id,
                 "Other creatures you control of the chosen type get +1/+1.",
-                vec![StaticEffect::boost_controlled("other creatures of chosen type", 1, 1)]),
+                vec![StaticEffect::boost_controlled(Filter::parse("other creatures of chosen type"), 1, 1)]),
         ],
         ..Default::default() }
 }
@@ -2695,7 +2695,7 @@ fn aggressive_mammoth(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Other creatures you control have trample.",
-                vec![StaticEffect::grant_keyword_controlled("other creatures you control", "trample")]),
+                vec![StaticEffect::grant_keyword_controlled(Filter::parse("other creatures you control"), "trample")]),
         ],
         ..Default::default() }
 }
@@ -2732,9 +2732,9 @@ fn angelic_destiny(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Enchanted creature gets +4/+4, has flying and first strike, and is an Angel in addition to its other types.",
-                vec![StaticEffect::boost_controlled("enchanted creature", 4, 4),
-                     StaticEffect::grant_keyword_controlled("enchanted creature", "flying"),
-                     StaticEffect::grant_keyword_controlled("enchanted creature", "first strike")]),
+                vec![StaticEffect::boost_controlled(Filter::parse("enchanted creature"), 4, 4),
+                     StaticEffect::grant_keyword_controlled(Filter::parse("enchanted creature"), "flying"),
+                     StaticEffect::grant_keyword_controlled(Filter::parse("enchanted creature"), "first strike")]),
             Ability::triggered(id,
                 "When enchanted creature dies, return Angelic Destiny to its owner's hand.",
                 vec![EventType::Dies],
@@ -2768,7 +2768,7 @@ fn anthem_of_champions(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Creatures you control get +1/+1.",
-                vec![StaticEffect::boost_controlled("creatures you control", 1, 1)]),
+                vec![StaticEffect::boost_controlled(Filter::parse("creatures you control"), 1, 1)]),
         ],
         ..Default::default() }
 }
@@ -2797,7 +2797,7 @@ fn arahbo_the_first_fang(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Other Cats you control get +1/+1.",
-                vec![StaticEffect::boost_controlled("other Cats you control", 1, 1)]),
+                vec![StaticEffect::boost_controlled(Filter::parse("other Cats you control"), 1, 1)]),
             Ability::triggered(id,
                 "Whenever Arahbo or another nontoken Cat you control enters, create a 1/1 white Cat creature token.",
                 vec![EventType::EnteredTheBattlefield],
@@ -3034,8 +3034,8 @@ fn celestial_armor(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::Creature),
             Ability::static_ability(id,
                 "Equipped creature gets +2/+0 and has flying.",
-                vec![StaticEffect::boost_controlled("equipped creature", 2, 0),
-                     StaticEffect::grant_keyword_controlled("equipped creature", "flying")]),
+                vec![StaticEffect::boost_controlled(Filter::parse("equipped creature"), 2, 0),
+                     StaticEffect::grant_keyword_controlled(Filter::parse("equipped creature"), "flying")]),
             Ability::activated(id, "Equip {3}{W}",
                 vec![Cost::pay_mana("{3}{W}")],
                 vec![Effect::equip()],
@@ -3102,7 +3102,7 @@ fn corsair_captain(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::static_ability(id,
                 "Other Pirates you control get +1/+1.",
-                vec![StaticEffect::boost_controlled("other Pirates you control", 1, 1)]),
+                vec![StaticEffect::boost_controlled(Filter::parse("other Pirates you control"), 1, 1)]),
         ],
         ..Default::default() }
 }
@@ -3116,8 +3116,8 @@ fn crossway_troublemakers(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Attacking Vampires you control have deathtouch and lifelink.",
-                vec![StaticEffect::grant_keyword_controlled("attacking Vampires you control", "deathtouch"),
-                     StaticEffect::grant_keyword_controlled("attacking Vampires you control", "lifelink")]),
+                vec![StaticEffect::grant_keyword_controlled(Filter::parse("attacking Vampires you control"), "deathtouch"),
+                     StaticEffect::grant_keyword_controlled(Filter::parse("attacking Vampires you control"), "lifelink")]),
             Ability::triggered(id,
                 "Whenever a Vampire you control dies, you may pay 2 life. If you do, draw a card.",
                 vec![EventType::Dies],

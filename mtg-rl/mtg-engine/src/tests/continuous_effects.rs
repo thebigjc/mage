@@ -848,7 +848,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
     #[test]
     fn static_effect_builder() {
-        match StaticEffect::lose_all_abilities("enchanted creature") {
+        match StaticEffect::lose_all_abilities(Filter::parse("enchanted creature")) {
             StaticEffect::LoseAllAbilities { filter } => {
                 assert_eq!(filter, "enchanted creature");
             }
@@ -1128,7 +1128,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
     #[test]
     fn effect_builders() {
-        match Effect::set_base_pt_all(1, 1, "creatures opponents control") {
+        match Effect::set_base_pt_all(1, 1, Filter::parse("creatures opponents control")) {
             Effect::SetBasePowerToughnessAll { power, toughness, filter } => {
                 assert_eq!(power, 1);
                 assert_eq!(toughness, 1);
@@ -1137,14 +1137,14 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
             _ => panic!("wrong variant"),
         }
 
-        match Effect::lose_all_abilities_all("creatures opponents control") {
+        match Effect::lose_all_abilities_all(Filter::parse("creatures opponents control")) {
             Effect::LoseAllAbilitiesAll { filter } => {
                 assert_eq!(filter, "creatures opponents control");
             }
             _ => panic!("wrong variant"),
         }
 
-        match StaticEffect::set_base_pt("enchanted creature", 1, 1) {
+        match StaticEffect::set_base_pt(Filter::parse("enchanted creature"), 1, 1) {
             StaticEffect::SetBasePowerToughness { filter, power, toughness } => {
                 assert_eq!(filter, "enchanted creature");
                 assert_eq!(power, 1);
@@ -1902,7 +1902,7 @@ mod trigger_doubling_tests {
         let ability = Ability::static_ability(
             id,
             "Triggered abilities of matching permanents trigger an additional time.",
-            vec![StaticEffect::trigger_doubling(filter)],
+            vec![StaticEffect::trigger_doubling(Filter::parse(filter))],
         );
         card.abilities.push(ability.clone());
         game.state.card_store.insert(card.clone());
@@ -2068,7 +2068,7 @@ mod trigger_doubling_tests {
 
     #[test]
     fn helper_constructor() {
-        match StaticEffect::trigger_doubling("other Elementals you control") {
+        match StaticEffect::trigger_doubling(Filter::parse("other Elementals you control")) {
             StaticEffect::TriggerDoubling { filter } => {
                 assert_eq!(filter, "other Elementals you control");
             }
@@ -2107,7 +2107,7 @@ mod trigger_doubling_tests {
         game.state.battlefield.add(Permanent::new(own, p1));
 
         game.execute_effects(
-            &[Effect::add_subtype_all("Coward", "creatures opponents control")],
+            &[Effect::add_subtype_all("Coward", Filter::parse("creatures opponents control"))],
             p1, &[], None, None,
         );
 
@@ -2171,7 +2171,7 @@ mod boost_per_turn_event_tests {
             card_types: vec![CardType::Enchantment],
             abilities: vec![Ability::static_ability(ench_id,
                 "Creatures you control get +X/+X where X = creatures entered.",
-                vec![StaticEffect::boost_per_turn_event("creatures you control", "creatures_entered", 1, 1)])],
+                vec![StaticEffect::boost_per_turn_event(Filter::parse("creatures you control"), "creatures_entered", 1, 1)])],
             ..Default::default()
         };
         game.state.battlefield.add(Permanent::new(ench.clone(), p1));
@@ -2201,7 +2201,7 @@ mod boost_per_turn_event_tests {
             card_types: vec![CardType::Enchantment],
             abilities: vec![Ability::static_ability(ench_id,
                 "Creatures you control get +X/+X where X = creatures entered.",
-                vec![StaticEffect::boost_per_turn_event("creatures you control", "creatures_entered", 1, 1)])],
+                vec![StaticEffect::boost_per_turn_event(Filter::parse("creatures you control"), "creatures_entered", 1, 1)])],
             ..Default::default()
         };
         game.state.battlefield.add(Permanent::new(ench.clone(), p1));
@@ -2235,7 +2235,7 @@ mod boost_per_turn_event_tests {
             card_types: vec![CardType::Enchantment],
             abilities: vec![Ability::static_ability(ench_id,
                 "Creatures you control get +X/+X where X = creatures entered.",
-                vec![StaticEffect::boost_per_turn_event("creatures you control", "creatures_entered", 1, 1)])],
+                vec![StaticEffect::boost_per_turn_event(Filter::parse("creatures you control"), "creatures_entered", 1, 1)])],
             ..Default::default()
         };
         game.state.battlefield.add(Permanent::new(ench.clone(), p1));
@@ -2323,8 +2323,8 @@ mod becomes_creature_attached_tests {
             subtypes: vec![SubType::Aura],
             abilities: vec![Ability::static_ability(aura_id,
                 "Enchanted creature loses all abilities and is a colorless Noggle with base P/T 1/1.",
-                vec![StaticEffect::lose_all_abilities("enchanted creature"),
-                     StaticEffect::set_base_pt("enchanted creature", 1, 1),
+                vec![StaticEffect::lose_all_abilities(Filter::parse("enchanted creature")),
+                     StaticEffect::set_base_pt(Filter::parse("enchanted creature"), 1, 1),
                      StaticEffect::becomes_creature_attached(&["Noggle"], true)])],
             ..Default::default()
         };
@@ -2368,8 +2368,8 @@ mod becomes_creature_attached_tests {
             subtypes: vec![SubType::Aura],
             abilities: vec![Ability::static_ability(aura_id,
                 "Enchanted creature is a colorless Noggle 1/1.",
-                vec![StaticEffect::lose_all_abilities("enchanted creature"),
-                     StaticEffect::set_base_pt("enchanted creature", 1, 1),
+                vec![StaticEffect::lose_all_abilities(Filter::parse("enchanted creature")),
+                     StaticEffect::set_base_pt(Filter::parse("enchanted creature"), 1, 1),
                      StaticEffect::becomes_creature_attached(&["Noggle"], true)])],
             ..Default::default()
         };

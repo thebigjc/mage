@@ -537,7 +537,7 @@ use crate::abilities::X_VALUE;
         doran.toughness = Some(Toughness::new(5));
         doran.abilities = vec![Ability::static_ability(doran_id,
             "Creature spells with toughness > power cost {1} less.",
-            vec![StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1)])];
+            vec![StaticEffect::cost_reduction_if_toughness_greater(Filter::parse("creature spells"), 1)])];
         let perm = crate::permanent::Permanent::new(doran.clone(), p1);
         game.state.card_store.insert(doran.clone());
         game.state.battlefield.add(perm);
@@ -567,7 +567,7 @@ use crate::abilities::X_VALUE;
         doran.toughness = Some(Toughness::new(5));
         doran.abilities = vec![Ability::static_ability(doran_id,
             "Creature spells with toughness > power cost {1} less.",
-            vec![StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1)])];
+            vec![StaticEffect::cost_reduction_if_toughness_greater(Filter::parse("creature spells"), 1)])];
         let perm = crate::permanent::Permanent::new(doran.clone(), p1);
         game.state.card_store.insert(doran.clone());
         game.state.battlefield.add(perm);
@@ -597,7 +597,7 @@ use crate::abilities::X_VALUE;
         doran.toughness = Some(Toughness::new(5));
         doran.abilities = vec![Ability::static_ability(doran_id,
             "Creature spells with toughness > power cost {1} less.",
-            vec![StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1)])];
+            vec![StaticEffect::cost_reduction_if_toughness_greater(Filter::parse("creature spells"), 1)])];
         let perm = crate::permanent::Permanent::new(doran.clone(), p1);
         game.state.card_store.insert(doran.clone());
         game.state.battlefield.add(perm);
@@ -627,7 +627,7 @@ use crate::abilities::X_VALUE;
         doran.toughness = Some(Toughness::new(5));
         doran.abilities = vec![Ability::static_ability(doran_id,
             "Creature spells with toughness > power cost {1} less.",
-            vec![StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1)])];
+            vec![StaticEffect::cost_reduction_if_toughness_greater(Filter::parse("creature spells"), 1)])];
         let perm = crate::permanent::Permanent::new(doran.clone(), p1);
         game.state.card_store.insert(doran.clone());
         game.state.battlefield.add(perm);
@@ -657,7 +657,7 @@ use crate::abilities::X_VALUE;
         doran.toughness = Some(Toughness::new(5));
         doran.abilities = vec![Ability::static_ability(doran_id,
             "Creature spells with toughness > power cost {1} less.",
-            vec![StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1)])];
+            vec![StaticEffect::cost_reduction_if_toughness_greater(Filter::parse("creature spells"), 1)])];
         let perm = crate::permanent::Permanent::new(doran.clone(), p1);
         game.state.card_store.insert(doran.clone());
         game.state.battlefield.add(perm);
@@ -697,7 +697,7 @@ use crate::abilities::X_VALUE;
         doran.toughness = Some(Toughness::new(5));
         doran.abilities = vec![Ability::static_ability(doran_id,
             "Creature spells with toughness > power cost {1} less.",
-            vec![StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1)])];
+            vec![StaticEffect::cost_reduction_if_toughness_greater(Filter::parse("creature spells"), 1)])];
         let perm = crate::permanent::Permanent::new(doran.clone(), p1);
         game.state.card_store.insert(doran.clone());
         game.state.battlefield.add(perm);
@@ -726,7 +726,7 @@ use crate::abilities::X_VALUE;
 
     #[test]
     fn conditional_cost_reduction_helper_constructor() {
-        match StaticEffect::cost_reduction_if_toughness_greater("creature spells", 1) {
+        match StaticEffect::cost_reduction_if_toughness_greater(Filter::parse("creature spells"), 1) {
             StaticEffect::CostReduction { filter, amount, condition } => {
                 assert_eq!(filter.message, "creature spells");
                 assert_eq!(amount, 1);
