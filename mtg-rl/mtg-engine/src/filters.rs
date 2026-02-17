@@ -206,6 +206,15 @@ pub struct Filter {
     pub message_lower: Arc<str>,
     /// The predicate that must be satisfied (Arc-wrapped for cheap cloning).
     pub predicate: Arc<Predicate>,
+    /// This filter refers to the source object ("self", "enchanted creature", "equipped creature").
+    #[serde(default)]
+    pub is_self_referential: bool,
+    /// Exclude the source object from matches ("other creature you control").
+    #[serde(default)]
+    pub excludes_source: bool,
+    /// Only match attacking permanents ("attacking creature you control").
+    #[serde(default)]
+    pub requires_attacking: bool,
 }
 
 impl Filter {
@@ -215,7 +224,28 @@ impl Filter {
             message: Arc::from(message),
             message_lower: lower,
             predicate: Arc::new(predicate),
+            is_self_referential: false,
+            excludes_source: false,
+            requires_attacking: false,
         }
+    }
+
+    /// Mark this filter as excluding the source object from matches.
+    pub fn excludes_source(mut self) -> Self {
+        self.excludes_source = true;
+        self
+    }
+
+    /// Mark this filter as only matching attacking permanents.
+    pub fn requires_attacking(mut self) -> Self {
+        self.requires_attacking = true;
+        self
+    }
+
+    /// Mark this filter as self-referential (targets "self", "enchanted creature", etc.).
+    pub fn self_referential(mut self) -> Self {
+        self.is_self_referential = true;
+        self
     }
 
     /// Match against a permanent on the battlefield.
