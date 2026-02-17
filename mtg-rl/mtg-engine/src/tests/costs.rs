@@ -2,7 +2,7 @@
 
 use crate::game::*;
 use crate::abilities::{Ability, Cost, Effect, TargetSpec, StaticEffect};
-use crate::filters::Filter;
+use crate::filters::{Filter, Predicate};
 use crate::card::CardData;
 use crate::constants::{CardType, KeywordAbilities, Outcome, SubType};
 use crate::counters::CounterType;
@@ -452,7 +452,7 @@ use crate::abilities::X_VALUE;
         lord.toughness = Some(Toughness::new(1));
         lord.abilities = vec![Ability::static_ability(lord_id,
             "Elf spells you cast cost {1} less.",
-            vec![StaticEffect::CostReduction { filter: Filter::parse("Elf"), amount: 1, condition: None }])];
+            vec![StaticEffect::CostReduction { filter: Filter::new("Elf", Predicate::HasSubType(SubType::Elf)), amount: 1, condition: None }])];
         let perm = crate::permanent::Permanent::new(lord.clone(), p1);
         game.state.card_store.insert(lord.clone());
         game.state.battlefield.add(perm);
@@ -497,7 +497,7 @@ use crate::abilities::X_VALUE;
         lord.toughness = Some(Toughness::new(1));
         lord.abilities = vec![Ability::static_ability(lord_id,
             "Elf spells cost {1} less.",
-            vec![StaticEffect::CostReduction { filter: Filter::parse("Elf"), amount: 1, condition: None }])];
+            vec![StaticEffect::CostReduction { filter: Filter::new("Elf", Predicate::HasSubType(SubType::Elf)), amount: 1, condition: None }])];
         let perm = crate::permanent::Permanent::new(lord.clone(), p1);
         game.state.card_store.insert(lord.clone());
         game.state.battlefield.add(perm);
@@ -537,7 +537,7 @@ use crate::abilities::X_VALUE;
         doran.toughness = Some(Toughness::new(5));
         doran.abilities = vec![Ability::static_ability(doran_id,
             "Creature spells with toughness > power cost {1} less.",
-            vec![StaticEffect::cost_reduction_if_toughness_greater(Filter::parse("creature spells"), 1)])];
+            vec![StaticEffect::cost_reduction_if_toughness_greater(Filter::new("creature spell", Predicate::creature()), 1)])];
         let perm = crate::permanent::Permanent::new(doran.clone(), p1);
         game.state.card_store.insert(doran.clone());
         game.state.battlefield.add(perm);
@@ -567,7 +567,7 @@ use crate::abilities::X_VALUE;
         doran.toughness = Some(Toughness::new(5));
         doran.abilities = vec![Ability::static_ability(doran_id,
             "Creature spells with toughness > power cost {1} less.",
-            vec![StaticEffect::cost_reduction_if_toughness_greater(Filter::parse("creature spells"), 1)])];
+            vec![StaticEffect::cost_reduction_if_toughness_greater(Filter::new("creature spell", Predicate::creature()), 1)])];
         let perm = crate::permanent::Permanent::new(doran.clone(), p1);
         game.state.card_store.insert(doran.clone());
         game.state.battlefield.add(perm);
@@ -597,7 +597,7 @@ use crate::abilities::X_VALUE;
         doran.toughness = Some(Toughness::new(5));
         doran.abilities = vec![Ability::static_ability(doran_id,
             "Creature spells with toughness > power cost {1} less.",
-            vec![StaticEffect::cost_reduction_if_toughness_greater(Filter::parse("creature spells"), 1)])];
+            vec![StaticEffect::cost_reduction_if_toughness_greater(Filter::new("creature spell", Predicate::creature()), 1)])];
         let perm = crate::permanent::Permanent::new(doran.clone(), p1);
         game.state.card_store.insert(doran.clone());
         game.state.battlefield.add(perm);
@@ -627,7 +627,7 @@ use crate::abilities::X_VALUE;
         doran.toughness = Some(Toughness::new(5));
         doran.abilities = vec![Ability::static_ability(doran_id,
             "Creature spells with toughness > power cost {1} less.",
-            vec![StaticEffect::cost_reduction_if_toughness_greater(Filter::parse("creature spells"), 1)])];
+            vec![StaticEffect::cost_reduction_if_toughness_greater(Filter::new("creature spell", Predicate::creature()), 1)])];
         let perm = crate::permanent::Permanent::new(doran.clone(), p1);
         game.state.card_store.insert(doran.clone());
         game.state.battlefield.add(perm);
@@ -657,7 +657,7 @@ use crate::abilities::X_VALUE;
         doran.toughness = Some(Toughness::new(5));
         doran.abilities = vec![Ability::static_ability(doran_id,
             "Creature spells with toughness > power cost {1} less.",
-            vec![StaticEffect::cost_reduction_if_toughness_greater(Filter::parse("creature spells"), 1)])];
+            vec![StaticEffect::cost_reduction_if_toughness_greater(Filter::new("creature spell", Predicate::creature()), 1)])];
         let perm = crate::permanent::Permanent::new(doran.clone(), p1);
         game.state.card_store.insert(doran.clone());
         game.state.battlefield.add(perm);
@@ -697,7 +697,7 @@ use crate::abilities::X_VALUE;
         doran.toughness = Some(Toughness::new(5));
         doran.abilities = vec![Ability::static_ability(doran_id,
             "Creature spells with toughness > power cost {1} less.",
-            vec![StaticEffect::cost_reduction_if_toughness_greater(Filter::parse("creature spells"), 1)])];
+            vec![StaticEffect::cost_reduction_if_toughness_greater(Filter::new("creature spell", Predicate::creature()), 1)])];
         let perm = crate::permanent::Permanent::new(doran.clone(), p1);
         game.state.card_store.insert(doran.clone());
         game.state.battlefield.add(perm);
@@ -726,9 +726,9 @@ use crate::abilities::X_VALUE;
 
     #[test]
     fn conditional_cost_reduction_helper_constructor() {
-        match StaticEffect::cost_reduction_if_toughness_greater(Filter::parse("creature spells"), 1) {
+        match StaticEffect::cost_reduction_if_toughness_greater(Filter::new("creature spell", Predicate::creature()), 1) {
             StaticEffect::CostReduction { filter, amount, condition } => {
-                assert_eq!(filter.message, "creature spells");
+                assert_eq!(filter.message, "creature spell");
                 assert_eq!(amount, 1);
                 assert_eq!(condition.as_deref(), Some("toughness_greater_than_power"));
             }

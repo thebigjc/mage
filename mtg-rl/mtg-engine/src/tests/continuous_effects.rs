@@ -3,9 +3,9 @@
 use crate::game::*;
 use crate::abilities::{Ability, Effect, TargetSpec, StaticEffect};
 use crate::card::CardData;
-use crate::constants::{CardType, Color, KeywordAbilities, Outcome, SubType, SuperType};
+use crate::constants::{CardType, Color, KeywordAbilities, Outcome, SubType, SuperType, TargetController};
 use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerAgent, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
-use crate::filters::Filter;
+use crate::filters::{Filter, Predicate};
 use crate::mana::Mana;
 use crate::permanent::Permanent;
 use crate::types::{ObjectId, PlayerId, Power, Toughness};
@@ -104,7 +104,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
         power: i32,
         toughness: i32,
         subtype: SubType,
-        filter: &str,
+        filter: Filter,
         boost_p: i32,
         boost_t: i32,
     ) -> ObjectId {
@@ -116,7 +116,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
         let id = card.id;
         card.abilities = vec![
             Ability::static_ability(id, &format!("Other creatures get +{boost_p}/+{boost_t}"),
-                vec![StaticEffect::Boost { filter: Filter::parse(filter), power: Power::new(boost_p), toughness: Toughness::new(boost_t) }]),
+                vec![StaticEffect::Boost { filter, power: Power::new(boost_p), toughness: Toughness::new(boost_t) }]),
         ];
         let perm = Permanent::new(card, owner);
         game.state.battlefield.add(perm);
@@ -134,7 +134,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
         name: &str,
         power: i32,
         toughness: i32,
-        filter: &str,
+        filter: Filter,
         keyword: &str,
     ) -> ObjectId {
         let mut card = CardData::new(ObjectId::new(), owner, name);
@@ -144,7 +144,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
         let id = card.id;
         card.abilities = vec![
             Ability::static_ability(id, &format!("Creatures have {keyword}"),
-                vec![StaticEffect::GrantKeyword { filter: Filter::parse(filter), keyword: keyword.into() }]),
+                vec![StaticEffect::GrantKeyword { filter, keyword: keyword.into() }]),
         ];
         let perm = Permanent::new(card, owner);
         game.state.battlefield.add(perm);
@@ -163,7 +163,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
         // Add an Elf lord: "Other Elf you control get +1/+1"
         let lord_id = add_lord_with_boost(&mut game, p1, "Elvish Archdruid", 2, 2,
-            SubType::Elf, "other Elf you control", 1, 1);
+            SubType::Elf, Filter::new("other Elf you control", Predicate::creature().and(Predicate::HasSubType(SubType::Elf)).and(Predicate::Controller(TargetController::You))).excludes_source(), 1, 1);
 
         // Add two Elf creatures
         let elf1_id = add_creature_with_subtype(&mut game, p1, "Llanowar Elves", 1, 1, SubType::Elf);
@@ -203,7 +203,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
         // Add anthem: "creature you control get +1/+1"
         let anthem_id = add_lord_with_boost(&mut game, p1, "Glorious Anthem", 0, 0,
-            SubType::Spirit, "creature you control", 1, 1);
+            SubType::Spirit, Filter::creature_you_control(), 1, 1);
 
         // P1's creature
         let bear1_id = add_creature(&mut game, p1, "Bear", 2, 2, KeywordAbilities::empty());
@@ -236,7 +236,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
         // "Creatures you control have flying"
         let _ = add_keyword_lord(&mut game, p1, "Archetype of Imagination", 3, 2,
-            "creature you control", "flying");
+            Filter::creature_you_control(), "flying");
 
         let bear_id = add_creature(&mut game, p1, "Bear", 2, 2, KeywordAbilities::empty());
 
@@ -254,7 +254,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
         // "Equipped creature has deathtouch, lifelink"
         let _ = add_keyword_lord(&mut game, p1, "Basilisk Collar", 0, 0,
-            "creature you control", "deathtouch, lifelink");
+            Filter::creature_you_control(), "deathtouch, lifelink");
 
         let bear_id = add_creature(&mut game, p1, "Bear", 2, 2, KeywordAbilities::empty());
 
@@ -272,7 +272,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
         let (mut game, p1, _p2) = setup();
 
         let lord_id = add_lord_with_boost(&mut game, p1, "Elvish Archdruid", 2, 2,
-            SubType::Elf, "other Elf you control", 1, 1);
+            SubType::Elf, Filter::new("other Elf you control", Predicate::creature().and(Predicate::HasSubType(SubType::Elf)).and(Predicate::Controller(TargetController::You))).excludes_source(), 1, 1);
 
         let elf_id = add_creature_with_subtype(&mut game, p1, "Llanowar Elves", 1, 1, SubType::Elf);
 
@@ -297,9 +297,9 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
         // Two Elf lords
         let _ = add_lord_with_boost(&mut game, p1, "Lord 1", 2, 2,
-            SubType::Elf, "other Elf you control", 1, 1);
+            SubType::Elf, Filter::new("other Elf you control", Predicate::creature().and(Predicate::HasSubType(SubType::Elf)).and(Predicate::Controller(TargetController::You))).excludes_source(), 1, 1);
         let _ = add_lord_with_boost(&mut game, p1, "Lord 2", 2, 2,
-            SubType::Elf, "other Elf you control", 1, 1);
+            SubType::Elf, Filter::new("other Elf you control", Predicate::creature().and(Predicate::HasSubType(SubType::Elf)).and(Predicate::Controller(TargetController::You))).excludes_source(), 1, 1);
 
         let elf_id = add_creature_with_subtype(&mut game, p1, "Llanowar Elves", 1, 1, SubType::Elf);
 
@@ -319,9 +319,9 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
         // Two Elf lords with "other Elf you control get +1/+1"
         let lord1_id = add_lord_with_boost(&mut game, p1, "Lord 1", 2, 2,
-            SubType::Elf, "other Elf you control", 1, 1);
+            SubType::Elf, Filter::new("other Elf you control", Predicate::creature().and(Predicate::HasSubType(SubType::Elf)).and(Predicate::Controller(TargetController::You))).excludes_source(), 1, 1);
         let lord2_id = add_lord_with_boost(&mut game, p1, "Lord 2", 2, 2,
-            SubType::Elf, "other Elf you control", 1, 1);
+            SubType::Elf, Filter::new("other Elf you control", Predicate::creature().and(Predicate::HasSubType(SubType::Elf)).and(Predicate::Controller(TargetController::You))).excludes_source(), 1, 1);
 
         game.apply_continuous_effects();
 
@@ -372,7 +372,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
         // "Creature token you control get +1/+1"
         let _ = add_lord_with_boost(&mut game, p1, "Token Lord", 2, 2,
-            SubType::Human, "creature token you control", 1, 1);
+            SubType::Human, Filter::new("creature token you control", Predicate::creature().and(Predicate::IsToken).and(Predicate::Controller(TargetController::You))), 1, 1);
 
         // Regular creature
         let regular_id = add_creature(&mut game, p1, "Regular Bear", 2, 2, KeywordAbilities::empty());
@@ -404,7 +404,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
         // P2 has Elf lord
         let _ = add_lord_with_boost(&mut game, p2, "Enemy Lord", 2, 2,
-            SubType::Elf, "other Elf you control", 1, 1);
+            SubType::Elf, Filter::new("other Elf you control", Predicate::creature().and(Predicate::HasSubType(SubType::Elf)).and(Predicate::Controller(TargetController::You))).excludes_source(), 1, 1);
 
         // P1 has Elf
         let elf_id = add_creature_with_subtype(&mut game, p1, "My Elf", 1, 1, SubType::Elf);
@@ -431,8 +431,8 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
         card.abilities = vec![
             Ability::static_ability(id, "Other Spirit creatures you control get +1/+1 and have hexproof",
                 vec![
-                    StaticEffect::Boost { filter: Filter::parse("other Spirit you control"), power: Power::new(1), toughness: Toughness::new(1) },
-                    StaticEffect::GrantKeyword { filter: Filter::parse("other Spirit you control"), keyword: "hexproof".into() },
+                    StaticEffect::Boost { filter: Filter::new("other Spirit you control", Predicate::creature().and(Predicate::HasSubType(SubType::Spirit)).and(Predicate::Controller(TargetController::You))).excludes_source(), power: Power::new(1), toughness: Toughness::new(1) },
+                    StaticEffect::GrantKeyword { filter: Filter::new("other Spirit you control", Predicate::creature().and(Predicate::HasSubType(SubType::Spirit)).and(Predicate::Controller(TargetController::You))).excludes_source(), keyword: "hexproof".into() },
                 ]),
         ];
         let perm = Permanent::new(card, p1);
@@ -848,7 +848,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
     #[test]
     fn static_effect_builder() {
-        match StaticEffect::lose_all_abilities(Filter::parse("enchanted creature")) {
+        match StaticEffect::lose_all_abilities(Filter::enchanted_creature()) {
             StaticEffect::LoseAllAbilities { filter } => {
                 assert_eq!(filter, "enchanted creature");
             }
@@ -1128,7 +1128,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
     #[test]
     fn effect_builders() {
-        match Effect::set_base_pt_all(1, 1, Filter::parse("creatures opponents control")) {
+        match Effect::set_base_pt_all(1, 1, Filter::creatures_opponents_control()) {
             Effect::SetBasePowerToughnessAll { power, toughness, filter } => {
                 assert_eq!(power, 1);
                 assert_eq!(toughness, 1);
@@ -1137,14 +1137,14 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
             _ => panic!("wrong variant"),
         }
 
-        match Effect::lose_all_abilities_all(Filter::parse("creatures opponents control")) {
+        match Effect::lose_all_abilities_all(Filter::creatures_opponents_control()) {
             Effect::LoseAllAbilitiesAll { filter } => {
                 assert_eq!(filter, "creatures opponents control");
             }
             _ => panic!("wrong variant"),
         }
 
-        match StaticEffect::set_base_pt(Filter::parse("enchanted creature"), 1, 1) {
+        match StaticEffect::set_base_pt(Filter::enchanted_creature(), 1, 1) {
             StaticEffect::SetBasePowerToughness { filter, power, toughness } => {
                 assert_eq!(filter, "enchanted creature");
                 assert_eq!(power, 1);
@@ -1892,7 +1892,7 @@ mod trigger_doubling_tests {
         id
     }
 
-    fn add_trigger_doubler(game: &mut Game, owner: PlayerId, filter: &str) -> ObjectId {
+    fn add_trigger_doubler(game: &mut Game, owner: PlayerId, filter: Filter) -> ObjectId {
         let id = ObjectId::new();
         let mut card = CardData::new(id, owner, "Twinflame Travelers");
         card.card_types = vec![CardType::Creature];
@@ -1902,7 +1902,7 @@ mod trigger_doubling_tests {
         let ability = Ability::static_ability(
             id,
             "Triggered abilities of matching permanents trigger an additional time.",
-            vec![StaticEffect::trigger_doubling(Filter::parse(filter))],
+            vec![StaticEffect::trigger_doubling(filter)],
         );
         card.abilities.push(ability.clone());
         game.state.card_store.insert(card.clone());
@@ -1915,7 +1915,7 @@ mod trigger_doubling_tests {
     #[test]
     fn matching_elemental_etb_triggers_twice() {
         let (mut game, p1, _p2) = setup();
-        let _ = add_trigger_doubler(&mut game, p1, "other Elementals you control");
+        let _ = add_trigger_doubler(&mut game, p1, Filter::new("other Elemental you control", Predicate::creature().and(Predicate::HasSubType(SubType::Elemental)).and(Predicate::Controller(TargetController::You))).excludes_source());
         game.apply_continuous_effects();
         assert_eq!(game.state.trigger_doublings.len(), 1);
 
@@ -1933,7 +1933,7 @@ mod trigger_doubling_tests {
     #[test]
     fn non_matching_type_not_doubled() {
         let (mut game, p1, _p2) = setup();
-        let _ = add_trigger_doubler(&mut game, p1, "other Elementals you control");
+        let _ = add_trigger_doubler(&mut game, p1, Filter::new("other Elemental you control", Predicate::creature().and(Predicate::HasSubType(SubType::Elemental)).and(Predicate::Controller(TargetController::You))).excludes_source());
         game.apply_continuous_effects();
 
         let id = ObjectId::new();
@@ -1962,7 +1962,7 @@ mod trigger_doubling_tests {
     #[test]
     fn doubler_self_excluded_by_other_filter() {
         let (mut game, p1, _p2) = setup();
-        let doubler_id = add_trigger_doubler(&mut game, p1, "other Elementals you control");
+        let doubler_id = add_trigger_doubler(&mut game, p1, Filter::new("other Elemental you control", Predicate::creature().and(Predicate::HasSubType(SubType::Elemental)).and(Predicate::Controller(TargetController::You))).excludes_source());
         game.apply_continuous_effects();
 
         let ability = Ability::enters_battlefield_triggered(
@@ -1980,7 +1980,7 @@ mod trigger_doubling_tests {
     #[test]
     fn opponent_elemental_not_doubled() {
         let (mut game, p1, p2) = setup();
-        let _ = add_trigger_doubler(&mut game, p1, "other Elementals you control");
+        let _ = add_trigger_doubler(&mut game, p1, Filter::new("other Elemental you control", Predicate::creature().and(Predicate::HasSubType(SubType::Elemental)).and(Predicate::Controller(TargetController::You))).excludes_source());
         game.apply_continuous_effects();
 
         let elem_id = add_elemental_with_etb(&mut game, p2, "Opp Elemental", 3);
@@ -1993,7 +1993,7 @@ mod trigger_doubling_tests {
     #[test]
     fn removal_reverts() {
         let (mut game, p1, _p2) = setup();
-        let doubler_id = add_trigger_doubler(&mut game, p1, "other Elementals you control");
+        let doubler_id = add_trigger_doubler(&mut game, p1, Filter::new("other Elemental you control", Predicate::creature().and(Predicate::HasSubType(SubType::Elemental)).and(Predicate::Controller(TargetController::You))).excludes_source());
         game.apply_continuous_effects();
         assert_eq!(game.state.trigger_doublings.len(), 1);
 
@@ -2012,8 +2012,8 @@ mod trigger_doubling_tests {
     #[test]
     fn multiple_doublers_stack() {
         let (mut game, p1, _p2) = setup();
-        let _ = add_trigger_doubler(&mut game, p1, "other Elementals you control");
-        let _ = add_trigger_doubler(&mut game, p1, "other Elementals you control");
+        let _ = add_trigger_doubler(&mut game, p1, Filter::new("other Elemental you control", Predicate::creature().and(Predicate::HasSubType(SubType::Elemental)).and(Predicate::Controller(TargetController::You))).excludes_source());
+        let _ = add_trigger_doubler(&mut game, p1, Filter::new("other Elemental you control", Predicate::creature().and(Predicate::HasSubType(SubType::Elemental)).and(Predicate::Controller(TargetController::You))).excludes_source());
         game.apply_continuous_effects();
         assert_eq!(game.state.trigger_doublings.len(), 2);
 
@@ -2027,7 +2027,7 @@ mod trigger_doubling_tests {
     #[test]
     fn changeling_matches_filter() {
         let (mut game, p1, _p2) = setup();
-        let _ = add_trigger_doubler(&mut game, p1, "other Elementals you control");
+        let _ = add_trigger_doubler(&mut game, p1, Filter::new("other Elemental you control", Predicate::creature().and(Predicate::HasSubType(SubType::Elemental)).and(Predicate::Controller(TargetController::You))).excludes_source());
         game.apply_continuous_effects();
 
         let id = ObjectId::new();
@@ -2068,9 +2068,9 @@ mod trigger_doubling_tests {
 
     #[test]
     fn helper_constructor() {
-        match StaticEffect::trigger_doubling(Filter::parse("other Elementals you control")) {
+        match StaticEffect::trigger_doubling(Filter::new("other Elemental you control", Predicate::creature().and(Predicate::HasSubType(SubType::Elemental)).and(Predicate::Controller(TargetController::You))).excludes_source()) {
             StaticEffect::TriggerDoubling { filter } => {
-                assert_eq!(filter, "other Elementals you control");
+                assert_eq!(filter, "other Elemental you control");
             }
             _ => panic!("wrong variant"),
         }
@@ -2107,7 +2107,7 @@ mod trigger_doubling_tests {
         game.state.battlefield.add(Permanent::new(own, p1));
 
         game.execute_effects(
-            &[Effect::add_subtype_all("Coward", Filter::parse("creatures opponents control"))],
+            &[Effect::add_subtype_all("Coward", Filter::creatures_opponents_control())],
             p1, &[], None, None,
         );
 
@@ -2171,7 +2171,7 @@ mod boost_per_turn_event_tests {
             card_types: vec![CardType::Enchantment],
             abilities: vec![Ability::static_ability(ench_id,
                 "Creatures you control get +X/+X where X = creatures entered.",
-                vec![StaticEffect::boost_per_turn_event(Filter::parse("creatures you control"), "creatures_entered", 1, 1)])],
+                vec![StaticEffect::boost_per_turn_event(Filter::creature_you_control(), "creatures_entered", 1, 1)])],
             ..Default::default()
         };
         game.state.battlefield.add(Permanent::new(ench.clone(), p1));
@@ -2201,7 +2201,7 @@ mod boost_per_turn_event_tests {
             card_types: vec![CardType::Enchantment],
             abilities: vec![Ability::static_ability(ench_id,
                 "Creatures you control get +X/+X where X = creatures entered.",
-                vec![StaticEffect::boost_per_turn_event(Filter::parse("creatures you control"), "creatures_entered", 1, 1)])],
+                vec![StaticEffect::boost_per_turn_event(Filter::creature_you_control(), "creatures_entered", 1, 1)])],
             ..Default::default()
         };
         game.state.battlefield.add(Permanent::new(ench.clone(), p1));
@@ -2235,7 +2235,7 @@ mod boost_per_turn_event_tests {
             card_types: vec![CardType::Enchantment],
             abilities: vec![Ability::static_ability(ench_id,
                 "Creatures you control get +X/+X where X = creatures entered.",
-                vec![StaticEffect::boost_per_turn_event(Filter::parse("creatures you control"), "creatures_entered", 1, 1)])],
+                vec![StaticEffect::boost_per_turn_event(Filter::creature_you_control(), "creatures_entered", 1, 1)])],
             ..Default::default()
         };
         game.state.battlefield.add(Permanent::new(ench.clone(), p1));
@@ -2323,8 +2323,8 @@ mod becomes_creature_attached_tests {
             subtypes: vec![SubType::Aura],
             abilities: vec![Ability::static_ability(aura_id,
                 "Enchanted creature loses all abilities and is a colorless Noggle with base P/T 1/1.",
-                vec![StaticEffect::lose_all_abilities(Filter::parse("enchanted creature")),
-                     StaticEffect::set_base_pt(Filter::parse("enchanted creature"), 1, 1),
+                vec![StaticEffect::lose_all_abilities(Filter::enchanted_creature()),
+                     StaticEffect::set_base_pt(Filter::enchanted_creature(), 1, 1),
                      StaticEffect::becomes_creature_attached(&["Noggle"], true)])],
             ..Default::default()
         };
@@ -2368,8 +2368,8 @@ mod becomes_creature_attached_tests {
             subtypes: vec![SubType::Aura],
             abilities: vec![Ability::static_ability(aura_id,
                 "Enchanted creature is a colorless Noggle 1/1.",
-                vec![StaticEffect::lose_all_abilities(Filter::parse("enchanted creature")),
-                     StaticEffect::set_base_pt(Filter::parse("enchanted creature"), 1, 1),
+                vec![StaticEffect::lose_all_abilities(Filter::enchanted_creature()),
+                     StaticEffect::set_base_pt(Filter::enchanted_creature(), 1, 1),
                      StaticEffect::becomes_creature_attached(&["Noggle"], true)])],
             ..Default::default()
         };

@@ -196,8 +196,7 @@ impl std::ops::Not for Predicate {
 /// A named filter combining a human-readable description with a predicate.
 ///
 /// `message` is `&'static str` — all filter messages are string literals known
-/// at compile time (from factory methods or card code). `Filter::parse()` uses
-/// `Box::leak` during the transition period for the ~90 unique strings.
+/// at compile time (from factory methods or card code).
 ///
 /// `predicate` remains `Arc<Predicate>` for cheap cloning in the hot path
 /// (`apply_continuous_effects`).
@@ -206,9 +205,6 @@ pub struct Filter {
     /// Human-readable description (e.g. "target creature", "nonland permanent").
     /// Display-only — never used for matching logic.
     pub message: &'static str,
-    /// Pre-computed lowercase version of `message`, cached to avoid repeated
-    /// `to_lowercase()` allocations in `find_matching_permanents()`.
-    pub message_lower: Arc<str>,
     /// The predicate that must be satisfied (Arc-wrapped for cheap cloning).
     pub predicate: Arc<Predicate>,
     /// This filter refers to the source object ("self", "enchanted creature", "equipped creature").
@@ -233,7 +229,6 @@ impl<'de> Deserialize<'de> for Filter {
         #[derive(Deserialize)]
         struct FilterHelper {
             message: String,
-            message_lower: Arc<str>,
             predicate: Arc<Predicate>,
             #[serde(default)]
             is_self_referential: bool,
@@ -245,7 +240,6 @@ impl<'de> Deserialize<'de> for Filter {
         let h = FilterHelper::deserialize(deserializer)?;
         Ok(Filter {
             message: Box::leak(h.message.into_boxed_str()),
-            message_lower: h.message_lower,
             predicate: h.predicate,
             is_self_referential: h.is_self_referential,
             excludes_source: h.excludes_source,
@@ -256,10 +250,8 @@ impl<'de> Deserialize<'de> for Filter {
 
 impl Filter {
     pub fn new(message: &'static str, predicate: Predicate) -> Self {
-        let lower: Arc<str> = Arc::from(message.to_lowercase().as_str());
         Filter {
             message,
-            message_lower: lower,
             predicate: Arc::new(predicate),
             is_self_referential: false,
             excludes_source: false,
@@ -301,11 +293,6 @@ impl Filter {
 
     pub fn matches_card_ignore_controller(&self, card: &CardData) -> bool {
         predicate_matches_card_ignore_controller(&self.predicate, card)
-    }
-
-    /// Access the pre-computed lowercase message (avoids `to_lowercase()` allocation).
-    pub fn message_lower(&self) -> &str {
-        &self.message_lower
     }
 }
 
@@ -440,37 +427,6 @@ impl Filter {
     }
 }
 
-impl Filter {
-    /// Parse a filter from a human-readable string.
-    ///
-    /// Uses `Box::leak` to produce `&'static str` for the message — this leaks
-    /// ~90 unique strings (a few KB total). Called only at card-creation time,
-    /// not in the hot path. Will be deleted in Phase 4 when all call sites are
-    /// converted to typed constructors.
-    pub fn parse(s: &str) -> Self {
-        let pred = parse_filter_string(s);
-        let leaked: &'static str = Box::leak(s.to_string().into_boxed_str());
-        let lower: Arc<str> = Arc::from(s.to_lowercase().as_str());
-
-        // Detect bool flags from the string content so find_matching_permanents
-        // can use typed checks instead of string scans.
-        let l = lower.as_ref();
-        let is_self_referential =
-            l == "self" || l.contains("enchanted") || l.contains("equipped");
-        let excludes_source = l.contains("other");
-        let requires_attacking = l.contains("attacking");
-
-        Filter {
-            message: leaked,
-            message_lower: lower,
-            predicate: Arc::new(pred),
-            is_self_referential,
-            excludes_source,
-            requires_attacking,
-        }
-    }
-}
-
 impl PartialEq<&str> for Filter {
     fn eq(&self, other: &&str) -> bool {
         self.message == *other
@@ -480,349 +436,6 @@ impl PartialEq<&str> for Filter {
 impl PartialEq<str> for Filter {
     fn eq(&self, other: &str) -> bool {
         self.message == other
-    }
-}
-
-fn depluralize(s: &str) -> &str {
-    s.strip_suffix('s').unwrap_or(s)
-}
-
-fn parse_subtype(s: &str) -> SubType {
-    SubType::by_description(s)
-}
-
-fn parse_filter_string(s: &str) -> Predicate {
-    let f = s.trim();
-    if f.is_empty() || f.eq_ignore_ascii_case("all") {
-        return Predicate::All;
-    }
-
-    let lower = f.to_lowercase();
-
-    if lower == "self" {
-        return Predicate::All;
-    }
-
-    if lower == "enchanted creature" || lower == "equipped creature" {
-        return Predicate::creature();
-    }
-
-    if lower == "permanent" {
-        return Predicate::All;
-    }
-
-    if lower == "creature" || lower == "creatures" {
-        return Predicate::creature();
-    }
-
-    if lower == "noncreature" || lower == "noncreature spell" || lower == "noncreature spells" {
-        return Predicate::NotCardType(CardType::Creature);
-    }
-
-    if lower == "land" || lower == "lands" {
-        return Predicate::land();
-    }
-
-    if lower == "artifact" || lower == "artifacts" {
-        return Predicate::artifact();
-    }
-
-    if lower == "enchantment" || lower == "enchantments" {
-        return Predicate::enchantment();
-    }
-
-    if lower == "planeswalker" || lower == "planeswalkers" {
-        return Predicate::planeswalker();
-    }
-
-    if lower.contains("instant") && lower.contains("sorcery")
-        || lower.starts_with("instants/sorceries")
-    {
-        return Predicate::Or(vec![
-            Predicate::instant(),
-            Predicate::sorcery(),
-        ]);
-    }
-
-    if lower == "nonland permanent" || lower == "nonland permanents" {
-        return Predicate::nonland_permanent();
-    }
-
-    if lower == "creatures and planeswalkers" {
-        return Predicate::creature().or(Predicate::planeswalker());
-    }
-
-    if lower == "spell or creature" {
-        return Predicate::creature();
-    }
-
-    if lower.starts_with("non-aura ") {
-        return Predicate::And(vec![
-            Predicate::Not(Box::new(Predicate::HasSubType(SubType::Aura))),
-            parse_filter_string(f[9..].trim()),
-        ]);
-    }
-
-    if lower.starts_with("nonlegendary ") {
-        return Predicate::And(vec![
-            Predicate::Not(Box::new(Predicate::HasSuperType(SuperType::Legendary))),
-            parse_filter_string(f[13..].trim()),
-        ]);
-    }
-
-    if lower.starts_with("nonbasic ") {
-        return Predicate::And(vec![
-            Predicate::Not(Box::new(Predicate::HasSuperType(SuperType::Basic))),
-            parse_filter_string(f[9..].trim()),
-        ]);
-    }
-
-    if lower.starts_with("non-") && lower.ends_with("creatures") {
-        let middle = &lower[4..lower.len() - 1];
-        let type_str = middle.trim_end_matches(" creature").trim_end_matches('s');
-        let st = parse_subtype(&capitalize(type_str));
-        return Predicate::And(vec![
-            Predicate::creature(),
-            Predicate::Not(Box::new(Predicate::HasSubType(st))),
-        ]);
-    }
-
-    if lower.contains("basic") && (lower.contains("land") || lower.contains("plains")
-        || lower.contains("swamp") || lower.contains("forest")
-        || lower.contains("island") || lower.contains("mountain"))
-    {
-        let mut preds = vec![
-            Predicate::HasSuperType(SuperType::Basic),
-            Predicate::land(),
-        ];
-        if lower.contains("plains") || lower.contains("swamp") || lower.contains("forest")
-            || lower.contains("island") || lower.contains("mountain") {
-            let mut land_types = Vec::new();
-            if lower.contains("plains") { land_types.push(Predicate::HasSubType(SubType::Plains)); }
-            if lower.contains("swamp") { land_types.push(Predicate::HasSubType(SubType::Swamp)); }
-            if lower.contains("forest") { land_types.push(Predicate::HasSubType(SubType::Forest)); }
-            if lower.contains("island") { land_types.push(Predicate::HasSubType(SubType::Island)); }
-            if lower.contains("mountain") { land_types.push(Predicate::HasSubType(SubType::Mountain)); }
-            if land_types.len() == 1 {
-                preds.push(land_types.into_iter().next().expect("just checked length"));
-            } else {
-                preds.push(Predicate::Or(land_types));
-            }
-        }
-        return Predicate::And(preds);
-    }
-
-    if let Some(stripped) = strip_suffix_ignore_case(&lower, " an opponent controls") {
-        let inner = parse_filter_string(stripped);
-        return inner.and(Predicate::Controller(TargetController::Opponent));
-    }
-
-    if let Some(stripped) = strip_suffix_ignore_case(&lower, " opponents control") {
-        let inner = parse_filter_string(stripped);
-        return inner.and(Predicate::Controller(TargetController::Opponent));
-    }
-
-    if let Some(stripped) = strip_suffix_ignore_case(&lower, " you control") {
-        let inner = parse_filter_string(stripped);
-        return inner.and(Predicate::Controller(TargetController::You));
-    }
-
-    if let Some(stripped) = strip_suffix_ignore_case(&lower, " target player controls") {
-        return parse_filter_string(stripped);
-    }
-
-    if let Some(stripped) = strip_suffix_ignore_case(&lower, " defending player controls") {
-        return parse_filter_string(stripped);
-    }
-
-    if lower.starts_with("another ") {
-        let rest = &f[8..];
-        let inner = parse_filter_string(rest);
-        return inner;
-    }
-
-    if lower.starts_with("other ") {
-        let rest = &f[6..];
-        let inner = parse_filter_string(rest);
-        return inner;
-    }
-
-    if lower.starts_with("each ") {
-        let rest = &f[5..];
-        return parse_filter_string(rest);
-    }
-
-    if lower.starts_with("target ") {
-        let rest = &f[7..];
-        return parse_filter_string(rest);
-    }
-
-    if lower.starts_with("a ") {
-        return parse_filter_string(&f[2..]);
-    }
-
-    if lower.starts_with("an ") {
-        return parse_filter_string(&f[3..]);
-    }
-
-    if lower == "attacking or blocking creature" || lower == "attacking or blocking creatures" {
-        return Predicate::creature();
-    }
-
-    if let Some(rest) = strip_prefix_ignore_case(&lower, "green or white ") {
-        let inner = parse_filter_string(rest);
-        return inner.and(Predicate::Or(vec![
-            Predicate::HasColor(Color::Green),
-            Predicate::HasColor(Color::White),
-        ]));
-    }
-
-    if lower.starts_with("artifact, enchantment, or creature with flying") {
-        return Predicate::Or(vec![
-            Predicate::artifact(),
-            Predicate::enchantment(),
-            Predicate::creature().and(Predicate::HasKeyword(KeywordAbilities::FLYING)),
-        ]);
-    }
-
-    if lower.contains(", ") && lower.contains(", or ") {
-        let parts: Vec<&str> = lower.splitn(2, ", or ").collect();
-        if parts.len() == 2 {
-            let last = parse_filter_string(parts[1]);
-            let head_parts: Vec<&str> = parts[0].split(", ").collect();
-            let mut preds: Vec<Predicate> = head_parts.iter()
-                .map(|p| parse_filter_string(p.trim()))
-                .collect();
-            preds.push(last);
-            return Predicate::Or(preds);
-        }
-    }
-
-    // Mana value / power comparisons must be checked BEFORE the " or " splitter,
-    // because patterns like "with mana value 3 or less" contain " or ".
-    if let Some(mv_filter) = parse_mana_value_suffix(&lower) {
-        return mv_filter;
-    }
-
-    if let Some(power_filter) = parse_power_suffix(&lower) {
-        return power_filter;
-    }
-
-    if let Some((left, right)) = lower.split_once(" or ") {
-        let lp = parse_filter_string(left.trim());
-        let rp = parse_filter_string(right.trim());
-        return lp.or(rp);
-    }
-
-    if lower == "tapped creature" || lower == "tapped creatures" {
-        return Predicate::creature().and(Predicate::IsTapped);
-    }
-
-    if lower == "creature token" || lower == "creature tokens" {
-        return Predicate::creature().and(Predicate::IsToken);
-    }
-
-    if lower == "attacking creature" || lower == "attacking creatures" {
-        return Predicate::creature();
-    }
-
-    if lower == "attacking token" || lower == "attacking tokens" {
-        return Predicate::IsToken;
-    }
-
-    if lower == "opponent creature" {
-        return Predicate::creature().and(Predicate::Controller(TargetController::Opponent));
-    }
-
-    if let Some(rest) = lower.strip_suffix(" with flying") {
-        let inner = parse_filter_string(rest);
-        return inner.and(Predicate::HasKeyword(KeywordAbilities::FLYING));
-    }
-
-    if let Some(rest) = lower.strip_suffix(" card") {
-        return parse_filter_string(rest);
-    }
-    if let Some(rest) = lower.strip_suffix(" cards") {
-        return parse_filter_string(rest);
-    }
-    if let Some(rest) = lower.strip_suffix(" spell") {
-        return parse_filter_string(rest);
-    }
-    if let Some(rest) = lower.strip_suffix(" spells") {
-        return parse_filter_string(rest);
-    }
-
-    let singular = depluralize(&lower);
-    let type_name = capitalize(singular);
-    let st = parse_subtype(&type_name);
-    Predicate::HasSubType(st)
-}
-
-fn parse_mana_value_suffix(lower: &str) -> Option<Predicate> {
-    if let Some(rest) = lower.strip_suffix(" or less") {
-        if let Some((base, val)) = extract_mana_value_comparison(rest) {
-            let inner = parse_filter_string(base);
-            return Some(inner.and(Predicate::ManaValueCompare(ComparisonType::LessOrEqual, val)));
-        }
-    }
-    if let Some(rest) = lower.strip_suffix(" or greater") {
-        if let Some((base, val)) = extract_mana_value_comparison(rest) {
-            let inner = parse_filter_string(base);
-            return Some(inner.and(Predicate::ManaValueCompare(ComparisonType::GreaterOrEqual, val)));
-        }
-    }
-    None
-}
-
-fn extract_mana_value_comparison(s: &str) -> Option<(&str, i32)> {
-    if let Some(idx) = s.rfind("with mana value ") {
-        let after = &s[idx + 16..];
-        let val: i32 = after.trim().parse().ok()?;
-        Some((&s[..idx], val))
-    } else {
-        None
-    }
-}
-
-fn parse_power_suffix(lower: &str) -> Option<Predicate> {
-    if let Some(rest) = lower.strip_suffix(" or less") {
-        if let Some((base, val)) = extract_power_comparison(rest) {
-            let inner = parse_filter_string(base);
-            return Some(inner.and(Predicate::PowerCompare(ComparisonType::LessOrEqual, val)));
-        }
-    }
-    if let Some(rest) = lower.strip_suffix(" or greater") {
-        if let Some((base, val)) = extract_power_comparison(rest) {
-            let inner = parse_filter_string(base);
-            return Some(inner.and(Predicate::PowerCompare(ComparisonType::GreaterOrEqual, val)));
-        }
-    }
-    None
-}
-
-fn extract_power_comparison(s: &str) -> Option<(&str, i32)> {
-    if let Some(idx) = s.rfind("with power ") {
-        let after = &s[idx + 11..];
-        let val: i32 = after.trim().parse().ok()?;
-        Some((&s[..idx], val))
-    } else {
-        None
-    }
-}
-
-fn strip_suffix_ignore_case<'a>(lower: &'a str, suffix: &str) -> Option<&'a str> {
-    lower.strip_suffix(suffix)
-}
-
-fn strip_prefix_ignore_case<'a>(lower: &'a str, prefix: &str) -> Option<&'a str> {
-    lower.strip_prefix(prefix)
-}
-
-fn capitalize(s: &str) -> String {
-    let mut c = s.chars();
-    match c.next() {
-        None => String::new(),
-        Some(first) => first.to_uppercase().collect::<String>() + c.as_str(),
     }
 }
 
@@ -1102,7 +715,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_basic_types() {
+    fn filter_basic_types() {
         let bear = make_creature("Bear", 2, 2, KeywordAbilities::empty());
         let land = make_land("Forest", bear.controller);
 
@@ -1110,8 +723,7 @@ mod tests {
         assert!(!Filter::any_creature().matches_permanent_ignore_controller(&land));
         assert!(Filter::any_land().matches_permanent_ignore_controller(&land));
         assert!(!Filter::any_land().matches_permanent_ignore_controller(&bear));
-        assert!(Filter::parse("").matches_permanent_ignore_controller(&bear));
-        assert!(Filter::parse("all").matches_permanent_ignore_controller(&bear));
+        assert!(Filter::any_permanent().matches_permanent_ignore_controller(&bear));
     }
 
     #[test]
@@ -1124,12 +736,13 @@ mod tests {
     }
 
     #[test]
-    fn parse_or_combinator() {
+    fn filter_or_combinator_with_filter_new() {
         let bear = make_creature("Bear", 2, 2, KeywordAbilities::empty());
         let land = make_land("Forest", bear.controller);
 
-        assert!(Filter::parse("creature or land").matches_permanent_ignore_controller(&bear));
-        assert!(Filter::parse("creature or land").matches_permanent_ignore_controller(&land));
+        let creature_or_land = Filter::new("creature or land", Predicate::creature().or(Predicate::land()));
+        assert!(creature_or_land.matches_permanent_ignore_controller(&bear));
+        assert!(creature_or_land.matches_permanent_ignore_controller(&land));
         assert!(Filter::artifact_or_enchantment().matches_permanent_ignore_controller(
             &{
                 let owner = PlayerId::new();
@@ -1166,7 +779,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_basic_land_with_subtypes() {
+    fn filter_basic_land_with_subtypes() {
         let owner = PlayerId::new();
         let mut card = CardData::new(ObjectId::new(), owner, "Forest");
         card.card_types = vec![CardType::Land];
@@ -1174,12 +787,20 @@ mod tests {
         card.subtypes = vec![SubType::Forest];
 
         assert!(Filter::basic_land().matches_card_ignore_controller(&card));
-        assert!(Filter::parse("basic Forest card").matches_card_ignore_controller(&card));
-        assert!(!Filter::parse("basic Plains card").matches_card_ignore_controller(&card));
+        let basic_forest = Filter::new("basic Forest card",
+            Predicate::HasSuperType(SuperType::Basic)
+                .and(Predicate::land())
+                .and(Predicate::HasSubType(SubType::Forest)));
+        assert!(basic_forest.matches_card_ignore_controller(&card));
+        let basic_plains = Filter::new("basic Plains card",
+            Predicate::HasSuperType(SuperType::Basic)
+                .and(Predicate::land())
+                .and(Predicate::HasSubType(SubType::Plains)));
+        assert!(!basic_plains.matches_card_ignore_controller(&card));
     }
 
     #[test]
-    fn parse_subtype_filter() {
+    fn filter_subtype() {
         let owner = PlayerId::new();
         let mut card = CardData::new(ObjectId::new(), owner, "Elf Warrior");
         card.card_types = vec![CardType::Creature];
@@ -1188,9 +809,12 @@ mod tests {
         card.toughness = Some(Toughness::new(2));
         let perm = Permanent::new(card, owner);
 
-        assert!(Filter::parse("Elf").matches_permanent_ignore_controller(&perm));
-        assert!(Filter::parse("Warrior").matches_permanent_ignore_controller(&perm));
-        assert!(!Filter::parse("Goblin").matches_permanent_ignore_controller(&perm));
+        let elf_filter = Filter::new("Elf", Predicate::HasSubType(SubType::Elf));
+        let warrior_filter = Filter::new("Warrior", Predicate::HasSubType(SubType::Warrior));
+        let goblin_filter = Filter::new("Goblin", Predicate::HasSubType(SubType::Goblin));
+        assert!(elf_filter.matches_permanent_ignore_controller(&perm));
+        assert!(warrior_filter.matches_permanent_ignore_controller(&perm));
+        assert!(!goblin_filter.matches_permanent_ignore_controller(&perm));
     }
 
     #[test]

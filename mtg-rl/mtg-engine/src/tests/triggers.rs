@@ -1424,7 +1424,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
         let effects = vec![Effect::grant_triggered_ability_eot(
             "damaged_player",
-            Filter::parse("creatures you control"),
+            Filter::creature_you_control(),
             vec![Effect::DrawCards { count: 1 }],
         )];
         game.execute_effects(&effects, p1, &[], None, None);
@@ -1476,7 +1476,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
         let effects = vec![Effect::grant_triggered_ability_eot(
             "damaged_player",
-            Filter::parse("creatures you control"),
+            Filter::creature_you_control(),
             vec![Effect::DrawCards { count: 1 }],
         )];
         game.execute_effects(&effects, p1, &[], None, None);
@@ -1519,7 +1519,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
 
         let effects = vec![Effect::grant_triggered_ability_eot(
             "damaged_player",
-            Filter::parse("creatures you control"),
+            Filter::creature_you_control(),
             vec![Effect::DrawCards { count: 1 }],
         )];
         game.execute_effects(&effects, p1, &[], None, None);

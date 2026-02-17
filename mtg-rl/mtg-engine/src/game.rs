@@ -18,7 +18,7 @@ use crate::abilities::{Cost, Effect, StaticEffect, TargetSpec, TriggerScope};
 use crate::filters::Filter;
 use crate::mana::ManaCost;
 use crate::combat::{self, CombatState};
-use crate::constants::AbilityType;
+use crate::constants::{AbilityType, CardType};
 use crate::card::CardData;
 use crate::constants::PhaseStep;
 use crate::counters::CounterType;
@@ -680,10 +680,9 @@ impl Game {
 
             let gy_count = if count_filter.message.contains("graveyard") {
                 if let Some(player) = self.state.players.get(&controller) {
-                    let filter_lower = count_filter.message_lower();
                     player.graveyard.iter()
                         .filter_map(|&card_id| self.state.card_store.get(card_id))
-                        .filter(|card| !filter_lower.contains("creature") || card.is_creature())
+                        .filter(|card| !count_filter.message.contains("creature") || card.is_creature())
                         .count() as i32
                 } else {
                     0
@@ -938,7 +937,20 @@ impl Game {
     }
 
     fn permanent_matches_filter_part(&self, perm: &crate::permanent::Permanent, filter_part: &str) -> bool {
-        crate::filters::Filter::parse(filter_part).matches_permanent_ignore_controller(perm)
+        let lower = filter_part.trim().to_lowercase();
+        let singular = lower.strip_suffix('s').unwrap_or(&lower);
+        match singular {
+            "creature" => perm.is_creature(),
+            "land" => perm.has_card_type(CardType::Land),
+            "artifact" => perm.has_card_type(CardType::Artifact),
+            "enchantment" => perm.has_card_type(CardType::Enchantment),
+            "planeswalker" => perm.has_card_type(CardType::Planeswalker),
+            _ => {
+                // Try as subtype
+                let st = crate::constants::SubType::by_description(filter_part.trim());
+                perm.has_subtype(&st)
+            }
+        }
     }
 
     /// Evaluate a dynamic value source string and return the computed value.
@@ -1331,7 +1343,7 @@ impl Game {
 
     /// Resolve a self-referential filter ("self", "enchanted creature", "equipped creature").
     fn resolve_self_referential(&self, source_id: ObjectId, filter: &Filter) -> Vec<ObjectId> {
-        let msg = filter.message_lower();
+        let msg = filter.message;
         if msg.contains("enchanted") || msg.contains("equipped") {
             // For auras/equipment, resolve the attached-to permanent
             self.state.battlefield.get(source_id)
@@ -1845,7 +1857,7 @@ impl Game {
                         continue;
                     }
                     if let Some(source_perm) = self.state.battlefield.get(source_id) {
-                        let exclude_doubler = filter.message_lower().contains("other");
+                        let exclude_doubler = filter.excludes_source;
                         if exclude_doubler && source_id == doubler_source {
                             continue;
                         }

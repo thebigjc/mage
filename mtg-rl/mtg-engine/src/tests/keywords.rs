@@ -2,7 +2,7 @@
 
 use crate::game::*;
 use crate::abilities::{Ability, Effect, TargetSpec, StaticEffect};
-use crate::filters::Filter;
+use crate::filters::{Filter, Predicate};
 use crate::card::CardData;
 use crate::constants::{CardType, Color, KeywordAbilities, Outcome, PhaseStep, SubType, TurnPhase};
 use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerAgent, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
@@ -864,7 +864,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         let aura_ability = Ability::static_ability(
             aura_id,
             "Enchanted creature can't untap.",
-            vec![StaticEffect::cant_untap(Filter::parse("enchanted creature"))],
+            vec![StaticEffect::cant_untap(Filter::enchanted_creature())],
         );
         game.state.battlefield.add(Permanent::new(aura_card, p1));
         game.state.ability_store.add(aura_ability);
@@ -897,7 +897,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         let aura_ability = Ability::static_ability(
             aura_id,
             "Enchanted creature can't untap.",
-            vec![StaticEffect::cant_untap(Filter::parse("enchanted creature"))],
+            vec![StaticEffect::cant_untap(Filter::enchanted_creature())],
         );
         game.state.battlefield.add(Permanent::new(aura_card, p1));
         game.state.ability_store.add(aura_ability);
@@ -932,7 +932,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         let aura_ability = Ability::static_ability(
             aura_id,
             "Enchanted creature can't untap.",
-            vec![StaticEffect::cant_untap(Filter::parse("enchanted creature"))],
+            vec![StaticEffect::cant_untap(Filter::enchanted_creature())],
         );
         game.state.battlefield.add(Permanent::new(aura_card, p1));
         game.state.ability_store.add(aura_ability);
@@ -973,7 +973,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         let ability = Ability::static_ability(
             creature_id,
             "This creature doesn't untap during your untap step.",
-            vec![StaticEffect::cant_untap(Filter::parse("self"))],
+            vec![StaticEffect::cant_untap(Filter::self_reference())],
         );
         game.state.battlefield.add(Permanent::new(creature, p1));
         game.state.ability_store.add(ability);
@@ -1008,7 +1008,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         let aura_ability = Ability::static_ability(
             aura_id,
             "Enchanted creature can't untap.",
-            vec![StaticEffect::cant_untap(Filter::parse("enchanted creature"))],
+            vec![StaticEffect::cant_untap(Filter::enchanted_creature())],
         );
         game.state.battlefield.add(Permanent::new(aura_card, p1));
         game.state.ability_store.add(aura_ability);
@@ -1035,7 +1035,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
 
     #[test]
     fn static_effect_helper_constructor() {
-        match StaticEffect::cant_untap(Filter::parse("enchanted creature")) {
+        match StaticEffect::cant_untap(Filter::enchanted_creature()) {
             StaticEffect::CantUntap { filter } => {
                 assert_eq!(filter, "enchanted creature");
             }
@@ -1503,7 +1503,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         let grant_ability = Ability::static_ability(
             granter_id,
             "Creature spells you cast have convoke.",
-            vec![StaticEffect::grant_convoke(Filter::parse("creature spells"))],
+            vec![StaticEffect::grant_convoke(Filter::new("creature spell", Predicate::creature()))],
         );
         game.state.ability_store.add(grant_ability);
 
@@ -1537,9 +1537,9 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
 
     #[test]
     fn convoke_helper_constructor() {
-        match StaticEffect::grant_convoke(Filter::parse("creature spells")) {
+        match StaticEffect::grant_convoke(Filter::new("creature spell", Predicate::creature())) {
             StaticEffect::GrantConvoke { filter } => {
-                assert_eq!(filter.message, "creature spells");
+                assert_eq!(filter.message, "creature spell");
             }
             _ => panic!("Expected GrantConvoke variant"),
         }
@@ -1652,7 +1652,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         let grant_ability = Ability::static_ability(
             granter_id,
             "Each noncreature spell you cast has conspire.",
-            vec![StaticEffect::grant_conspire(Filter::parse("noncreature spells"))],
+            vec![StaticEffect::grant_conspire(Filter::new("noncreature spell", Predicate::NotCardType(CardType::Creature)))],
         );
         game.state.ability_store.add(grant_ability);
 
@@ -1693,9 +1693,9 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
 
     #[test]
     fn conspire_helper_constructor() {
-        match StaticEffect::grant_conspire(Filter::parse("noncreature spells")) {
+        match StaticEffect::grant_conspire(Filter::new("noncreature spell", Predicate::NotCardType(CardType::Creature))) {
             StaticEffect::GrantConspire { filter } => {
-                assert_eq!(filter.message, "noncreature spells");
+                assert_eq!(filter.message, "noncreature spell");
             }
             _ => panic!("Expected GrantConspire variant"),
         }

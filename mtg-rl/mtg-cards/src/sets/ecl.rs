@@ -4,7 +4,7 @@
 use crate::cards::basic_lands;
 use crate::registry::CardRegistry;
 use mtg_engine::abilities::{Ability, Cost, Effect, ModalMode, StaticEffect, TargetSpec, TriggerScope, X_VALUE};
-use mtg_engine::filters::Filter;
+use mtg_engine::filters::{Filter, Predicate};
 use mtg_engine::card::CardData;
 use mtg_engine::constants::*;
 use mtg_engine::events::EventType;
@@ -309,7 +309,7 @@ fn adept_watershaper(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Other tapped creatures you control have indestructible.",
-                vec![StaticEffect::grant_keyword_controlled(Filter::parse("other tapped creatures you control"), "indestructible")]),
+                vec![StaticEffect::grant_keyword_controlled(Filter::new("other tapped creature you control", Predicate::creature().and(Predicate::IsTapped).and(Predicate::Controller(TargetController::You))).excludes_source(), "indestructible")]),
         ],
         ..Default::default() }
 }
@@ -397,7 +397,7 @@ fn boggart_prankster(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::attacks_triggered(id,
                 "Whenever Boggart Prankster attacks, target Goblin you control gets +1/+0 until end of turn.",
                 vec![Effect::boost_until_eot(1, 0)],
-                TargetSpec::PermanentFiltered(Filter::parse("Goblin you control"))),
+                TargetSpec::PermanentFiltered(Filter::new("Goblin you control", Predicate::creature().and(Predicate::HasSubType(SubType::Goblin)).and(Predicate::Controller(TargetController::You))))),
         ],
         ..Default::default() }
 }
@@ -411,7 +411,7 @@ fn boldwyr_aggressor(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Other Giant creatures you control have double strike.",
-                vec![StaticEffect::grant_keyword_controlled(Filter::parse("other Giants you control"), "double strike")]),
+                vec![StaticEffect::grant_keyword_controlled(Filter::new("other Giant you control", Predicate::creature().and(Predicate::HasSubType(SubType::Giant)).and(Predicate::Controller(TargetController::You))).excludes_source(), "double strike")]),
         ],
         ..Default::default() }
 }
@@ -503,7 +503,7 @@ fn changeling_wayfinder(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Changeling Wayfinder enters, you may search your library for a basic land card, reveal it, put it into your hand, then shuffle.",
-                vec![Effect::search_library(Filter::parse("basic land"))],
+                vec![Effect::search_library(Filter::basic_land())],
                 TargetSpec::None).set_optional(),
         ],
         ..Default::default() }
@@ -580,7 +580,7 @@ fn deepchannel_duelist(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Other Merfolk you control get +1/+1.",
-                vec![StaticEffect::boost_controlled(Filter::parse("other Merfolk you control"), 1, 1)]),
+                vec![StaticEffect::boost_controlled(Filter::new("other Merfolk you control", Predicate::creature().and(Predicate::HasSubType(SubType::Merfolk)).and(Predicate::Controller(TargetController::You))).excludes_source(), 1, 1)]),
         ],
         ..Default::default() }
 }
@@ -623,7 +623,7 @@ fn eclipsed_boggart(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Eclipsed Boggart enters, look at the top four cards of your library. You may reveal a Goblin, Swamp, or Mountain card from among them and put it into your hand. Put the rest on the bottom in any order.",
-                vec![Effect::look_top_and_pick(4, Filter::parse("Goblin or Swamp or Mountain"))],
+                vec![Effect::look_top_and_pick(4, Filter::new("Goblin, Swamp, or Mountain card", Predicate::Or(vec![Predicate::HasSubType(SubType::Goblin), Predicate::HasSubType(SubType::Swamp), Predicate::HasSubType(SubType::Mountain)])))],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -637,7 +637,7 @@ fn eclipsed_elf(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Eclipsed Elf enters, look at the top four cards of your library. You may reveal an Elf, Swamp, or Forest card from among them and put it into your hand. Put the rest on the bottom in any order.",
-                vec![Effect::look_top_and_pick(4, Filter::parse("Elf or Swamp or Forest"))],
+                vec![Effect::look_top_and_pick(4, Filter::new("Elf, Swamp, or Forest card", Predicate::Or(vec![Predicate::HasSubType(SubType::Elf), Predicate::HasSubType(SubType::Swamp), Predicate::HasSubType(SubType::Forest)])))],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -651,7 +651,7 @@ fn eclipsed_flamekin(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Eclipsed Flamekin enters, look at the top four cards of your library. You may reveal an Elemental, Island, or Mountain card from among them and put it into your hand. Put the rest on the bottom in any order.",
-                vec![Effect::look_top_and_pick(4, Filter::parse("Elemental or Island or Mountain"))],
+                vec![Effect::look_top_and_pick(4, Filter::new("Elemental, Island, or Mountain card", Predicate::Or(vec![Predicate::HasSubType(SubType::Elemental), Predicate::HasSubType(SubType::Island), Predicate::HasSubType(SubType::Mountain)])))],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -666,7 +666,7 @@ fn eclipsed_kithkin(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Eclipsed Kithkin enters, look at the top four cards of your library. You may reveal a Kithkin, Forest, or Plains card from among them and put it into your hand. Put the rest on the bottom in any order.",
-                vec![Effect::look_top_and_pick(4, Filter::parse("Kithkin or Forest or Plains"))],
+                vec![Effect::look_top_and_pick(4, Filter::new("Kithkin, Forest, or Plains card", Predicate::Or(vec![Predicate::HasSubType(SubType::Kithkin), Predicate::HasSubType(SubType::Forest), Predicate::HasSubType(SubType::Plains)])))],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -680,7 +680,7 @@ fn eclipsed_merrow(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Eclipsed Merrow enters, look at the top four cards of your library. You may reveal a Merfolk, Plains, or Island card from among them and put it into your hand. Put the rest on the bottom in any order.",
-                vec![Effect::look_top_and_pick(4, Filter::parse("Merfolk or Plains or Island"))],
+                vec![Effect::look_top_and_pick(4, Filter::new("Merfolk, Plains, or Island card", Predicate::Or(vec![Predicate::HasSubType(SubType::Merfolk), Predicate::HasSubType(SubType::Plains), Predicate::HasSubType(SubType::Island)])))],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -840,7 +840,7 @@ fn gallant_fowlknight(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When Gallant Fowlknight enters, creatures you control get +1/+0 until end of turn. Kithkin you control also gain first strike until end of turn.",
-                vec![Effect::boost_all_eot(Filter::parse("creature you control"), 1, 0), Effect::grant_keyword_all_eot(Filter::parse("Kithkin you control"), "first_strike")],
+                vec![Effect::boost_all_eot(Filter::creature_you_control(), 1, 0), Effect::grant_keyword_all_eot(Filter::new("Kithkin you control", Predicate::creature().and(Predicate::HasSubType(SubType::Kithkin)).and(Predicate::Controller(TargetController::You))), "first_strike")],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -1052,7 +1052,7 @@ fn kulrath_zealot(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "Basic landcycling {2}",
                 vec![Cost::pay_mana("{2}"), Cost::Discard(1)],
-                vec![Effect::search_library(Filter::parse("basic land card"))],
+                vec![Effect::search_library(Filter::new("basic land card", Predicate::HasSuperType(SuperType::Basic).and(Predicate::land())))],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -1299,7 +1299,7 @@ fn safewright_cavalry(id: ObjectId, owner: PlayerId) -> CardData {
                 "{5}: Target Elf you control gets +2/+2 until end of turn.",
                 vec![Cost::pay_mana("{5}")],
                 vec![Effect::boost_until_eot(2, 2)],
-                TargetSpec::PermanentFiltered(Filter::parse("Elf you control"))),
+                TargetSpec::PermanentFiltered(Filter::new("Elf you control", Predicate::creature().and(Predicate::HasSubType(SubType::Elf)).and(Predicate::Controller(TargetController::You))))),
         ],
         ..Default::default() }
 }
@@ -1594,7 +1594,7 @@ fn timid_shieldbearer(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "{4}{W}: Creatures you control get +1/+1 until end of turn.",
                 vec![Cost::pay_mana("{4}{W}")],
-                vec![Effect::boost_all_eot(Filter::parse("creatures you control"), 1, 1)],
+                vec![Effect::boost_all_eot(Filter::creature_you_control(), 1, 1)],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -1838,7 +1838,7 @@ fn darkness_descends(id: ObjectId, owner: PlayerId) -> CardData {
     // Sorcery {2}{B}{B}. Put two -1/-1 counters on each creature.
     CardData { id, owner, name: "Darkness Descends".into(), mana_cost: ManaCost::parse("{2}{B}{B}"),
         card_types: vec![CardType::Sorcery], rarity: Rarity::Rare,
-        abilities: vec![Ability::spell(id, vec![Effect::add_counters_all("-1/-1", 2, Filter::parse("creatures"))], TargetSpec::None)],
+        abilities: vec![Ability::spell(id, vec![Effect::add_counters_all("-1/-1", 2, Filter::any_creature())], TargetSpec::None)],
         ..Default::default() }
 }
 
@@ -1993,7 +1993,7 @@ fn abigale_eloquent_first_year(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, up to one other target creature loses all abilities. Put a flying counter, a first strike counter, and a lifelink counter on that creature.",
                 vec![Effect::lose_all_abilities(), Effect::add_counters("flying", 1), Effect::add_counters("first strike", 1), Effect::add_counters("lifelink", 1)],
-                TargetSpec::PermanentFiltered(Filter::parse("another creature"))),
+                TargetSpec::PermanentFiltered(Filter::new("another creature", Predicate::creature()).excludes_source())),
         ],
         ..Default::default() }
 }
@@ -2012,7 +2012,7 @@ fn aquitects_defenses(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::static_ability(id,
                 "Enchanted creature gets +1/+2.",
-                vec![StaticEffect::boost_controlled(Filter::parse("enchanted creature"), 1, 2)]),
+                vec![StaticEffect::boost_controlled(Filter::enchanted_creature(), 1, 2)]),
         ],
         ..Default::default() }
 }
@@ -2029,7 +2029,7 @@ fn ashlings_command(id: ObjectId, owner: PlayerId) -> CardData {
                 ModalMode::new("Target player draws two cards.",
                     vec![Effect::draw_cards(2)]),
                 ModalMode::new("Deal 2 damage to each creature target player controls.",
-                    vec![Effect::DealDamageAll { amount: 2, filter: Filter::parse("creature target player controls") }]),
+                    vec![Effect::DealDamageAll { amount: 2, filter: Filter::new("creature target player controls", Predicate::creature()) }]),
                 ModalMode::new("Target player creates two Treasure tokens.",
                     vec![Effect::create_token("Treasure", 2)]),
             ], 2, 2)],
@@ -2082,7 +2082,7 @@ fn barbed_bloodletter(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::Creature),
             Ability::static_ability(id,
                 "Equipped creature gets +1/+2.",
-                vec![StaticEffect::boost_controlled(Filter::parse("equipped creature"), 1, 2)]),
+                vec![StaticEffect::boost_controlled(Filter::equipped_creature(), 1, 2)]),
             Ability::activated(id, "Equip {2}",
                 vec![Cost::pay_mana("{2}")],
                 vec![Effect::equip()],
@@ -2100,10 +2100,10 @@ fn bark_of_doran(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Equipped creature gets +0/+1.",
-                vec![StaticEffect::boost_controlled(Filter::parse("equipped creature"), 0, 1)]),
+                vec![StaticEffect::boost_controlled(Filter::equipped_creature(), 0, 1)]),
             Ability::static_ability(id,
                 "As long as equipped creature's toughness is greater than its power, it assigns combat damage equal to its toughness rather than its power.",
-                vec![StaticEffect::assign_damage_with_toughness_if_greater(Filter::parse("equipped creature"))]),
+                vec![StaticEffect::assign_damage_with_toughness_if_greater(Filter::equipped_creature())]),
             Ability::activated(id, "Equip {1}",
                 vec![Cost::pay_mana("{1}")],
                 vec![Effect::equip()],
@@ -2151,7 +2151,7 @@ fn blossombind(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::static_ability(id,
                 "Enchanted creature can't become untapped and can't have counters put on it.",
-                vec![StaticEffect::cant_untap(Filter::parse("enchanted creature"))]),
+                vec![StaticEffect::cant_untap(Filter::enchanted_creature())]),
         ],
         ..Default::default() }
 }
@@ -2258,7 +2258,7 @@ fn catharsis(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, if {R}{R} was spent to cast it, creatures you control get +1/+1 and gain haste until end of turn.",
-                vec![Effect::boost_all_eot(Filter::parse("creatures you control"), 1, 1), Effect::grant_keyword_all_eot(Filter::parse("creatures you control"), "haste")],
+                vec![Effect::boost_all_eot(Filter::creature_you_control(), 1, 1), Effect::grant_keyword_all_eot(Filter::creature_you_control(), "haste")],
                 TargetSpec::None),
             Ability::static_ability(id, "Evoke {R/W}{R/W}",
                 vec![StaticEffect::evoke("{R/W}{R/W}")]),
@@ -2273,7 +2273,7 @@ fn celestial_reunion(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Celestial Reunion".into(), mana_cost: ManaCost::parse("{X}{G}"),
         card_types: vec![CardType::Sorcery], rarity: Rarity::Rare,
         abilities: vec![Ability::spell(id,
-            vec![Effect::search_library(Filter::parse("creature card with mana value X or less"))],
+            vec![Effect::search_library(Filter::new("creature card", Predicate::creature()))],
             TargetSpec::None)],
         ..Default::default() }
 }
@@ -2290,7 +2290,7 @@ fn champion_of_the_clachan(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Other Kithkin you control get +1/+1.",
-                vec![StaticEffect::boost_controlled(Filter::parse("other Kithkin you control"), 1, 1)]),
+                vec![StaticEffect::boost_controlled(Filter::new("other Kithkin you control", Predicate::creature().and(Predicate::HasSubType(SubType::Kithkin)).and(Predicate::Controller(TargetController::You))).excludes_source(), 1, 1)]),
             Ability::triggered(id,
                 "When this creature leaves the battlefield, return the exiled card to its owner's hand.",
                 vec![EventType::ZoneChanged],
@@ -2339,9 +2339,9 @@ fn chronicle_of_victory(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::static_ability(id,
                 "Creatures you control of the chosen type get +2/+2 and have first strike and trample.",
-                vec![StaticEffect::boost_controlled(Filter::parse("creatures of chosen type"), 2, 2),
-                     StaticEffect::grant_keyword_controlled(Filter::parse("creatures of chosen type"), "first strike"),
-                     StaticEffect::grant_keyword_controlled(Filter::parse("creatures of chosen type"), "trample")]),
+                vec![StaticEffect::boost_controlled(Filter::new("creature of the chosen type", Predicate::creature()), 2, 2),
+                     StaticEffect::grant_keyword_controlled(Filter::new("creature of the chosen type", Predicate::creature()), "first strike"),
+                     StaticEffect::grant_keyword_controlled(Filter::new("creature of the chosen type", Predicate::creature()), "trample")]),
             Ability::triggered(id,
                 "Whenever you cast a spell of the chosen type, draw a card.",
                 vec![EventType::SpellCast],
@@ -2378,9 +2378,9 @@ fn curious_colossus(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, each creature target opponent controls loses all abilities, becomes a Coward in addition to its other types, and has base power and toughness 1/1.",
-                vec![Effect::lose_all_abilities_all(Filter::parse("creatures opponents control")),
-                     Effect::set_base_pt_all(1, 1, Filter::parse("creatures opponents control")),
-                     Effect::add_subtype_all("Coward", Filter::parse("creatures opponents control"))],
+                vec![Effect::lose_all_abilities_all(Filter::creatures_opponents_control()),
+                     Effect::set_base_pt_all(1, 1, Filter::creatures_opponents_control()),
+                     Effect::add_subtype_all("Coward", Filter::creatures_opponents_control())],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -2471,11 +2471,11 @@ fn deepway_navigator(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, untap each other Merfolk you control.",
-                vec![Effect::untap_all(Filter::parse("other Merfolk you control"))],
+                vec![Effect::untap_all(Filter::new("other Merfolk you control", Predicate::creature().and(Predicate::HasSubType(SubType::Merfolk)).and(Predicate::Controller(TargetController::You))).excludes_source())],
                 TargetSpec::None),
             Ability::static_ability(id,
                 "As long as you attacked with three or more Merfolk this turn, Merfolk you control get +1/+0.",
-                vec![StaticEffect::boost_controlled(Filter::parse("Merfolk you control"), 1, 0)]),
+                vec![StaticEffect::boost_controlled(Filter::new("Merfolk you control", Predicate::creature().and(Predicate::HasSubType(SubType::Merfolk)).and(Predicate::Controller(TargetController::You))), 1, 0)]),
         ],
         ..Default::default() }
 }
@@ -2508,7 +2508,7 @@ fn doran_besieged_by_time(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Each creature spell you cast with toughness greater than its power costs {1} less to cast.",
-                vec![StaticEffect::cost_reduction_if_toughness_greater(Filter::parse("creature spells"), 1)]),
+                vec![StaticEffect::cost_reduction_if_toughness_greater(Filter::new("creature spell", Predicate::creature()), 1)]),
             Ability::controlled_creature_attacks_or_blocks_triggered(id,
                 "Whenever a creature you control attacks or blocks, it gets +X/+X until end of turn, where X is the difference between its toughness and power.",
                 vec![Effect::boost_by_toughness_minus_power()],
@@ -2544,7 +2544,7 @@ fn eirdu_carrier_of_dawn(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Each other nontoken creature you control has persist.",
-                vec![StaticEffect::grant_keyword_controlled(Filter::parse("other nontoken creatures you control"), "persist")]),
+                vec![StaticEffect::grant_keyword_controlled(Filter::new("other nontoken creatures you control", Predicate::creature().and(Predicate::IsNontoken).and(Predicate::Controller(TargetController::You))).excludes_source(), "persist")]),
             Ability::triggered(id,
                 "At the beginning of your first main phase, you may pay {W}. If you do, transform Isilu.",
                 vec![EventType::PrecombatMainPre],
@@ -2563,7 +2563,7 @@ fn eirdu_carrier_of_dawn(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Creature spells you cast have convoke.",
-                vec![StaticEffect::grant_convoke(Filter::parse("creature spells"))]),
+                vec![StaticEffect::grant_convoke(Filter::new("creature spell", Predicate::creature()))]),
             Ability::triggered(id,
                 "At the beginning of your first main phase, you may pay {B}. If you do, transform Eirdu.",
                 vec![EventType::PrecombatMainPre],
@@ -2709,7 +2709,7 @@ fn flitterwing_nuisance(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![Cost::pay_mana("{2}{U}"), Cost::remove_counters("any", 1)],
                 vec![Effect::grant_triggered_ability_eot(
                     "damaged_player",
-                    Filter::parse("creatures you control"),
+                    Filter::creature_you_control(),
                     vec![Effect::draw_cards(1)])],
                 TargetSpec::None),
         ],
@@ -2750,7 +2750,7 @@ fn gathering_stone(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::static_ability(id,
                 "Spells you cast of the chosen type cost {1} less to cast.",
-                vec![StaticEffect::CostReduction { filter: Filter::parse("spells of chosen type"), amount: 1, condition: None }]),
+                vec![StaticEffect::CostReduction { filter: Filter::new("spell of the chosen type", Predicate::All), amount: 1, condition: None }]),
             Ability::triggered(id,
                 "When this artifact enters and at the beginning of your upkeep, look at the top card of your library. If it's a card of the chosen type, you may reveal it and put it into your hand.",
                 vec![EventType::EnteredTheBattlefield, EventType::UpkeepStep],
@@ -2895,12 +2895,12 @@ fn grubs_command(id: ObjectId, owner: PlayerId) -> CardData {
                     ModalMode::new("Create a token that's a copy of target Goblin you control.",
                         vec![Effect::create_token_copy(1)]),
                     ModalMode::new("Creatures target player controls get +1/+1 and gain haste until end of turn.",
-                        vec![Effect::boost_all_eot(Filter::parse("creatures target player controls"), 1, 1),
-                             Effect::grant_keyword_all_eot(Filter::parse("creatures target player controls"), "haste")]),
+                        vec![Effect::boost_all_eot(Filter::new("creature target player controls", Predicate::creature()), 1, 1),
+                             Effect::grant_keyword_all_eot(Filter::new("creature target player controls", Predicate::creature()), "haste")]),
                     ModalMode::new("Destroy target artifact or creature.",
                         vec![Effect::destroy()]),
                     ModalMode::new("Target player mills five cards, then puts each Goblin card milled this way into their hand.",
-                        vec![Effect::mill_and_return_all(5, Filter::parse("Goblin"))]),
+                        vec![Effect::mill_and_return_all(5, Filter::new("Goblin", Predicate::HasSubType(SubType::Goblin)))]),
                 ], 2, 2)],
                 TargetSpec::Custom("various".into())),
         ],
@@ -2985,7 +2985,7 @@ fn high_perfect_morcant(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::activated(id,
                 "Tap three untapped Elves you control: Proliferate. Activate only as a sorcery.",
-                vec![Cost::tap_creatures(Filter::parse("Elf"), 3)],
+                vec![Cost::tap_creatures(Filter::new("Elf", Predicate::HasSubType(SubType::Elf)), 3)],
                 vec![Effect::proliferate()],
                 TargetSpec::None),
         ],
@@ -3036,7 +3036,7 @@ fn kinbinding(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Creatures you control get +X/+X, where X is the number of creatures that entered the battlefield under your control this turn.",
-                vec![StaticEffect::boost_per_turn_event(Filter::parse("creatures you control"), "creatures_entered", 1, 1)]),
+                vec![StaticEffect::boost_per_turn_event(Filter::creature_you_control(), "creatures_entered", 1, 1)]),
             Ability::triggered(id,
                 "At the beginning of combat on your turn, create a 1/1 green and white Kithkin creature token.",
                 vec![EventType::BeginCombat],
@@ -3099,12 +3099,12 @@ fn lluwen_imperfect_naturalist(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::enters_battlefield_triggered(id,
                     "When Lluwen enters, mill four cards. You may put a creature or land card from among them on top of your library.",
-                    vec![Effect::mill_and_select(4, Filter::parse("creature or land"), "top")],
+                    vec![Effect::mill_and_select(4, Filter::new("creature or land", Predicate::creature().or(Predicate::land())), "top")],
                     TargetSpec::None),
             Ability::activated(id,
                     "{2}{B/G}{B/G}{B/G}, {T}, Discard a land card: Create X 1/1 black and green Worm creature tokens, where X is the number of land cards in your graveyard.",
                     vec![Cost::pay_mana("{2}{B/G}{B/G}{B/G}"), Cost::tap_self()],
-                    vec![Effect::CreateTokenDynamic { token_name: "1/1 Worm".into(), count_filter: Filter::parse("land cards in your graveyard") }],
+                    vec![Effect::CreateTokenDynamic { token_name: "1/1 Worm".into(), count_filter: Filter::new("land cards in your graveyard", Predicate::land()) }],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -3174,7 +3174,7 @@ fn maralen_fae_ascendant(id: ObjectId, owner: PlayerId) -> CardData {
                     TargetSpec::None),
             Ability::static_ability(id,
                     "Once each turn, you may cast a spell with mana value less than or equal to the number of Elves and Faeries you control from among cards exiled with Maralen without paying its mana cost.",
-                    vec![StaticEffect::cast_exiled_once_per_turn(Filter::parse("Elves and Faeries you control"))]),
+                    vec![StaticEffect::cast_exiled_once_per_turn(Filter::new("Elves and Faeries you control", Predicate::creature().and(Predicate::Or(vec![Predicate::HasSubType(SubType::Elf), Predicate::HasSubType(SubType::Faerie)])).and(Predicate::Controller(TargetController::You))))]),
         ],
         ..Default::default() }
 }
@@ -3232,7 +3232,7 @@ fn morcants_loyalist(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "Other Elves you control get +1/+1.",
-                    vec![StaticEffect::Boost { filter: Filter::parse("other Elf you control"), power: Power::new(1), toughness: Toughness::new(1) }]),
+                    vec![StaticEffect::Boost { filter: Filter::new("other Elf you control", Predicate::creature().and(Predicate::HasSubType(SubType::Elf)).and(Predicate::Controller(TargetController::You))).excludes_source(), power: Power::new(1), toughness: Toughness::new(1) }]),
             Ability::dies_triggered(id,
                     "When Morcant's Loyalist dies, return target Elf card from your graveyard to your hand.",
                     vec![Effect::return_from_graveyard()],
@@ -3256,7 +3256,7 @@ fn mornsong_aria(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "At the beginning of each player's draw step, that player loses 3 life, searches their library for a card, puts it into their hand, then shuffles.",
                 vec![EventType::DrawStep],
-                vec![Effect::LoseLife { amount: 3 }, Effect::search_library(Filter::parse("card"))],
+                vec![Effect::LoseLife { amount: 3 }, Effect::search_library(Filter::any_card())],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -3274,8 +3274,8 @@ fn noggle_the_mind(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Enchanted creature loses all abilities and is a colorless Noggle creature with base power and toughness 1/1.",
-                vec![StaticEffect::lose_all_abilities(Filter::parse("enchanted creature")),
-                     StaticEffect::set_base_pt(Filter::parse("enchanted creature"), 1, 1),
+                vec![StaticEffect::lose_all_abilities(Filter::enchanted_creature()),
+                     StaticEffect::set_base_pt(Filter::enchanted_creature(), 1, 1),
                      StaticEffect::becomes_creature_attached(&["Noggle"], true)]),
         ],
         ..Default::default() }
@@ -3294,7 +3294,7 @@ fn omni_changeling(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "You may have this creature enter as a copy of any creature on the battlefield, except it has changeling.",
-                vec![StaticEffect::enter_as_a_copy(Filter::parse("creature"), &["changeling"])]),
+                vec![StaticEffect::enter_as_a_copy(Filter::any_creature(), &["changeling"])]),
         ],
         ..Default::default() }
 }
@@ -3540,7 +3540,7 @@ fn sapling_nursery(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Affinity for Forests.",
-                vec![StaticEffect::CostReduction { filter: Filter::parse("Forest"), amount: 1, condition: None }]),
+                vec![StaticEffect::CostReduction { filter: Filter::new("Forest", Predicate::HasSubType(SubType::Forest)), amount: 1, condition: None }]),
             Ability::triggered(id,
                 "Landfall — Whenever a land you control enters, create a 3/4 green Treefolk creature token with reach.",
                 vec![EventType::EnteredTheBattlefield],
@@ -3549,7 +3549,7 @@ fn sapling_nursery(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "{1}{G}, Exile this enchantment: Treefolk and Forests you control gain indestructible until end of turn.",
                 vec![Cost::pay_mana("{1}{G}"), Cost::ExileSelf],
-                vec![Effect::GrantKeywordAllUntilEndOfTurn { filter: Filter::parse("Treefolk you control"), keyword: "indestructible".into() }],
+                vec![Effect::GrantKeywordAllUntilEndOfTurn { filter: Filter::new("Treefolk you control", Predicate::creature().and(Predicate::HasSubType(SubType::Treefolk)).and(Predicate::Controller(TargetController::You))), keyword: "indestructible".into() }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -3666,7 +3666,7 @@ fn spry_and_mighty(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::spell(id,
                     vec![Effect::compare_and_boost()],
-                    TargetSpec::PermanentFiltered(Filter::parse("two creatures you control"))),
+                    TargetSpec::PermanentFiltered(Filter::creature_you_control())),
         ],
         ..Default::default() }
 }
@@ -3723,10 +3723,10 @@ fn sunderflock(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                     "This spell costs {X} less to cast, where X is the greatest mana value among Elementals you control.",
-                    vec![StaticEffect::cost_reduction_dynamic(Filter::parse("creature spells"), "greatest mana value among Elementals you control")]),
+                    vec![StaticEffect::cost_reduction_dynamic(Filter::new("creature spell", Predicate::creature()), "greatest mana value among Elementals you control")]),
             Ability::enters_battlefield_triggered(id,
                     "When Sunderflock enters, if you cast it, return each non-Elemental creature to its owner's hand.",
-                    vec![Effect::bounce_all(Filter::parse("non-Elemental creatures"))],
+                    vec![Effect::bounce_all(Filter::new("non-Elemental creature", Predicate::creature().and(Predicate::Not(Box::new(Predicate::HasSubType(SubType::Elemental))))))],
                     TargetSpec::None),
         ],
         ..Default::default() }
@@ -3754,7 +3754,7 @@ fn syggs_command(id: ObjectId, owner: PlayerId) -> CardData {
                     ModalMode::new("Create a token that's a copy of target Merfolk you control.",
                         vec![Effect::create_token_copy(1)]),
                     ModalMode::new("Creatures target player controls gain lifelink until end of turn.",
-                        vec![Effect::grant_keyword_all_eot(Filter::parse("creatures target player controls"), "lifelink")]),
+                        vec![Effect::grant_keyword_all_eot(Filter::new("creature target player controls", Predicate::creature()), "lifelink")]),
                     ModalMode::new("Target player draws a card.",
                         vec![Effect::draw_cards(1)]),
                     ModalMode::new("Tap target creature. Put a stun counter on it.",
@@ -3875,7 +3875,7 @@ fn twinflame_travelers(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Whenever a triggered ability of another Elemental you control triggers, it triggers an additional time.",
-                vec![StaticEffect::trigger_doubling(Filter::parse("other Elementals you control"))]),
+                vec![StaticEffect::trigger_doubling(Filter::new("other Elemental you control", Predicate::creature().and(Predicate::HasSubType(SubType::Elemental)).and(Predicate::Controller(TargetController::You))).excludes_source())]),
         ],
         ..Default::default() }
 }
@@ -3929,7 +3929,7 @@ fn vibrance(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::CreatureOrPlayer),
             Ability::enters_battlefield_triggered(id,
                 "When this enters, if {G}{G} was spent, search your library for a land card, put it in hand. You gain 2 life.",
-                vec![Effect::search_library(Filter::parse("land")), Effect::gain_life(2)],
+                vec![Effect::search_library(Filter::any_land()), Effect::gain_life(2)],
                 TargetSpec::None),
             Ability::static_ability(id, "Evoke {R/G}{R/G}",
                 vec![StaticEffect::evoke("{R/G}{R/G}")]),
@@ -4050,11 +4050,11 @@ fn ajani_outland_chaperone(id: ObjectId, owner: PlayerId) -> CardData {
                 "-2: Ajani deals 4 damage to target tapped creature.",
                 -2,
                 vec![Effect::deal_damage(4)],
-                TargetSpec::PermanentFiltered(Filter::parse("tapped creature"))),
+                TargetSpec::PermanentFiltered(Filter::new("tapped creature", Predicate::creature().and(Predicate::IsTapped)))),
             Ability::loyalty_ability(id,
                 "-8: Look at the top X cards of your library, where X is your life total. Put any number of nonland permanent cards with mana value 3 or less onto the battlefield.",
                 -8,
-                vec![Effect::look_top_life_put_battlefield(Filter::parse("nonland permanent with mana value 3 or less"))],
+                vec![Effect::look_top_life_put_battlefield(Filter::new("nonland permanent with mana value 3 or less", Predicate::nonland_permanent().and(Predicate::ManaValueCompare(ComparisonType::LessOrEqual, 3))))],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -4082,7 +4082,7 @@ fn boneclub_berserker(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::static_ability(id, "This creature gets +2/+0 for each other Goblin you control.",
-                vec![StaticEffect::BoostPerCount { count_filter: Filter::parse("other Goblin you control"), power_per: Power::new(2), toughness_per: Toughness::new(0) }]),
+                vec![StaticEffect::BoostPerCount { count_filter: Filter::new("other Goblin you control", Predicate::creature().and(Predicate::HasSubType(SubType::Goblin)).and(Predicate::Controller(TargetController::You))).excludes_source(), power_per: Power::new(2), toughness_per: Toughness::new(0) }]),
         ],
         ..Default::default() }
 }
@@ -4231,7 +4231,7 @@ fn formidable_speaker(id: ObjectId, owner: PlayerId) -> CardData {
                 "When this enters, you may discard a card. If you do, search your library for a creature card, reveal it, put it into your hand, then shuffle.",
                 vec![Effect::do_if_cost_paid(
                     Cost::Discard(1),
-                    vec![Effect::search_library(Filter::parse("creature"))],
+                    vec![Effect::search_library(Filter::any_creature())],
                     vec![],
                 )],
                 TargetSpec::None),
@@ -4306,7 +4306,7 @@ fn gravelgill_scoundrel(id: ObjectId, owner: PlayerId) -> CardData {
                 "Whenever this creature attacks, you may tap another untapped creature you control. If you do, this creature can\x27t be blocked this turn.",
                 vec![EventType::AttackerDeclared],
                 vec![Effect::do_if_cost_paid(
-                    Cost::tap_creatures(Filter::parse("creature"), 1),
+                    Cost::tap_creatures(Filter::any_creature(), 1),
                     vec![Effect::cant_be_blocked_eot()],
                     vec![])],
                 TargetSpec::None),
@@ -4417,7 +4417,7 @@ fn kithkeeper(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::activated(id,
                 "Tap three untapped creatures you control: This creature gets +3/+0 and gains flying until end of turn.",
-                vec![Cost::tap_creatures(Filter::parse("creature"), 3)],
+                vec![Cost::tap_creatures(Filter::any_creature(), 3)],
                 vec![Effect::boost_until_eot(3, 0), Effect::gain_keyword_eot("flying")],
                 TargetSpec::None),
         ],
@@ -4466,7 +4466,7 @@ fn meanders_guide(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::attacks_triggered(id,
                 "Whenever this creature attacks, you may tap another untapped Merfolk you control. When you do, return target creature card with mana value 3 or less from your graveyard to the battlefield.",
                 vec![Effect::tap_target()],
-                TargetSpec::PermanentFiltered(Filter::parse("another untapped Merfolk you control")))
+                TargetSpec::PermanentFiltered(Filter::new("another untapped Merfolk you control", Predicate::creature().and(Predicate::HasSubType(SubType::Merfolk)).and(Predicate::IsUntapped).and(Predicate::Controller(TargetController::You))).excludes_source()))
                 .set_optional(),
         ],
         ..Default::default() }
@@ -4479,7 +4479,7 @@ fn mirrorform(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::spell(id,
                 vec![Effect::mass_become_copy()],
-                TargetSpec::PermanentFiltered(Filter::parse("non-Aura permanent"))),
+                TargetSpec::PermanentFiltered(Filter::new("non-Aura permanent", Predicate::Not(Box::new(Predicate::HasSubType(SubType::Aura)))))),
         ],
         ..Default::default() }
 }
@@ -4509,7 +4509,7 @@ fn moon_vigil_adherents(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::static_ability(id, "This creature gets +1/+1 for each creature you control and each creature card in your graveyard.",
-                vec![StaticEffect::BoostPerCount { count_filter: Filter::parse("creature you control and creature card in your graveyard"), power_per: Power::new(1), toughness_per: Toughness::new(1) }]),
+                vec![StaticEffect::BoostPerCount { count_filter: Filter::new("creature you control", Predicate::creature().and(Predicate::Controller(TargetController::You))), power_per: Power::new(1), toughness_per: Toughness::new(1) }]),
         ],
         ..Default::default() }
 }
@@ -4528,7 +4528,7 @@ fn morcants_eyes(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::activated(id,
                 "{4}{G}{G}, Sacrifice Morcant's Eyes: Create X 2/2 black and green Elf creature tokens, where X is the number of Elf cards in your graveyard. Activate only as a sorcery.",
                 vec![Cost::pay_mana("{4}{G}{G}"), Cost::SacrificeSelf],
-                vec![Effect::create_token_dynamic("2/2 green Elf Warrior creature token", Filter::parse("Elf cards in your graveyard"))],
+                vec![Effect::create_token_dynamic("2/2 green Elf Warrior creature token", Filter::new("Elf card", Predicate::HasSubType(SubType::Elf)))],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -4563,7 +4563,7 @@ fn mudbutton_cursetosser(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::dies_triggered(id,
                 "When this creature dies, destroy target creature an opponent controls with power 2 or less.",
                 vec![Effect::destroy()],
-                TargetSpec::PermanentFiltered(Filter::parse("creature an opponent controls with power 2 or less"))),
+                TargetSpec::PermanentFiltered(Filter::new("creature an opponent controls with power 2 or less", Predicate::creature().and(Predicate::Controller(TargetController::Opponent)).and(Predicate::PowerCompare(ComparisonType::LessOrEqual, 2))))),
         ],
         additional_costs: vec![Cost::behold_or_pay("Goblin", "{2}")],
         ..Default::default() }
@@ -4611,7 +4611,7 @@ fn raiding_schemes(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Each noncreature spell you cast has conspire.",
-                vec![StaticEffect::grant_conspire(Filter::parse("noncreature spells"))]),
+                vec![StaticEffect::grant_conspire(Filter::new("noncreature spell", Predicate::NotCardType(CardType::Creature)))]),
         ],
         ..Default::default() }
 }
@@ -4692,10 +4692,10 @@ fn swat_away(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "This spell costs {2} less to cast if a creature is attacking you.",
-                vec![StaticEffect::CostReduction { filter: Filter::parse("self if creature attacking you"), amount: 2, condition: None }]),
+                vec![StaticEffect::CostReduction { filter: Filter::self_reference(), amount: 2, condition: None }]),
             Ability::spell(id,
                 vec![Effect::PutOnLibrary],
-                TargetSpec::PermanentFiltered(Filter::parse("spell or creature"))),
+                TargetSpec::PermanentFiltered(Filter::new("spell or creature", Predicate::creature()))),
         ],
         ..Default::default() }
 }
@@ -4708,7 +4708,7 @@ fn tend_the_sprigs(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::spell(id,
-                vec![Effect::search_library(Filter::parse("basic land")),
+                vec![Effect::search_library(Filter::basic_land()),
                      Effect::conditional("you control 7 or more lands and/or Treefolk",
                          vec![Effect::create_token("3/4 green Treefolk creature token with reach", 1)], vec![])],
                 TargetSpec::None),
@@ -4776,7 +4776,7 @@ fn wanderbrine_trapper(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::activated(id,
                 "{1}, {T}, Tap another untapped creature you control: Tap target creature an opponent controls.",
-                vec![Cost::pay_mana("{1}"), Cost::tap_self(), Cost::tap_creatures(Filter::parse("creature"), 1)],
+                vec![Cost::pay_mana("{1}"), Cost::tap_self(), Cost::tap_creatures(Filter::any_creature(), 1)],
                 vec![Effect::tap_target()],
                 TargetSpec::OpponentCreature),
         ],

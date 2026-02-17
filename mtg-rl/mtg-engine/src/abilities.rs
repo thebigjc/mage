@@ -2446,7 +2446,9 @@ impl AbilityStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::{SubType, TargetController};
     use crate::events::EventType;
+    use crate::filters::Predicate;
     use crate::types::PlayerId;
 
     #[test]
@@ -2749,35 +2751,35 @@ mod tests {
 
     #[test]
     fn static_effect_builders() {
-        match StaticEffect::boost_controlled(Filter::parse("creatures you control"), 1, 1) {
+        match StaticEffect::boost_controlled(Filter::creature_you_control(), 1, 1) {
             StaticEffect::Boost { filter, power, toughness } => {
-                assert_eq!(filter, "creatures you control");
+                assert_eq!(filter, "creature you control");
                 assert_eq!(power, 1);
                 assert_eq!(toughness, 1);
             }
             _ => panic!("wrong variant"),
         }
 
-        match StaticEffect::grant_keyword_controlled(Filter::parse("creatures you control"), "flying") {
+        match StaticEffect::grant_keyword_controlled(Filter::creature_you_control(), "flying") {
             StaticEffect::GrantKeyword { filter, keyword } => {
-                assert_eq!(filter, "creatures you control");
+                assert_eq!(filter, "creature you control");
                 assert_eq!(keyword, "flying");
             }
             _ => panic!("wrong variant"),
         }
 
-        match StaticEffect::cost_reduction(Filter::parse("creature spells"), 1) {
+        match StaticEffect::cost_reduction(Filter::new("creature spell", Predicate::creature()), 1) {
             StaticEffect::CostReduction { filter, amount, condition } => {
-                assert_eq!(filter.message, "creature spells");
+                assert_eq!(filter.message, "creature spell");
                 assert_eq!(amount, 1);
                 assert!(condition.is_none());
             }
             _ => panic!("wrong variant"),
         }
 
-        match StaticEffect::cost_reduction_if_toughness_greater(Filter::parse("creature spells"), 1) {
+        match StaticEffect::cost_reduction_if_toughness_greater(Filter::new("creature spell", Predicate::creature()), 1) {
             StaticEffect::CostReduction { filter, amount, condition } => {
-                assert_eq!(filter.message, "creature spells");
+                assert_eq!(filter.message, "creature spell");
                 assert_eq!(amount, 1);
                 assert_eq!(condition.as_deref(), Some("toughness_greater_than_power"));
             }
@@ -2853,8 +2855,8 @@ mod tests {
             source,
             "Other Merfolk you control get +1/+1 and have islandwalk.",
             vec![
-                StaticEffect::boost_controlled(Filter::parse("other Merfolk you control"), 1, 1),
-                StaticEffect::grant_keyword_controlled(Filter::parse("other Merfolk you control"), "islandwalk"),
+                StaticEffect::boost_controlled(Filter::new("other Merfolk you control", Predicate::creature().and(Predicate::HasSubType(SubType::Merfolk)).and(Predicate::Controller(TargetController::You))).excludes_source(), 1, 1),
+                StaticEffect::grant_keyword_controlled(Filter::new("other Merfolk you control", Predicate::creature().and(Predicate::HasSubType(SubType::Merfolk)).and(Predicate::Controller(TargetController::You))).excludes_source(), "islandwalk"),
             ],
         );
         assert_eq!(ability.static_effects.len(), 2);

@@ -3,11 +3,11 @@
 use crate::game::*;
 use crate::abilities::{Ability, Cost, Effect, StaticEffect, TriggerScope, X_VALUE};
 use crate::card::CardData;
-use crate::constants::{CardType, KeywordAbilities, Outcome, PhaseStep, SubType, TurnPhase};
+use crate::constants::{CardType, ComparisonType, KeywordAbilities, Outcome, PhaseStep, SubType, TargetController, TurnPhase};
 use crate::events::{EventType, GameEvent};
 use crate::counters::CounterType;
 use crate::decision::{AttackerInfo, DamageAssignment, GameView, NamedChoice, PlayerAction, PlayerAgent, PlayerDecisionMaker, ReplacementEffectChoice, TargetRequirement, UnpaidMana};
-use crate::filters::Filter;
+use crate::filters::{Filter, Predicate};
 use crate::mana::{Mana, ManaCost};
 use crate::permanent::Permanent;
 use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
@@ -1922,7 +1922,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         card.abilities = vec![
             Ability::static_ability(id,
                 "Enter as a copy of any creature, except it has changeling.",
-                vec![StaticEffect::enter_as_a_copy(Filter::parse("creature"), &["changeling"])]),
+                vec![StaticEffect::enter_as_a_copy(Filter::any_creature(), &["changeling"])]),
         ];
         for ab in &card.abilities {
             game.state.ability_store.add(ab.clone());
@@ -2050,7 +2050,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
 
     #[test]
     fn enter_as_copy_helper_constructor() {
-        let eff = StaticEffect::enter_as_a_copy(Filter::parse("creature"), &["changeling", "flying"]);
+        let eff = StaticEffect::enter_as_a_copy(Filter::any_creature(), &["changeling", "flying"]);
         match eff {
             StaticEffect::EnterAsACopy { filter, add_keywords } => {
                 assert_eq!(filter, "creature");
@@ -2824,7 +2824,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         source_card.abilities = vec![
             Ability::static_ability(source_id,
                 "Once each turn, cast exiled spell with MV <= Elves and Faeries.",
-                vec![StaticEffect::cast_exiled_once_per_turn(Filter::parse("Elves and Faeries you control"))]),
+                vec![StaticEffect::cast_exiled_once_per_turn(Filter::new("Elves and Faeries you control", Predicate::creature().and(Predicate::Or(vec![Predicate::HasSubType(SubType::Elf), Predicate::HasSubType(SubType::Faerie)])).and(Predicate::Controller(TargetController::You))))]),
         ];
         game.state.card_store.insert(source_card.clone());
         for ab in &source_card.abilities {
@@ -2876,7 +2876,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         source_card.abilities = vec![
             Ability::static_ability(source_id,
                 "Once each turn, cast exiled spell with MV <= Elves and Faeries.",
-                vec![StaticEffect::cast_exiled_once_per_turn(Filter::parse("Elves and Faeries you control"))]),
+                vec![StaticEffect::cast_exiled_once_per_turn(Filter::new("Elves and Faeries you control", Predicate::creature().and(Predicate::Or(vec![Predicate::HasSubType(SubType::Elf), Predicate::HasSubType(SubType::Faerie)])).and(Predicate::Controller(TargetController::You))))]),
         ];
         game.state.card_store.insert(source_card.clone());
         for ab in &source_card.abilities {
@@ -2926,7 +2926,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         source_card.abilities = vec![
             Ability::static_ability(source_id,
                 "Once each turn, cast exiled spell with MV <= Elves and Faeries.",
-                vec![StaticEffect::cast_exiled_once_per_turn(Filter::parse("Elves and Faeries you control"))]),
+                vec![StaticEffect::cast_exiled_once_per_turn(Filter::new("Elves and Faeries you control", Predicate::creature().and(Predicate::Or(vec![Predicate::HasSubType(SubType::Elf), Predicate::HasSubType(SubType::Faerie)])).and(Predicate::Controller(TargetController::You))))]),
         ];
         game.state.card_store.insert(source_card.clone());
         for ab in &source_card.abilities {
@@ -3824,7 +3824,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
 
         // Execute the effect: look at top 5 (life=5), pick nonland permanents MV<=3
         game.execute_effects(
-            &[Effect::look_top_life_put_battlefield(Filter::parse("nonland permanent with mana value 3 or less"))],
+            &[Effect::look_top_life_put_battlefield(Filter::new("nonland permanent with mana value 3 or less", Predicate::nonland_permanent().and(Predicate::ManaValueCompare(ComparisonType::LessOrEqual, 3))))],
             p1, &[], None, None,
         );
 
