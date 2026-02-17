@@ -71,9 +71,9 @@ After analysis, the "enchanted"/"equipped" case is covered by `is_self_referenti
 
 ### Phase 1: Infrastructure (Filter struct + find_matching_permanents)
 
-- [ ] Task 1.1: Add bool flags to Filter struct — add `is_self_referential: bool`, `excludes_source: bool`, `requires_attacking: bool` fields to Filter struct. Update `Filter::new()` to initialize all three to `false`. Add builder methods `excludes_source(mut self) -> Self`, `requires_attacking(mut self) -> Self`. Keep all existing fields for now.
+- [x] Task 1.1: Add bool flags to Filter struct — add `is_self_referential: bool`, `excludes_source: bool`, `requires_attacking: bool` fields to Filter struct. Update `Filter::new()` to initialize all three to `false`. Add builder methods `excludes_source(mut self) -> Self`, `requires_attacking(mut self) -> Self`. Keep all existing fields for now.
 
-- [ ] Task 1.2: Change `message` field from `Arc<str>` to `&'static str` — update Filter struct, update `Filter::new()` signature to take `&'static str`, update `PartialEq` impls. Drop `Deserialize` derive (keep `Serialize`). This requires a custom `Deserialize` removal — check that nothing actually deserializes Filter (confirmed: nothing does). Note: `Filter::parse()` will need to keep `Arc<str>` temporarily or use `Box::leak` — simplest approach is to leave `parse()` using a leaked `&'static str` since parse is only called at card-creation time (not hot path), and the leaked strings are the same ~90 unique strings reused across game instances.
+- [x] Task 1.2: Change `message` field from `Arc<str>` to `&'static str` — update Filter struct, update `Filter::new()` signature to take `&'static str`, update `PartialEq` impls. Drop `Deserialize` derive (keep `Serialize`). This requires a custom `Deserialize` removal — check that nothing actually deserializes Filter (confirmed: nothing does). Note: `Filter::parse()` will need to keep `Arc<str>` temporarily or use `Box::leak` — simplest approach is to leave `parse()` using a leaked `&'static str` since parse is only called at card-creation time (not hot path), and the leaked strings are the same ~90 unique strings reused across game instances.
 
 - [ ] Task 1.3: Remove `message_lower` field — delete the field, delete the `message_lower()` accessor method. Since we're adding bool flags, runtime lowercase string checks are no longer needed. Any remaining callers of `message_lower()` outside of `find_matching_permanents` must be updated (BoostPerCount handler at line 686, trigger doubling at line 1845).
 
@@ -184,5 +184,10 @@ Recommend option 3 (defer) since it still works and keeps the plan focused.
 ### Predicate Ownership Change
 Plan says replace `Arc<Predicate>` with owned `Predicate`. This means Filter's `Clone` impl deep-copies the predicate tree. Predicate trees are small (1-5 nodes), so clone cost is ~50-200ns — negligible. The `Serialize` derive works the same with owned vs Arc-wrapped.
 
+## Completed This Iteration
+- Task 1.2: Changed `message: Arc<str>` to `message: &'static str`. Removed `Deserialize` from derive, added custom `Deserialize` impl using `Box::leak` to prevent cascade breakage of containing types. Updated `Filter::new()` to take `&'static str`, updated `Filter::parse()` to use `Box::leak`. Fixed `PartialEq` impls (removed `&*` deref). Fixed game.rs `check_enter_as_copy` type annotation and `.clone()` on `&'static str`. Fixed clippy `needless_borrow` warning. Updated test assertions in abilities.rs, keywords.rs, costs.rs. All 618 tests pass, cargo check/clippy clean.
+
 ## Tasks Completed
+- Task 1.1 (iteration 1)
+- Task 1.2 (iteration 2)
 

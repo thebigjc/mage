@@ -195,12 +195,17 @@ impl std::ops::Not for Predicate {
 
 /// A named filter combining a human-readable description with a predicate.
 ///
-/// Uses `Arc` internally for cheap cloning — filter clones in the hot path
-/// (`apply_continuous_effects`) now cost ~4ns instead of 44-97ns.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+/// `message` is `&'static str` — all filter messages are string literals known
+/// at compile time (from factory methods or card code). `Filter::parse()` uses
+/// `Box::leak` during the transition period for the ~90 unique strings.
+///
+/// `predicate` remains `Arc<Predicate>` for cheap cloning in the hot path
+/// (`apply_continuous_effects`).
+#[derive(Clone, Debug, Serialize)]
 pub struct Filter {
     /// Human-readable description (e.g. "target creature", "nonland permanent").
-    pub message: Arc<str>,
+    /// Display-only — never used for matching logic.
+    pub message: &'static str,
     /// Pre-computed lowercase version of `message`, cached to avoid repeated
     /// `to_lowercase()` allocations in `find_matching_permanents()`.
     pub message_lower: Arc<str>,
@@ -217,11 +222,43 @@ pub struct Filter {
     pub requires_attacking: bool,
 }
 
+// Custom Deserialize: nothing actually deserializes Filter, but containing types
+// derive Deserialize. This impl uses Box::leak to produce &'static str from
+// deserialized Strings. The leaked memory is negligible (~90 unique strings).
+impl<'de> Deserialize<'de> for Filter {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct FilterHelper {
+            message: String,
+            message_lower: Arc<str>,
+            predicate: Arc<Predicate>,
+            #[serde(default)]
+            is_self_referential: bool,
+            #[serde(default)]
+            excludes_source: bool,
+            #[serde(default)]
+            requires_attacking: bool,
+        }
+        let h = FilterHelper::deserialize(deserializer)?;
+        Ok(Filter {
+            message: Box::leak(h.message.into_boxed_str()),
+            message_lower: h.message_lower,
+            predicate: h.predicate,
+            is_self_referential: h.is_self_referential,
+            excludes_source: h.excludes_source,
+            requires_attacking: h.requires_attacking,
+        })
+    }
+}
+
 impl Filter {
-    pub fn new(message: &str, predicate: Predicate) -> Self {
+    pub fn new(message: &'static str, predicate: Predicate) -> Self {
         let lower: Arc<str> = Arc::from(message.to_lowercase().as_str());
         Filter {
-            message: Arc::from(message),
+            message,
             message_lower: lower,
             predicate: Arc::new(predicate),
             is_self_referential: false,
@@ -320,21 +357,36 @@ impl Filter {
 }
 
 impl Filter {
+    /// Parse a filter from a human-readable string.
+    ///
+    /// Uses `Box::leak` to produce `&'static str` for the message — this leaks
+    /// ~90 unique strings (a few KB total). Called only at card-creation time,
+    /// not in the hot path. Will be deleted in Phase 4 when all call sites are
+    /// converted to typed constructors.
     pub fn parse(s: &str) -> Self {
         let pred = parse_filter_string(s);
-        Filter::new(s, pred)
+        let leaked: &'static str = Box::leak(s.to_string().into_boxed_str());
+        let lower: Arc<str> = Arc::from(s.to_lowercase().as_str());
+        Filter {
+            message: leaked,
+            message_lower: lower,
+            predicate: Arc::new(pred),
+            is_self_referential: false,
+            excludes_source: false,
+            requires_attacking: false,
+        }
     }
 }
 
 impl PartialEq<&str> for Filter {
     fn eq(&self, other: &&str) -> bool {
-        &*self.message == *other
+        self.message == *other
     }
 }
 
 impl PartialEq<str> for Filter {
     fn eq(&self, other: &str) -> bool {
-        &*self.message == other
+        self.message == other
     }
 }
 

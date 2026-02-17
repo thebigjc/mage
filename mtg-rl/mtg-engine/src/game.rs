@@ -1348,7 +1348,7 @@ impl Game {
             abilities.iter().any(|a| {
                 a.ability_type == AbilityType::Static
                     && a.static_effects.iter().any(|e| {
-                        matches!(e, crate::abilities::StaticEffect::EntersTapped { filter } if &*filter.message == "self")
+                        matches!(e, crate::abilities::StaticEffect::EntersTapped { filter } if filter.message == "self")
                     })
             })
         };
@@ -1395,14 +1395,14 @@ impl Game {
     }
 
     fn check_enter_as_copy(&mut self, permanent_id: ObjectId) {
-        let copy_info: Option<(std::sync::Arc<str>, Vec<String>)> = {
+        let copy_info: Option<(&'static str, Vec<String>)> = {
             let abilities = self.state.ability_store.for_source(permanent_id);
             abilities.iter()
                 .filter(|a| a.ability_type == AbilityType::Static)
                 .flat_map(|a| a.static_effects.iter())
                 .find_map(|e| {
                     if let crate::abilities::StaticEffect::EnterAsACopy { filter, add_keywords } = e {
-                        Some((filter.message.clone(), add_keywords.clone()))
+                        Some((filter.message, add_keywords.clone()))
                     } else {
                         None
                     }
@@ -6272,7 +6272,7 @@ impl Game {
                     }
                 }
                 Effect::CreateTokenDynamic { token_name, count_filter } => {
-                    let count = self.evaluate_count_filter(&count_filter.message, controller);
+                    let count = self.evaluate_count_filter(count_filter.message, controller);
                     if !self.try_replace_token_creation(controller, count) {
                         self.mark_tokens_created(controller);
                         for _ in 0..count {
