@@ -1317,27 +1317,30 @@ impl Game {
         controller: PlayerId,
         filter: &Filter,
     ) -> Vec<ObjectId> {
-        let msg = filter.message_lower();
-
-        if msg == "self" {
-            return vec![source_id];
+        if filter.is_self_referential {
+            return self.resolve_self_referential(source_id, filter);
         }
-
-        if msg.contains("enchanted") || msg.contains("equipped") {
-            return self.state.battlefield.get(source_id)
-                .and_then(|perm| perm.attached_to)
-                .map_or_else(Vec::new, |attached_to| vec![attached_to]);
-        }
-
-        let exclude_self = msg.contains("other");
-        let is_attacking = msg.contains("attacking");
 
         self.state.battlefield.iter()
-            .filter(|perm| !(exclude_self && perm.id() == source_id))
-            .filter(|perm| !is_attacking || self.state.combat.is_attacking(perm.id()))
+            .filter(|perm| !(filter.excludes_source && perm.id() == source_id))
+            .filter(|perm| !filter.requires_attacking || self.state.combat.is_attacking(perm.id()))
             .filter(|perm| filter.matches_permanent(perm, controller))
             .map(|perm| perm.id())
             .collect()
+    }
+
+    /// Resolve a self-referential filter ("self", "enchanted creature", "equipped creature").
+    fn resolve_self_referential(&self, source_id: ObjectId, filter: &Filter) -> Vec<ObjectId> {
+        let msg = filter.message_lower();
+        if msg.contains("enchanted") || msg.contains("equipped") {
+            // For auras/equipment, resolve the attached-to permanent
+            self.state.battlefield.get(source_id)
+                .and_then(|perm| perm.attached_to)
+                .map_or_else(Vec::new, |attached_to| vec![attached_to])
+        } else {
+            // "self" — just return the source
+            vec![source_id]
+        }
     }
 
     /// Check if a permanent entering the battlefield should enter tapped.

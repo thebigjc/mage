@@ -347,6 +347,40 @@ impl Filter {
         )
     }
 
+    pub fn self_reference() -> Self {
+        Filter::new("self", Predicate::All).self_referential()
+    }
+
+    pub fn enchanted_creature() -> Self {
+        Filter::new("enchanted creature", Predicate::creature()).self_referential()
+    }
+
+    pub fn equipped_creature() -> Self {
+        Filter::new("equipped creature", Predicate::creature()).self_referential()
+    }
+
+    pub fn creature_opponent_controls() -> Self {
+        Filter::new(
+            "creature an opponent controls",
+            Predicate::creature().and(Predicate::Controller(TargetController::Opponent)),
+        )
+    }
+
+    pub fn artifact_or_enchantment() -> Self {
+        Filter::new(
+            "artifact or enchantment",
+            Predicate::artifact().or(Predicate::enchantment()),
+        )
+    }
+
+    pub fn other_creature_you_control() -> Self {
+        Filter::new(
+            "another creature you control",
+            Predicate::creature().and(Predicate::Controller(TargetController::You)),
+        )
+        .excludes_source()
+    }
+
     pub fn any_card() -> Self {
         Filter::new("card", Predicate::All)
     }
@@ -367,13 +401,22 @@ impl Filter {
         let pred = parse_filter_string(s);
         let leaked: &'static str = Box::leak(s.to_string().into_boxed_str());
         let lower: Arc<str> = Arc::from(s.to_lowercase().as_str());
+
+        // Detect bool flags from the string content so find_matching_permanents
+        // can use typed checks instead of string scans.
+        let l = lower.as_ref();
+        let is_self_referential =
+            l == "self" || l.contains("enchanted") || l.contains("equipped");
+        let excludes_source = l.contains("other");
+        let requires_attacking = l.contains("attacking");
+
         Filter {
             message: leaked,
             message_lower: lower,
             predicate: Arc::new(pred),
-            is_self_referential: false,
-            excludes_source: false,
-            requires_attacking: false,
+            is_self_referential,
+            excludes_source,
+            requires_attacking,
         }
     }
 }
