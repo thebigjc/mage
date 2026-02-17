@@ -68,7 +68,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
             Ability::static_ability(id,
                 "Equipped creature gets boost.",
                 vec![StaticEffect::Boost {
-                    filter: Filter::parse("equipped creature"),
+                    filter: Filter::equipped_creature(),
                     power: Power::new(power_boost),
                     toughness: Toughness::new(toughness_boost),
                 }]),
@@ -190,7 +190,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
             Ability::static_ability(equip_id,
                 "Equipped creature has hexproof and haste.",
                 vec![StaticEffect::GrantKeyword {
-                    filter: Filter::parse("equipped creature"),
+                    filter: Filter::equipped_creature(),
                     keyword: "hexproof, haste".into(),
                 }]),
             Ability::activated(equip_id,
@@ -235,7 +235,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
             Ability::static_ability(id,
                 &format!("Enchanted creature gets +{power}/+{toughness}."),
                 vec![StaticEffect::Boost {
-                    filter: Filter::parse("enchanted creature"),
+                    filter: Filter::enchanted_creature(),
                     power: Power::new(power),
                     toughness: Toughness::new(toughness),
                 }]),
@@ -325,8 +325,8 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
             Ability::static_ability(pacifism_id,
                 "Enchanted creature can't attack or block.",
                 vec![
-                    StaticEffect::CantAttack { filter: Filter::parse("enchanted creature") },
-                    StaticEffect::CantBlock { filter: Filter::parse("enchanted creature") },
+                    StaticEffect::CantAttack { filter: Filter::enchanted_creature() },
+                    StaticEffect::CantBlock { filter: Filter::enchanted_creature() },
                 ]),
         ];
         game.state.battlefield.add(Permanent::new(pacifism, p1));

@@ -5258,7 +5258,7 @@ impl Game {
                             lib_cards.iter()
                                 .filter_map(|&card_id| {
                                     self.state.card_store.get(card_id)
-                                        .filter(|c| crate::filters::Filter::parse("basic land").matches_card_ignore_controller(c))
+                                        .filter(|c| crate::filters::Filter::basic_land().matches_card_ignore_controller(c))
                                         .map(|_| card_id)
                                 })
                                 .take(x)
@@ -5288,7 +5288,7 @@ impl Game {
                                     break;
                                 }
                                 if let Some(c) = self.state.card_store.get(card_id) {
-                                    if crate::filters::Filter::parse("permanent").matches_card_ignore_controller(c) {
+                                    if crate::filters::Filter::any_permanent().matches_card_ignore_controller(c) {
                                         permanents.push(card_id);
                                         found_count += 1;
                                     } else {

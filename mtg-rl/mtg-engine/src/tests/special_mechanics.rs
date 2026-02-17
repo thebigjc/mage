@@ -602,7 +602,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         let id = card.id;
         card.abilities = vec![
             Ability::static_ability(id, "Azorius Guildgate enters tapped.",
-                vec![StaticEffect::EntersTapped { filter: Filter::parse("self") }]),
+                vec![StaticEffect::EntersTapped { filter: Filter::self_reference() }]),
             Ability::mana_ability(id, "{T}: Add {W}.", Mana::white(1)),
         ];
         // Register abilities first
@@ -1842,7 +1842,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         front.toughness = Some(Toughness::new(2));
         front.abilities = vec![
             Ability::static_ability(id, "Flying.",
-                vec![StaticEffect::GrantKeyword { filter: Filter::parse("self"), keyword: "flying".into() }]),
+                vec![StaticEffect::GrantKeyword { filter: Filter::self_reference(), keyword: "flying".into() }]),
         ];
 
         let mut back = CardData::new(id, p1, "Back");
@@ -1851,7 +1851,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
         back.toughness = Some(Toughness::new(4));
         back.abilities = vec![
             Ability::static_ability(id, "Deathtouch.",
-                vec![StaticEffect::GrantKeyword { filter: Filter::parse("self"), keyword: "deathtouch".into() }]),
+                vec![StaticEffect::GrantKeyword { filter: Filter::self_reference(), keyword: "deathtouch".into() }]),
         ];
 
         front.back_face = Some(Box::new(back));

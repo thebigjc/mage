@@ -512,7 +512,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
             Ability::static_ability(spell_id, "This spell can't be countered.",
                 vec![StaticEffect::CantBeCountered]),
             Ability::spell(spell_id,
-                vec![Effect::DestroyAll { filter: Filter::parse("creature") }],
+                vec![Effect::DestroyAll { filter: Filter::any_creature() }],
                 TargetSpec::None),
         ];
         let stack_item = crate::zones::StackItem {
@@ -1792,7 +1792,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness, Life};
             Ability::static_ability(lord_id,
                 "Other creatures you control have persist.",
                 vec![StaticEffect::GrantKeyword {
-                    filter: crate::filters::Filter::parse("other creatures you control"),
+                    filter: crate::filters::Filter::other_creature_you_control(),
                     keyword: "persist".to_string(),
                 }]),
         ];

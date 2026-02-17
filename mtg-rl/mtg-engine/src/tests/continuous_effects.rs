@@ -349,7 +349,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
         let id = card.id;
         card.abilities = vec![
             Ability::static_ability(id, "+2/+2 to self",
-                vec![StaticEffect::Boost { filter: Filter::parse("self"), power: Power::new(2), toughness: Toughness::new(2) }]),
+                vec![StaticEffect::Boost { filter: Filter::self_reference(), power: Power::new(2), toughness: Toughness::new(2) }]),
         ];
         let perm = Permanent::new(card, p1);
         game.state.battlefield.add(perm);
@@ -818,7 +818,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
         aura.abilities = vec![
             Ability::static_ability(aura_id,
                 "Enchanted creature loses all abilities.",
-                vec![StaticEffect::LoseAllAbilities { filter: Filter::parse("enchanted creature") }]),
+                vec![StaticEffect::LoseAllAbilities { filter: Filter::enchanted_creature() }]),
         ];
         for ab in &aura.abilities {
             game.state.ability_store.add(ab.clone());
@@ -905,7 +905,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
         game.state.battlefield.add(crate::permanent::Permanent::new(own, p1));
 
         game.execute_effects(
-            &[Effect::SetBasePowerToughnessAll { power: Power::new(1), toughness: Toughness::new(1), filter: Filter::parse("creatures opponents control") }],
+            &[Effect::SetBasePowerToughnessAll { power: Power::new(1), toughness: Toughness::new(1), filter: Filter::creatures_opponents_control() }],
             p1, &[], None, None,
         );
 
@@ -938,7 +938,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
         game.state.battlefield.add(crate::permanent::Permanent::new(own, p1));
 
         game.execute_effects(
-            &[Effect::LoseAllAbilitiesAll { filter: Filter::parse("creatures opponents control") }],
+            &[Effect::LoseAllAbilitiesAll { filter: Filter::creatures_opponents_control() }],
             p1, &[], None, None,
         );
 
@@ -970,7 +970,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
             Ability::static_ability(aura_id,
                 "Enchanted creature has base power and toughness 1/1.",
                 vec![StaticEffect::SetBasePowerToughness {
-                    filter: Filter::parse("enchanted creature"),
+                    filter: Filter::enchanted_creature(),
                     power: Power::new(1),
                     toughness: Toughness::new(1),
                 }]),
@@ -1012,7 +1012,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
             Ability::static_ability(lord_id,
                 "Other creatures you control get +1/+1.",
                 vec![StaticEffect::Boost {
-                    filter: Filter::parse("other creatures you control"),
+                    filter: Filter::other_creature_you_control(),
                     power: Power::new(1),
                     toughness: Toughness::new(1),
                 }]),
@@ -1030,7 +1030,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
             Ability::static_ability(aura_id,
                 "Enchanted creature has base power and toughness 1/1.",
                 vec![StaticEffect::SetBasePowerToughness {
-                    filter: Filter::parse("enchanted creature"),
+                    filter: Filter::enchanted_creature(),
                     power: Power::new(1),
                     toughness: Toughness::new(1),
                 }]),
@@ -1071,7 +1071,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
             Ability::static_ability(aura_id,
                 "Enchanted creature has base power and toughness 1/1.",
                 vec![StaticEffect::SetBasePowerToughness {
-                    filter: Filter::parse("enchanted creature"),
+                    filter: Filter::enchanted_creature(),
                     power: Power::new(1),
                     toughness: Toughness::new(1),
                 }]),
@@ -1118,7 +1118,7 @@ use crate::types::{ObjectId, PlayerId, Power, Toughness};
         game.state.battlefield.add(crate::permanent::Permanent::new(bear, p2));
 
         game.execute_effects(
-            &[Effect::SetBasePowerToughnessAll { power: Power::new(1), toughness: Toughness::new(1), filter: Filter::parse("creatures opponents control") }],
+            &[Effect::SetBasePowerToughnessAll { power: Power::new(1), toughness: Toughness::new(1), filter: Filter::creatures_opponents_control() }],
             p1, &[], None, None,
         );
 

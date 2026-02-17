@@ -388,6 +388,56 @@ impl Filter {
     pub fn creature_card() -> Self {
         Filter::new("creature card", Predicate::creature())
     }
+
+    pub fn nonland_permanent_opponent_controls() -> Self {
+        Filter::new(
+            "nonland permanent an opponent controls",
+            Predicate::nonland_permanent()
+                .and(Predicate::Controller(TargetController::Opponent)),
+        )
+    }
+
+    pub fn other_nonland_permanent() -> Self {
+        Filter::new(
+            "other nonland permanent",
+            Predicate::nonland_permanent(),
+        )
+        .excludes_source()
+    }
+
+    pub fn any_land() -> Self {
+        Filter::new("land", Predicate::land())
+    }
+
+    pub fn any_enchantment() -> Self {
+        Filter::new("enchantment", Predicate::enchantment())
+    }
+
+    pub fn land_card() -> Self {
+        Filter::new("land card", Predicate::land())
+    }
+
+    pub fn creatures_opponents_control() -> Self {
+        Filter::new(
+            "creatures opponents control",
+            Predicate::creature().and(Predicate::Controller(TargetController::Opponent)),
+        )
+    }
+
+    pub fn basic_land() -> Self {
+        Filter::new(
+            "basic land",
+            Predicate::HasSuperType(SuperType::Basic).and(Predicate::land()),
+        )
+    }
+
+    pub fn attacking_or_blocking_creature() -> Self {
+        Filter::new(
+            "attacking or blocking creature",
+            Predicate::creature(),
+        )
+        .requires_attacking()
+    }
 }
 
 impl Filter {
@@ -1056,10 +1106,10 @@ mod tests {
         let bear = make_creature("Bear", 2, 2, KeywordAbilities::empty());
         let land = make_land("Forest", bear.controller);
 
-        assert!(Filter::parse("creature").matches_permanent_ignore_controller(&bear));
-        assert!(!Filter::parse("creature").matches_permanent_ignore_controller(&land));
-        assert!(Filter::parse("land").matches_permanent_ignore_controller(&land));
-        assert!(!Filter::parse("land").matches_permanent_ignore_controller(&bear));
+        assert!(Filter::any_creature().matches_permanent_ignore_controller(&bear));
+        assert!(!Filter::any_creature().matches_permanent_ignore_controller(&land));
+        assert!(Filter::any_land().matches_permanent_ignore_controller(&land));
+        assert!(!Filter::any_land().matches_permanent_ignore_controller(&bear));
         assert!(Filter::parse("").matches_permanent_ignore_controller(&bear));
         assert!(Filter::parse("all").matches_permanent_ignore_controller(&bear));
     }
@@ -1069,8 +1119,8 @@ mod tests {
         let bear = make_creature("Bear", 2, 2, KeywordAbilities::empty());
         let land = make_land("Forest", bear.controller);
 
-        assert!(Filter::parse("nonland permanent").matches_permanent_ignore_controller(&bear));
-        assert!(!Filter::parse("nonland permanent").matches_permanent_ignore_controller(&land));
+        assert!(Filter::any_nonland_permanent().matches_permanent_ignore_controller(&bear));
+        assert!(!Filter::any_nonland_permanent().matches_permanent_ignore_controller(&land));
     }
 
     #[test]
@@ -1080,7 +1130,7 @@ mod tests {
 
         assert!(Filter::parse("creature or land").matches_permanent_ignore_controller(&bear));
         assert!(Filter::parse("creature or land").matches_permanent_ignore_controller(&land));
-        assert!(Filter::parse("artifact or enchantment").matches_permanent_ignore_controller(
+        assert!(Filter::artifact_or_enchantment().matches_permanent_ignore_controller(
             &{
                 let owner = PlayerId::new();
                 let mut card = CardData::new(ObjectId::new(), owner, "Sol Ring");
@@ -1096,11 +1146,11 @@ mod tests {
         let you = bear.controller;
         let opp = PlayerId::new();
 
-        let filter = Filter::parse("creature you control");
+        let filter = Filter::creature_you_control();
         assert!(filter.matches_permanent(&bear, you));
         assert!(!filter.matches_permanent(&bear, opp));
 
-        let opp_filter = Filter::parse("creature an opponent controls");
+        let opp_filter = Filter::creature_opponent_controls();
         assert!(!opp_filter.matches_permanent(&bear, you));
         assert!(opp_filter.matches_permanent(&bear, opp));
     }
@@ -1111,8 +1161,8 @@ mod tests {
         let mut card = CardData::new(ObjectId::new(), owner, "Forest");
         card.card_types = vec![CardType::Land];
 
-        assert!(Filter::parse("land card").matches_card_ignore_controller(&card));
-        assert!(!Filter::parse("creature card").matches_card_ignore_controller(&card));
+        assert!(Filter::land_card().matches_card_ignore_controller(&card));
+        assert!(!Filter::creature_card().matches_card_ignore_controller(&card));
     }
 
     #[test]
@@ -1123,7 +1173,7 @@ mod tests {
         card.supertypes = vec![SuperType::Basic];
         card.subtypes = vec![SubType::Forest];
 
-        assert!(Filter::parse("basic land").matches_card_ignore_controller(&card));
+        assert!(Filter::basic_land().matches_card_ignore_controller(&card));
         assert!(Filter::parse("basic Forest card").matches_card_ignore_controller(&card));
         assert!(!Filter::parse("basic Plains card").matches_card_ignore_controller(&card));
     }
@@ -1146,7 +1196,7 @@ mod tests {
     #[test]
     fn parse_ignore_controller_with_controller_filter() {
         let bear = make_creature("Bear", 2, 2, KeywordAbilities::empty());
-        assert!(Filter::parse("creature you control").matches_permanent_ignore_controller(&bear));
-        assert!(Filter::parse("creature an opponent controls").matches_permanent_ignore_controller(&bear));
+        assert!(Filter::creature_you_control().matches_permanent_ignore_controller(&bear));
+        assert!(Filter::creature_opponent_controls().matches_permanent_ignore_controller(&bear));
     }
 }

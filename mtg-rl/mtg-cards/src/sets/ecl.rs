@@ -542,7 +542,7 @@ fn chomping_changeling(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When Chomping Changeling enters, you may destroy target artifact or enchantment.",
                 vec![Effect::destroy()],
-                TargetSpec::PermanentFiltered(Filter::parse("artifact or enchantment"))).set_optional(),
+                TargetSpec::PermanentFiltered(Filter::artifact_or_enchantment())).set_optional(),
         ],
         ..Default::default() }
 }
@@ -826,7 +826,7 @@ fn flock_impostor(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When Flock Impostor enters, you may return another creature you control to its owner's hand.",
                 vec![Effect::bounce()],
-                TargetSpec::PermanentFiltered(Filter::parse("another creature you control"))).set_optional(),
+                TargetSpec::PermanentFiltered(Filter::other_creature_you_control())).set_optional(),
         ],
         ..Default::default() }
 }
@@ -1175,7 +1175,7 @@ fn nightmare_sower(id: ObjectId, owner: PlayerId) -> CardData {
                 "Whenever an opponent casts a spell during your turn, put a -1/-1 counter on target creature that player controls.",
                 vec![EventType::SpellCast],
                 vec![Effect::add_counters("-1/-1", 1)],
-                TargetSpec::PermanentFiltered(Filter::parse("creature an opponent controls"))),
+                TargetSpec::PermanentFiltered(Filter::creature_opponent_controls())),
         ],
         ..Default::default() }
 }
@@ -1672,7 +1672,7 @@ fn wanderwine_distracter(id: ObjectId, owner: PlayerId) -> CardData {
                 "Whenever Wanderwine Distracter becomes tapped, target creature an opponent controls gets -3/-0 until end of turn.",
                 vec![EventType::Tapped],
                 vec![Effect::boost_until_eot(-3, 0)],
-                TargetSpec::PermanentFiltered(Filter::parse("creature an opponent controls"))),
+                TargetSpec::PermanentFiltered(Filter::creature_opponent_controls())),
         ],
         ..Default::default() }
 }
@@ -1743,7 +1743,7 @@ fn liminal_hold(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When Liminal Hold enters, exile target nonland permanent an opponent controls and you gain 2 life.",
                 vec![Effect::exile(), Effect::gain_life(2)],
-                TargetSpec::PermanentFiltered(Filter::parse("nonland permanent an opponent controls"))),
+                TargetSpec::PermanentFiltered(Filter::nonland_permanent_opponent_controls())),
         ],
         ..Default::default() }
 }
@@ -1753,7 +1753,7 @@ fn protective_response(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Protective Response".into(), mana_cost: ManaCost::parse("{2}{W}"),
         card_types: vec![CardType::Instant], keywords: KeywordAbilities::CONVOKE,
         rarity: Rarity::Common,
-        abilities: vec![Ability::spell(id, vec![Effect::destroy()], TargetSpec::PermanentFiltered(Filter::parse("attacking or blocking creature")))],
+        abilities: vec![Ability::spell(id, vec![Effect::destroy()], TargetSpec::PermanentFiltered(Filter::attacking_or_blocking_creature()))],
         ..Default::default() }
 }
 
@@ -1775,7 +1775,7 @@ fn temporal_cleansing(id: ObjectId, owner: PlayerId) -> CardData {
     CardData { id, owner, name: "Temporal Cleansing".into(), mana_cost: ManaCost::parse("{3}{U}"),
         card_types: vec![CardType::Sorcery], keywords: KeywordAbilities::CONVOKE,
         rarity: Rarity::Common,
-        abilities: vec![Ability::spell(id, vec![Effect::put_on_library()], TargetSpec::PermanentFiltered(Filter::parse("nonland permanent")))],
+        abilities: vec![Ability::spell(id, vec![Effect::put_on_library()], TargetSpec::PermanentFiltered(Filter::any_nonland_permanent()))],
         ..Default::default() }
 }
 
@@ -2169,7 +2169,7 @@ fn bre_of_clan_stoutarm(id: ObjectId, owner: PlayerId) -> CardData {
                 "{1}{W}, {T}: Another target creature you control gains flying and lifelink until end of turn.",
                 vec![Cost::pay_mana("{1}{W}"), Cost::tap_self()],
                 vec![Effect::gain_keyword_eot("flying"), Effect::gain_keyword_eot("lifelink")],
-                TargetSpec::PermanentFiltered(Filter::parse("another creature you control"))),
+                TargetSpec::PermanentFiltered(Filter::other_creature_you_control())),
             Ability::triggered(id,
                 "At the beginning of each end step, if you gained life this turn, return target creature card with mana value X or less from your graveyard to the battlefield, where X is the amount of life you gained this turn.",
                 vec![EventType::EndStep],
@@ -2448,7 +2448,7 @@ fn deceit(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, if {U}{U} was spent to cast it, return up to one other target nonland permanent to its owner's hand.",
                 vec![Effect::bounce()],
-                TargetSpec::PermanentFiltered(Filter::parse("other nonland permanent"))),
+                TargetSpec::PermanentFiltered(Filter::other_nonland_permanent())),
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, if {B}{B} was spent to cast it, target opponent reveals their hand. You choose a nonland card from it. That player discards that card.",
                 vec![Effect::discard_cards(1)],
@@ -2492,7 +2492,7 @@ fn disruptor_of_currents(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When this creature enters, return up to one other target nonland permanent to its owner's hand.",
                 vec![Effect::bounce()],
-                TargetSpec::PermanentFiltered(Filter::parse("other nonland permanent"))),
+                TargetSpec::PermanentFiltered(Filter::other_nonland_permanent())),
         ],
         ..Default::default() }
 }
@@ -2626,8 +2626,8 @@ fn evershrikes_gift(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Enchanted creature gets +1/+0 and has flying.",
-                vec![StaticEffect::Boost { filter: Filter::parse("enchanted creature"), power: Power::new(1), toughness: Toughness::new(0) },
-                     StaticEffect::GrantKeyword { filter: Filter::parse("enchanted creature"), keyword: "flying".into() }]),
+                vec![StaticEffect::Boost { filter: Filter::enchanted_creature(), power: Power::new(1), toughness: Toughness::new(0) },
+                     StaticEffect::GrantKeyword { filter: Filter::enchanted_creature(), keyword: "flying".into() }]),
             Ability::activated(id,
                 "{1}{W}, Blight 2: Return this card from your graveyard to your hand. Activate only as a sorcery.",
                 vec![Cost::pay_mana("{1}{W}"), Cost::Blight(2)],
@@ -2789,7 +2789,7 @@ fn gilt_leafs_embrace(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::static_ability(id,
                 "Enchanted creature gets +2/+0.",
-                vec![StaticEffect::Boost { filter: Filter::parse("enchanted creature"), power: Power::new(2), toughness: Toughness::new(0) }]),
+                vec![StaticEffect::Boost { filter: Filter::enchanted_creature(), power: Power::new(2), toughness: Toughness::new(0) }]),
         ],
         ..Default::default() }
 }
@@ -2960,7 +2960,7 @@ fn hexing_squelcher(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![StaticEffect::SpellsCantBeCountered]),
             Ability::static_ability(id,
                 "Other creatures you control have ward--pay 2 life.",
-                vec![StaticEffect::GrantKeyword { filter: Filter::parse("other creature you control"), keyword: "ward".into() }]),
+                vec![StaticEffect::GrantKeyword { filter: Filter::other_creature_you_control(), keyword: "ward".into() }]),
         ],
         ..Default::default() }
 }
@@ -3152,8 +3152,8 @@ fn lofty_dreams(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::static_ability(id,
                 "Enchanted creature gets +2/+2 and has flying.",
-                vec![StaticEffect::Boost { filter: Filter::parse("enchanted creature"), power: Power::new(2), toughness: Toughness::new(2) },
-                     StaticEffect::GrantKeyword { filter: Filter::parse("enchanted creature"), keyword: "flying".into() }]),
+                vec![StaticEffect::Boost { filter: Filter::enchanted_creature(), power: Power::new(2), toughness: Toughness::new(2) },
+                     StaticEffect::GrantKeyword { filter: Filter::enchanted_creature(), keyword: "flying".into() }]),
         ],
         ..Default::default() }
 }
@@ -3350,7 +3350,7 @@ fn pitiless_fists(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::OpponentCreature),
             Ability::static_ability(id,
                 "Enchanted creature gets +2/+2.",
-                vec![StaticEffect::Boost { filter: Filter::parse("enchanted creature"), power: Power::new(2), toughness: Toughness::new(2) }]),
+                vec![StaticEffect::Boost { filter: Filter::enchanted_creature(), power: Power::new(2), toughness: Toughness::new(2) }]),
         ],
         ..Default::default() }
 }
@@ -3647,8 +3647,8 @@ fn spiral_into_solitude(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Enchanted creature can't attack or block.",
-                vec![StaticEffect::CantAttack { filter: Filter::parse("enchanted creature") },
-                     StaticEffect::CantBlock { filter: Filter::parse("enchanted creature") }]),
+                vec![StaticEffect::CantAttack { filter: Filter::enchanted_creature() },
+                     StaticEffect::CantBlock { filter: Filter::enchanted_creature() }]),
             Ability::activated(id,
                 "{1}{W}, Blight 1, Sacrifice this Aura: Exile enchanted creature.",
                 vec![Cost::pay_mana("{1}{W}"), Cost::Blight(1), Cost::sacrifice_self()],
@@ -3685,7 +3685,7 @@ fn stalactite_dagger(id: ObjectId, owner: PlayerId) -> CardData {
                 TargetSpec::None),
             Ability::static_ability(id,
                 "Equipped creature gets +1/+1 and is all creature types.",
-                vec![StaticEffect::Boost { filter: Filter::parse("equipped creature"), power: Power::new(1), toughness: Toughness::new(1) }]),
+                vec![StaticEffect::Boost { filter: Filter::equipped_creature(), power: Power::new(1), toughness: Toughness::new(1) }]),
             Ability::activated(id,
                 "Equip {2}",
                 vec![Cost::pay_mana("{2}")],
@@ -3950,7 +3950,7 @@ fn wanderwine_farewell(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![Effect::bounce(),
                      Effect::conditional("you control a Merfolk",
                          vec![Effect::create_token("1/1 white and blue Merfolk creature token", 1)], vec![])],
-                TargetSpec::PermanentFiltered(Filter::parse("nonland permanent"))),
+                TargetSpec::PermanentFiltered(Filter::any_nonland_permanent())),
         ],
         ..Default::default() }
 }
@@ -3986,7 +3986,7 @@ fn wildvine_pummeler(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Vivid -- This spell costs {1} less for each color among permanents you control.",
-                vec![StaticEffect::CostReduction { filter: Filter::parse("self"), amount: 1, condition: None }]),
+                vec![StaticEffect::CostReduction { filter: Filter::self_reference(), amount: 1, condition: None }]),
         ],
         ..Default::default() }
 }
@@ -4436,7 +4436,7 @@ fn lavaleaper(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "All creatures have haste.",
-                vec![StaticEffect::GrantKeyword { filter: Filter::parse("creature"), keyword: "haste".into() }]),
+                vec![StaticEffect::GrantKeyword { filter: Filter::any_creature(), keyword: "haste".into() }]),
             Ability::static_ability(id,
                 "Whenever a player taps a basic land for mana, that player adds one mana of any type that land produced.",
                 vec![StaticEffect::mana_doubling_basic_lands()]),
@@ -4559,7 +4559,7 @@ fn mudbutton_cursetosser(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "This creature can't block.",
-                vec![StaticEffect::CantBlock { filter: Filter::parse("self") }]),
+                vec![StaticEffect::CantBlock { filter: Filter::self_reference() }]),
             Ability::dies_triggered(id,
                 "When this creature dies, destroy target creature an opponent controls with power 2 or less.",
                 vec![Effect::destroy()],

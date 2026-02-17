@@ -2511,7 +2511,7 @@ mod tests {
             source,
             "Other creatures you control get +1/+1.",
             vec![StaticEffect::Boost {
-                filter: crate::filters::Filter::parse("other creatures you control"),
+                filter: crate::filters::Filter::other_creature_you_control(),
                 power: Power::new(1),
                 toughness: Toughness::new(1),
             }],

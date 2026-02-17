@@ -589,7 +589,7 @@ fn bigfin_bouncer(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When Bigfin Bouncer enters, return up to one target nonland permanent an opponent controls to its owner's hand.",
                 vec![Effect::bounce()],
-                TargetSpec::PermanentFiltered(Filter::parse("nonland permanent an opponent controls"))),
+                TargetSpec::PermanentFiltered(Filter::nonland_permanent_opponent_controls())),
         ],
         ..Default::default() }
 }
@@ -642,7 +642,7 @@ fn diregraf_ghoul(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Diregraf Ghoul enters the battlefield tapped.",
-                vec![StaticEffect::EntersTapped { filter: Filter::parse("self") }]),
+                vec![StaticEffect::EntersTapped { filter: Filter::self_reference() }]),
         ],
         ..Default::default() }
 }
@@ -705,7 +705,7 @@ fn felidar_cub(id: ObjectId, owner: PlayerId) -> CardData {
                 "Sacrifice Felidar Cub: Destroy target enchantment.",
                 vec![Cost::sacrifice_self()],
                 vec![Effect::destroy()],
-                TargetSpec::PermanentFiltered(Filter::parse("enchantment"))),
+                TargetSpec::PermanentFiltered(Filter::any_enchantment())),
         ],
         ..Default::default() }
 }
@@ -1084,7 +1084,7 @@ fn crusader_of_odric(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Crusader of Odric's power and toughness are each equal to the number of creatures you control.",
-                vec![StaticEffect::BoostPerCount { count_filter: Filter::parse("creature you control"), power_per: Power::new(1), toughness_per: Toughness::new(1) }]),
+                vec![StaticEffect::BoostPerCount { count_filter: Filter::creature_you_control(), power_per: Power::new(1), toughness_per: Toughness::new(1) }]),
         ],
         ..Default::default() }
 }
@@ -1218,7 +1218,7 @@ fn banishing_light(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When Banishing Light enters, exile target nonland permanent an opponent controls until Banishing Light leaves the battlefield.",
                 vec![Effect::exile()],
-                TargetSpec::PermanentFiltered(Filter::parse("nonland permanent an opponent controls"))),
+                TargetSpec::PermanentFiltered(Filter::nonland_permanent_opponent_controls())),
         ],
         ..Default::default() }
 }
@@ -1278,7 +1278,7 @@ fn into_the_roil(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::spell(id,
                 vec![Effect::bounce()],
-                TargetSpec::PermanentFiltered(Filter::parse("nonland permanent"))),
+                TargetSpec::PermanentFiltered(Filter::any_nonland_permanent())),
         ],
         ..Default::default() }
 }
@@ -1342,7 +1342,7 @@ fn basilisk_collar(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Equipped creature has deathtouch and lifelink.",
-                vec![StaticEffect::GrantKeyword { filter: Filter::parse("equipped creature"), keyword: "deathtouch, lifelink".into() }]),
+                vec![StaticEffect::GrantKeyword { filter: Filter::equipped_creature(), keyword: "deathtouch, lifelink".into() }]),
             Ability::activated(id,
                 "Equip {2}",
                 vec![Cost::pay_mana("{2}")],
@@ -1424,7 +1424,7 @@ fn swiftfoot_boots(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Equipped creature has hexproof and haste.",
-                vec![StaticEffect::GrantKeyword { filter: Filter::parse("equipped creature"), keyword: "hexproof, haste".into() }]),
+                vec![StaticEffect::GrantKeyword { filter: Filter::equipped_creature(), keyword: "hexproof, haste".into() }]),
             Ability::activated(id,
                 "Equip {1}",
                 vec![Cost::pay_mana("{1}")],
@@ -1480,7 +1480,7 @@ fn vampire_interloper(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Vampire Interloper can't block.",
-                vec![StaticEffect::CantBlock { filter: Filter::parse("self") }]),
+                vec![StaticEffect::CantBlock { filter: Filter::self_reference() }]),
         ],
         ..Default::default() }
 }
@@ -1525,7 +1525,7 @@ fn thrashing_brontodon(id: ObjectId, owner: PlayerId) -> CardData {
                 "{1}, Sacrifice Thrashing Brontodon: Destroy target artifact or enchantment.",
                 vec![Cost::pay_mana("{1}"), Cost::sacrifice_self()],
                 vec![Effect::destroy()],
-                TargetSpec::PermanentFiltered(Filter::parse("artifact or enchantment"))),
+                TargetSpec::PermanentFiltered(Filter::artifact_or_enchantment())),
         ],
         ..Default::default() }
 }
@@ -1670,7 +1670,7 @@ fn exclusion_mage(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When Exclusion Mage enters, return target creature an opponent controls to its owner's hand.",
                 vec![Effect::bounce()],
-                TargetSpec::PermanentFiltered(Filter::parse("creature an opponent controls"))),
+                TargetSpec::PermanentFiltered(Filter::creature_opponent_controls())),
         ],
         ..Default::default() }
 }
@@ -1873,7 +1873,7 @@ fn reclamation_sage(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::enters_battlefield_triggered(id,
                 "When Reclamation Sage enters, you may destroy target artifact or enchantment.",
                 vec![Effect::destroy()],
-                TargetSpec::PermanentFiltered(Filter::parse("artifact or enchantment"))),
+                TargetSpec::PermanentFiltered(Filter::artifact_or_enchantment())),
         ],
         ..Default::default() }
 }
@@ -2184,7 +2184,7 @@ fn disenchant(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::spell(id,
                 vec![Effect::destroy()],
-                TargetSpec::PermanentFiltered(Filter::parse("artifact or enchantment"))),
+                TargetSpec::PermanentFiltered(Filter::artifact_or_enchantment())),
         ],
         ..Default::default() }
 }
@@ -2479,8 +2479,8 @@ fn pacifism(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "Enchanted creature can't attack or block.",
-                vec![StaticEffect::CantAttack { filter: Filter::parse("enchanted creature") },
-                     StaticEffect::CantBlock { filter: Filter::parse("enchanted creature") }]),
+                vec![StaticEffect::CantAttack { filter: Filter::enchanted_creature() },
+                     StaticEffect::CantBlock { filter: Filter::enchanted_creature() }]),
         ],
         ..Default::default() }
 }
@@ -2846,7 +2846,7 @@ fn ayli_eternal_pilgrim(id: ObjectId, owner: PlayerId) -> CardData {
                 "{1}{W}{B}, Sacrifice another creature: Exile target nonland permanent. Activate only if you have at least 10 life more than your starting life total.",
                 vec![Cost::pay_mana("{1}{W}{B}")],
                 vec![Effect::exile()],
-                TargetSpec::PermanentFiltered(Filter::parse("nonland permanent"))),
+                TargetSpec::PermanentFiltered(Filter::any_nonland_permanent())),
         ],
         ..Default::default() }
 }
@@ -2858,7 +2858,7 @@ fn azorius_guildgate(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::static_ability(id, "Azorius Guildgate enters tapped.",
-                vec![StaticEffect::EntersTapped { filter: Filter::parse("self") }]),
+                vec![StaticEffect::EntersTapped { filter: Filter::self_reference() }]),
             Ability::mana_ability(id, "{T}: Add {W}.", Mana::white(1)),
             Ability::mana_ability(id, "{T}: Add {U}.", Mana::blue(1)),
         ],
@@ -2876,7 +2876,7 @@ fn ball_lightning(id: ObjectId, owner: PlayerId) -> CardData {
             Ability::triggered(id,
                 "At the beginning of the end step, sacrifice Ball Lightning.",
                 vec![EventType::EndStep],
-                vec![Effect::Sacrifice { filter: Filter::parse("self") }],
+                vec![Effect::Sacrifice { filter: Filter::self_reference() }],
                 TargetSpec::None),
         ],
         ..Default::default() }
@@ -2941,7 +2941,7 @@ fn fdn_bloodfell_caves(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Land], rarity: Rarity::Common,
         abilities: vec![
             Ability::static_ability(id, "Bloodfell Caves enters tapped.",
-                vec![StaticEffect::EntersTapped { filter: Filter::parse("self") }]),
+                vec![StaticEffect::EntersTapped { filter: Filter::self_reference() }]),
             Ability::enters_battlefield_triggered(id,
                 "When Bloodfell Caves enters, you gain 1 life.",
                 vec![Effect::gain_life(1)],
@@ -2975,7 +2975,7 @@ fn fdn_blossoming_sands(id: ObjectId, owner: PlayerId) -> CardData {
         card_types: vec![CardType::Land], rarity: Rarity::Common,
         abilities: vec![
             Ability::static_ability(id, "Blossoming Sands enters tapped.",
-                vec![StaticEffect::EntersTapped { filter: Filter::parse("self") }]),
+                vec![StaticEffect::EntersTapped { filter: Filter::self_reference() }]),
             Ability::enters_battlefield_triggered(id,
                 "When Blossoming Sands enters, you gain 1 life.",
                 vec![Effect::gain_life(1)],
@@ -2993,7 +2993,7 @@ fn boros_guildgate(id: ObjectId, owner: PlayerId) -> CardData {
         rarity: Rarity::Common,
         abilities: vec![
             Ability::static_ability(id, "Boros Guildgate enters tapped.",
-                vec![StaticEffect::EntersTapped { filter: Filter::parse("self") }]),
+                vec![StaticEffect::EntersTapped { filter: Filter::self_reference() }]),
             Ability::mana_ability(id, "{T}: Add {R}.", Mana::red(1)),
             Ability::mana_ability(id, "{T}: Add {W}.", Mana::white(1)),
         ],
@@ -3065,7 +3065,7 @@ fn claws_out(id: ObjectId, owner: PlayerId) -> CardData {
         abilities: vec![
             Ability::static_ability(id,
                 "This spell costs {1} less to cast for each Cat you control.",
-                vec![StaticEffect::CostReductionDynamic { filter: Filter::parse("self"), value_source: "Cat you control".into() }]),
+                vec![StaticEffect::CostReductionDynamic { filter: Filter::self_reference(), value_source: "Cat you control".into() }]),
             Ability::spell(id,
                 vec![Effect::Custom("Creatures you control get +2/+2 until end of turn.".into())],
                 TargetSpec::None),
@@ -3138,7 +3138,7 @@ fn crystal_barricade(id: ObjectId, owner: PlayerId) -> CardData {
                 vec![StaticEffect::PlayerHexproof]),
             Ability::static_ability(id,
                 "Prevent all noncombat damage that would be dealt to other creatures you control.",
-                vec![StaticEffect::PreventNoncombatDamageToOthers { filter: Filter::parse("other creature you control") }]),
+                vec![StaticEffect::PreventNoncombatDamageToOthers { filter: Filter::other_creature_you_control() }]),
         ],
         ..Default::default() }
 }
